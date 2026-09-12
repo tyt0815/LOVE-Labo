@@ -35,6 +35,39 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "scene view pans with middle mouse drag",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        sceneView:mousepressed(100, 100, 3)
+        sceneView:mousemoved(110, 105, 10, 5)
+
+        Assert.equal(10, sceneView.cameraX)
+        Assert.equal(5, sceneView.cameraY)
+
+        local vertical, horizontal = sceneView:getGridLines(100, 70)
+
+        Assert.equal(3, #vertical)
+        Assert.equal(10, vertical[1])
+        Assert.equal(42, vertical[2])
+        Assert.equal(74, vertical[3])
+
+        Assert.equal(3, #horizontal)
+        Assert.equal(5, horizontal[1])
+        Assert.equal(37, horizontal[2])
+        Assert.equal(69, horizontal[3])
+
+        sceneView:mousereleased(110, 105, 3)
+        sceneView:mousemoved(120, 115, 10, 10)
+
+        Assert.equal(10, sceneView.cameraX)
+        Assert.equal(5, sceneView.cameraY)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()

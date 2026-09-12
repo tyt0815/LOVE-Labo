@@ -44,3 +44,21 @@ function love.draw()
         app:draw()
     end
 end
+
+function love.mousepressed(x, y, button)
+    if app then
+        app:mousepressed(x, y, button)
+    end
+end
+
+function love.mousereleased(x, y, button)
+    if app then
+        app:mousereleased(x, y, button)
+    end
+end
+
+function love.mousemoved(x, y, dx, dy)
+    if app then
+        app:mousemoved(x, y, dx, dy)
+    end
+end

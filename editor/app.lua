@@ -22,4 +22,16 @@ function EditorApp:draw()
     self.sceneView:draw()
 end
 
+function EditorApp:mousepressed(x, y, button)
+    self.sceneView:mousepressed(x, y, button)
+end
+
+function EditorApp:mousereleased(x, y, button)
+    self.sceneView:mousereleased(x, y, button)
+end
+
+function EditorApp:mousemoved(x, y, dx, dy)
+    self.sceneView:mousemoved(x, y, dx, dy)
+end
+
 return EditorApp
