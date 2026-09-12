@@ -130,6 +130,24 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "scene view world origin follows camera",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        sceneView.cameraX = 50
+        sceneView.cameraY = 30
+        sceneView.zoom = 2
+
+        local originX, originY = sceneView:worldToScreen(0, 0)
+
+        Assert.equal(50, originX)
+        Assert.equal(30, originY)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()

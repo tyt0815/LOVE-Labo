@@ -39,7 +39,7 @@ end
 
 -- World 좌표를 현재 Scene View camera 기준의 screen 좌표로 변환한다.
 --
--- 현재 cameraX/Y는 screen-space offset이고,
+-- cameraX/Y는 screen-space offset이고,
 -- zoom은 world 단위에 적용되는 scale이다.
 function SceneView:worldToScreen(x, y)
     local screenX = x * self.zoom + self.cameraX
@@ -49,7 +49,7 @@ function SceneView:worldToScreen(x, y)
 end
 
 -- Screen 좌표를 현재 Scene View의 world 좌표로 되돌린다.
--- worldToScreen의 정확한 역변환이다.
+-- worldToScreen의 역변환이다.
 function SceneView:screenToWorld(x, y)
     local worldX = (x - self.cameraX) / self.zoom
     local worldY = (y - self.cameraY) / self.zoom
@@ -113,12 +113,44 @@ function SceneView:wheelmoved(x, y)
     end
 
     -- 현재는 cursor 중심 보정 없이
-    -- Scene View 전체의 grid scale만 단순하게 변경한다.
+    -- Scene View 전체의 scale만 변경한다.
     self.zoom = clamp(
         self.zoom + y * ZOOM_STEP,
         MIN_ZOOM,
         MAX_ZOOM
     )
+end
+
+-- World 원점 기준의 X/Y 축을 그린다.
+--
+-- LÖVE의 screen 좌표는 +Y가 아래쪽이므로
+-- 현재 단계에서는 world 좌표도 동일한 방향을 사용한다.
+function SceneView:drawWorldAxes(width, height)
+    local originX, originY = self:worldToScreen(0, 0)
+
+    love.graphics.setLineWidth(2)
+
+    -- Y축: world x = 0
+    if originX >= 0 and originX <= width then
+        love.graphics.setColor(0.75, 0.32, 0.32, 1.0)
+        love.graphics.line(originX, 0, originX, height)
+    end
+
+    -- X축: world y = 0
+    if originY >= 0 and originY <= height then
+        love.graphics.setColor(0.32, 0.70, 0.38, 1.0)
+        love.graphics.line(0, originY, width, originY)
+    end
+
+    -- 원점 자체가 화면 안에 있을 때 작은 marker도 표시한다.
+    if originX >= 0
+        and originX <= width
+        and originY >= 0
+        and originY <= height then
+
+        love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
+        love.graphics.circle("fill", originX, originY, 4)
+    end
 end
 
 function SceneView:draw()
@@ -130,6 +162,8 @@ function SceneView:draw()
     love.graphics.push("all")
 
     love.graphics.clear(0.08, 0.09, 0.11, 1.0)
+
+    -- 일반 grid.
     love.graphics.setColor(0.16, 0.17, 0.20, 1.0)
     love.graphics.setLineWidth(1)
 
@@ -141,7 +175,11 @@ function SceneView:draw()
         love.graphics.line(0, y, width, y)
     end
 
+    -- Grid 위에 world 원점과 축을 표시한다.
+    self:drawWorldAxes(width, height)
+
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
+
     love.graphics.print(
         string.format("Scene View  %.2fx", self.zoom),
         16,
