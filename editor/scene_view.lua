@@ -37,6 +37,26 @@ function SceneView.new(gridSize)
     return self
 end
 
+-- World 좌표를 현재 Scene View camera 기준의 screen 좌표로 변환한다.
+--
+-- 현재 cameraX/Y는 screen-space offset이고,
+-- zoom은 world 단위에 적용되는 scale이다.
+function SceneView:worldToScreen(x, y)
+    local screenX = x * self.zoom + self.cameraX
+    local screenY = y * self.zoom + self.cameraY
+
+    return screenX, screenY
+end
+
+-- Screen 좌표를 현재 Scene View의 world 좌표로 되돌린다.
+-- worldToScreen의 정확한 역변환이다.
+function SceneView:screenToWorld(x, y)
+    local worldX = (x - self.cameraX) / self.zoom
+    local worldY = (y - self.cameraY) / self.zoom
+
+    return worldX, worldY
+end
+
 -- 현재 camera offset에 맞춰 화면 안의 첫 번째 grid line 위치를 계산한다.
 local function getFirstGridLine(cameraPosition, spacing)
     return cameraPosition % spacing
@@ -92,7 +112,7 @@ function SceneView:wheelmoved(x, y)
         return
     end
 
-    -- 이번 단계에서는 cursor 중심 보정 없이
+    -- 현재는 cursor 중심 보정 없이
     -- Scene View 전체의 grid scale만 단순하게 변경한다.
     self.zoom = clamp(
         self.zoom + y * ZOOM_STEP,

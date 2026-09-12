@@ -107,6 +107,29 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "scene view converts between world and screen coordinates",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        sceneView.cameraX = 10
+        sceneView.cameraY = 20
+        sceneView.zoom = 2
+
+        local screenX, screenY = sceneView:worldToScreen(15, 25)
+
+        Assert.equal(40, screenX)
+        Assert.equal(70, screenY)
+
+        local worldX, worldY = sceneView:screenToWorld(screenX, screenY)
+
+        Assert.equal(15, worldX)
+        Assert.equal(25, worldY)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
