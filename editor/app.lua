@@ -1,3 +1,4 @@
+local Level = require("editor.level")
 local SceneView = require("editor.scene_view")
 
 local EditorApp = {}
@@ -7,7 +8,10 @@ EditorApp.__index = EditorApp
 function EditorApp.new()
     local self = setmetatable({}, EditorApp)
 
-    self.sceneView = SceneView.new()
+    -- Level이 authoring data를 소유하고
+    -- Scene View는 그 Level을 편집하고 표시한다.
+    self.level = Level.new()
+    self.sceneView = SceneView.new(nil, self.level)
 
     return self
 end

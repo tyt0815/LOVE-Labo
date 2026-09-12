@@ -11,6 +11,8 @@ local ZOOM_STEP = 0.25
 local MIN_ZOOM = 0.25
 local MAX_ZOOM = 4.0
 
+local LOBJECT_SIZE = 16
+
 local function clamp(value, minimum, maximum)
     if value < minimum then
         return minimum
@@ -23,10 +25,11 @@ local function clamp(value, minimum, maximum)
     return value
 end
 
-function SceneView.new(gridSize)
+function SceneView.new(gridSize, level)
     local self = setmetatable({}, SceneView)
 
     self.gridSize = gridSize or DEFAULT_GRID_SIZE
+    self.level = level
 
     -- 현재 camera는 별도 subsystem 없이
     -- Scene View 내부의 screen-space offset으로 관리한다.
@@ -35,11 +38,6 @@ function SceneView.new(gridSize)
 
     self.zoom = DEFAULT_ZOOM
     self.isPanning = false
-
-    -- 아직 실제 Actor selection은 없으므로,
-    -- 좌클릭한 world 위치 하나만 임시 선택 상태로 보관한다.
-    self.selectedWorldX = nil
-    self.selectedWorldY = nil
 
     return self
 end
@@ -84,8 +82,13 @@ end
 
 function SceneView:mousepressed(x, y, button)
     if button == LEFT_MOUSE_BUTTON then
-        self.selectedWorldX, self.selectedWorldY =
-            self:screenToWorld(x, y)
+        if self.level then
+            local worldX, worldY = self:screenToWorld(x, y)
+
+            -- Scene View는 좌표를 계산하지만,
+            -- 실제 authoring data는 Level이 소유한다.
+            self.level:addLObject(worldX, worldY)
+        end
 
         return
     end
@@ -111,10 +114,6 @@ function SceneView:mousemoved(x, y, dx, dy)
 end
 
 -- 특정 screen 위치를 중심으로 zoom한다.
---
--- zoom 변경 전 cursor 아래에 있던 world 좌표를 먼저 구한 뒤,
--- zoom 변경 후에도 그 world 좌표가 같은 screen 위치에 오도록
--- camera offset을 다시 계산한다.
 function SceneView:zoomAtScreenPosition(screenX, screenY, wheelY)
     if wheelY == 0 then
         return
@@ -146,7 +145,6 @@ function SceneView:wheelmoved(x, y)
 
     -- love.wheelmoved의 x/y는 wheel 이동량이지
     -- mouse cursor 좌표가 아니다.
-    -- 따라서 현재 cursor 위치는 love.mouse에서 별도로 가져온다.
     local mouseX, mouseY = love.mouse.getPosition()
 
     self:zoomAtScreenPosition(mouseX, mouseY, y)
@@ -179,34 +177,33 @@ function SceneView:drawWorldAxes(width, height)
     end
 end
 
-function SceneView:drawSelectedWorldPosition()
-    if self.selectedWorldX == nil or self.selectedWorldY == nil then
+-- 현재 Level에 존재하는 최소 LObject Instance들을 표시한다.
+--
+-- 아직 rendering Component가 없으므로,
+-- authoring 위치를 확인하기 위한 임시 사각형으로만 그린다.
+function SceneView:drawLObjects()
+    if not self.level then
         return
     end
-
-    local screenX, screenY =
-        self:worldToScreen(self.selectedWorldX, self.selectedWorldY)
 
     love.graphics.setColor(0.95, 0.78, 0.25, 1.0)
     love.graphics.setLineWidth(2)
 
-    local markerSize = 8
+    for _, lobject in ipairs(self.level.lobjects) do
+        local screenX, screenY =
+            self:worldToScreen(lobject.x, lobject.y)
 
-    love.graphics.line(
-        screenX - markerSize,
-        screenY,
-        screenX + markerSize,
-        screenY
-    )
+        local size = LOBJECT_SIZE * self.zoom
+        local halfSize = size * 0.5
 
-    love.graphics.line(
-        screenX,
-        screenY - markerSize,
-        screenX,
-        screenY + markerSize
-    )
-
-    love.graphics.circle("line", screenX, screenY, 5)
+        love.graphics.rectangle(
+            "line",
+            screenX - halfSize,
+            screenY - halfSize,
+            size,
+            size
+        )
+    end
 end
 
 function SceneView:drawMouseWorldPosition()
@@ -243,7 +240,9 @@ function SceneView:draw()
     end
 
     self:drawWorldAxes(width, height)
-    self:drawSelectedWorldPosition()
+
+    -- Level authoring data를 Scene View에 시각화한다.
+    self:drawLObjects()
 
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
 

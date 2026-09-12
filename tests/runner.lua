@@ -14,6 +14,21 @@ tests[#tests + 1] = {
 }
 
 tests[#tests + 1] = {
+    name = "level stores lobject instances",
+
+    fn = function()
+        local Level = require("editor.level")
+        local level = Level.new()
+
+        level:addLObject(20, 30)
+
+        Assert.equal(1, #level.lobjects)
+        Assert.equal(20, level.lobjects[1].x)
+        Assert.equal(30, level.lobjects[1].y)
+    end
+}
+
+tests[#tests + 1] = {
     name = "scene view calculates grid line positions",
 
     fn = function()
@@ -75,8 +90,6 @@ tests[#tests + 1] = {
         local SceneView = require("editor.scene_view")
         local sceneView = SceneView.new(32)
 
-        -- Screen 원점에서 zoom하면 camera 보정이 발생하지 않으므로
-        -- grid 간격 변화 자체를 단순하게 확인할 수 있다.
         sceneView:zoomAtScreenPosition(0, 0, 1)
 
         Assert.equal(1.25, sceneView.zoom)
@@ -183,11 +196,14 @@ tests[#tests + 1] = {
 }
 
 tests[#tests + 1] = {
-    name = "scene view selects world position with left click",
+    name = "scene view adds lobject to level with left click",
 
     fn = function()
+        local Level = require("editor.level")
         local SceneView = require("editor.scene_view")
-        local sceneView = SceneView.new(32)
+
+        local level = Level.new()
+        local sceneView = SceneView.new(32, level)
 
         sceneView.cameraX = 10
         sceneView.cameraY = 20
@@ -197,8 +213,9 @@ tests[#tests + 1] = {
         -- World (20, 30)에 해당한다.
         sceneView:mousepressed(50, 80, 1)
 
-        Assert.equal(20, sceneView.selectedWorldX)
-        Assert.equal(30, sceneView.selectedWorldY)
+        Assert.equal(1, #level.lobjects)
+        Assert.equal(20, level.lobjects[1].x)
+        Assert.equal(30, level.lobjects[1].y)
     end
 }
 
