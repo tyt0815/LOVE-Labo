@@ -2,6 +2,8 @@ local SceneView = {}
 SceneView.__index = SceneView
 
 local DEFAULT_GRID_SIZE = 32
+
+local LEFT_MOUSE_BUTTON = 1
 local PAN_MOUSE_BUTTON = 3
 
 local DEFAULT_ZOOM = 1.0
@@ -34,13 +36,15 @@ function SceneView.new(gridSize)
     self.zoom = DEFAULT_ZOOM
     self.isPanning = false
 
+    -- 아직 실제 Actor selection은 없으므로,
+    -- 좌클릭한 world 위치 하나만 임시 선택 상태로 보관한다.
+    self.selectedWorldX = nil
+    self.selectedWorldY = nil
+
     return self
 end
 
 -- World 좌표를 현재 Scene View camera 기준의 screen 좌표로 변환한다.
---
--- cameraX/Y는 screen-space offset이고,
--- zoom은 world 단위에 적용되는 scale이다.
 function SceneView:worldToScreen(x, y)
     local screenX = x * self.zoom + self.cameraX
     local screenY = y * self.zoom + self.cameraY
@@ -49,7 +53,6 @@ function SceneView:worldToScreen(x, y)
 end
 
 -- Screen 좌표를 현재 Scene View의 world 좌표로 되돌린다.
--- worldToScreen의 역변환이다.
 function SceneView:screenToWorld(x, y)
     local worldX = (x - self.cameraX) / self.zoom
     local worldY = (y - self.cameraY) / self.zoom
@@ -57,13 +60,10 @@ function SceneView:screenToWorld(x, y)
     return worldX, worldY
 end
 
--- 현재 camera offset에 맞춰 화면 안의 첫 번째 grid line 위치를 계산한다.
 local function getFirstGridLine(cameraPosition, spacing)
     return cameraPosition % spacing
 end
 
--- Scene View 크기, camera offset, zoom을 기준으로
--- 화면에 표시할 grid line 좌표를 계산한다.
 function SceneView:getGridLines(width, height)
     local vertical = {}
     local horizontal = {}
@@ -85,6 +85,15 @@ function SceneView:getGridLines(width, height)
 end
 
 function SceneView:mousepressed(x, y, button)
+    if button == LEFT_MOUSE_BUTTON then
+        -- Mouse callback의 x/y는 screen 좌표이므로
+        -- Editor에서 사용할 world 좌표로 변환해서 저장한다.
+        self.selectedWorldX, self.selectedWorldY =
+            self:screenToWorld(x, y)
+
+        return
+    end
+
     if button == PAN_MOUSE_BUTTON then
         self.isPanning = true
     end
@@ -101,8 +110,6 @@ function SceneView:mousemoved(x, y, dx, dy)
         return
     end
 
-    -- LÖVE가 전달하는 상대 이동량을 그대로 누적한다.
-    -- 현재 camera offset은 screen-space pixel 단위다.
     self.cameraX = self.cameraX + dx
     self.cameraY = self.cameraY + dy
 end
@@ -112,8 +119,6 @@ function SceneView:wheelmoved(x, y)
         return
     end
 
-    -- 현재는 cursor 중심 보정 없이
-    -- Scene View 전체의 scale만 변경한다.
     self.zoom = clamp(
         self.zoom + y * ZOOM_STEP,
         MIN_ZOOM,
@@ -121,10 +126,6 @@ function SceneView:wheelmoved(x, y)
     )
 end
 
--- World 원점 기준의 X/Y 축을 그린다.
---
--- LÖVE의 screen 좌표는 +Y가 아래쪽이므로
--- 현재 단계에서는 world 좌표도 동일한 방향을 사용한다.
 function SceneView:drawWorldAxes(width, height)
     local originX, originY = self:worldToScreen(0, 0)
 
@@ -142,7 +143,6 @@ function SceneView:drawWorldAxes(width, height)
         love.graphics.line(0, originY, width, originY)
     end
 
-    -- 원점 자체가 화면 안에 있을 때 작은 marker도 표시한다.
     if originX >= 0
         and originX <= width
         and originY >= 0
@@ -153,7 +153,40 @@ function SceneView:drawWorldAxes(width, height)
     end
 end
 
--- 현재 mouse의 screen 좌표를 world 좌표로 변환해서 표시한다.
+-- 좌클릭으로 선택한 world 위치를 screen으로 다시 변환해서 표시한다.
+--
+-- 선택 위치 자체는 world 좌표로 저장하기 때문에,
+-- 이후 camera를 pan/zoom해도 marker는 같은 world 위치에 남는다.
+function SceneView:drawSelectedWorldPosition()
+    if self.selectedWorldX == nil or self.selectedWorldY == nil then
+        return
+    end
+
+    local screenX, screenY =
+        self:worldToScreen(self.selectedWorldX, self.selectedWorldY)
+
+    love.graphics.setColor(0.95, 0.78, 0.25, 1.0)
+    love.graphics.setLineWidth(2)
+
+    local markerSize = 8
+
+    love.graphics.line(
+        screenX - markerSize,
+        screenY,
+        screenX + markerSize,
+        screenY
+    )
+
+    love.graphics.line(
+        screenX,
+        screenY - markerSize,
+        screenX,
+        screenY + markerSize
+    )
+
+    love.graphics.circle("line", screenX, screenY, 5)
+end
+
 function SceneView:drawMouseWorldPosition()
     local mouseX, mouseY = love.mouse.getPosition()
     local worldX, worldY = self:screenToWorld(mouseX, mouseY)
@@ -171,8 +204,6 @@ function SceneView:draw()
     local width, height = love.graphics.getDimensions()
     local vertical, horizontal = self:getGridLines(width, height)
 
-    -- love.graphics는 전역 state를 가지므로 Scene View가 바꾼 상태를
-    -- Editor의 다른 rendering에 누수시키지 않도록 push/pop으로 감싼다.
     love.graphics.push("all")
 
     love.graphics.clear(0.08, 0.09, 0.11, 1.0)
@@ -189,8 +220,10 @@ function SceneView:draw()
         love.graphics.line(0, y, width, y)
     end
 
-    -- Grid 위에 world 원점과 축을 표시한다.
     self:drawWorldAxes(width, height)
+
+    -- World-space 선택 위치를 grid/축 위에 표시한다.
+    self:drawSelectedWorldPosition()
 
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
 

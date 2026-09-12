@@ -148,6 +148,26 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "scene view selects world position with left click",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        sceneView.cameraX = 10
+        sceneView.cameraY = 20
+        sceneView.zoom = 2
+
+        -- Screen (50, 80)은 현재 camera/zoom 기준으로
+        -- World (20, 30)에 해당한다.
+        sceneView:mousepressed(50, 80, 1)
+
+        Assert.equal(20, sceneView.selectedWorldX)
+        Assert.equal(30, sceneView.selectedWorldY)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
