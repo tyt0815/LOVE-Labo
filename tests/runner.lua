@@ -75,7 +75,9 @@ tests[#tests + 1] = {
         local SceneView = require("editor.scene_view")
         local sceneView = SceneView.new(32)
 
-        sceneView:wheelmoved(0, 1)
+        -- Screen 원점에서 zoom하면 camera 보정이 발생하지 않으므로
+        -- grid 간격 변화 자체를 단순하게 확인할 수 있다.
+        sceneView:zoomAtScreenPosition(0, 0, 1)
 
         Assert.equal(1.25, sceneView.zoom)
 
@@ -99,11 +101,43 @@ tests[#tests + 1] = {
         local SceneView = require("editor.scene_view")
         local sceneView = SceneView.new(32)
 
-        sceneView:wheelmoved(0, -100)
+        sceneView:zoomAtScreenPosition(0, 0, -100)
         Assert.equal(0.25, sceneView.zoom)
 
-        sceneView:wheelmoved(0, 100)
+        sceneView:zoomAtScreenPosition(0, 0, 100)
         Assert.equal(4.0, sceneView.zoom)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "scene view zoom keeps cursor world position fixed",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        sceneView.cameraX = 10
+        sceneView.cameraY = 20
+        sceneView.zoom = 1
+
+        local cursorX = 110
+        local cursorY = 70
+
+        local worldXBefore, worldYBefore =
+            sceneView:screenToWorld(cursorX, cursorY)
+
+        Assert.equal(100, worldXBefore)
+        Assert.equal(50, worldYBefore)
+
+        sceneView:zoomAtScreenPosition(cursorX, cursorY, 1)
+
+        Assert.equal(1.25, sceneView.zoom)
+
+        local worldXAfter, worldYAfter =
+            sceneView:screenToWorld(cursorX, cursorY)
+
+        Assert.equal(worldXBefore, worldXAfter)
+        Assert.equal(worldYBefore, worldYAfter)
     end
 }
 

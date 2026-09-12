@@ -29,7 +29,7 @@ function SceneView.new(gridSize)
     self.gridSize = gridSize or DEFAULT_GRID_SIZE
 
     -- 현재 camera는 별도 subsystem 없이
-    -- Scene View 내부의 screen-space offset으로만 관리한다.
+    -- Scene View 내부의 screen-space offset으로 관리한다.
     self.cameraX = 0
     self.cameraY = 0
 
@@ -44,7 +44,6 @@ function SceneView.new(gridSize)
     return self
 end
 
--- World 좌표를 현재 Scene View camera 기준의 screen 좌표로 변환한다.
 function SceneView:worldToScreen(x, y)
     local screenX = x * self.zoom + self.cameraX
     local screenY = y * self.zoom + self.cameraY
@@ -52,7 +51,6 @@ function SceneView:worldToScreen(x, y)
     return screenX, screenY
 end
 
--- Screen 좌표를 현재 Scene View의 world 좌표로 되돌린다.
 function SceneView:screenToWorld(x, y)
     local worldX = (x - self.cameraX) / self.zoom
     local worldY = (y - self.cameraY) / self.zoom
@@ -86,8 +84,6 @@ end
 
 function SceneView:mousepressed(x, y, button)
     if button == LEFT_MOUSE_BUTTON then
-        -- Mouse callback의 x/y는 screen 좌표이므로
-        -- Editor에서 사용할 world 좌표로 변환해서 저장한다.
         self.selectedWorldX, self.selectedWorldY =
             self:screenToWorld(x, y)
 
@@ -114,16 +110,46 @@ function SceneView:mousemoved(x, y, dx, dy)
     self.cameraY = self.cameraY + dy
 end
 
+-- 특정 screen 위치를 중심으로 zoom한다.
+--
+-- zoom 변경 전 cursor 아래에 있던 world 좌표를 먼저 구한 뒤,
+-- zoom 변경 후에도 그 world 좌표가 같은 screen 위치에 오도록
+-- camera offset을 다시 계산한다.
+function SceneView:zoomAtScreenPosition(screenX, screenY, wheelY)
+    if wheelY == 0 then
+        return
+    end
+
+    local worldX, worldY =
+        self:screenToWorld(screenX, screenY)
+
+    local newZoom = clamp(
+        self.zoom + wheelY * ZOOM_STEP,
+        MIN_ZOOM,
+        MAX_ZOOM
+    )
+
+    if newZoom == self.zoom then
+        return
+    end
+
+    self.zoom = newZoom
+
+    self.cameraX = screenX - worldX * self.zoom
+    self.cameraY = screenY - worldY * self.zoom
+end
+
 function SceneView:wheelmoved(x, y)
     if y == 0 then
         return
     end
 
-    self.zoom = clamp(
-        self.zoom + y * ZOOM_STEP,
-        MIN_ZOOM,
-        MAX_ZOOM
-    )
+    -- love.wheelmoved의 x/y는 wheel 이동량이지
+    -- mouse cursor 좌표가 아니다.
+    -- 따라서 현재 cursor 위치는 love.mouse에서 별도로 가져온다.
+    local mouseX, mouseY = love.mouse.getPosition()
+
+    self:zoomAtScreenPosition(mouseX, mouseY, y)
 end
 
 function SceneView:drawWorldAxes(width, height)
@@ -153,10 +179,6 @@ function SceneView:drawWorldAxes(width, height)
     end
 end
 
--- 좌클릭으로 선택한 world 위치를 screen으로 다시 변환해서 표시한다.
---
--- 선택 위치 자체는 world 좌표로 저장하기 때문에,
--- 이후 camera를 pan/zoom해도 marker는 같은 world 위치에 남는다.
 function SceneView:drawSelectedWorldPosition()
     if self.selectedWorldX == nil or self.selectedWorldY == nil then
         return
@@ -221,8 +243,6 @@ function SceneView:draw()
     end
 
     self:drawWorldAxes(width, height)
-
-    -- World-space 선택 위치를 grid/축 위에 표시한다.
     self:drawSelectedWorldPosition()
 
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
