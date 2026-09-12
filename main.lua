@@ -62,3 +62,9 @@ function love.mousemoved(x, y, dx, dy)
         app:mousemoved(x, y, dx, dy)
     end
 end
+
+function love.wheelmoved(x, y)
+    if app then
+        app:wheelmoved(x, y)
+    end
+end

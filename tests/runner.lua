@@ -68,6 +68,45 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "scene view zoom changes grid spacing",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        sceneView:wheelmoved(0, 1)
+
+        Assert.equal(1.25, sceneView.zoom)
+
+        local vertical, horizontal = sceneView:getGridLines(100, 70)
+
+        Assert.equal(3, #vertical)
+        Assert.equal(0, vertical[1])
+        Assert.equal(40, vertical[2])
+        Assert.equal(80, vertical[3])
+
+        Assert.equal(2, #horizontal)
+        Assert.equal(0, horizontal[1])
+        Assert.equal(40, horizontal[2])
+    end
+}
+
+tests[#tests + 1] = {
+    name = "scene view zoom is clamped",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        sceneView:wheelmoved(0, -100)
+        Assert.equal(0.25, sceneView.zoom)
+
+        sceneView:wheelmoved(0, 100)
+        Assert.equal(4.0, sceneView.zoom)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()

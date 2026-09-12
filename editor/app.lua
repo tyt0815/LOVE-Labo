@@ -34,4 +34,8 @@ function EditorApp:mousemoved(x, y, dx, dy)
     self.sceneView:mousemoved(x, y, dx, dy)
 end
 
+function EditorApp:wheelmoved(x, y)
+    self.sceneView:wheelmoved(x, y)
+end
+
 return EditorApp

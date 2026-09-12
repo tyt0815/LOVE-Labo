@@ -4,42 +4,60 @@ SceneView.__index = SceneView
 local DEFAULT_GRID_SIZE = 32
 local PAN_MOUSE_BUTTON = 3
 
+local DEFAULT_ZOOM = 1.0
+local ZOOM_STEP = 0.25
+local MIN_ZOOM = 0.25
+local MAX_ZOOM = 4.0
+
+local function clamp(value, minimum, maximum)
+    if value < minimum then
+        return minimum
+    end
+
+    if value > maximum then
+        return maximum
+    end
+
+    return value
+end
+
 function SceneView.new(gridSize)
     local self = setmetatable({}, SceneView)
 
     self.gridSize = gridSize or DEFAULT_GRID_SIZE
 
-    -- 현재는 Scene View의 간단한 2D camera 위치만 관리한다.
-    -- 양수 방향으로 이동하면 grid도 같은 방향으로 화면에서 이동한다.
+    -- 현재 camera는 별도 subsystem 없이
+    -- Scene View 내부의 screen-space offset으로만 관리한다.
     self.cameraX = 0
     self.cameraY = 0
 
+    self.zoom = DEFAULT_ZOOM
     self.isPanning = false
 
     return self
 end
 
--- 주어진 camera offset에 맞춰 첫 번째 grid line 위치를 계산한다.
--- Lua의 % 연산을 사용하면 camera가 음수로 이동해도
--- 화면 안쪽의 첫 grid 위치를 안정적으로 얻을 수 있다.
-local function getFirstGridLine(cameraPosition, gridSize)
-    return cameraPosition % gridSize
+-- 현재 camera offset에 맞춰 화면 안의 첫 번째 grid line 위치를 계산한다.
+local function getFirstGridLine(cameraPosition, spacing)
+    return cameraPosition % spacing
 end
 
--- Scene View 크기와 camera 위치에 맞춰 그리드 선 좌표를 계산한다.
--- 계산 자체는 love.graphics와 분리해서 테스트할 수 있게 유지한다.
+-- Scene View 크기, camera offset, zoom을 기준으로
+-- 화면에 표시할 grid line 좌표를 계산한다.
 function SceneView:getGridLines(width, height)
     local vertical = {}
     local horizontal = {}
 
-    local firstX = getFirstGridLine(self.cameraX, self.gridSize)
-    local firstY = getFirstGridLine(self.cameraY, self.gridSize)
+    local spacing = self.gridSize * self.zoom
 
-    for x = firstX, width, self.gridSize do
+    local firstX = getFirstGridLine(self.cameraX, spacing)
+    local firstY = getFirstGridLine(self.cameraY, spacing)
+
+    for x = firstX, width, spacing do
         vertical[#vertical + 1] = x
     end
 
-    for y = firstY, height, self.gridSize do
+    for y = firstY, height, spacing do
         horizontal[#horizontal + 1] = y
     end
 
@@ -64,9 +82,23 @@ function SceneView:mousemoved(x, y, dx, dy)
     end
 
     -- LÖVE가 전달하는 상대 이동량을 그대로 누적한다.
-    -- 따라서 drag 중 cursor 이동과 Scene View 이동 방향이 같다.
+    -- 현재 camera offset은 screen-space pixel 단위다.
     self.cameraX = self.cameraX + dx
     self.cameraY = self.cameraY + dy
+end
+
+function SceneView:wheelmoved(x, y)
+    if y == 0 then
+        return
+    end
+
+    -- 이번 단계에서는 cursor 중심 보정 없이
+    -- Scene View 전체의 grid scale만 단순하게 변경한다.
+    self.zoom = clamp(
+        self.zoom + y * ZOOM_STEP,
+        MIN_ZOOM,
+        MAX_ZOOM
+    )
 end
 
 function SceneView:draw()
@@ -90,7 +122,11 @@ function SceneView:draw()
     end
 
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
-    love.graphics.print("Scene View", 16, 16)
+    love.graphics.print(
+        string.format("Scene View  %.2fx", self.zoom),
+        16,
+        16
+    )
 
     love.graphics.pop()
 end
