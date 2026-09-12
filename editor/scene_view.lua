@@ -153,6 +153,20 @@ function SceneView:drawWorldAxes(width, height)
     end
 end
 
+-- 현재 mouse의 screen 좌표를 world 좌표로 변환해서 표시한다.
+function SceneView:drawMouseWorldPosition()
+    local mouseX, mouseY = love.mouse.getPosition()
+    local worldX, worldY = self:screenToWorld(mouseX, mouseY)
+
+    love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
+
+    love.graphics.print(
+        string.format("Mouse: (%.1f, %.1f)", worldX, worldY),
+        16,
+        36
+    )
+end
+
 function SceneView:draw()
     local width, height = love.graphics.getDimensions()
     local vertical, horizontal = self:getGridLines(width, height)
@@ -185,6 +199,8 @@ function SceneView:draw()
         16,
         16
     )
+
+    self:drawMouseWorldPosition()
 
     love.graphics.pop()
 end
