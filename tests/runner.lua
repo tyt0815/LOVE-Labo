@@ -2,11 +2,6 @@ local Assert = require("tests.assert")
 
 local tests = {}
 
--- 첫 테스트는 EditorApp module이 존재하고
--- 최소 생성 API를 제공하는지만 검증한다.
---
--- 지금 단계에서는 editor/app.lua를 만들지 않았으므로
--- 이 테스트가 실패하는 것이 정상이다.
 tests[#tests + 1] = {
     name = "editor app module loads",
 
@@ -15,6 +10,28 @@ tests[#tests + 1] = {
 
         Assert.truthy(EditorApp)
         Assert.truthy(EditorApp.new)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "scene view calculates grid line positions",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        local vertical, horizontal = sceneView:getGridLines(100, 70)
+
+        Assert.equal(4, #vertical)
+        Assert.equal(0, vertical[1])
+        Assert.equal(32, vertical[2])
+        Assert.equal(64, vertical[3])
+        Assert.equal(96, vertical[4])
+
+        Assert.equal(3, #horizontal)
+        Assert.equal(0, horizontal[1])
+        Assert.equal(32, horizontal[2])
+        Assert.equal(64, horizontal[3])
     end
 }
 

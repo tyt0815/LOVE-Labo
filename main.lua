@@ -25,11 +25,8 @@ function love.load(args)
         return
     end
 
-    -- Editor mode에서만 EditorApp을 로드한다.
-    -- 현재 RED 단계에서는 editor/app.lua가 아직 없기 때문에
-    -- love . 실행은 아직 성공 대상이 아니다.
+    -- Editor mode에서만 EditorApp을 생성한다.
     local EditorApp = require("editor.app")
-
     app = EditorApp.new()
 end
 
