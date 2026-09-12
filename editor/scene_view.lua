@@ -85,8 +85,8 @@ function SceneView:mousepressed(x, y, button)
         if self.level then
             local worldX, worldY = self:screenToWorld(x, y)
 
-            -- Scene View는 좌표를 계산하지만,
-            -- 실제 authoring data는 Level이 소유한다.
+            -- Scene View는 입력 좌표를 world 좌표로 변환하고,
+            -- 실제 LObject authoring data 추가는 Level에 맡긴다.
             self.level:addLObject(worldX, worldY)
         end
 
@@ -177,10 +177,10 @@ function SceneView:drawWorldAxes(width, height)
     end
 end
 
--- 현재 Level에 존재하는 최소 LObject Instance들을 표시한다.
+-- 현재 Level의 LObject Instance들을 authoring 위치에 표시한다.
 --
--- 아직 rendering Component가 없으므로,
--- authoring 위치를 확인하기 위한 임시 사각형으로만 그린다.
+-- 아직 rendering Component가 없으므로
+-- Transform 위치를 확인하기 위한 임시 사각형으로 그린다.
 function SceneView:drawLObjects()
     if not self.level then
         return
@@ -190,8 +190,10 @@ function SceneView:drawLObjects()
     love.graphics.setLineWidth(2)
 
     for _, lobject in ipairs(self.level.lobjects) do
+        local transform = lobject.transform
+
         local screenX, screenY =
-            self:worldToScreen(lobject.x, lobject.y)
+            self:worldToScreen(transform.x, transform.y)
 
         local size = LOBJECT_SIZE * self.zoom
         local halfSize = size * 0.5
@@ -240,8 +242,6 @@ function SceneView:draw()
     end
 
     self:drawWorldAxes(width, height)
-
-    -- Level authoring data를 Scene View에 시각화한다.
     self:drawLObjects()
 
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)

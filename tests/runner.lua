@@ -14,21 +14,6 @@ tests[#tests + 1] = {
 }
 
 tests[#tests + 1] = {
-    name = "level stores lobject instances",
-
-    fn = function()
-        local Level = require("editor.level")
-        local level = Level.new()
-
-        level:addLObject(20, 30)
-
-        Assert.equal(1, #level.lobjects)
-        Assert.equal(20, level.lobjects[1].x)
-        Assert.equal(30, level.lobjects[1].y)
-    end
-}
-
-tests[#tests + 1] = {
     name = "scene view calculates grid line positions",
 
     fn = function()
@@ -196,7 +181,22 @@ tests[#tests + 1] = {
 }
 
 tests[#tests + 1] = {
-    name = "scene view adds lobject to level with left click",
+    name = "level stores lobject transform",
+
+    fn = function()
+        local Level = require("editor.level")
+        local level = Level.new()
+
+        level:addLObject(20, 30)
+
+        Assert.equal(1, #level.lobjects)
+        Assert.equal(20, level.lobjects[1].transform.x)
+        Assert.equal(30, level.lobjects[1].transform.y)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "scene view adds lobject transform with left click",
 
     fn = function()
         local Level = require("editor.level")
@@ -214,8 +214,8 @@ tests[#tests + 1] = {
         sceneView:mousepressed(50, 80, 1)
 
         Assert.equal(1, #level.lobjects)
-        Assert.equal(20, level.lobjects[1].x)
-        Assert.equal(30, level.lobjects[1].y)
+        Assert.equal(20, level.lobjects[1].transform.x)
+        Assert.equal(30, level.lobjects[1].transform.y)
     end
 }
 

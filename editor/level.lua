@@ -4,17 +4,21 @@ Level.__index = Level
 function Level.new()
     local self = setmetatable({}, Level)
 
-    -- 현재 단계에서는 Level이 배치된 LObject Instance 목록만 소유한다.
-    -- Definition, Prefab, ID, Component 구조는 아직 도입하지 않는다.
+    -- Level이 배치된 LObject Instance의 authoring data를 소유한다.
     self.lobjects = {}
 
     return self
 end
 
 function Level:addLObject(x, y)
+    -- 현재는 Transform의 위치 정보만 가진다.
+    -- rotation, scale, Definition/Prefab source 등은
+    -- 실제 필요가 생기는 단계에서 추가한다.
     local instance = {
-        x = x,
-        y = y
+        transform = {
+            x = x,
+            y = y
+        }
     }
 
     self.lobjects[#self.lobjects + 1] = instance
