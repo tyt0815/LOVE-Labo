@@ -244,10 +244,10 @@ function SceneView:drawLObjects()
         local halfSize = size * 0.5
 
         if lobject == self.selectedLObject then
-            -- 선택된 LObject는 일반 LObject와 구분되도록 밝게 표시한다.
-            love.graphics.setColor(1.0, 0.92, 0.45, 1.0)
+            -- 선택된 LObject는 일반 LObject와 구분되도록 표시한다.
+            love.graphics.setColor(0.0, 1.0, 0.0, 1.0)
         else
-            love.graphics.setColor(0.95, 0.78, 0.25, 1.0)
+            love.graphics.setColor(1.0, 0.0, 0.0, 1.0)
         end
 
         love.graphics.rectangle(
