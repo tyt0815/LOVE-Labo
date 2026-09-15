@@ -219,6 +219,44 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "scene view selects newly added lobject",
+
+    fn = function()
+        local Level = require("editor.level")
+        local SceneView = require("editor.scene_view")
+
+        local level = Level.new()
+        local sceneView = SceneView.new(32, level)
+
+        sceneView:mousepressed(40, 60, 1)
+
+        Assert.equal(1, #level.lobjects)
+        Assert.equal(level.lobjects[1], sceneView.selectedLObject)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "scene view selects existing lobject without adding another",
+
+    fn = function()
+        local Level = require("editor.level")
+        local SceneView = require("editor.scene_view")
+
+        local level = Level.new()
+        local existingLObject = level:addLObject(20, 30)
+
+        local sceneView = SceneView.new(32, level)
+
+        -- 현재 zoom/camera 기본값에서는
+        -- World (20, 30) == Screen (20, 30)이다.
+        sceneView:mousepressed(20, 30, 1)
+
+        Assert.equal(1, #level.lobjects)
+        Assert.equal(existingLObject, sceneView.selectedLObject)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()

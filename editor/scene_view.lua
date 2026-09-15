@@ -39,6 +39,10 @@ function SceneView.new(gridSize, level)
     self.zoom = DEFAULT_ZOOM
     self.isPanning = false
 
+    -- 선택 상태는 Level에 저장하지 않는다.
+    -- 현재 선택은 Editor에서만 사용하는 transient state다.
+    self.selectedLObject = nil
+
     return self
 end
 
@@ -80,14 +84,56 @@ function SceneView:getGridLines(width, height)
     return vertical, horizontal
 end
 
+-- 현재 임시 LObject 시각 표현은 world 기준 16x16 사각형이다.
+-- 따라서 selection hit test도 같은 크기를 기준으로 한다.
+function SceneView:findLObjectAtWorldPosition(worldX, worldY)
+    if not self.level then
+        return nil
+    end
+
+    local halfSize = LOBJECT_SIZE * 0.5
+
+    -- 뒤에 추가된 LObject를 먼저 검사한다.
+    -- 나중에 draw order가 생겨도 top-most selection으로 확장하기 쉽다.
+    for i = #self.level.lobjects, 1, -1 do
+        local lobject = self.level.lobjects[i]
+        local transform = lobject.transform
+
+        local insideX =
+            worldX >= transform.x - halfSize
+            and worldX <= transform.x + halfSize
+
+        local insideY =
+            worldY >= transform.y - halfSize
+            and worldY <= transform.y + halfSize
+
+        if insideX and insideY then
+            return lobject
+        end
+    end
+
+    return nil
+end
+
 function SceneView:mousepressed(x, y, button)
     if button == LEFT_MOUSE_BUTTON then
-        if self.level then
-            local worldX, worldY = self:screenToWorld(x, y)
+        if not self.level then
+            return
+        end
 
-            -- Scene View는 입력 좌표를 world 좌표로 변환하고,
-            -- 실제 LObject authoring data 추가는 Level에 맡긴다.
-            self.level:addLObject(worldX, worldY)
+        local worldX, worldY = self:screenToWorld(x, y)
+
+        local hitLObject =
+            self:findLObjectAtWorldPosition(worldX, worldY)
+
+        if hitLObject then
+            -- 기존 LObject를 클릭했다면 새 instance를 만들지 않고 선택만 한다.
+            self.selectedLObject = hitLObject
+        else
+            -- 빈 공간을 클릭하면 새 LObject를 생성하고
+            -- 방금 생성한 instance를 바로 선택한다.
+            self.selectedLObject =
+                self.level:addLObject(worldX, worldY)
         end
 
         return
@@ -186,7 +232,6 @@ function SceneView:drawLObjects()
         return
     end
 
-    love.graphics.setColor(0.95, 0.78, 0.25, 1.0)
     love.graphics.setLineWidth(2)
 
     for _, lobject in ipairs(self.level.lobjects) do
@@ -197,6 +242,13 @@ function SceneView:drawLObjects()
 
         local size = LOBJECT_SIZE * self.zoom
         local halfSize = size * 0.5
+
+        if lobject == self.selectedLObject then
+            -- 선택된 LObject는 일반 LObject와 구분되도록 밝게 표시한다.
+            love.graphics.setColor(1.0, 0.92, 0.45, 1.0)
+        else
+            love.graphics.setColor(0.95, 0.78, 0.25, 1.0)
+        end
 
         love.graphics.rectangle(
             "line",
