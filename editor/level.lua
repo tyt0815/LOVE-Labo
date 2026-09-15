@@ -26,4 +26,17 @@ function Level:addLObject(x, y)
     return instance
 end
 
+function Level:removeLObject(target)
+    -- Level이 authoring data의 소유자이므로
+    -- LObject 제거도 Level을 통해 수행한다.
+    for i, lobject in ipairs(self.lobjects) do
+        if lobject == target then
+            table.remove(self.lobjects, i)
+            return true
+        end
+    end
+
+    return false
+end
+
 return Level

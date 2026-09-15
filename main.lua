@@ -68,3 +68,9 @@ function love.wheelmoved(x, y)
         app:wheelmoved(x, y)
     end
 end
+
+function love.keypressed(key)
+    if app then
+        app:keypressed(key)
+    end
+end

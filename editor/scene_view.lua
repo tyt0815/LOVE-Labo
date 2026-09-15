@@ -84,8 +84,6 @@ function SceneView:getGridLines(width, height)
     return vertical, horizontal
 end
 
--- 현재 임시 LObject 시각 표현은 world 기준 16x16 사각형이다.
--- 따라서 selection hit test도 같은 크기를 기준으로 한다.
 function SceneView:findLObjectAtWorldPosition(worldX, worldY)
     if not self.level then
         return nil
@@ -93,8 +91,6 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
 
     local halfSize = LOBJECT_SIZE * 0.5
 
-    -- 뒤에 추가된 LObject부터 검사한다.
-    -- 나중에 draw order가 생겨도 top-most selection으로 확장하기 쉽다.
     for i = #self.level.lobjects, 1, -1 do
         local lobject = self.level.lobjects[i]
         local transform = lobject.transform
@@ -122,20 +118,13 @@ function SceneView:mousepressed(x, y, button)
         end
 
         local worldX, worldY = self:screenToWorld(x, y)
-
-        local hitLObject =
-            self:findLObjectAtWorldPosition(worldX, worldY)
+        local hitLObject = self:findLObjectAtWorldPosition(worldX, worldY)
 
         if hitLObject then
-            -- 기존 LObject를 클릭하면 선택하고 drag를 시작한다.
             self.selectedLObject = hitLObject
             self.isDraggingLObject = true
         else
-            -- 빈 공간을 클릭하면 새 LObject를 생성하고 바로 선택한다.
-            self.selectedLObject =
-                self.level:addLObject(worldX, worldY)
-
-            -- 새로 만든 순간에는 아직 drag 상태로 들어가지 않는다.
+            self.selectedLObject = self.level:addLObject(worldX, worldY)
             self.isDraggingLObject = false
         end
 
@@ -159,16 +148,12 @@ end
 
 function SceneView:mousemoved(x, y, dx, dy)
     if self.isDraggingLObject and self.selectedLObject then
-        -- love.mousemoved의 dx/dy는 screen-space delta다.
-        -- Transform은 world-space이므로 zoom으로 나눠 변환한다.
         local worldDX = dx / self.zoom
         local worldDY = dy / self.zoom
-
         local transform = self.selectedLObject.transform
 
         transform.x = transform.x + worldDX
         transform.y = transform.y + worldDY
-
         return
     end
 
@@ -178,26 +163,35 @@ function SceneView:mousemoved(x, y, dx, dy)
     end
 end
 
+function SceneView:keypressed(key)
+    if key ~= "delete" then
+        return
+    end
+
+    if not self.level or not self.selectedLObject then
+        return
+    end
+
+    -- Level이 실제 authoring data의 소유자이므로
+    -- Scene View는 직접 table.remove 하지 않고 Level에 제거를 요청한다.
+    self.level:removeLObject(self.selectedLObject)
+    self.selectedLObject = nil
+    self.isDraggingLObject = false
+end
+
 function SceneView:zoomAtScreenPosition(screenX, screenY, wheelY)
     if wheelY == 0 then
         return
     end
 
-    local worldX, worldY =
-        self:screenToWorld(screenX, screenY)
-
-    local newZoom = clamp(
-        self.zoom + wheelY * ZOOM_STEP,
-        MIN_ZOOM,
-        MAX_ZOOM
-    )
+    local worldX, worldY = self:screenToWorld(screenX, screenY)
+    local newZoom = clamp(self.zoom + wheelY * ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)
 
     if newZoom == self.zoom then
         return
     end
 
     self.zoom = newZoom
-
     self.cameraX = screenX - worldX * self.zoom
     self.cameraY = screenY - worldY * self.zoom
 end
@@ -208,7 +202,6 @@ function SceneView:wheelmoved(x, y)
     end
 
     local mouseX, mouseY = love.mouse.getPosition()
-
     self:zoomAtScreenPosition(mouseX, mouseY, y)
 end
 
@@ -227,11 +220,7 @@ function SceneView:drawWorldAxes(width, height)
         love.graphics.line(0, originY, width, originY)
     end
 
-    if originX >= 0
-        and originX <= width
-        and originY >= 0
-        and originY <= height then
-
+    if originX >= 0 and originX <= width and originY >= 0 and originY <= height then
         love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
         love.graphics.circle("fill", originX, originY, 4)
     end
@@ -246,10 +235,7 @@ function SceneView:drawLObjects()
 
     for _, lobject in ipairs(self.level.lobjects) do
         local transform = lobject.transform
-
-        local screenX, screenY =
-            self:worldToScreen(transform.x, transform.y)
-
+        local screenX, screenY = self:worldToScreen(transform.x, transform.y)
         local size = LOBJECT_SIZE * self.zoom
         local halfSize = size * 0.5
 
@@ -259,13 +245,7 @@ function SceneView:drawLObjects()
             love.graphics.setColor(1.0, 0.0, 0.0, 1.0)
         end
 
-        love.graphics.rectangle(
-            "line",
-            screenX - halfSize,
-            screenY - halfSize,
-            size,
-            size
-        )
+        love.graphics.rectangle("line", screenX - halfSize, screenY - halfSize, size, size)
     end
 end
 
@@ -274,12 +254,7 @@ function SceneView:drawMouseWorldPosition()
     local worldX, worldY = self:screenToWorld(mouseX, mouseY)
 
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
-
-    love.graphics.print(
-        string.format("Mouse: (%.1f, %.1f)", worldX, worldY),
-        16,
-        36
-    )
+    love.graphics.print(string.format("Mouse: (%.1f, %.1f)", worldX, worldY), 16, 36)
 end
 
 function SceneView:draw()
@@ -287,7 +262,6 @@ function SceneView:draw()
     local vertical, horizontal = self:getGridLines(width, height)
 
     love.graphics.push("all")
-
     love.graphics.clear(0.08, 0.09, 0.11, 1.0)
 
     love.graphics.setColor(0.16, 0.17, 0.20, 1.0)
@@ -305,13 +279,7 @@ function SceneView:draw()
     self:drawLObjects()
 
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
-
-    love.graphics.print(
-        string.format("Scene View  %.2fx", self.zoom),
-        16,
-        16
-    )
-
+    love.graphics.print(string.format("Scene View  %.2fx", self.zoom), 16, 16)
     self:drawMouseWorldPosition()
 
     love.graphics.pop()

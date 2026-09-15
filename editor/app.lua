@@ -42,4 +42,8 @@ function EditorApp:wheelmoved(x, y)
     self.sceneView:wheelmoved(x, y)
 end
 
+function EditorApp:keypressed(key)
+    self.sceneView:keypressed(key)
+end
+
 return EditorApp

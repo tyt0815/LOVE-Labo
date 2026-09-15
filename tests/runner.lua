@@ -308,6 +308,51 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "level removes lobject",
+
+    fn = function()
+        local Level = require("editor.level")
+        local level = Level.new()
+
+        local first = level:addLObject(10, 20)
+        local second = level:addLObject(30, 40)
+
+        level:removeLObject(first)
+
+        Assert.equal(1, #level.lobjects)
+        Assert.equal(second, level.lobjects[1])
+    end
+}
+
+tests[#tests + 1] = {
+    name = "scene view deletes selected lobject",
+
+    fn = function()
+        local Level = require("editor.level")
+        local SceneView = require("editor.scene_view")
+
+        local level = Level.new()
+        local lobject = level:addLObject(20, 30)
+
+        local sceneView = SceneView.new(32, level)
+        sceneView.selectedLObject = lobject
+
+        sceneView:keypressed("delete")
+
+        Assert.equal(0, #level.lobjects)
+        Assert.equal(nil, sceneView.selectedLObject)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "love keypressed callback exists",
+
+    fn = function()
+        Assert.truthy(love.keypressed)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
