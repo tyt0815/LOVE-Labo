@@ -39,9 +39,9 @@ function SceneView.new(gridSize, level)
     self.zoom = DEFAULT_ZOOM
     self.isPanning = false
 
-    -- 선택 상태는 Level에 저장하지 않는다.
-    -- 현재 선택은 Editor에서만 사용하는 transient state다.
+    -- 선택 상태와 drag 상태는 Editor에서만 사용하는 transient state다.
     self.selectedLObject = nil
+    self.isDraggingLObject = false
 
     return self
 end
@@ -93,7 +93,7 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
 
     local halfSize = LOBJECT_SIZE * 0.5
 
-    -- 뒤에 추가된 LObject를 먼저 검사한다.
+    -- 뒤에 추가된 LObject부터 검사한다.
     -- 나중에 draw order가 생겨도 top-most selection으로 확장하기 쉽다.
     for i = #self.level.lobjects, 1, -1 do
         local lobject = self.level.lobjects[i]
@@ -127,13 +127,16 @@ function SceneView:mousepressed(x, y, button)
             self:findLObjectAtWorldPosition(worldX, worldY)
 
         if hitLObject then
-            -- 기존 LObject를 클릭했다면 새 instance를 만들지 않고 선택만 한다.
+            -- 기존 LObject를 클릭하면 선택하고 drag를 시작한다.
             self.selectedLObject = hitLObject
+            self.isDraggingLObject = true
         else
-            -- 빈 공간을 클릭하면 새 LObject를 생성하고
-            -- 방금 생성한 instance를 바로 선택한다.
+            -- 빈 공간을 클릭하면 새 LObject를 생성하고 바로 선택한다.
             self.selectedLObject =
                 self.level:addLObject(worldX, worldY)
+
+            -- 새로 만든 순간에는 아직 drag 상태로 들어가지 않는다.
+            self.isDraggingLObject = false
         end
 
         return
@@ -145,21 +148,36 @@ function SceneView:mousepressed(x, y, button)
 end
 
 function SceneView:mousereleased(x, y, button)
+    if button == LEFT_MOUSE_BUTTON then
+        self.isDraggingLObject = false
+    end
+
     if button == PAN_MOUSE_BUTTON then
         self.isPanning = false
     end
 end
 
 function SceneView:mousemoved(x, y, dx, dy)
-    if not self.isPanning then
+    if self.isDraggingLObject and self.selectedLObject then
+        -- love.mousemoved의 dx/dy는 screen-space delta다.
+        -- Transform은 world-space이므로 zoom으로 나눠 변환한다.
+        local worldDX = dx / self.zoom
+        local worldDY = dy / self.zoom
+
+        local transform = self.selectedLObject.transform
+
+        transform.x = transform.x + worldDX
+        transform.y = transform.y + worldDY
+
         return
     end
 
-    self.cameraX = self.cameraX + dx
-    self.cameraY = self.cameraY + dy
+    if self.isPanning then
+        self.cameraX = self.cameraX + dx
+        self.cameraY = self.cameraY + dy
+    end
 end
 
--- 특정 screen 위치를 중심으로 zoom한다.
 function SceneView:zoomAtScreenPosition(screenX, screenY, wheelY)
     if wheelY == 0 then
         return
@@ -189,8 +207,6 @@ function SceneView:wheelmoved(x, y)
         return
     end
 
-    -- love.wheelmoved의 x/y는 wheel 이동량이지
-    -- mouse cursor 좌표가 아니다.
     local mouseX, mouseY = love.mouse.getPosition()
 
     self:zoomAtScreenPosition(mouseX, mouseY, y)
@@ -201,13 +217,11 @@ function SceneView:drawWorldAxes(width, height)
 
     love.graphics.setLineWidth(2)
 
-    -- Y축: world x = 0
     if originX >= 0 and originX <= width then
         love.graphics.setColor(0.75, 0.32, 0.32, 1.0)
         love.graphics.line(originX, 0, originX, height)
     end
 
-    -- X축: world y = 0
     if originY >= 0 and originY <= height then
         love.graphics.setColor(0.32, 0.70, 0.38, 1.0)
         love.graphics.line(0, originY, width, originY)
@@ -223,10 +237,6 @@ function SceneView:drawWorldAxes(width, height)
     end
 end
 
--- 현재 Level의 LObject Instance들을 authoring 위치에 표시한다.
---
--- 아직 rendering Component가 없으므로
--- Transform 위치를 확인하기 위한 임시 사각형으로 그린다.
 function SceneView:drawLObjects()
     if not self.level then
         return
@@ -244,7 +254,6 @@ function SceneView:drawLObjects()
         local halfSize = size * 0.5
 
         if lobject == self.selectedLObject then
-            -- 선택된 LObject는 일반 LObject와 구분되도록 표시한다.
             love.graphics.setColor(0.0, 1.0, 0.0, 1.0)
         else
             love.graphics.setColor(1.0, 0.0, 0.0, 1.0)
@@ -281,7 +290,6 @@ function SceneView:draw()
 
     love.graphics.clear(0.08, 0.09, 0.11, 1.0)
 
-    -- 일반 grid.
     love.graphics.setColor(0.16, 0.17, 0.20, 1.0)
     love.graphics.setLineWidth(1)
 

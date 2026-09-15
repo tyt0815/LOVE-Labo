@@ -257,6 +257,57 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "selected lobject drag updates transform",
+
+    fn = function()
+        local Level = require("editor.level")
+        local SceneView = require("editor.scene_view")
+
+        local level = Level.new()
+        local lobject = level:addLObject(20, 30)
+
+        local sceneView = SceneView.new(32, level)
+
+        -- LObject를 눌러 선택 + drag 시작.
+        sceneView:mousepressed(20, 30, 1)
+
+        -- Screen 기준으로 (10, 5)만큼 이동.
+        sceneView:mousemoved(30, 35, 10, 5)
+
+        Assert.equal(30, lobject.transform.x)
+        Assert.equal(35, lobject.transform.y)
+
+        sceneView:mousereleased(30, 35, 1)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "lobject drag respects zoom",
+
+    fn = function()
+        local Level = require("editor.level")
+        local SceneView = require("editor.scene_view")
+
+        local level = Level.new()
+        local lobject = level:addLObject(20, 30)
+
+        local sceneView = SceneView.new(32, level)
+        sceneView.zoom = 2
+
+        -- World (20, 30)은 zoom 2 기준으로 Screen (40, 60).
+        sceneView:mousepressed(40, 60, 1)
+
+        -- Screen에서 10px 이동하면 World에서는 5만 이동해야 한다.
+        sceneView:mousemoved(50, 70, 10, 10)
+
+        Assert.equal(25, lobject.transform.x)
+        Assert.equal(35, lobject.transform.y)
+
+        sceneView:mousereleased(50, 70, 1)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
