@@ -435,6 +435,70 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "hierarchy maps rows to lobjects",
+
+    fn = function()
+        local Level = require("editor.level")
+        local Hierarchy = require("editor.hierarchy")
+
+        local level = Level.new()
+        local first = level:addLObject(10, 20)
+        local second = level:addLObject(30, 40)
+
+        local hierarchy = Hierarchy.new(level)
+
+        -- Header는 y=0~35, 첫 row는 y=36~59,
+        -- 두 번째 row는 y=60~83이다.
+        Assert.equal(first, hierarchy:getLObjectAtPosition(20, 40))
+        Assert.equal(second, hierarchy:getLObjectAtPosition(20, 64))
+    end
+}
+
+tests[#tests + 1] = {
+    name = "hierarchy ignores positions outside panel or rows",
+
+    fn = function()
+        local Level = require("editor.level")
+        local Hierarchy = require("editor.hierarchy")
+
+        local level = Level.new()
+        level:addLObject(10, 20)
+
+        local hierarchy = Hierarchy.new(level)
+
+        Assert.equal(nil, hierarchy:getLObjectAtPosition(20, 10))
+        Assert.equal(nil, hierarchy:getLObjectAtPosition(250, 40))
+        Assert.equal(nil, hierarchy:getLObjectAtPosition(20, 100))
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor app selects lobject from hierarchy",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local app = EditorApp.new()
+
+        local first = app.level:addLObject(10, 20)
+        local second = app.level:addLObject(30, 40)
+
+        app.sceneView.selectedLObject = first
+
+        -- 두 번째 Hierarchy row 클릭.
+        app:mousepressed(20, 64, 1)
+
+        Assert.equal(second, app.sceneView.selectedLObject)
+        Assert.equal(2, #app.level.lobjects)
+
+        -- LObject row가 없는 빈 영역 클릭은 선택 해제.
+        app:mousepressed(20, 120, 1)
+
+        Assert.equal(nil, app.sceneView.selectedLObject)
+        Assert.equal(2, #app.level.lobjects)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
