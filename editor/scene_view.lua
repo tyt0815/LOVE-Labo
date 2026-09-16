@@ -209,7 +209,28 @@ function SceneView:mousemoved(x, y, dx, dy)
     end
 end
 
+function SceneView:frameSelected()
+    if not self.selectedLObject or not self.selectedLObject.transform then
+        return false
+    end
+
+    local _, _, width, height = self:getViewport()
+    local transform = self.selectedLObject.transform
+
+    -- 선택된 LObject의 world 위치가 현재 Scene View 정중앙에 오도록
+    -- viewport 위치와 독립적인 camera offset만 조정한다.
+    self.cameraX = width * 0.5 - transform.x * self.zoom
+    self.cameraY = height * 0.5 - transform.y * self.zoom
+
+    return true
+end
+
 function SceneView:keypressed(key, controlDown, mouseX, mouseY)
+    if key == "f" and not controlDown then
+        self:frameSelected()
+        return
+    end
+
     if key == "a" and not controlDown then
         if not self.level
             or mouseX == nil
@@ -408,7 +429,7 @@ function SceneView:draw()
     )
     self:drawMouseWorldPosition()
     love.graphics.print(
-        "A: Add  Ctrl+D: Duplicate  Delete: Delete",
+        "A: Add  Ctrl+D: Duplicate  F: Frame  Delete: Delete",
         viewportX + 16,
         viewportY + 56
     )

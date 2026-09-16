@@ -684,6 +684,37 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "scene view frames selected lobject",
+
+    fn = function()
+        local Level = require("editor.level")
+        local SceneView = require("editor.scene_view")
+
+        local level = Level.new()
+        local lobject = level:addLObject(100, 50)
+
+        local sceneView = SceneView.new(32, level)
+        sceneView:setViewport(220, 0, 540, 600)
+        sceneView.zoom = 2
+        sceneView.selectedLObject = lobject
+
+        sceneView:keypressed("f", false)
+
+        local screenX, screenY =
+            sceneView:worldToScreen(
+                lobject.transform.x,
+                lobject.transform.y
+            )
+
+        -- Scene View 중앙:
+        -- X = 220 + 540 / 2 = 490
+        -- Y = 600 / 2 = 300
+        Assert.equal(490, screenX)
+        Assert.equal(300, screenY)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
