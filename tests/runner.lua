@@ -760,6 +760,105 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "level serialization round trip preserves authoring data",
+
+    fn = function()
+        local Level = require("editor.level")
+        local level = Level.new()
+
+        local first = level:addLObject(10, 20)
+        local second = level:addLObject(30, 40)
+
+        level:removeLObject(first)
+
+        local data = level:toData()
+        local loaded, err = Level.fromData(data)
+
+        Assert.equal(nil, err)
+        Assert.truthy(loaded)
+        Assert.equal(1, #loaded.lobjects)
+
+        Assert.equal(
+            second.authoringId,
+            loaded.lobjects[1].authoringId
+        )
+        Assert.equal(30, loaded.lobjects[1].transform.x)
+        Assert.equal(40, loaded.lobjects[1].transform.y)
+
+        -- 가장 큰 기존 ID 다음부터 새 identity를 발급한다.
+        local added = loaded:addLObject(50, 60)
+        Assert.equal(3, added.authoringId)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "level serialization does not share mutable tables",
+
+    fn = function()
+        local Level = require("editor.level")
+        local level = Level.new()
+        local original = level:addLObject(10, 20)
+
+        local data = level:toData()
+
+        Assert.truthy(data.lobjects[1] ~= original)
+        Assert.truthy(
+            data.lobjects[1].transform ~= original.transform
+        )
+
+        data.lobjects[1].transform.x = 999
+
+        Assert.equal(10, original.transform.x)
+
+        local loaded = Level.fromData(data)
+
+        Assert.truthy(
+            loaded.lobjects[1].transform
+                ~= data.lobjects[1].transform
+        )
+
+        loaded.lobjects[1].transform.y = 888
+
+        Assert.equal(20, data.lobjects[1].transform.y)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "level serialization rejects invalid data",
+
+    fn = function()
+        local Level = require("editor.level")
+
+        local invalid = {
+            formatVersion = 1,
+            lobjects = {
+                {
+                    authoringId = 1,
+                    transform = {
+                        x = 10,
+                        y = 20
+                    }
+                },
+                {
+                    -- duplicate stable identity
+                    authoringId = 1,
+                    transform = {
+                        x = 30,
+                        y = 40
+                    }
+                }
+            }
+        }
+
+        local level, err = Level.fromData(invalid)
+
+        Assert.equal(nil, level)
+        Assert.truthy(err)
+    end
+}
+
+
 local TestRunner = {}
 
 function TestRunner.runAll()
