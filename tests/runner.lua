@@ -1027,6 +1027,104 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "level document tracks dirty state from serialized level",
+
+    fn = function()
+        local LevelDocument =
+            require("editor.level_document")
+
+        local document = assert(LevelDocument.new())
+
+        Assert.equal(false, document:isDirty())
+
+        document.level:addLObject(10, 20)
+
+        Assert.equal(true, document:isDirty())
+    end
+}
+
+tests[#tests + 1] = {
+    name = "level document save clears dirty and remembers path",
+
+    fn = function()
+        local LevelDocument =
+            require("editor.level_document")
+
+        local path =
+            getLevelTestPath("level_document_save")
+
+        removeLevelFileArtifacts(path)
+
+        local document = assert(LevelDocument.new())
+        document.level:addLObject(10, 20)
+
+        Assert.equal(true, document:isDirty())
+
+        local saved, saveError =
+            document:save(path)
+
+        Assert.equal(true, saved)
+        Assert.equal(nil, saveError)
+        Assert.equal(path, document.path)
+        Assert.equal(false, document:isDirty())
+
+        document.level.lobjects[1].transform.x = 30
+
+        Assert.equal(true, document:isDirty())
+
+        -- path를 다시 넘기지 않아도 마지막 성공 경로에 저장한다.
+        local savedAgain, saveAgainError =
+            document:save()
+
+        Assert.equal(true, savedAgain)
+        Assert.equal(nil, saveAgainError)
+        Assert.equal(false, document:isDirty())
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "loaded level document starts clean",
+
+    fn = function()
+        local Level = require("editor.level")
+        local LevelFile = require("editor.level_file")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local path =
+            getLevelTestPath("level_document_load")
+
+        removeLevelFileArtifacts(path)
+
+        local level = Level.new()
+        level:addLObject(15, 25)
+
+        local saved, saveError =
+            LevelFile.save(path, level)
+
+        Assert.equal(true, saved)
+        Assert.equal(nil, saveError)
+
+        local document, loadError =
+            LevelDocument.load(path)
+
+        Assert.equal(nil, loadError)
+        Assert.truthy(document)
+        Assert.equal(path, document.path)
+        Assert.equal(false, document:isDirty())
+        Assert.equal(15, document.level.lobjects[1].transform.x)
+        Assert.equal(25, document.level.lobjects[1].transform.y)
+
+        document.level.lobjects[1].transform.y = 50
+
+        Assert.equal(true, document:isDirty())
+
+        removeLevelFileArtifacts(path)
+    end
+}
 
 
 local TestRunner = {}
