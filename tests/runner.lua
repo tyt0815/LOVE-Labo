@@ -858,6 +858,25 @@ tests[#tests + 1] = {
     end
 }
 
+local TEST_LEVEL_DIRECTORY = "level_file_tests"
+
+local function getLevelTestPath(name)
+    -- love.filesystem을 통해 save directory와 테스트용 하위 폴더를
+    -- 실제로 생성한 뒤, io.open에서 사용할 absolute path를 만든다.
+    local created = love.filesystem.createDirectory(
+        TEST_LEVEL_DIRECTORY
+    )
+
+    Assert.equal(true, created)
+
+    return love.filesystem.getSaveDirectory()
+        .. "/"
+        .. TEST_LEVEL_DIRECTORY
+        .. "/"
+        .. name
+        .. ".level"
+end
+
 local function removeLevelFileArtifacts(path)
     os.remove(path)
     os.remove(path .. ".tmp")
@@ -900,7 +919,7 @@ tests[#tests + 1] = {
         local Level = require("editor.level")
         local LevelFile = require("editor.level_file")
 
-        local path = os.tmpname() .. ".level"
+        local path = getLevelTestPath("save_load_test")
         removeLevelFileArtifacts(path)
 
         local level = Level.new()
@@ -948,7 +967,7 @@ tests[#tests + 1] = {
     fn = function()
         local LevelFile = require("editor.level_file")
 
-        local path = os.tmpname() .. ".level"
+        local path = getLevelTestPath("invalid_json_test")
         removeLevelFileArtifacts(path)
 
         local file = assert(io.open(path, "wb"))
@@ -970,7 +989,7 @@ tests[#tests + 1] = {
     fn = function()
         local LevelFile = require("editor.level_file")
 
-        local path = os.tmpname() .. ".level"
+        local path = getLevelTestPath("preserve_existing_test")
         removeLevelFileArtifacts(path)
 
         local originalText = "existing good level"
