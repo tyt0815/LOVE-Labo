@@ -163,7 +163,23 @@ function SceneView:mousemoved(x, y, dx, dy)
     end
 end
 
-function SceneView:keypressed(key)
+function SceneView:keypressed(key, controlDown)
+    if key == "d" and controlDown then
+        if not self.level or not self.selectedLObject then
+            return
+        end
+
+        local duplicate = self.level:duplicateLObject(self.selectedLObject)
+
+        if duplicate then
+            -- 복제 직후 새 instance를 선택해 다음 이동/편집 대상이 되게 한다.
+            self.selectedLObject = duplicate
+            self.isDraggingLObject = false
+        end
+
+        return
+    end
+
     if key ~= "delete" then
         return
     end

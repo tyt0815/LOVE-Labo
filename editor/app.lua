@@ -43,7 +43,10 @@ function EditorApp:wheelmoved(x, y)
 end
 
 function EditorApp:keypressed(key)
-    self.sceneView:keypressed(key)
+    -- LÖVE의 keyboard state는 App 경계에서 읽고,
+    -- Scene View에는 필요한 modifier 상태만 전달한다.
+    local controlDown = love.keyboard.isDown("lctrl", "rctrl")
+    self.sceneView:keypressed(key, controlDown)
 end
 
 return EditorApp

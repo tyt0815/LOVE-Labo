@@ -353,6 +353,59 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "level duplicates lobject without sharing transform",
+
+    fn = function()
+        local Level = require("editor.level")
+        local level = Level.new()
+
+        local original = level:addLObject(10, 20)
+        local duplicate = level:duplicateLObject(original)
+
+        Assert.equal(2, #level.lobjects)
+        Assert.truthy(duplicate)
+        Assert.truthy(duplicate ~= original)
+        Assert.truthy(duplicate.transform ~= original.transform)
+
+        Assert.equal(10, duplicate.transform.x)
+        Assert.equal(20, duplicate.transform.y)
+
+        -- 복제본의 Transform을 수정해도 원본에는 영향이 없어야 한다.
+        duplicate.transform.x = 100
+
+        Assert.equal(10, original.transform.x)
+        Assert.equal(100, duplicate.transform.x)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "scene view ctrl+d duplicates selected lobject",
+
+    fn = function()
+        local Level = require("editor.level")
+        local SceneView = require("editor.scene_view")
+
+        local level = Level.new()
+        local original = level:addLObject(20, 30)
+
+        local sceneView = SceneView.new(32, level)
+        sceneView.selectedLObject = original
+
+        sceneView:keypressed("d", true)
+
+        Assert.equal(2, #level.lobjects)
+
+        local duplicate = level.lobjects[2]
+
+        Assert.equal(duplicate, sceneView.selectedLObject)
+        Assert.truthy(duplicate ~= original)
+        Assert.truthy(duplicate.transform ~= original.transform)
+        Assert.equal(20, duplicate.transform.x)
+        Assert.equal(30, duplicate.transform.y)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
