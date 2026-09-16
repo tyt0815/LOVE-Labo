@@ -499,6 +499,39 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "inspector identifies lobject index",
+
+    fn = function()
+        local Level = require("editor.level")
+        local Inspector = require("editor.inspector")
+
+        local level = Level.new()
+        local first = level:addLObject(10, 20)
+        local second = level:addLObject(30, 40)
+
+        local inspector = Inspector.new(level)
+
+        Assert.equal(1, inspector:getLObjectIndex(first))
+        Assert.equal(2, inspector:getLObjectIndex(second))
+    end
+}
+
+tests[#tests + 1] = {
+    name = "inspector detects right panel bounds",
+
+    fn = function()
+        local Inspector = require("editor.inspector")
+        local inspector = Inspector.new(nil, 240)
+
+        -- Window width가 1000이면 Inspector는 x=760~999.
+        Assert.equal(false, inspector:containsPoint(759, 100, 1000))
+        Assert.equal(true, inspector:containsPoint(760, 100, 1000))
+        Assert.equal(true, inspector:containsPoint(999, 100, 1000))
+        Assert.equal(false, inspector:containsPoint(1000, 100, 1000))
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
