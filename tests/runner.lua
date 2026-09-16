@@ -858,6 +858,157 @@ tests[#tests + 1] = {
     end
 }
 
+local function removeLevelFileArtifacts(path)
+    os.remove(path)
+    os.remove(path .. ".tmp")
+    os.remove(path .. ".bak")
+end
+
+tests[#tests + 1] = {
+    name = "level file encoding is deterministic readable json",
+
+    fn = function()
+        local Level = require("editor.level")
+        local LevelFile = require("editor.level_file")
+
+        local level = Level.new()
+        level:addLObject(10, 20)
+
+        local first, firstError = LevelFile.encode(level)
+        local second, secondError = LevelFile.encode(level)
+
+        Assert.equal(nil, firstError)
+        Assert.equal(nil, secondError)
+        Assert.equal(first, second)
+
+        Assert.truthy(
+            first:find('"formatVersion": 1', 1, true)
+        )
+        Assert.truthy(
+            first:find('"authoringId": 1', 1, true)
+        )
+        Assert.truthy(
+            first:find('"lobjects": [', 1, true)
+        )
+    end
+}
+
+tests[#tests + 1] = {
+    name = "level file saves and loads level from disk",
+
+    fn = function()
+        local Level = require("editor.level")
+        local LevelFile = require("editor.level_file")
+
+        local path = os.tmpname() .. ".level"
+        removeLevelFileArtifacts(path)
+
+        local level = Level.new()
+        local first = level:addLObject(10, 20)
+        local second = level:addLObject(30, 40)
+
+        level:removeLObject(first)
+
+        local saved, saveError =
+            LevelFile.save(path, level)
+
+        Assert.equal(true, saved)
+        Assert.equal(nil, saveError)
+
+        -- 같은 경로에 다시 저장해 기존 파일 교체 경로도 통과시킨다.
+        second.transform.x = 35
+
+        local savedAgain, saveAgainError =
+            LevelFile.save(path, level)
+
+        Assert.equal(true, savedAgain)
+        Assert.equal(nil, saveAgainError)
+
+        local loaded, loadError =
+            LevelFile.load(path)
+
+        Assert.equal(nil, loadError)
+        Assert.truthy(loaded)
+        Assert.equal(1, #loaded.lobjects)
+        Assert.equal(2, loaded.lobjects[1].authoringId)
+        Assert.equal(35, loaded.lobjects[1].transform.x)
+        Assert.equal(40, loaded.lobjects[1].transform.y)
+
+        -- load 뒤에도 stable ID의 다음 번호를 이어간다.
+        local added = loaded:addLObject(50, 60)
+        Assert.equal(3, added.authoringId)
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "level file rejects invalid json",
+
+    fn = function()
+        local LevelFile = require("editor.level_file")
+
+        local path = os.tmpname() .. ".level"
+        removeLevelFileArtifacts(path)
+
+        local file = assert(io.open(path, "wb"))
+        file:write('{"formatVersion":1,"lobjects":[')
+        file:close()
+
+        local level, err = LevelFile.load(path)
+
+        Assert.equal(nil, level)
+        Assert.truthy(err)
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "failed level save preserves existing file",
+
+    fn = function()
+        local LevelFile = require("editor.level_file")
+
+        local path = os.tmpname() .. ".level"
+        removeLevelFileArtifacts(path)
+
+        local originalText = "existing good level"
+
+        local file = assert(io.open(path, "wb"))
+        file:write(originalText)
+        file:close()
+
+        -- JSON으로 encode할 수 없는 function을 넣어
+        -- disk 교체 전에 save가 실패하도록 만든다.
+        local invalidLevel = {
+            toData = function()
+                return {
+                    formatVersion = 1,
+                    lobjects = {},
+                    unsupported = function()
+                    end
+                }
+            end
+        }
+
+        local saved, err =
+            LevelFile.save(path, invalidLevel)
+
+        Assert.equal(false, saved)
+        Assert.truthy(err)
+
+        local preservedFile = assert(io.open(path, "rb"))
+        local preservedText = preservedFile:read("*a")
+        preservedFile:close()
+
+        Assert.equal(originalText, preservedText)
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+
 
 local TestRunner = {}
 
