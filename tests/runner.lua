@@ -532,6 +532,92 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "inspector maps transform fields",
+
+    fn = function()
+        local Inspector = require("editor.inspector")
+        local inspector = Inspector.new(nil, 240)
+
+        -- Window width 1000 기준 Inspector left는 760.
+        Assert.equal("x", inspector:getFieldAtPosition(820, 110, 1000))
+        Assert.equal("y", inspector:getFieldAtPosition(820, 140, 1000))
+        Assert.equal(nil, inspector:getFieldAtPosition(820, 180, 1000))
+    end
+}
+
+tests[#tests + 1] = {
+    name = "inspector edits transform value",
+
+    fn = function()
+        local Level = require("editor.level")
+        local Inspector = require("editor.inspector")
+
+        local level = Level.new()
+        local lobject = level:addLObject(10, 20)
+        local inspector = Inspector.new(level, 240)
+
+        inspector:mousepressed(820, 110, 1, 1000, lobject)
+
+        Assert.equal(true, inspector:isEditing())
+
+        inspector:textinput("-12.5")
+        inspector:keypressed("return")
+
+        Assert.equal(-12.5, lobject.transform.x)
+        Assert.equal(20, lobject.transform.y)
+        Assert.equal(false, inspector:isEditing())
+    end
+}
+
+tests[#tests + 1] = {
+    name = "inspector escape cancels transform edit",
+
+    fn = function()
+        local Level = require("editor.level")
+        local Inspector = require("editor.inspector")
+
+        local level = Level.new()
+        local lobject = level:addLObject(10, 20)
+        local inspector = Inspector.new(level, 240)
+
+        inspector:mousepressed(820, 140, 1, 1000, lobject)
+        inspector:textinput("99")
+        inspector:keypressed("escape")
+
+        Assert.equal(20, lobject.transform.y)
+        Assert.equal(false, inspector:isEditing())
+    end
+}
+
+tests[#tests + 1] = {
+    name = "inspector rejects invalid transform value",
+
+    fn = function()
+        local Level = require("editor.level")
+        local Inspector = require("editor.inspector")
+
+        local level = Level.new()
+        local lobject = level:addLObject(10, 20)
+        local inspector = Inspector.new(level, 240)
+
+        inspector:mousepressed(820, 110, 1, 1000, lobject)
+        inspector:textinput("invalid")
+        inspector:keypressed("return")
+
+        Assert.equal(10, lobject.transform.x)
+        Assert.equal(false, inspector:isEditing())
+    end
+}
+
+tests[#tests + 1] = {
+    name = "love textinput callback exists",
+
+    fn = function()
+        Assert.truthy(love.textinput)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()

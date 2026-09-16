@@ -36,6 +36,21 @@ end
 function EditorApp:mousepressed(x, y, button)
     local windowWidth = love.graphics.getWidth()
 
+    if self.inspector:containsPoint(x, y, windowWidth) then
+        self.sceneView.isDraggingLObject = false
+        self.inspector:mousepressed(
+            x,
+            y,
+            button,
+            windowWidth,
+            self.sceneView.selectedLObject
+        )
+        return
+    end
+
+    -- 다른 surface를 클릭하면 Inspector의 현재 숫자 편집을 먼저 확정한다.
+    self.inspector:commitEdit()
+
     if self.hierarchy:containsPoint(x, y) then
         -- Hierarchy 영역의 모든 mouse press는 여기서 소비한다.
         -- 좌클릭만 selection을 변경하고, 중클릭 등이 뒤쪽 Scene View로 새지 않게 한다.
@@ -44,12 +59,6 @@ function EditorApp:mousepressed(x, y, button)
             self.sceneView.isDraggingLObject = false
         end
 
-        return
-    end
-
-    if self.inspector:containsPoint(x, y, windowWidth) then
-        -- 현재 Inspector는 읽기 전용이다.
-        -- 패널 위 mouse press가 뒤쪽 Scene View에 전달되지 않게만 한다.
         return
     end
 
@@ -78,7 +87,17 @@ function EditorApp:wheelmoved(x, y)
     self.sceneView:wheelmoved(x, y)
 end
 
+function EditorApp:textinput(text)
+    self.inspector:textinput(text)
+end
+
 function EditorApp:keypressed(key)
+    -- Inspector numeric field 편집 중에는 keyboard input을 Inspector가 독점한다.
+    -- Delete/A/Ctrl+D 등이 Scene View shortcut으로 새는 것을 막는다.
+    if self.inspector:keypressed(key) then
+        return
+    end
+
     -- LÖVE의 keyboard state는 App 경계에서 읽고,
     -- Scene View에는 필요한 modifier 상태만 전달한다.
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")

@@ -69,6 +69,14 @@ function love.wheelmoved(x, y)
     end
 end
 
+-- love.textinput은 실제 입력된 문자(text)를 전달한다.
+-- Inspector의 숫자 field처럼 text editing이 필요한 UI에서 사용한다.
+function love.textinput(text)
+    if app then
+        app:textinput(text)
+    end
+end
+
 function love.keypressed(key)
     if app then
         app:keypressed(key)
