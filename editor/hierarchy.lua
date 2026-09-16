@@ -59,8 +59,10 @@ function Hierarchy:draw(selectedLObject)
                 love.graphics.rectangle("fill", 0, rowY, self.width, ROW_HEIGHT)
             end
 
+            local displayId = lobject.authoringId or i
+
             love.graphics.setColor(0.86, 0.87, 0.90, 1.0)
-            love.graphics.print("LObject " .. i, 12, rowY + 4)
+            love.graphics.print("LObject " .. displayId, 12, rowY + 4)
         end
     end
 

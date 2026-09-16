@@ -270,11 +270,12 @@ function Inspector:draw(selectedLObject)
     end
 
     local index = self:getLObjectIndex(selectedLObject)
+    local displayId = selectedLObject.authoringId or index
 
     love.graphics.setColor(0.86, 0.87, 0.90, 1.0)
 
-    if index then
-        love.graphics.print("LObject " .. index, left + 12, 44)
+    if displayId then
+        love.graphics.print("LObject " .. displayId, left + 12, 44)
     else
         love.graphics.print("LObject", left + 12, 44)
     end

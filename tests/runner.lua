@@ -715,6 +715,51 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "level assigns stable authoring ids",
+
+    fn = function()
+        local Level = require("editor.level")
+        local level = Level.new()
+
+        local first = level:addLObject(10, 20)
+        local second = level:addLObject(30, 40)
+        local third = level:addLObject(50, 60)
+
+        Assert.equal(1, first.authoringId)
+        Assert.equal(2, second.authoringId)
+        Assert.equal(3, third.authoringId)
+
+        level:removeLObject(first)
+
+        -- 배열 index는 바뀌어도 authoring identity는 바뀌면 안 된다.
+        Assert.equal(second, level.lobjects[1])
+        Assert.equal(2, second.authoringId)
+        Assert.equal(3, third.authoringId)
+
+        local fourth = level:addLObject(70, 80)
+
+        -- 삭제된 1번을 재사용하지 않는다.
+        Assert.equal(4, fourth.authoringId)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "duplicated lobject gets new authoring id",
+
+    fn = function()
+        local Level = require("editor.level")
+        local level = Level.new()
+
+        local original = level:addLObject(10, 20)
+        local duplicate = level:duplicateLObject(original, 30, 40)
+
+        Assert.equal(1, original.authoringId)
+        Assert.equal(2, duplicate.authoringId)
+        Assert.truthy(original.authoringId ~= duplicate.authoringId)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
