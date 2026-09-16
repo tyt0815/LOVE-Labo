@@ -124,7 +124,9 @@ function SceneView:mousepressed(x, y, button)
             self.selectedLObject = hitLObject
             self.isDraggingLObject = true
         else
-            self.selectedLObject = self.level:addLObject(worldX, worldY)
+            -- 빈 공간 클릭은 새 LObject를 만들지 않고 현재 선택만 해제한다.
+            -- 생성과 선택을 분리해 실수로 authoring data가 늘어나는 것을 막는다.
+            self.selectedLObject = nil
             self.isDraggingLObject = false
         end
 
@@ -164,6 +166,20 @@ function SceneView:mousemoved(x, y, dx, dy)
 end
 
 function SceneView:keypressed(key, controlDown, mouseX, mouseY)
+    if key == "a" and not controlDown then
+        if not self.level or mouseX == nil or mouseY == nil then
+            return
+        end
+
+        local worldX, worldY = self:screenToWorld(mouseX, mouseY)
+
+        -- 현재는 별도 Asset/Palette가 없으므로 A 키를 임시 생성 입력으로 사용한다.
+        -- 이후 생성 UI가 생기면 이 입력만 교체하고 Level 생성 책임은 그대로 유지할 수 있다.
+        self.selectedLObject = self.level:addLObject(worldX, worldY)
+        self.isDraggingLObject = false
+        return
+    end
+
     if key == "d" and controlDown then
         if not self.level or not self.selectedLObject then
             return
@@ -302,6 +318,7 @@ function SceneView:draw()
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
     love.graphics.print(string.format("Scene View  %.2fx", self.zoom), 16, 16)
     self:drawMouseWorldPosition()
+    love.graphics.print("A: Add  Ctrl+D: Duplicate  Delete: Remove", 16, 56)
 
     love.graphics.pop()
 end

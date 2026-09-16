@@ -196,7 +196,7 @@ tests[#tests + 1] = {
 }
 
 tests[#tests + 1] = {
-    name = "scene view adds lobject transform with left click",
+    name = "scene view adds lobject at mouse position with a key",
 
     fn = function()
         local Level = require("editor.level")
@@ -211,7 +211,7 @@ tests[#tests + 1] = {
 
         -- Screen (50, 80)은 현재 camera/zoom 기준으로
         -- World (20, 30)에 해당한다.
-        sceneView:mousepressed(50, 80, 1)
+        sceneView:keypressed("a", false, 50, 80)
 
         Assert.equal(1, #level.lobjects)
         Assert.equal(20, level.lobjects[1].transform.x)
@@ -229,10 +229,32 @@ tests[#tests + 1] = {
         local level = Level.new()
         local sceneView = SceneView.new(32, level)
 
-        sceneView:mousepressed(40, 60, 1)
+        sceneView:keypressed("a", false, 40, 60)
 
         Assert.equal(1, #level.lobjects)
         Assert.equal(level.lobjects[1], sceneView.selectedLObject)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "scene view empty left click deselects without adding lobject",
+
+    fn = function()
+        local Level = require("editor.level")
+        local SceneView = require("editor.scene_view")
+
+        local level = Level.new()
+        local lobject = level:addLObject(20, 30)
+
+        local sceneView = SceneView.new(32, level)
+        sceneView.selectedLObject = lobject
+
+        sceneView:mousepressed(100, 100, 1)
+
+        -- 빈 공간 클릭은 선택만 해제해야 하며
+        -- 새로운 authoring data를 만들면 안 된다.
+        Assert.equal(1, #level.lobjects)
+        Assert.equal(nil, sceneView.selectedLObject)
     end
 }
 
