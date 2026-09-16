@@ -163,16 +163,21 @@ function SceneView:mousemoved(x, y, dx, dy)
     end
 end
 
-function SceneView:keypressed(key, controlDown)
+function SceneView:keypressed(key, controlDown, mouseX, mouseY)
     if key == "d" and controlDown then
         if not self.level or not self.selectedLObject then
             return
         end
 
-        local duplicate = self.level:duplicateLObject(self.selectedLObject)
+        local worldX, worldY = self:screenToWorld(mouseX, mouseY)
+        local duplicate = self.level:duplicateLObject(
+            self.selectedLObject,
+            worldX,
+            worldY
+        )
 
         if duplicate then
-            -- 복제 직후 새 instance를 선택해 다음 이동/편집 대상이 되게 한다.
+            -- 복제본을 현재 마우스 위치에 배치하고 바로 선택한다.
             self.selectedLObject = duplicate
             self.isDraggingLObject = false
         end

@@ -26,14 +26,17 @@ function Level:addLObject(x, y)
     return instance
 end
 
-function Level:duplicateLObject(target)
+function Level:duplicateLObject(target, x, y)
     -- 현재 authoring data 중 실제로 존재하는 Transform만 복제한다.
     -- nested table을 그대로 재사용하지 않고 addLObject를 통해 새 table을 만들어
     -- 원본과 복제본이 mutable Transform reference를 공유하지 않게 한다.
     for _, lobject in ipairs(self.lobjects) do
         if lobject == target then
             local transform = lobject.transform
-            return self:addLObject(transform.x, transform.y)
+            local duplicateX = x or transform.x
+            local duplicateY = y or transform.y
+
+            return self:addLObject(duplicateX, duplicateY)
         end
     end
 

@@ -361,17 +361,16 @@ tests[#tests + 1] = {
         local level = Level.new()
 
         local original = level:addLObject(10, 20)
-        local duplicate = level:duplicateLObject(original)
+        local duplicate = level:duplicateLObject(original, 50, 60)
 
         Assert.equal(2, #level.lobjects)
         Assert.truthy(duplicate)
         Assert.truthy(duplicate ~= original)
         Assert.truthy(duplicate.transform ~= original.transform)
 
-        Assert.equal(10, duplicate.transform.x)
-        Assert.equal(20, duplicate.transform.y)
+        Assert.equal(50, duplicate.transform.x)
+        Assert.equal(60, duplicate.transform.y)
 
-        -- 복제본의 Transform을 수정해도 원본에는 영향이 없어야 한다.
         duplicate.transform.x = 100
 
         Assert.equal(10, original.transform.x)
@@ -380,7 +379,7 @@ tests[#tests + 1] = {
 }
 
 tests[#tests + 1] = {
-    name = "scene view ctrl+d duplicates selected lobject",
+    name = "scene view ctrl+d duplicates selected lobject at mouse position",
 
     fn = function()
         local Level = require("editor.level")
@@ -392,7 +391,14 @@ tests[#tests + 1] = {
         local sceneView = SceneView.new(32, level)
         sceneView.selectedLObject = original
 
-        sceneView:keypressed("d", true)
+        sceneView.cameraX = 10
+        sceneView.cameraY = 20
+        sceneView.zoom = 2
+
+        -- Screen (110, 70)
+        -- → World ((110 - 10) / 2, (70 - 20) / 2)
+        -- → World (50, 25)
+        sceneView:keypressed("d", true, 110, 70)
 
         Assert.equal(2, #level.lobjects)
 
@@ -401,8 +407,9 @@ tests[#tests + 1] = {
         Assert.equal(duplicate, sceneView.selectedLObject)
         Assert.truthy(duplicate ~= original)
         Assert.truthy(duplicate.transform ~= original.transform)
-        Assert.equal(20, duplicate.transform.x)
-        Assert.equal(30, duplicate.transform.y)
+
+        Assert.equal(50, duplicate.transform.x)
+        Assert.equal(25, duplicate.transform.y)
     end
 }
 
