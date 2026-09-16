@@ -1126,6 +1126,57 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "editor app owns level document shared by surfaces",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local app = EditorApp.new()
+
+        Assert.truthy(app.document)
+        Assert.equal(app.document.level, app.level)
+        Assert.equal(app.level, app.sceneView.level)
+        Assert.equal(app.level, app.hierarchy.level)
+        Assert.equal(app.level, app.inspector.level)
+
+        Assert.equal(false, app.document:isDirty())
+
+        app.level:addLObject(10, 20)
+
+        Assert.equal(true, app.document:isDirty())
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor app rebinds surfaces when document changes",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local app = EditorApp.new()
+        local oldLObject = app.level:addLObject(10, 20)
+
+        app.sceneView.selectedLObject = oldLObject
+        app.sceneView.isDraggingLObject = true
+
+        local document = assert(LevelDocument.new())
+        document.level:addLObject(30, 40)
+
+        local changed = app:setDocument(document)
+
+        Assert.equal(true, changed)
+        Assert.equal(document, app.document)
+        Assert.equal(document.level, app.level)
+        Assert.equal(document.level, app.sceneView.level)
+        Assert.equal(document.level, app.hierarchy.level)
+        Assert.equal(document.level, app.inspector.level)
+        Assert.equal(nil, app.sceneView.selectedLObject)
+        Assert.equal(false, app.sceneView.isDraggingLObject)
+    end
+}
+
 
 local TestRunner = {}
 

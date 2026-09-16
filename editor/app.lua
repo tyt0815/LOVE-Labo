@@ -1,4 +1,4 @@
-local Level = require("editor.level")
+local LevelDocument = require("editor.level_document")
 local SceneView = require("editor.scene_view")
 local Hierarchy = require("editor.hierarchy")
 local Inspector = require("editor.inspector")
@@ -7,17 +7,50 @@ local EditorApp = {}
 EditorApp.__index = EditorApp
 
 -- Editor Application instance를 생성한다.
-function EditorApp.new()
+function EditorApp.new(document)
     local self = setmetatable({}, EditorApp)
 
-    -- Level이 authoring data를 소유하고,
-    -- 각 Editor surface는 같은 Level을 서로 다른 방식으로 표시/편집한다.
-    self.level = Level.new()
-    self.sceneView = SceneView.new(nil, self.level)
-    self.hierarchy = Hierarchy.new(self.level)
-    self.inspector = Inspector.new(self.level)
+    self.sceneView = SceneView.new()
+    self.hierarchy = Hierarchy.new()
+    self.inspector = Inspector.new()
+
+    if not document then
+        local newDocument, err = LevelDocument.new()
+
+        if not newDocument then
+            error(err)
+        end
+
+        document = newDocument
+    end
+
+    self:setDocument(document)
 
     return self
+end
+
+function EditorApp:setDocument(document)
+    if not document or not document.level then
+        return false
+    end
+
+    -- EditorApp이 현재 LevelDocument를 소유하고,
+    -- 각 surface는 그 document의 동일한 Level authoring data를 참조한다.
+    self.document = document
+    self.level = document.level
+
+    self.sceneView.level = self.level
+    self.hierarchy.level = self.level
+    self.inspector.level = self.level
+
+    -- document 교체 시 이전 document의 transient Editor state가
+    -- 새 Level을 가리키지 않도록 초기화한다.
+    self.sceneView.selectedLObject = nil
+    self.sceneView.isDraggingLObject = false
+    self.sceneView.isPanning = false
+    self.inspector:cancelEdit()
+
+    return true
 end
 
 -- 현재 window 크기와 좌/우 panel 폭으로 Scene View의 실제 영역을 계산한다.
@@ -75,7 +108,9 @@ function EditorApp:mousepressed(x, y, button)
 
     if self.hierarchy:containsPoint(x, y) then
         if button == 1 then
-            self.sceneView.selectedLObject = self.hierarchy:getLObjectAtPosition(x, y)
+            self.sceneView.selectedLObject =
+                self.hierarchy:getLObjectAtPosition(x, y)
+
             self.sceneView.isDraggingLObject = false
         end
 
@@ -120,7 +155,9 @@ function EditorApp:keypressed(key)
 
     self:updateSceneViewport()
 
-    local controlDown = love.keyboard.isDown("lctrl", "rctrl")
+    local controlDown =
+        love.keyboard.isDown("lctrl", "rctrl")
+
     local mouseX, mouseY = love.mouse.getPosition()
 
     -- 현재 mouse world position을 사용하는 명령은 Scene View 위에서만 허용한다.
@@ -134,7 +171,12 @@ function EditorApp:keypressed(key)
         return
     end
 
-    self.sceneView:keypressed(key, controlDown, mouseX, mouseY)
+    self.sceneView:keypressed(
+        key,
+        controlDown,
+        mouseX,
+        mouseY
+    )
 end
 
 return EditorApp
