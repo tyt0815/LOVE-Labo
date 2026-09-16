@@ -20,20 +20,42 @@ function EditorApp.new()
     return self
 end
 
+-- 현재 window 크기와 좌/우 panel 폭으로 Scene View의 실제 영역을 계산한다.
+-- 아직 범용 layout system은 만들지 않고 현재 세 surface에 필요한 계산만 둔다.
+function EditorApp:updateSceneViewport()
+    local windowWidth, windowHeight = love.graphics.getDimensions()
+
+    local viewportX = self.hierarchy.width
+    local viewportWidth =
+        windowWidth - self.hierarchy.width - self.inspector.width
+
+    self.sceneView:setViewport(
+        viewportX,
+        0,
+        math.max(0, viewportWidth),
+        windowHeight
+    )
+end
+
 -- LÖVE의 love.update(dt)에서 매 프레임 호출된다.
 -- 현재는 아직 Editor 상태 갱신 로직이 없다.
 function EditorApp:update(dt)
 end
 
 function EditorApp:draw()
-    -- 아직 별도 layout system은 만들지 않고
-    -- Scene View 위에 좌/우 Editor panel을 overlay한다.
+    self:updateSceneViewport()
+
+    -- 전체 window 배경을 한 번 지우고 각 surface가 자기 영역만 그린다.
+    love.graphics.clear(0.08, 0.09, 0.11, 1.0)
+
     self.sceneView:draw()
     self.hierarchy:draw(self.sceneView.selectedLObject)
     self.inspector:draw(self.sceneView.selectedLObject)
 end
 
 function EditorApp:mousepressed(x, y, button)
+    self:updateSceneViewport()
+
     local windowWidth = love.graphics.getWidth()
 
     if self.inspector:containsPoint(x, y, windowWidth) then
@@ -52,8 +74,6 @@ function EditorApp:mousepressed(x, y, button)
     self.inspector:commitEdit()
 
     if self.hierarchy:containsPoint(x, y) then
-        -- Hierarchy 영역의 모든 mouse press는 여기서 소비한다.
-        -- 좌클릭만 selection을 변경하고, 중클릭 등이 뒤쪽 Scene View로 새지 않게 한다.
         if button == 1 then
             self.sceneView.selectedLObject = self.hierarchy:getLObjectAtPosition(x, y)
             self.sceneView.isDraggingLObject = false
@@ -62,25 +82,27 @@ function EditorApp:mousepressed(x, y, button)
         return
     end
 
-    self.sceneView:mousepressed(x, y, button)
+    if self.sceneView:containsPoint(x, y) then
+        self.sceneView:mousepressed(x, y, button)
+    end
 end
 
 function EditorApp:mousereleased(x, y, button)
+    -- drag/pan이 Scene View 밖에서 끝나도 상태가 남지 않도록 release는 항상 전달한다.
     self.sceneView:mousereleased(x, y, button)
 end
 
 function EditorApp:mousemoved(x, y, dx, dy)
+    -- 이미 시작된 drag/pan은 pointer가 viewport 밖으로 나가도 계속 처리한다.
     self.sceneView:mousemoved(x, y, dx, dy)
 end
 
 function EditorApp:wheelmoved(x, y)
-    local mouseX, mouseY = love.mouse.getPosition()
-    local windowWidth = love.graphics.getWidth()
+    self:updateSceneViewport()
 
-    -- Editor panel 위 wheel이 뒤쪽 Scene View zoom으로 전달되지 않게 한다.
-    if self.hierarchy:containsPoint(mouseX, mouseY)
-        or self.inspector:containsPoint(mouseX, mouseY, windowWidth)
-    then
+    local mouseX, mouseY = love.mouse.getPosition()
+
+    if not self.sceneView:containsPoint(mouseX, mouseY) then
         return
     end
 
@@ -92,32 +114,24 @@ function EditorApp:textinput(text)
 end
 
 function EditorApp:keypressed(key)
-    -- Inspector numeric field 편집 중에는 keyboard input을 Inspector가 독점한다.
-    -- Delete/A/Ctrl+D 등이 Scene View shortcut으로 새는 것을 막는다.
     if self.inspector:keypressed(key) then
         return
     end
 
-    -- LÖVE의 keyboard state는 App 경계에서 읽고,
-    -- Scene View에는 필요한 modifier 상태만 전달한다.
+    self:updateSceneViewport()
+
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
     local mouseX, mouseY = love.mouse.getPosition()
-    local windowWidth = love.graphics.getWidth()
 
-    -- A와 Ctrl+D는 현재 mouse world position을 사용하는 Scene View 명령이다.
-    -- 마우스가 Editor panel 위에 있으면 뒤쪽 Scene View에 생성/복제가 일어나지 않게 한다.
+    -- 현재 mouse world position을 사용하는 명령은 Scene View 위에서만 허용한다.
     local usesMouseWorldPosition =
         (key == "a" and not controlDown)
         or (key == "d" and controlDown)
 
-    if usesMouseWorldPosition then
-        local mouseOverEditorPanel =
-            self.hierarchy:containsPoint(mouseX, mouseY)
-            or self.inspector:containsPoint(mouseX, mouseY, windowWidth)
-
-        if mouseOverEditorPanel then
-            return
-        end
+    if usesMouseWorldPosition
+        and not self.sceneView:containsPoint(mouseX, mouseY)
+    then
+        return
     end
 
     self.sceneView:keypressed(key, controlDown, mouseX, mouseY)

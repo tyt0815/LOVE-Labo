@@ -31,13 +31,20 @@ function SceneView.new(gridSize, level)
     self.gridSize = gridSize or DEFAULT_GRID_SIZE
     self.level = level
 
-    -- 현재 camera는 별도 subsystem 없이
-    -- Scene View 내부의 screen-space offset으로 관리한다.
+    -- camera offset은 Scene View viewport 내부 screen-space 기준이다.
+    -- Editor panel의 위치와 camera를 섞지 않기 위해 viewport 위치는 별도로 관리한다.
     self.cameraX = 0
     self.cameraY = 0
 
     self.zoom = DEFAULT_ZOOM
     self.isPanning = false
+
+    -- nil width/height는 아직 별도 viewport를 지정하지 않은 상태다.
+    -- 이 경우 기존처럼 전체 window를 Scene View로 사용한다.
+    self.viewportX = 0
+    self.viewportY = 0
+    self.viewportWidth = nil
+    self.viewportHeight = nil
 
     -- 선택 상태와 drag 상태는 Editor에서만 사용하는 transient state다.
     self.selectedLObject = nil
@@ -46,16 +53,45 @@ function SceneView.new(gridSize, level)
     return self
 end
 
+function SceneView:setViewport(x, y, width, height)
+    self.viewportX = x
+    self.viewportY = y
+    self.viewportWidth = math.max(0, width)
+    self.viewportHeight = math.max(0, height)
+end
+
+function SceneView:getViewport()
+    if self.viewportWidth ~= nil and self.viewportHeight ~= nil then
+        return self.viewportX, self.viewportY, self.viewportWidth, self.viewportHeight
+    end
+
+    local width, height = love.graphics.getDimensions()
+    return 0, 0, width, height
+end
+
+function SceneView:containsPoint(x, y)
+    -- 테스트나 독립 사용처럼 viewport가 아직 지정되지 않았다면
+    -- 입력 영역 제한 없이 기존 동작을 유지한다.
+    if self.viewportWidth == nil or self.viewportHeight == nil then
+        return true
+    end
+
+    return x >= self.viewportX
+        and x < self.viewportX + self.viewportWidth
+        and y >= self.viewportY
+        and y < self.viewportY + self.viewportHeight
+end
+
 function SceneView:worldToScreen(x, y)
-    local screenX = x * self.zoom + self.cameraX
-    local screenY = y * self.zoom + self.cameraY
+    local screenX = self.viewportX + self.cameraX + x * self.zoom
+    local screenY = self.viewportY + self.cameraY + y * self.zoom
 
     return screenX, screenY
 end
 
 function SceneView:screenToWorld(x, y)
-    local worldX = (x - self.cameraX) / self.zoom
-    local worldY = (y - self.cameraY) / self.zoom
+    local worldX = (x - self.viewportX - self.cameraX) / self.zoom
+    local worldY = (y - self.viewportY - self.cameraY) / self.zoom
 
     return worldX, worldY
 end
@@ -69,15 +105,20 @@ function SceneView:getGridLines(width, height)
     local horizontal = {}
 
     local spacing = self.gridSize * self.zoom
+    local startX = self.viewportX
+    local startY = self.viewportY
 
-    local firstX = getFirstGridLine(self.cameraX, spacing)
-    local firstY = getFirstGridLine(self.cameraY, spacing)
+    local firstX = startX + getFirstGridLine(self.cameraX, spacing)
+    local firstY = startY + getFirstGridLine(self.cameraY, spacing)
 
-    for x = firstX, width, spacing do
+    local endX = startX + width
+    local endY = startY + height
+
+    for x = firstX, endX, spacing do
         vertical[#vertical + 1] = x
     end
 
-    for y = firstY, height, spacing do
+    for y = firstY, endY, spacing do
         horizontal[#horizontal + 1] = y
     end
 
@@ -112,6 +153,10 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
 end
 
 function SceneView:mousepressed(x, y, button)
+    if not self:containsPoint(x, y) then
+        return
+    end
+
     if button == LEFT_MOUSE_BUTTON then
         if not self.level then
             return
@@ -125,7 +170,6 @@ function SceneView:mousepressed(x, y, button)
             self.isDraggingLObject = true
         else
             -- 빈 공간 클릭은 새 LObject를 만들지 않고 현재 선택만 해제한다.
-            -- 생성과 선택을 분리해 실수로 authoring data가 늘어나는 것을 막는다.
             self.selectedLObject = nil
             self.isDraggingLObject = false
         end
@@ -167,21 +211,29 @@ end
 
 function SceneView:keypressed(key, controlDown, mouseX, mouseY)
     if key == "a" and not controlDown then
-        if not self.level or mouseX == nil or mouseY == nil then
+        if not self.level
+            or mouseX == nil
+            or mouseY == nil
+            or not self:containsPoint(mouseX, mouseY)
+        then
             return
         end
 
         local worldX, worldY = self:screenToWorld(mouseX, mouseY)
 
         -- 현재는 별도 Asset/Palette가 없으므로 A 키를 임시 생성 입력으로 사용한다.
-        -- 이후 생성 UI가 생기면 이 입력만 교체하고 Level 생성 책임은 그대로 유지할 수 있다.
         self.selectedLObject = self.level:addLObject(worldX, worldY)
         self.isDraggingLObject = false
         return
     end
 
     if key == "d" and controlDown then
-        if not self.level or not self.selectedLObject then
+        if not self.level
+            or not self.selectedLObject
+            or mouseX == nil
+            or mouseY == nil
+            or not self:containsPoint(mouseX, mouseY)
+        then
             return
         end
 
@@ -193,7 +245,6 @@ function SceneView:keypressed(key, controlDown, mouseX, mouseY)
         )
 
         if duplicate then
-            -- 복제본을 현재 마우스 위치에 배치하고 바로 선택한다.
             self.selectedLObject = duplicate
             self.isDraggingLObject = false
         end
@@ -209,8 +260,6 @@ function SceneView:keypressed(key, controlDown, mouseX, mouseY)
         return
     end
 
-    -- Level이 실제 authoring data의 소유자이므로
-    -- Scene View는 직접 table.remove 하지 않고 Level에 제거를 요청한다.
     self.level:removeLObject(self.selectedLObject)
     self.selectedLObject = nil
     self.isDraggingLObject = false
@@ -229,8 +278,10 @@ function SceneView:zoomAtScreenPosition(screenX, screenY, wheelY)
     end
 
     self.zoom = newZoom
-    self.cameraX = screenX - worldX * self.zoom
-    self.cameraY = screenY - worldY * self.zoom
+
+    -- viewport 위치는 camera offset과 별도이므로 다시 빼준다.
+    self.cameraX = screenX - self.viewportX - worldX * self.zoom
+    self.cameraY = screenY - self.viewportY - worldY * self.zoom
 end
 
 function SceneView:wheelmoved(x, y)
@@ -239,25 +290,36 @@ function SceneView:wheelmoved(x, y)
     end
 
     local mouseX, mouseY = love.mouse.getPosition()
+
+    if not self:containsPoint(mouseX, mouseY) then
+        return
+    end
+
     self:zoomAtScreenPosition(mouseX, mouseY, y)
 end
 
-function SceneView:drawWorldAxes(width, height)
+function SceneView:drawWorldAxes()
+    local viewportX, viewportY, width, height = self:getViewport()
     local originX, originY = self:worldToScreen(0, 0)
+
+    local right = viewportX + width
+    local bottom = viewportY + height
 
     love.graphics.setLineWidth(2)
 
-    if originX >= 0 and originX <= width then
+    if originX >= viewportX and originX <= right then
         love.graphics.setColor(0.75, 0.32, 0.32, 1.0)
-        love.graphics.line(originX, 0, originX, height)
+        love.graphics.line(originX, viewportY, originX, bottom)
     end
 
-    if originY >= 0 and originY <= height then
+    if originY >= viewportY and originY <= bottom then
         love.graphics.setColor(0.32, 0.70, 0.38, 1.0)
-        love.graphics.line(0, originY, width, originY)
+        love.graphics.line(viewportX, originY, right, originY)
     end
 
-    if originX >= 0 and originX <= width and originY >= 0 and originY <= height then
+    if originX >= viewportX and originX <= right
+        and originY >= viewportY and originY <= bottom
+    then
         love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
         love.graphics.circle("fill", originX, originY, 4)
     end
@@ -288,37 +350,68 @@ end
 
 function SceneView:drawMouseWorldPosition()
     local mouseX, mouseY = love.mouse.getPosition()
-    local worldX, worldY = self:screenToWorld(mouseX, mouseY)
+    local viewportX, viewportY = self:getViewport()
 
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
-    love.graphics.print(string.format("Mouse: (%.1f, %.1f)", worldX, worldY), 16, 36)
+
+    if self:containsPoint(mouseX, mouseY) then
+        local worldX, worldY = self:screenToWorld(mouseX, mouseY)
+
+        love.graphics.print(
+            string.format("Mouse: (%.1f, %.1f)", worldX, worldY),
+            viewportX + 16,
+            viewportY + 36
+        )
+    else
+        love.graphics.print("Mouse: --", viewportX + 16, viewportY + 36)
+    end
 end
 
 function SceneView:draw()
-    local width, height = love.graphics.getDimensions()
+    local viewportX, viewportY, width, height = self:getViewport()
+
+    if width <= 0 or height <= 0 then
+        return
+    end
+
     local vertical, horizontal = self:getGridLines(width, height)
+    local right = viewportX + width
+    local bottom = viewportY + height
 
     love.graphics.push("all")
-    love.graphics.clear(0.08, 0.09, 0.11, 1.0)
+
+    -- Scene View는 이제 자신의 실제 viewport 밖으로 그리지 않는다.
+    love.graphics.setScissor(viewportX, viewportY, width, height)
+
+    love.graphics.setColor(0.08, 0.09, 0.11, 1.0)
+    love.graphics.rectangle("fill", viewportX, viewportY, width, height)
 
     love.graphics.setColor(0.16, 0.17, 0.20, 1.0)
     love.graphics.setLineWidth(1)
 
     for _, x in ipairs(vertical) do
-        love.graphics.line(x, 0, x, height)
+        love.graphics.line(x, viewportY, x, bottom)
     end
 
     for _, y in ipairs(horizontal) do
-        love.graphics.line(0, y, width, y)
+        love.graphics.line(viewportX, y, right, y)
     end
 
-    self:drawWorldAxes(width, height)
+    self:drawWorldAxes()
     self:drawLObjects()
 
     love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
-    love.graphics.print(string.format("Scene View  %.2fx", self.zoom), 16, 16)
+    love.graphics.print(
+        string.format("Scene View  %.2fx", self.zoom),
+        viewportX + 16,
+        viewportY + 16
+    )
     self:drawMouseWorldPosition()
-    love.graphics.print("A: Add  Ctrl+D: Duplicate  Delete: Remove", 16, 56)
+    love.graphics.print(
+        "A: Add  Ctrl+D: Duplicate  Delete: Delete",
+        viewportX + 16,
+        viewportY + 56
+    )
 
     love.graphics.pop()
 end

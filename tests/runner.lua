@@ -618,6 +618,72 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "scene view viewport offsets coordinate conversion",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        sceneView:setViewport(220, 0, 540, 600)
+        sceneView.cameraX = 10
+        sceneView.cameraY = 20
+        sceneView.zoom = 2
+
+        local screenX, screenY = sceneView:worldToScreen(15, 25)
+
+        -- 220 + 10 + 15 * 2 = 260
+        Assert.equal(260, screenX)
+
+        -- 0 + 20 + 25 * 2 = 70
+        Assert.equal(70, screenY)
+
+        local worldX, worldY = sceneView:screenToWorld(screenX, screenY)
+
+        Assert.equal(15, worldX)
+        Assert.equal(25, worldY)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "scene view detects viewport bounds",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local sceneView = SceneView.new(32)
+
+        sceneView:setViewport(220, 0, 540, 600)
+
+        Assert.equal(false, sceneView:containsPoint(219, 100))
+        Assert.equal(true, sceneView:containsPoint(220, 100))
+        Assert.equal(true, sceneView:containsPoint(759, 100))
+        Assert.equal(false, sceneView:containsPoint(760, 100))
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor app places scene view between panels",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local app = EditorApp.new()
+
+        local width, height = love.graphics.getDimensions()
+
+        app:updateSceneViewport()
+
+        Assert.equal(app.hierarchy.width, app.sceneView.viewportX)
+        Assert.equal(0, app.sceneView.viewportY)
+
+        Assert.equal(
+            width - app.hierarchy.width - app.inspector.width,
+            app.sceneView.viewportWidth
+        )
+
+        Assert.equal(height, app.sceneView.viewportHeight)
+    end
+}
+
 local TestRunner = {}
 
 function TestRunner.runAll()
