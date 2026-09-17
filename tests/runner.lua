@@ -1177,6 +1177,144 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "editor save commits inspector edit before writing",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local path =
+            getLevelTestPath("editor_save_command")
+
+        removeLevelFileArtifacts(path)
+
+        local app = EditorApp.new()
+        local lobject = app.level:addLObject(10, 20)
+
+        app.inspector:beginEdit("x", lobject)
+        app.inspector:textinput("42")
+
+        -- text edit 중에는 아직 authoring Transform이 바뀌지 않았다.
+        Assert.equal(10, lobject.transform.x)
+
+        local saved, saveError =
+            app:saveCurrentDocument(path)
+
+        Assert.equal(true, saved)
+        Assert.equal(nil, saveError)
+        Assert.equal(42, lobject.transform.x)
+        Assert.equal(false, app.inspector:isEditing())
+        Assert.equal(false, app.document:isDirty())
+
+        local loaded, loadError =
+            LevelDocument.load(path)
+
+        Assert.equal(nil, loadError)
+        Assert.equal(
+            42,
+            loaded.level.lobjects[1].transform.x
+        )
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor ctrl+s saves document to remembered path",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local path =
+            getLevelTestPath("editor_ctrl_s")
+
+        removeLevelFileArtifacts(path)
+
+        local document = assert(LevelDocument.new())
+        document.level:addLObject(10, 20)
+
+        local initiallySaved, initialSaveError =
+            document:save(path)
+
+        Assert.equal(true, initiallySaved)
+        Assert.equal(nil, initialSaveError)
+
+        document.level.lobjects[1].transform.y = 55
+
+        local app = EditorApp.new(document)
+
+        Assert.equal(true, app.document:isDirty())
+
+        local oldIsDown = love.keyboard.isDown
+
+        love.keyboard.isDown = function(...)
+            local keys = { ... }
+
+            for _, key in ipairs(keys) do
+                if key == "lctrl" or key == "rctrl" then
+                    return true
+                end
+            end
+
+            return false
+        end
+
+        local callOk, saved, saveError =
+            pcall(function()
+                return app:keypressed("s")
+            end)
+
+        love.keyboard.isDown = oldIsDown
+
+        if not callOk then
+            error(saved)
+        end
+
+        Assert.equal(true, saved)
+        Assert.equal(nil, saveError)
+        Assert.equal(false, app.document:isDirty())
+
+        local loaded, loadError =
+            LevelDocument.load(path)
+
+        Assert.equal(nil, loadError)
+        Assert.equal(
+            55,
+            loaded.level.lobjects[1].transform.y
+        )
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor save reports missing path for new document",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local app = EditorApp.new()
+
+        app.level:addLObject(10, 20)
+
+        local saved, err =
+            app:saveCurrentDocument()
+
+        Assert.equal(false, saved)
+        Assert.equal(
+            "level document has no save path",
+            err
+        )
+
+        -- 실패한 save가 dirty state를 clean으로 바꾸면 안 된다.
+        Assert.equal(true, app.document:isDirty())
+    end
+}
+
+
 
 local TestRunner = {}
 

@@ -53,6 +53,14 @@ function EditorApp:setDocument(document)
     return true
 end
 
+function EditorApp:saveCurrentDocument(path)
+    -- Inspector text edit은 transient state이므로 저장 전에 authoring data에 확정한다.
+    -- Ctrl+S가 edit 중 눌려도 화면에 보이는 값을 저장하게 한다.
+    self.inspector:commitEdit()
+
+    return self.document:save(path)
+end
+
 -- 현재 window 크기와 좌/우 panel 폭으로 Scene View의 실제 영역을 계산한다.
 -- 아직 범용 layout system은 만들지 않고 현재 세 surface에 필요한 계산만 둔다.
 function EditorApp:updateSceneViewport()
@@ -149,14 +157,24 @@ function EditorApp:textinput(text)
 end
 
 function EditorApp:keypressed(key)
+    -- Save는 surface-local input보다 우선하는 Editor 전역 명령이다.
+    -- 특히 Inspector edit 중 Ctrl+S도 정상적으로 현재 값을 commit하고 저장해야 한다.
+    local controlDown =
+        love.keyboard.isDown("lctrl", "rctrl")
+
+    local shiftDown =
+        love.keyboard.isDown("lshift", "rshift")
+
+    if key == "s" and controlDown and not shiftDown then
+        return self:saveCurrentDocument()
+    end
+
+    -- Ctrl+Shift+S는 이후 Save As에 사용할 수 있도록 현재 Save로 처리하지 않는다.
     if self.inspector:keypressed(key) then
         return
     end
 
     self:updateSceneViewport()
-
-    local controlDown =
-        love.keyboard.isDown("lctrl", "rctrl")
 
     local mouseX, mouseY = love.mouse.getPosition()
 
