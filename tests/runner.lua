@@ -1756,6 +1756,165 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "level document creates new file without overwriting",
+
+    fn = function()
+        local LevelDocument =
+            require("editor.level_document")
+
+        local path =
+            getLevelTestPath("level_document_create")
+
+        removeLevelFileArtifacts(path)
+
+        local document, createError =
+            LevelDocument.create(path)
+
+        Assert.equal(nil, createError)
+        Assert.truthy(document)
+        Assert.equal(path, document.path)
+        Assert.equal(false, document:isDirty())
+
+        local secondDocument, secondError =
+            LevelDocument.create(path)
+
+        Assert.equal(nil, secondDocument)
+        Assert.equal(
+            "level file already exists",
+            secondError
+        )
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor creates blank project level asset",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local Project = require("editor.project")
+
+        local root =
+            love.filesystem.getSaveDirectory()
+            .. "/"
+            .. TEST_LEVEL_DIRECTORY
+
+        local project = assert(Project.new(root))
+        local reference = "editor_new_level.level"
+        local path = assert(project:resolvePath(reference))
+
+        removeLevelFileArtifacts(path)
+
+        local app = EditorApp.new(nil, project)
+        app.level:addLObject(10, 20)
+
+        local created, createError =
+            app:createProjectDocument(reference, true)
+
+        Assert.equal(true, created)
+        Assert.equal(nil, createError)
+        Assert.equal(reference, app.documentReference)
+        Assert.equal(path, app.document.path)
+        Assert.equal(0, #app.level.lobjects)
+        Assert.equal(false, app.document:isDirty())
+
+        local file = io.open(path, "rb")
+        Assert.truthy(file)
+        file:close()
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor refuses new project level when current document is dirty",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local Project = require("editor.project")
+
+        local root =
+            love.filesystem.getSaveDirectory()
+            .. "/"
+            .. TEST_LEVEL_DIRECTORY
+
+        local project = assert(Project.new(root))
+        local reference = "editor_new_dirty_guard.level"
+        local path = assert(project:resolvePath(reference))
+
+        removeLevelFileArtifacts(path)
+
+        local app = EditorApp.new(nil, project)
+        local currentLObject =
+            app.level:addLObject(10, 20)
+
+        local oldDocument = app.document
+
+        local created, err =
+            app:createProjectDocument(reference)
+
+        Assert.equal(false, created)
+        Assert.equal(
+            "current level has unsaved changes",
+            err
+        )
+        Assert.equal(oldDocument, app.document)
+        Assert.equal(currentLObject, app.level.lobjects[1])
+
+        local unexpectedFile = io.open(path, "rb")
+        Assert.equal(nil, unexpectedFile)
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor new project level preserves current document on create failure",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local Project = require("editor.project")
+
+        local root =
+            love.filesystem.getSaveDirectory()
+            .. "/"
+            .. TEST_LEVEL_DIRECTORY
+
+        local project = assert(Project.new(root))
+        local reference = "editor_existing_level.level"
+        local path = assert(project:resolvePath(reference))
+
+        removeLevelFileArtifacts(path)
+
+        local file = assert(io.open(path, "wb"))
+        file:write("existing")
+        file:close()
+
+        local app = EditorApp.new(nil, project)
+        local oldDocument = app.document
+        local oldLevel = app.level
+
+        local created, err =
+            app:createProjectDocument(reference)
+
+        Assert.equal(false, created)
+        Assert.equal("level file already exists", err)
+        Assert.equal(oldDocument, app.document)
+        Assert.equal(oldLevel, app.level)
+        Assert.equal(nil, app.documentReference)
+
+        local preserved = assert(io.open(path, "rb"))
+        local text = preserved:read("*a")
+        preserved:close()
+
+        Assert.equal("existing", text)
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
 
 local TestRunner = {}
 

@@ -58,6 +58,14 @@ local function writeText(path, text)
     return true
 end
 
+function LevelFile.exists(path)
+    if type(path) ~= "string" or path == "" then
+        return false
+    end
+
+    return fileExists(path)
+end
+
 function LevelFile.encode(level)
     if type(level) ~= "table"
         or type(level.toData) ~= "function"

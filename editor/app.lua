@@ -98,6 +98,42 @@ function EditorApp:saveCurrentDocumentAs(reference)
     return true
 end
 
+function EditorApp:createProjectDocument(reference, allowDiscard)
+    if not self.project then
+        return false, "editor has no project"
+    end
+
+    local path, resolveError =
+        self.project:resolvePath(reference)
+
+    if not path then
+        return false, resolveError
+    end
+
+    -- 아직 commit되지 않은 Inspector 값도 현재 document의 dirty 검사에 포함한다.
+    self.inspector:commitEdit()
+
+    local dirty = self.document:isDirty()
+
+    if dirty and not allowDiscard then
+        return false, "current level has unsaved changes"
+    end
+
+    -- 새 asset을 disk에 완전히 생성한 뒤에만 현재 document를 교체한다.
+    -- 기존 파일이 있거나 save가 실패하면 현재 작업 상태는 유지된다.
+    local document, createError =
+        LevelDocument.create(path)
+
+    if not document then
+        return false, createError
+    end
+
+    self:setDocument(document)
+    self.documentReference = reference
+
+    return true
+end
+
 function EditorApp:openDocument(path, allowDiscard)
     -- 아직 commit되지 않은 Inspector 값도 unsaved 검사에 포함한다.
     self.inspector:commitEdit()

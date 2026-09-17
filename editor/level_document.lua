@@ -34,6 +34,34 @@ function LevelDocument.new(level)
     return self
 end
 
+function LevelDocument.create(path)
+    if type(path) ~= "string" or path == "" then
+        return nil, "path must be a non-empty string"
+    end
+
+    -- New asset 생성은 기존 파일을 덮어쓰지 않는다.
+    -- 기존 asset 교체는 명시적인 save/save-as 흐름의 책임으로 남긴다.
+    if LevelFile.exists(path) then
+        return nil, "level file already exists"
+    end
+
+    local document, documentError =
+        LevelDocument.new()
+
+    if not document then
+        return nil, documentError
+    end
+
+    local saved, saveError =
+        document:save(path)
+
+    if not saved then
+        return nil, saveError
+    end
+
+    return document
+end
+
 function LevelDocument.load(path)
     local level, loadError = LevelFile.load(path)
 
