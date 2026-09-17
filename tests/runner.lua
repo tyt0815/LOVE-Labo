@@ -1604,6 +1604,157 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "editor saves project document by relative reference",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local Project = require("editor.project")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local root =
+            love.filesystem.getSaveDirectory()
+            .. "/"
+            .. TEST_LEVEL_DIRECTORY
+
+        local project = assert(Project.new(root))
+        local reference = "editor_project_save.level"
+        local path = assert(project:resolvePath(reference))
+
+        removeLevelFileArtifacts(path)
+
+        local app = EditorApp.new(nil, project)
+        app.level:addLObject(12, 34)
+
+        local saved, saveError =
+            app:saveCurrentDocumentAs(reference)
+
+        Assert.equal(true, saved)
+        Assert.equal(nil, saveError)
+        Assert.equal(reference, app.documentReference)
+        Assert.equal(path, app.document.path)
+        Assert.equal(false, app.document:isDirty())
+
+        local loaded, loadError =
+            LevelDocument.load(path)
+
+        Assert.equal(nil, loadError)
+        Assert.equal(12, loaded.level.lobjects[1].transform.x)
+        Assert.equal(34, loaded.level.lobjects[1].transform.y)
+
+        -- 이후 일반 Ctrl+S 계열 저장은 기억된 absolute path를 사용하지만
+        -- Editor-facing project reference는 그대로 유지한다.
+        app.level.lobjects[1].transform.x = 56
+
+        local savedAgain, saveAgainError =
+            app:saveCurrentDocument()
+
+        Assert.equal(true, savedAgain)
+        Assert.equal(nil, saveAgainError)
+        Assert.equal(reference, app.documentReference)
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor opens project document by relative reference",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local Project = require("editor.project")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local root =
+            love.filesystem.getSaveDirectory()
+            .. "/"
+            .. TEST_LEVEL_DIRECTORY
+
+        local project = assert(Project.new(root))
+        local reference = "editor_project_open.level"
+        local path = assert(project:resolvePath(reference))
+
+        removeLevelFileArtifacts(path)
+
+        local source = assert(LevelDocument.new())
+        source.level:addLObject(70, 90)
+
+        local saved = source:save(path)
+        Assert.equal(true, saved)
+
+        local app = EditorApp.new(nil, project)
+
+        local opened, openError =
+            app:openProjectDocument(reference)
+
+        Assert.equal(true, opened)
+        Assert.equal(nil, openError)
+        Assert.equal(reference, app.documentReference)
+        Assert.equal(path, app.document.path)
+        Assert.equal(70, app.level.lobjects[1].transform.x)
+        Assert.equal(90, app.level.lobjects[1].transform.y)
+        Assert.equal(false, app.document:isDirty())
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor project document commands require project",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local app = EditorApp.new()
+
+        local saved, saveError =
+            app:saveCurrentDocumentAs("levels/main.level")
+
+        Assert.equal(false, saved)
+        Assert.equal("editor has no project", saveError)
+
+        local opened, openError =
+            app:openProjectDocument("levels/main.level")
+
+        Assert.equal(false, opened)
+        Assert.equal("editor has no project", openError)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor rejects invalid project document reference",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local Project = require("editor.project")
+
+        local root =
+            love.filesystem.getSaveDirectory()
+            .. "/"
+            .. TEST_LEVEL_DIRECTORY
+
+        local project = assert(Project.new(root))
+        local app = EditorApp.new(nil, project)
+        local oldDocument = app.document
+        local oldLevel = app.level
+
+        local opened, err =
+            app:openProjectDocument("../outside.level")
+
+        Assert.equal(false, opened)
+        Assert.truthy(err)
+        Assert.equal(oldDocument, app.document)
+        Assert.equal(oldLevel, app.level)
+
+        local saved, saveError =
+            app:saveCurrentDocumentAs("../outside.level")
+
+        Assert.equal(false, saved)
+        Assert.truthy(saveError)
+        Assert.equal(nil, app.documentReference)
+    end
+}
 
 
 local TestRunner = {}

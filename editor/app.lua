@@ -6,12 +6,18 @@ local Inspector = require("editor.inspector")
 local EditorApp = {}
 EditorApp.__index = EditorApp
 
-function EditorApp.new(document)
+function EditorApp.new(document, project)
     local self = setmetatable({}, EditorApp)
 
     self.sceneView = SceneView.new()
     self.hierarchy = Hierarchy.new()
     self.inspector = Inspector.new()
+
+    -- Project는 Editor host가 소유한다.
+    -- LevelDocument는 실제 파일 path/dirty/save만 알고
+    -- project-relative reference의 해석은 EditorApp + Project가 담당한다.
+    self.project = project
+    self.documentReference = nil
 
     if not document then
         local newDocument, err = LevelDocument.new()
@@ -36,6 +42,10 @@ function EditorApp:setDocument(document)
     self.document = document
     self.level = document.level
 
+    -- absolute path로 직접 교체된 document는 어느 Project reference에서
+    -- 왔는지 알 수 없으므로 project-relative identity를 초기화한다.
+    self.documentReference = nil
+
     self.sceneView.level = self.level
     self.hierarchy.level = self.level
     self.inspector.level = self.level
@@ -50,7 +60,42 @@ end
 
 function EditorApp:saveCurrentDocument(path)
     self.inspector:commitEdit()
-    return self.document:save(path)
+
+    local saved, err = self.document:save(path)
+
+    if saved and path ~= nil then
+        -- 저수준 absolute path save는 Project reference와의 대응을
+        -- 보장할 수 없으므로 기존 reference를 버린다.
+        self.documentReference = nil
+    end
+
+    return saved, err
+end
+
+function EditorApp:saveCurrentDocumentAs(reference)
+    if not self.project then
+        return false, "editor has no project"
+    end
+
+    local path, resolveError =
+        self.project:resolvePath(reference)
+
+    if not path then
+        return false, resolveError
+    end
+
+    local saved, saveError =
+        self:saveCurrentDocument(path)
+
+    if not saved then
+        return false, saveError
+    end
+
+    -- serialized/editor-facing identity는 absolute path가 아니라
+    -- canonical project-relative reference로 유지한다.
+    self.documentReference = reference
+
+    return true
 end
 
 function EditorApp:openDocument(path, allowDiscard)
@@ -71,6 +116,30 @@ function EditorApp:openDocument(path, allowDiscard)
     end
 
     self:setDocument(document)
+
+    return true
+end
+
+function EditorApp:openProjectDocument(reference, allowDiscard)
+    if not self.project then
+        return false, "editor has no project"
+    end
+
+    local path, resolveError =
+        self.project:resolvePath(reference)
+
+    if not path then
+        return false, resolveError
+    end
+
+    local opened, openError =
+        self:openDocument(path, allowDiscard)
+
+    if not opened then
+        return false, openError
+    end
+
+    self.documentReference = reference
 
     return true
 end
