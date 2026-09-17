@@ -1470,6 +1470,141 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "project resolves canonical relative reference",
+
+    fn = function()
+        local Project = require("editor.project")
+
+        local project =
+            assert(Project.new("C:\\Games\\RhythmProject\\"))
+
+        Assert.equal(
+            "C:/Games/RhythmProject",
+            project.rootPath
+        )
+
+        local path, err =
+            project:resolvePath("levels/song01.level")
+
+        Assert.equal(nil, err)
+        Assert.equal(
+            "C:/Games/RhythmProject/levels/song01.level",
+            path
+        )
+    end
+}
+
+tests[#tests + 1] = {
+    name = "project rejects absolute asset references",
+
+    fn = function()
+        local Project = require("editor.project")
+        local project =
+            assert(Project.new("C:/Games/RhythmProject"))
+
+        local windowsPath, windowsError =
+            project:resolvePath(
+                "D:/OtherProject/levels/main.level"
+            )
+
+        Assert.equal(nil, windowsPath)
+        Assert.truthy(windowsError)
+
+        local unixPath, unixError =
+            project:resolvePath(
+                "/other/levels/main.level"
+            )
+
+        Assert.equal(nil, unixPath)
+        Assert.truthy(unixError)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "project rejects non canonical relative reference",
+
+    fn = function()
+        local Project = require("editor.project")
+        local project =
+            assert(Project.new("C:/Games/RhythmProject"))
+
+        local parentPath, parentError =
+            project:resolvePath("../main.level")
+
+        Assert.equal(nil, parentPath)
+        Assert.truthy(parentError)
+
+        local dotPath, dotError =
+            project:resolvePath("./levels/main.level")
+
+        Assert.equal(nil, dotPath)
+        Assert.truthy(dotError)
+
+        local backslashPath, backslashError =
+            project:resolvePath(
+                "levels\\main.level"
+            )
+
+        Assert.equal(nil, backslashPath)
+        Assert.truthy(backslashError)
+
+        local emptySegmentPath, emptySegmentError =
+            project:resolvePath(
+                "levels//main.level"
+            )
+
+        Assert.equal(nil, emptySegmentPath)
+        Assert.truthy(emptySegmentError)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "project preserves filesystem root when resolving",
+
+    fn = function()
+        local Project = require("editor.project")
+
+        local windowsProject =
+            assert(Project.new("C:/"))
+
+        local windowsPath =
+            windowsProject:resolvePath("levels/main.level")
+
+        Assert.equal(
+            "C:/levels/main.level",
+            windowsPath
+        )
+
+        local unixProject =
+            assert(Project.new("/"))
+
+        local unixPath =
+            unixProject:resolvePath("levels/main.level")
+
+        Assert.equal(
+            "/levels/main.level",
+            unixPath
+        )
+    end
+}
+
+
+tests[#tests + 1] = {
+    name = "project requires absolute root path",
+
+    fn = function()
+        local Project = require("editor.project")
+
+        local project, err =
+            Project.new("relative/project")
+
+        Assert.equal(nil, project)
+        Assert.truthy(err)
+    end
+}
+
+
 
 local TestRunner = {}
 
