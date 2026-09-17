@@ -1314,6 +1314,161 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "editor opens clean level document from path",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local path =
+            getLevelTestPath("editor_open_document")
+
+        removeLevelFileArtifacts(path)
+
+        local source = assert(LevelDocument.new())
+        source.level:addLObject(70, 80)
+
+        local saved, saveError =
+            source:save(path)
+
+        Assert.equal(true, saved)
+        Assert.equal(nil, saveError)
+
+        local app = EditorApp.new()
+
+        local opened, openError =
+            app:openDocument(path)
+
+        Assert.equal(true, opened)
+        Assert.equal(nil, openError)
+        Assert.equal(path, app.document.path)
+        Assert.equal(false, app.document:isDirty())
+        Assert.equal(1, #app.level.lobjects)
+        Assert.equal(70, app.level.lobjects[1].transform.x)
+        Assert.equal(80, app.level.lobjects[1].transform.y)
+        Assert.equal(app.level, app.sceneView.level)
+        Assert.equal(app.level, app.hierarchy.level)
+        Assert.equal(app.level, app.inspector.level)
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor refuses open when current document is dirty",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local path =
+            getLevelTestPath("editor_open_dirty_guard")
+
+        removeLevelFileArtifacts(path)
+
+        local source = assert(LevelDocument.new())
+        source.level:addLObject(100, 200)
+
+        local saved = source:save(path)
+        Assert.equal(true, saved)
+
+        local app = EditorApp.new()
+        local currentLObject =
+            app.level:addLObject(10, 20)
+
+        local oldDocument = app.document
+
+        local opened, err =
+            app:openDocument(path)
+
+        Assert.equal(false, opened)
+        Assert.equal(
+            "current level has unsaved changes",
+            err
+        )
+
+        Assert.equal(oldDocument, app.document)
+        Assert.equal(currentLObject, app.level.lobjects[1])
+        Assert.equal(10, app.level.lobjects[1].transform.x)
+        Assert.equal(true, app.document:isDirty())
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor can explicitly discard dirty document when opening",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local path =
+            getLevelTestPath("editor_open_discard")
+
+        removeLevelFileArtifacts(path)
+
+        local source = assert(LevelDocument.new())
+        source.level:addLObject(30, 40)
+
+        local saved = source:save(path)
+        Assert.equal(true, saved)
+
+        local app = EditorApp.new()
+        app.level:addLObject(999, 999)
+
+        local opened, err =
+            app:openDocument(path, true)
+
+        Assert.equal(true, opened)
+        Assert.equal(nil, err)
+        Assert.equal(path, app.document.path)
+        Assert.equal(false, app.document:isDirty())
+        Assert.equal(1, #app.level.lobjects)
+        Assert.equal(30, app.level.lobjects[1].transform.x)
+        Assert.equal(40, app.level.lobjects[1].transform.y)
+
+        removeLevelFileArtifacts(path)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "failed editor open preserves current document",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+
+        local path =
+            getLevelTestPath("editor_open_invalid")
+
+        removeLevelFileArtifacts(path)
+
+        local file = assert(io.open(path, "wb"))
+        file:write('{"formatVersion":1,"lobjects":[')
+        file:close()
+
+        local app = EditorApp.new()
+        local oldDocument = app.document
+        local oldLevel = app.level
+
+        local opened, err =
+            app:openDocument(path)
+
+        Assert.equal(false, opened)
+        Assert.truthy(err)
+        Assert.equal(oldDocument, app.document)
+        Assert.equal(oldLevel, app.level)
+        Assert.equal(oldLevel, app.sceneView.level)
+        Assert.equal(oldLevel, app.hierarchy.level)
+        Assert.equal(oldLevel, app.inspector.level)
+
+        removeLevelFileArtifacts(path)
+    end
+}
 
 
 local TestRunner = {}
