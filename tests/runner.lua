@@ -2616,6 +2616,149 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "level lobject preserves definition reference when duplicated",
+
+    fn = function()
+        local Level = require("editor.level")
+
+        local level = Level.new()
+
+        local original, addError =
+            level:addLObject(
+                10,
+                20,
+                "player"
+            )
+
+        Assert.equal(nil, addError)
+        Assert.truthy(original)
+        Assert.equal(
+            "player",
+            original.definitionReference
+        )
+
+        local duplicate =
+            level:duplicateLObject(
+                original,
+                30,
+                40
+            )
+
+        Assert.truthy(duplicate)
+        Assert.equal(
+            "player",
+            duplicate.definitionReference
+        )
+        Assert.equal(30, duplicate.transform.x)
+        Assert.equal(40, duplicate.transform.y)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "level serialization preserves definition reference",
+
+    fn = function()
+        local Level = require("editor.level")
+
+        local level = Level.new()
+
+        assert(
+            level:addLObject(
+                10,
+                20,
+                "enemy.basic"
+            )
+        )
+
+        local data = level:toData()
+
+        Assert.equal(
+            "enemy.basic",
+            data.lobjects[1].definitionReference
+        )
+
+        local loaded, loadError =
+            Level.fromData(data)
+
+        Assert.equal(nil, loadError)
+        Assert.truthy(loaded)
+        Assert.equal(
+            "enemy.basic",
+            loaded.lobjects[1].definitionReference
+        )
+    end
+}
+
+tests[#tests + 1] = {
+    name = "runtime lobject keeps level definition reference",
+
+    fn = function()
+        local Level = require("editor.level")
+        local World = require("core.world")
+
+        local level = Level.new()
+
+        assert(
+            level:addLObject(
+                10,
+                20,
+                "player"
+            )
+        )
+
+        local world, worldError =
+            World.fromLevelData(
+                level:toData()
+            )
+
+        Assert.equal(nil, worldError)
+        Assert.truthy(world)
+        Assert.equal(
+            "player",
+            world.lobjects[1].definitionReference
+        )
+    end
+}
+
+tests[#tests + 1] = {
+    name = "level and runtime reject invalid definition reference",
+
+    fn = function()
+        local Level = require("editor.level")
+        local LObject = require("core.lobject")
+
+        local level = Level.new()
+
+        local added, addError =
+            level:addLObject(
+                10,
+                20,
+                ""
+            )
+
+        Assert.equal(nil, added)
+        Assert.truthy(addError)
+        Assert.equal(0, #level.lobjects)
+        Assert.equal(1, level.nextAuthoringId)
+
+        local runtimeLObject, runtimeError =
+            LObject.new(
+                1,
+                {
+                    definitionReference = "",
+                    transform = {
+                        x = 10,
+                        y = 20
+                    }
+                }
+            )
+
+        Assert.equal(nil, runtimeLObject)
+        Assert.truthy(runtimeError)
+    end
+}
+
 
 local TestRunner = {}
 

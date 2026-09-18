@@ -9,6 +9,21 @@ local function isPositiveInteger(value)
         and value % 1 == 0
 end
 
+local function validateDefinitionReference(reference)
+    if reference == nil then
+        return true
+    end
+
+    if type(reference) ~= "string"
+        or reference == ""
+    then
+        return false,
+            "lobject definitionReference must be a non-empty string"
+    end
+
+    return true
+end
+
 local function validateLObjectData(data, usedAuthoringIds)
     if type(data) ~= "table" then
         return nil, "lobject must be a table"
@@ -20,6 +35,13 @@ local function validateLObjectData(data, usedAuthoringIds)
 
     if usedAuthoringIds[data.authoringId] then
         return nil, "duplicate lobject authoringId"
+    end
+
+    local validDefinitionReference, definitionReferenceError =
+        validateDefinitionReference(data.definitionReference)
+
+    if not validDefinitionReference then
+        return nil, definitionReferenceError
     end
 
     if type(data.transform) ~= "table" then
@@ -39,6 +61,7 @@ local function validateLObjectData(data, usedAuthoringIds)
     -- 필요한 값만 새 table로 복사한다.
     return {
         authoringId = data.authoringId,
+        definitionReference = data.definitionReference,
         transform = {
             x = data.transform.x,
             y = data.transform.y
@@ -59,31 +82,46 @@ function Level.new()
     return self
 end
 
-function Level:addLObject(x, y)
+function Level:addLObject(x, y, definitionReference)
+    local validDefinitionReference, definitionReferenceError =
+        validateDefinitionReference(definitionReference)
+
+    if not validDefinitionReference then
+        return nil, definitionReferenceError
+    end
+
     local instance = {
         authoringId = self.nextAuthoringId,
+        definitionReference = definitionReference,
         transform = {
             x = x,
             y = y
         }
     }
 
-    self.nextAuthoringId = self.nextAuthoringId + 1
-    self.lobjects[#self.lobjects + 1] = instance
+    self.nextAuthoringId =
+        self.nextAuthoringId + 1
+
+    self.lobjects[#self.lobjects + 1] =
+        instance
 
     return instance
 end
 
 function Level:duplicateLObject(target, x, y)
     -- 복제본은 원본과 다른 stable authoring identity를 가져야 한다.
-    -- mutable Transform도 addLObject를 통해 새 table로 만든다.
+    -- source identity는 유지하고 mutable Transform은 새 table로 만든다.
     for _, lobject in ipairs(self.lobjects) do
         if lobject == target then
             local transform = lobject.transform
             local duplicateX = x or transform.x
             local duplicateY = y or transform.y
 
-            return self:addLObject(duplicateX, duplicateY)
+            return self:addLObject(
+                duplicateX,
+                duplicateY,
+                lobject.definitionReference
+            )
         end
     end
 
@@ -112,6 +150,8 @@ function Level:toData()
         -- serialization 전용 plain data를 새로 만든다.
         lobjects[i] = {
             authoringId = lobject.authoringId,
+            definitionReference =
+                lobject.definitionReference,
             transform = {
                 x = lobject.transform.x,
                 y = lobject.transform.y
@@ -146,16 +186,24 @@ function Level.fromData(data)
     -- 중간에 실패해도 반쯤 구성된 Level을 외부에 노출하지 않는다.
     for i, lobjectData in ipairs(data.lobjects) do
         local lobject, err =
-            validateLObjectData(lobjectData, usedAuthoringIds)
+            validateLObjectData(
+                lobjectData,
+                usedAuthoringIds
+            )
 
         if not lobject then
-            return nil, "invalid lobject " .. i .. ": " .. err
+            return nil,
+                "invalid lobject "
+                .. i
+                .. ": "
+                .. err
         end
 
         validatedLObjects[i] = lobject
 
         if lobject.authoringId > maxAuthoringId then
-            maxAuthoringId = lobject.authoringId
+            maxAuthoringId =
+                lobject.authoringId
         end
     end
 
@@ -165,7 +213,8 @@ function Level.fromData(data)
     -- 저장 시 nextAuthoringId 자체를 직렬화하지 않고,
     -- 가장 큰 stable ID 다음 값으로 복원한다.
     -- 따라서 삭제된 ID를 load 뒤에도 재사용하지 않는다.
-    level.nextAuthoringId = maxAuthoringId + 1
+    level.nextAuthoringId =
+        maxAuthoringId + 1
 
     return level
 end
