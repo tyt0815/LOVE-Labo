@@ -2391,6 +2391,98 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "runtime world update advances elapsed time",
+
+    fn = function()
+        local World = require("core.world")
+
+        local world = World.new()
+
+        Assert.equal(0, world.elapsedTime)
+
+        local updated, updateError =
+            world:update(0.25)
+
+        Assert.equal(true, updated)
+        Assert.equal(nil, updateError)
+        Assert.equal(0.25, world.elapsedTime)
+
+        Assert.equal(true, world:update(0.5))
+        Assert.equal(0.75, world.elapsedTime)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "runtime world rejects invalid delta time",
+
+    fn = function()
+        local World = require("core.world")
+
+        local world = World.new()
+
+        local updated, err =
+            world:update(-0.1)
+
+        Assert.equal(false, updated)
+        Assert.truthy(err)
+        Assert.equal(0, world.elapsedTime)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor update advances runtime only while playing",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+
+        local app = EditorApp.new()
+        app.level:addLObject(10, 20)
+
+        -- Edit mode에서는 Runtime World 자체가 없으므로
+        -- update가 authoring state를 변경하지 않는다.
+        local updatedBeforePlay =
+            app:update(0.25)
+
+        Assert.equal(nil, updatedBeforePlay)
+        Assert.equal(false, app:isPlaying())
+
+        Assert.equal(true, app:startPlay())
+        Assert.equal(0, app.runtimeWorld.elapsedTime)
+
+        local updated, updateError =
+            app:update(0.25)
+
+        Assert.equal(true, updated)
+        Assert.equal(nil, updateError)
+        Assert.equal(0.25, app.runtimeWorld.elapsedTime)
+
+        Assert.equal(true, app:update(0.5))
+        Assert.equal(0.75, app.runtimeWorld.elapsedTime)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor replay starts with fresh runtime clock",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+
+        local app = EditorApp.new()
+        app.level:addLObject(10, 20)
+
+        Assert.equal(true, app:startPlay())
+        Assert.equal(true, app:update(1.5))
+        Assert.equal(1.5, app.runtimeWorld.elapsedTime)
+
+        Assert.equal(true, app:stopPlay())
+        Assert.equal(true, app:startPlay())
+
+        -- 새 Play session은 새 World이므로 Runtime clock도 초기화된다.
+        Assert.equal(0, app.runtimeWorld.elapsedTime)
+    end
+}
+
 
 local TestRunner = {}
 

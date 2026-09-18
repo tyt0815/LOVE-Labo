@@ -278,6 +278,11 @@ function EditorApp:updateSceneViewport()
 end
 
 function EditorApp:update(dt)
+    if not self.runtimeWorld then
+        return
+    end
+
+    return self.runtimeWorld:update(dt)
 end
 
 function EditorApp:draw()

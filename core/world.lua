@@ -15,6 +15,19 @@ local function validateTransform(transform)
     return true
 end
 
+local function validateDeltaTime(dt)
+    if type(dt) ~= "number"
+        or dt < 0
+        or dt ~= dt
+        or dt == math.huge
+        or dt == -math.huge
+    then
+        return false, "runtime delta time must be a finite non-negative number"
+    end
+
+    return true
+end
+
 local function copyRuntimeInitialState(lobjectData)
     if type(lobjectData) ~= "table" then
         return nil, "runtime initial lobject must be a table"
@@ -43,6 +56,10 @@ function World.new()
     self.lobjects = {}
     self.nextRuntimeId = 1
 
+    -- Play session 안에서만 진행되는 Runtime clock이다.
+    -- 새 World가 생성될 때마다 0부터 다시 시작한다.
+    self.elapsedTime = 0
+
     return self
 end
 
@@ -63,6 +80,22 @@ function World:addLObject(initialState)
     self.lobjects[#self.lobjects + 1] = lobject
 
     return lobject
+end
+
+function World:update(dt)
+    local valid, validationError =
+        validateDeltaTime(dt)
+
+    if not valid then
+        return false, validationError
+    end
+
+    -- 아직 Project Lua/Component update lifecycle은 없다.
+    -- 지금은 World가 매 frame Runtime 시간만 소유하고 진행시키며,
+    -- 이후 gameplay update가 들어올 명확한 경계를 만든다.
+    self.elapsedTime = self.elapsedTime + dt
+
+    return true
 end
 
 function World.fromLevelData(levelData)
