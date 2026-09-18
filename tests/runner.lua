@@ -2483,6 +2483,139 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "runtime lobject owns copied transform state",
+
+    fn = function()
+        local LObject =
+            require("core.lobject")
+
+        local initialState = {
+            transform = {
+                x = 10,
+                y = 20
+            }
+        }
+
+        local lobject, createError =
+            LObject.new(7, initialState)
+
+        Assert.equal(nil, createError)
+        Assert.truthy(lobject)
+        Assert.equal(7, lobject.runtimeId)
+        Assert.equal(10, lobject.transform.x)
+        Assert.equal(20, lobject.transform.y)
+
+        initialState.transform.x = 999
+
+        Assert.equal(10, lobject.transform.x)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "runtime world owns runtime lobject instances",
+
+    fn = function()
+        local LObject =
+            require("core.lobject")
+
+        local World =
+            require("core.world")
+
+        local world = assert(
+            World.fromLevelData({
+                lobjects = {
+                    {
+                        transform = {
+                            x = 10,
+                            y = 20
+                        }
+                    }
+                }
+            })
+        )
+
+        local lobject =
+            world.lobjects[1]
+
+        Assert.equal(
+            LObject,
+            getmetatable(lobject)
+        )
+
+        Assert.equal(1, lobject.runtimeId)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "runtime world delegates update to lobjects",
+
+    fn = function()
+        local World =
+            require("core.world")
+
+        local world = World.new()
+
+        local lobject = assert(
+            world:addLObject({
+                transform = {
+                    x = 10,
+                    y = 20
+                }
+            })
+        )
+
+        local receivedDt = nil
+
+        lobject.update =
+            function(self, dt)
+                receivedDt = dt
+            end
+
+        local updated, updateError =
+            world:update(0.25)
+
+        Assert.equal(true, updated)
+        Assert.equal(nil, updateError)
+        Assert.equal(0.25, receivedDt)
+        Assert.equal(0.25, world.elapsedTime)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "runtime world reports lobject update failure",
+
+    fn = function()
+        local World =
+            require("core.world")
+
+        local world = World.new()
+
+        local lobject = assert(
+            world:addLObject({
+                transform = {
+                    x = 10,
+                    y = 20
+                }
+            })
+        )
+
+        lobject.update =
+            function(self, dt)
+                return false, "test failure"
+            end
+
+        local updated, err =
+            world:update(0.25)
+
+        Assert.equal(false, updated)
+        Assert.truthy(err)
+
+        -- 실패한 frame은 Runtime clock의 정상 진행으로 취급하지 않는다.
+        Assert.equal(0, world.elapsedTime)
+    end
+}
+
 
 local TestRunner = {}
 

@@ -1,19 +1,7 @@
+local LObject = require("core.lobject")
+
 local World = {}
 World.__index = World
-
-local function validateTransform(transform)
-    if type(transform) ~= "table" then
-        return false, "runtime initial transform must be a table"
-    end
-
-    if type(transform.x) ~= "number"
-        or type(transform.y) ~= "number"
-    then
-        return false, "runtime initial transform x/y must be numbers"
-    end
-
-    return true
-end
 
 local function validateDeltaTime(dt)
     if type(dt) ~= "number"
@@ -26,28 +14,6 @@ local function validateDeltaTime(dt)
     end
 
     return true
-end
-
-local function copyRuntimeInitialState(lobjectData)
-    if type(lobjectData) ~= "table" then
-        return nil, "runtime initial lobject must be a table"
-    end
-
-    local validTransform, transformError =
-        validateTransform(lobjectData.transform)
-
-    if not validTransform then
-        return nil, transformError
-    end
-
-    -- Runtime mutable state가 Level/serialization data와 table reference를
-    -- 공유하지 않도록 현재 필요한 Transform 값을 새 table로 복사한다.
-    return {
-        transform = {
-            x = lobjectData.transform.x,
-            y = lobjectData.transform.y
-        }
-    }
 end
 
 function World.new()
@@ -64,20 +30,21 @@ function World.new()
 end
 
 function World:addLObject(initialState)
-    local copiedState, copyError =
-        copyRuntimeInitialState(initialState)
+    local lobject, createError =
+        LObject.new(
+            self.nextRuntimeId,
+            initialState
+        )
 
-    if not copiedState then
-        return nil, copyError
+    if not lobject then
+        return nil, createError
     end
 
-    local lobject = {
-        runtimeId = self.nextRuntimeId,
-        transform = copiedState.transform
-    }
+    self.nextRuntimeId =
+        self.nextRuntimeId + 1
 
-    self.nextRuntimeId = self.nextRuntimeId + 1
-    self.lobjects[#self.lobjects + 1] = lobject
+    self.lobjects[#self.lobjects + 1] =
+        lobject
 
     return lobject
 end
@@ -90,10 +57,24 @@ function World:update(dt)
         return false, validationError
     end
 
-    -- 아직 Project Lua/Component update lifecycle은 없다.
-    -- 지금은 World가 매 frame Runtime 시간만 소유하고 진행시키며,
-    -- 이후 gameplay update가 들어올 명확한 경계를 만든다.
-    self.elapsedTime = self.elapsedTime + dt
+    -- World가 Runtime LObject lifecycle의 호출 순서를 소유한다.
+    -- LObject:update()가 false를 명시적으로 반환한 경우만 실패로 취급한다.
+    -- 일반적인 Lua callback처럼 nil을 반환하는 update는 정상 완료로 본다.
+    for _, lobject in ipairs(self.lobjects) do
+        local updated, updateError =
+            lobject:update(dt)
+
+        if updated == false then
+            return false,
+                "runtime lobject "
+                .. lobject.runtimeId
+                .. " update failed: "
+                .. tostring(updateError)
+        end
+    end
+
+    self.elapsedTime =
+        self.elapsedTime + dt
 
     return true
 end
@@ -107,36 +88,31 @@ function World.fromLevelData(levelData)
         return nil, "level runtime lobjects must be a table"
     end
 
-    -- 먼저 모든 runtime initial state를 검증/복사한다.
-    -- 중간 실패 시 반쯤 만들어진 World를 외부에 노출하지 않는다.
-    local copiedStates = {}
+    local runtimeLObjects = {}
 
+    -- 모든 Runtime LObject를 먼저 생성한다.
+    -- 중간에 하나라도 실패하면 반쯤 만들어진 World를 외부에 노출하지 않는다.
     for i, lobjectData in ipairs(levelData.lobjects) do
-        local copiedState, copyError =
-            copyRuntimeInitialState(lobjectData)
+        local lobject, createError =
+            LObject.new(i, lobjectData)
 
-        if not copiedState then
+        if not lobject then
             return nil,
                 "invalid runtime lobject "
                 .. i
                 .. ": "
-                .. copyError
+                .. createError
         end
 
-        copiedStates[i] = copiedState
+        runtimeLObjects[i] =
+            lobject
     end
 
     local world = World.new()
 
-    for _, copiedState in ipairs(copiedStates) do
-        local lobject = {
-            runtimeId = world.nextRuntimeId,
-            transform = copiedState.transform
-        }
-
-        world.nextRuntimeId = world.nextRuntimeId + 1
-        world.lobjects[#world.lobjects + 1] = lobject
-    end
+    world.lobjects = runtimeLObjects
+    world.nextRuntimeId =
+        #runtimeLObjects + 1
 
     return world
 end
