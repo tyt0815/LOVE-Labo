@@ -2176,6 +2176,221 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "game view maps runtime world position into viewport",
+
+    fn = function()
+        local GameView =
+            require("editor.game_view")
+
+        local gameView =
+            GameView.new()
+
+        gameView:setViewport(
+            200,
+            30,
+            640,
+            480
+        )
+
+        local screenX, screenY =
+            gameView:worldToScreen(
+                50,
+                75
+            )
+
+        Assert.equal(250, screenX)
+        Assert.equal(105, screenY)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor active center view switches during play",
+
+    fn = function()
+        local EditorApp =
+            require("editor.app")
+
+        local app =
+            EditorApp.new()
+
+        Assert.equal(
+            app.sceneView,
+            app:getActiveCenterView()
+        )
+
+        app.level:addLObject(10, 20)
+
+        Assert.equal(
+            true,
+            app:startPlay()
+        )
+
+        Assert.equal(
+            app.gameView,
+            app:getActiveCenterView()
+        )
+
+        Assert.equal(
+            true,
+            app:stopPlay()
+        )
+
+        Assert.equal(
+            app.sceneView,
+            app:getActiveCenterView()
+        )
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor f5 toggles play and stop",
+
+    fn = function()
+        local EditorApp =
+            require("editor.app")
+
+        local app =
+            EditorApp.new()
+
+        app.level:addLObject(10, 20)
+
+        local oldIsDown =
+            love.keyboard.isDown
+
+        love.keyboard.isDown =
+            function(...)
+                return false
+            end
+
+        local startOk,
+            started,
+            startError =
+            pcall(function()
+                return app:keypressed("f5")
+            end)
+
+        if not startOk then
+            love.keyboard.isDown =
+                oldIsDown
+
+            error(started)
+        end
+
+        Assert.equal(true, started)
+        Assert.equal(nil, startError)
+        Assert.equal(true, app:isPlaying())
+
+        local stopOk,
+            stopped,
+            stopError =
+            pcall(function()
+                return app:keypressed("f5")
+            end)
+
+        love.keyboard.isDown =
+            oldIsDown
+
+        if not stopOk then
+            error(stopped)
+        end
+
+        Assert.equal(true, stopped)
+        Assert.equal(nil, stopError)
+        Assert.equal(false, app:isPlaying())
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor blocks authoring keyboard shortcuts while playing",
+
+    fn = function()
+        local EditorApp =
+            require("editor.app")
+
+        local app =
+            EditorApp.new()
+
+        local original =
+            app.level:addLObject(10, 20)
+
+        app.sceneView.selectedLObject =
+            original
+
+        Assert.equal(
+            true,
+            app:startPlay()
+        )
+
+        local oldIsDown =
+            love.keyboard.isDown
+
+        love.keyboard.isDown =
+            function(...)
+                return false
+            end
+
+        local callOk, callError =
+            pcall(function()
+                app:keypressed("delete")
+            end)
+
+        love.keyboard.isDown =
+            oldIsDown
+
+        if not callOk then
+            error(callError)
+        end
+
+        -- Game View가 활성화된 동안 Delete가
+        -- 숨겨진 authoring Level을 수정하면 안 된다.
+        Assert.equal(
+            1,
+            #app.level.lobjects
+        )
+
+        Assert.equal(
+            original,
+            app.level.lobjects[1]
+        )
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor play start clears active scene drag state",
+
+    fn = function()
+        local EditorApp =
+            require("editor.app")
+
+        local app =
+            EditorApp.new()
+
+        app.level:addLObject(10, 20)
+
+        app.sceneView.isDraggingLObject =
+            true
+
+        app.sceneView.isPanning =
+            true
+
+        Assert.equal(
+            true,
+            app:startPlay()
+        )
+
+        Assert.equal(
+            false,
+            app.sceneView.isDraggingLObject
+        )
+
+        Assert.equal(
+            false,
+            app.sceneView.isPanning
+        )
+    end
+}
+
 
 local TestRunner = {}
 
