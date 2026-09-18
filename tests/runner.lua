@@ -2045,6 +2045,137 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "editor play builds runtime world from current level",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+
+        local app = EditorApp.new()
+        local authoringLObject =
+            app.level:addLObject(10, 20)
+
+        local started, startError =
+            app:startPlay()
+
+        Assert.equal(true, started)
+        Assert.equal(nil, startError)
+        Assert.equal(true, app:isPlaying())
+        Assert.truthy(app.runtimeWorld)
+        Assert.equal(1, #app.runtimeWorld.lobjects)
+
+        local runtimeLObject =
+            app.runtimeWorld.lobjects[1]
+
+        Assert.equal(10, runtimeLObject.transform.x)
+        Assert.equal(20, runtimeLObject.transform.y)
+
+        -- Runtime과 authoring은 서로 write-back하지 않는다.
+        runtimeLObject.transform.x = 100
+        Assert.equal(10, authoringLObject.transform.x)
+
+        authoringLObject.transform.y = 200
+        Assert.equal(20, runtimeLObject.transform.y)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor stop discards runtime world and replay rebuilds it",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+
+        local app = EditorApp.new()
+        local authoringLObject =
+            app.level:addLObject(10, 20)
+
+        Assert.equal(true, app:startPlay())
+
+        local firstWorld = app.runtimeWorld
+        firstWorld.lobjects[1].transform.x = 999
+
+        local stopped, stopError =
+            app:stopPlay()
+
+        Assert.equal(true, stopped)
+        Assert.equal(nil, stopError)
+        Assert.equal(false, app:isPlaying())
+        Assert.equal(nil, app.runtimeWorld)
+
+        -- Stop은 Runtime 값을 Level로 되돌려 쓰지 않는다.
+        Assert.equal(10, authoringLObject.transform.x)
+
+        -- 다음 Play는 현재 authoring state에서 새 World를 만든다.
+        authoringLObject.transform.x = 30
+
+        Assert.equal(true, app:startPlay())
+        Assert.truthy(app.runtimeWorld ~= firstWorld)
+        Assert.equal(
+            30,
+            app.runtimeWorld.lobjects[1].transform.x
+        )
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor play commits inspector edit before snapshot",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+
+        local app = EditorApp.new()
+        local lobject =
+            app.level:addLObject(10, 20)
+
+        app.inspector:beginEdit("x", lobject)
+        app.inspector:textinput("42")
+
+        Assert.equal(10, lobject.transform.x)
+
+        local started, startError =
+            app:startPlay()
+
+        Assert.equal(true, started)
+        Assert.equal(nil, startError)
+        Assert.equal(42, lobject.transform.x)
+        Assert.equal(
+            42,
+            app.runtimeWorld.lobjects[1].transform.x
+        )
+        Assert.equal(false, app.inspector:isEditing())
+    end
+}
+
+tests[#tests + 1] = {
+    name = "editor document change stops active play world",
+
+    fn = function()
+        local EditorApp = require("editor.app")
+        local LevelDocument =
+            require("editor.level_document")
+
+        local app = EditorApp.new()
+        app.level:addLObject(10, 20)
+
+        Assert.equal(true, app:startPlay())
+        Assert.equal(true, app:isPlaying())
+
+        local nextDocument =
+            assert(LevelDocument.new())
+
+        nextDocument.level:addLObject(30, 40)
+
+        local changed =
+            app:setDocument(nextDocument)
+
+        Assert.equal(true, changed)
+        Assert.equal(false, app:isPlaying())
+        Assert.equal(nil, app.runtimeWorld)
+        Assert.equal(nextDocument, app.document)
+        Assert.equal(30, app.level.lobjects[1].transform.x)
+    end
+}
+
 
 local TestRunner = {}
 

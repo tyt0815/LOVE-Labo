@@ -1,3 +1,4 @@
+local World = require("core.world")
 local LevelDocument = require("editor.level_document")
 local SceneView = require("editor.scene_view")
 local Hierarchy = require("editor.hierarchy")
@@ -13,11 +14,12 @@ function EditorApp.new(document, project)
     self.hierarchy = Hierarchy.new()
     self.inspector = Inspector.new()
 
-    -- Project는 Editor host가 소유한다.
-    -- LevelDocument는 실제 파일 path/dirty/save만 알고
-    -- project-relative reference의 해석은 EditorApp + Project가 담당한다.
     self.project = project
     self.documentReference = nil
+
+    -- Play 중에만 존재하는 Runtime World다.
+    -- authoring Level과 별도 mutable state를 소유하며 Stop 시 폐기한다.
+    self.runtimeWorld = nil
 
     if not document then
         local newDocument, err = LevelDocument.new()
@@ -39,11 +41,12 @@ function EditorApp:setDocument(document)
         return false
     end
 
+    -- Runtime World는 현재 document의 Level snapshot에서 만들어진다.
+    -- document가 바뀌면 이전 Runtime은 폐기한다.
+    self.runtimeWorld = nil
+
     self.document = document
     self.level = document.level
-
-    -- absolute path로 직접 교체된 document는 어느 Project reference에서
-    -- 왔는지 알 수 없으므로 project-relative identity를 초기화한다.
     self.documentReference = nil
 
     self.sceneView.level = self.level
@@ -58,14 +61,48 @@ function EditorApp:setDocument(document)
     return true
 end
 
+function EditorApp:isPlaying()
+    return self.runtimeWorld ~= nil
+end
+
+function EditorApp:startPlay()
+    if self:isPlaying() then
+        return false, "editor is already playing"
+    end
+
+    -- Inspector의 transient edit을 authoring Level에 먼저 확정한 뒤
+    -- 그 시점의 Level snapshot으로 Runtime World를 만든다.
+    self.inspector:commitEdit()
+
+    local world, worldError =
+        World.fromLevelData(self.level:toData())
+
+    if not world then
+        return false, worldError
+    end
+
+    self.runtimeWorld = world
+
+    return true
+end
+
+function EditorApp:stopPlay()
+    if not self:isPlaying() then
+        return false, "editor is not playing"
+    end
+
+    -- Runtime 변경을 authoring Level에 write-back하지 않고 통째로 폐기한다.
+    self.runtimeWorld = nil
+
+    return true
+end
+
 function EditorApp:saveCurrentDocument(path)
     self.inspector:commitEdit()
 
     local saved, err = self.document:save(path)
 
     if saved and path ~= nil then
-        -- 저수준 absolute path save는 Project reference와의 대응을
-        -- 보장할 수 없으므로 기존 reference를 버린다.
         self.documentReference = nil
     end
 
@@ -91,8 +128,6 @@ function EditorApp:saveCurrentDocumentAs(reference)
         return false, saveError
     end
 
-    -- serialized/editor-facing identity는 absolute path가 아니라
-    -- canonical project-relative reference로 유지한다.
     self.documentReference = reference
 
     return true
@@ -110,7 +145,6 @@ function EditorApp:createProjectDocument(reference, allowDiscard)
         return false, resolveError
     end
 
-    -- 아직 commit되지 않은 Inspector 값도 현재 document의 dirty 검사에 포함한다.
     self.inspector:commitEdit()
 
     local dirty = self.document:isDirty()
@@ -119,8 +153,6 @@ function EditorApp:createProjectDocument(reference, allowDiscard)
         return false, "current level has unsaved changes"
     end
 
-    -- 새 asset을 disk에 완전히 생성한 뒤에만 현재 document를 교체한다.
-    -- 기존 파일이 있거나 save가 실패하면 현재 작업 상태는 유지된다.
     local document, createError =
         LevelDocument.create(path)
 
@@ -135,7 +167,6 @@ function EditorApp:createProjectDocument(reference, allowDiscard)
 end
 
 function EditorApp:openDocument(path, allowDiscard)
-    -- 아직 commit되지 않은 Inspector 값도 unsaved 검사에 포함한다.
     self.inspector:commitEdit()
 
     local dirty = self.document:isDirty()
@@ -144,7 +175,6 @@ function EditorApp:openDocument(path, allowDiscard)
         return false, "current level has unsaved changes"
     end
 
-    -- target이 완전히 load/validate된 뒤에만 현재 document를 교체한다.
     local document, loadError = LevelDocument.load(path)
 
     if not document then
