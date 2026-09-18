@@ -1915,6 +1915,136 @@ tests[#tests + 1] = {
     end
 }
 
+tests[#tests + 1] = {
+    name = "runtime world builds independent lobjects from level data",
+
+    fn = function()
+        local Level = require("editor.level")
+        local World = require("core.world")
+
+        local level = Level.new()
+        local authoringLObject =
+            level:addLObject(10, 20)
+
+        local levelData = level:toData()
+        local world, worldError =
+            World.fromLevelData(levelData)
+
+        Assert.equal(nil, worldError)
+        Assert.truthy(world)
+        Assert.equal(1, #world.lobjects)
+
+        local runtimeLObject = world.lobjects[1]
+
+        Assert.equal(1, runtimeLObject.runtimeId)
+        Assert.equal(10, runtimeLObject.transform.x)
+        Assert.equal(20, runtimeLObject.transform.y)
+
+        -- Runtime mutation이 authoring Level 또는 중간 data snapshot에
+        -- write-back되면 안 된다.
+        runtimeLObject.transform.x = 100
+        runtimeLObject.transform.y = 200
+
+        Assert.equal(10, authoringLObject.transform.x)
+        Assert.equal(20, authoringLObject.transform.y)
+        Assert.equal(10, levelData.lobjects[1].transform.x)
+        Assert.equal(20, levelData.lobjects[1].transform.y)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "runtime world assigns independent runtime identities",
+
+    fn = function()
+        local Level = require("editor.level")
+        local World = require("core.world")
+
+        local level = Level.new()
+        level:addLObject(10, 20)
+        level:addLObject(30, 40)
+
+        local world = assert(
+            World.fromLevelData(level:toData())
+        )
+
+        Assert.equal(2, #world.lobjects)
+        Assert.equal(1, world.lobjects[1].runtimeId)
+        Assert.equal(2, world.lobjects[2].runtimeId)
+
+        local added, addError =
+            world:addLObject({
+                transform = {
+                    x = 50,
+                    y = 60
+                }
+            })
+
+        Assert.equal(nil, addError)
+        Assert.truthy(added)
+        Assert.equal(3, added.runtimeId)
+        Assert.equal(3, #world.lobjects)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "runtime world copies state passed to add lobject",
+
+    fn = function()
+        local World = require("core.world")
+
+        local initialState = {
+            transform = {
+                x = 15,
+                y = 25
+            }
+        }
+
+        local world = World.new()
+        local lobject = assert(
+            world:addLObject(initialState)
+        )
+
+        initialState.transform.x = 999
+
+        Assert.equal(15, lobject.transform.x)
+
+        lobject.transform.y = 888
+
+        Assert.equal(25, initialState.transform.y)
+    end
+}
+
+tests[#tests + 1] = {
+    name = "runtime world rejects invalid level data atomically",
+
+    fn = function()
+        local World = require("core.world")
+
+        local invalid = {
+            lobjects = {
+                {
+                    transform = {
+                        x = 10,
+                        y = 20
+                    }
+                },
+                {
+                    transform = {
+                        x = "invalid",
+                        y = 40
+                    }
+                }
+            }
+        }
+
+        local world, err =
+            World.fromLevelData(invalid)
+
+        Assert.equal(nil, world)
+        Assert.truthy(err)
+    end
+}
+
 
 local TestRunner = {}
 
