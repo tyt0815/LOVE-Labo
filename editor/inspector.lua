@@ -249,6 +249,7 @@ function Inspector:keypressed(key)
 end
 
 function Inspector:drawField(label, field, y, selectedLObject, left)
+    PropertyLayout.separators(left, self.width, y - 3)
     local labelRect, rect, reset = PropertyLayout.cells(left, self.width, y - 3)
     local isActive =
         self.activeField == field

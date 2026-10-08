@@ -209,6 +209,7 @@ function ClassInspector:draw()
         if row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             PropertyLayout.group(self.left, self.width, y, row.groupHeight, row.label, row.objectGroup and self.objectExpanded or not row.objectGroup and self.expanded[row.component])
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
+            PropertyLayout.separators(self.left, self.width, y)
             local declaration = self.class.properties[name]
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end

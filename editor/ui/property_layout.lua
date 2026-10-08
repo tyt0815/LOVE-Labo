@@ -7,6 +7,15 @@ function Layout.cells(left, width, top)
     return {x = labelLeft, y = top + 3 + (26 - love.graphics.getFont():getHeight()) / 2, w = math.max(0, split - labelLeft - 8), h = 20},
         {x = split + 4, y = top + 3, w = math.max(0, reset.x - UI.metrics.buttonGap - split - 4), h = 26}, reset
 end
+function Layout.separators(left, width, top)
+    love.graphics.push("all")
+    Theme.setColor("border")
+    love.graphics.setLineWidth(1)
+    local x, right, split = left + UI.metrics.contentPaddingX + 0.5, left + width - UI.metrics.contentPaddingX - 0.5, left + width / 2 + 0.5
+    love.graphics.line(x, top + 0.5, right, top + 0.5)
+    love.graphics.line(split, top + 0.5, split, top + Layout.rowHeight - 0.5)
+    love.graphics.pop()
+end
 function Layout.group(left, width, top, height, label, expanded)
     local x, w = left + UI.metrics.contentPaddingX, width - 2 * UI.metrics.contentPaddingX
     if expanded then
