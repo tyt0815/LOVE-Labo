@@ -214,8 +214,10 @@ function ClassInspector:draw()
             love.graphics.rectangle("fill", groupLeft, y, groupWidth, row.groupHeight, 4, 4)
             Theme.setColor("border")
             love.graphics.rectangle("line", groupLeft + 0.5, y + 0.5, groupWidth - 1, row.groupHeight - 1, 4, 4)
-            local label = (self.expanded[row.component] and "v " or "> ") .. row.component .. " (" .. self.class.componentTypes[row.component] .. ")"
-            UI.button(label, {x = self.left + UI.metrics.contentPaddingX, y = y, w = self.width - 2 * UI.metrics.contentPaddingX, h = 26}, false, "Click to expand or collapse component properties.")
+            local label = row.component .. " (" .. self.class.componentTypes[row.component] .. ")"
+            UI.button("", {x = groupLeft, y = y, w = groupWidth, h = 26}, false, "Click to expand or collapse component properties.")
+            UI.chevron(groupLeft + 10, y + 13, self.expanded[row.component])
+            UI.text(label, groupLeft + 26, y + (26 - love.graphics.getFont():getHeight()) / 2, groupWidth - 36)
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             local declaration = self.class.properties[name]
             local value = self.target:getOverrides()[name]

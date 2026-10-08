@@ -116,6 +116,18 @@ function UI.button(label, rect, active, hint, flat)
         math.max(0, rect.w - padding * 2), nil, false, "center")
 end
 
+function UI.chevron(x, y, expanded)
+    love.graphics.push("all")
+    Theme.setColor("textMuted")
+    love.graphics.setLineWidth(1.5)
+    if expanded then
+        love.graphics.line(x, y - 2, x + 4, y + 2, x + 8, y - 2)
+    else
+        love.graphics.line(x + 2, y - 4, x + 6, y, x + 2, y + 4)
+    end
+    love.graphics.pop()
+end
+
 function UI.field(text, rect, focused, composition, owner)
     love.graphics.push("all")
     love.graphics.setLineWidth(1)

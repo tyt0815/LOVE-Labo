@@ -601,13 +601,7 @@ function AssetBrowser:drawTree()
                 UI.selection(view.x, rowY, view.width, ROW)
             end
             local arrowX, arrowY = view.x + UI.metrics.contentPaddingX + node.depth * 14, rowY + ROW / 2
-            Theme.setColor("textMuted")
-            love.graphics.setLineWidth(1.5)
-            if self.expanded[node.reference] then
-                love.graphics.line(arrowX, arrowY - 2, arrowX + 4, arrowY + 2, arrowX + 8, arrowY - 2)
-            else
-                love.graphics.line(arrowX + 2, arrowY - 4, arrowX + 6, arrowY, arrowX + 2, arrowY + 4)
-            end
+            UI.chevron(arrowX, arrowY, self.expanded[node.reference])
             UI.text(node.name, view.x + UI.metrics.contentPaddingX + 16 + node.depth * 14, rowY + 5, view.width - UI.metrics.contentPaddingX - 26 - node.depth * 14)
         end
     end
