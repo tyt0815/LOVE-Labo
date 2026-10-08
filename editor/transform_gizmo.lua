@@ -34,7 +34,13 @@ function Gizmo.hit(view, x, y)
     local dx, dy = x - handles.x, y - handles.y
     local distance = math.sqrt(dx * dx + dy * dy)
     if view.gizmoMode == "rotate" then
-        if math.abs(distance - RADIUS) <= 7 then return "z" end
+        if distance <= 9 then return nil end
+        local active = view.drag and view.drag.mode == "rotate" and view.drag.axis
+        -- 위쪽은 X 회전, 오른쪽은 Y 회전이다. 호 끝점은 선 핸들을 우선한다.
+        if (not active or active == "x") and math.abs(dx) <= 7 and dy <= (active and RADIUS + 7 or -9) and dy >= -RADIUS - 7 then return "x" end
+        if (not active or active == "y") and math.abs(dy) <= 7 and dx >= (active and -RADIUS - 7 or 9) and dx <= RADIUS + 7 then return "y" end
+        if (not active or active == "z") and math.abs(distance - RADIUS) <= 7
+            and (active == "z" or dx >= 0 and dy <= 0) then return "z" end
         return nil
     end
     if view.gizmoMode == "scale" then
@@ -56,6 +62,13 @@ function Gizmo.update(view, drag, dx, dy)
     drag.dx, drag.dy = drag.dx + dx, drag.dy + dy
     local initial, transform = drag.initial, drag.object.transform
     if drag.mode == "rotate" then
+        if drag.axis == "x" or drag.axis == "y" then
+            local field = drag.axis == "x" and "rotationX" or "rotationY"
+            -- 화면 1px당 1도. 줌과 무관한 감도로 시작 각도에 변화량 스냅을 적용한다.
+            local amount = drag.axis == "x" and -drag.dy or drag.dx
+            transform[field] = Transform.normalizeRotation(initial[field] + view:snapValue(amount, "rotate"))
+            return
+        end
         drag.pointerX, drag.pointerY = drag.pointerX + dx, drag.pointerY + dy
         local rx, ry = drag.pointerX - drag.handles.x, drag.pointerY - drag.handles.y
         if rx * rx + ry * ry < 1 then return end
@@ -104,13 +117,39 @@ function Gizmo.draw(view)
     local mx, my = love.mouse.getPosition()
     local hovered = Gizmo.hit(view, mx, my)
     if view.gizmoMode == "rotate" then
-        Theme.setColor("axisZ")
-        love.graphics.setLineWidth((hovered == "z" or view.drag) and 4 or 3)
-        love.graphics.circle("line", x, y, RADIUS)
-        local angle = math.rad(view.selectedLObject.transform.rotation or 0)
-        love.graphics.line(x, y, x + math.cos(angle) * RADIUS, y + math.sin(angle) * RADIUS)
-        if view.drag then UI.text(string.format("Z: %.1f°", view.selectedLObject.transform.rotation), x + RADIUS + 10, y - 8) end
-        UI.hint({x = x - RADIUS - 7, y = y - RADIUS - 7, w = 2 * RADIUS + 14, h = 2 * RADIUS + 14}, "Drag the ring: rotate around Z. Esc: cancel.")
+        local active = view.drag and view.drag.mode == "rotate" and view.drag.axis
+        if not active or active == "x" then
+            Theme.setColor("axisX")
+            love.graphics.setLineWidth((active == "x" or hovered == "x") and 4 or 3)
+            love.graphics.line(x, active == "x" and y + RADIUS or y, x, y - RADIUS)
+        end
+        if not active or active == "y" then
+            Theme.setColor("axisY")
+            love.graphics.setLineWidth((active == "y" or hovered == "y") and 4 or 3)
+            love.graphics.line(active == "y" and x - RADIUS or x, y, x + RADIUS, y)
+        end
+        if not active or active == "z" then
+            Theme.setColor("axisZ")
+            love.graphics.setLineWidth((active == "z" or hovered == "z") and 4 or 3)
+            if active == "z" then
+                love.graphics.circle("line", x, y, RADIUS)
+                local angle = math.rad(view.selectedLObject.transform.rotation or 0)
+                love.graphics.line(x, y, x + math.cos(angle) * RADIUS, y + math.sin(angle) * RADIUS)
+            else
+                local points = {}
+                for i = 0, 24 do
+                    local angle = -math.pi / 2 + i * math.pi / 48
+                    points[#points + 1], points[#points + 2] = x + math.cos(angle) * RADIUS, y + math.sin(angle) * RADIUS
+                end
+                love.graphics.line(points)
+            end
+        end
+        if active then
+            local field = active == "z" and "rotation" or "rotation" .. active:upper()
+            UI.text(string.format("%s: %.1f°", active:upper(), view.selectedLObject.transform[field]), x + RADIUS + 10, y - 8)
+        end
+        UI.hint({x = x - RADIUS - 7, y = y - RADIUS - 7, w = 2 * RADIUS + 14, h = 2 * RADIUS + 14},
+            "Vertical: rotate X. Horizontal: rotate Y. Arc: rotate Z. Esc: cancel.")
         return
     end
     drawAxis(view, handles, "x", handles.ux, handles.uy, hovered)

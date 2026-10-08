@@ -467,7 +467,7 @@ function SceneView:draw()
     )
     self:drawMouseWorldPosition()
     love.graphics.print(
-        "W: Move  E: Rotate Z  R: Scale  Space: Cycle",
+        "W: Move  E: Rotate  R: Scale  Space: Cycle",
         viewportX + UI.metrics.contentPaddingX,
         viewportY + 56 + UI.metrics.contentPaddingY
     )

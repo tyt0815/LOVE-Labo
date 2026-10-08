@@ -18,6 +18,16 @@ local function grab(view, axis)
     elseif axis == "x" then view:mousepressed(handles.x + 45, handles.y, 1)
     else view:mousepressed(handles.x, handles.y - 45, 1) end
 end
+local function grabRotation(view)
+    local handles, offset = Gizmo.handles(view), 60 / math.sqrt(2)
+    view:mousepressed(handles.x + offset, handles.y - offset, 1)
+    Assert.equal("z", view.drag and view.drag.axis)
+end
+local function rotatePointer(view, degrees)
+    local handles, angle = Gizmo.handles(view), math.rad(degrees)
+    local x, y = handles.x + math.cos(angle) * 60, handles.y + math.sin(angle) * 60
+    view:mousemoved(x, y, x - view.drag.pointerX, y - view.drag.pointerY)
+end
 
 add("Gizmo axes constrain movement and its square permits free movement", function()
     for _, axis in ipairs({"x", "y", "free"}) do
@@ -214,20 +224,17 @@ add("Z rotation follows the ring and crosses the angle boundary continuously", f
     view:setGizmoMode("rotate")
     local handles = Gizmo.handles(view)
     Assert.equal(nil, Gizmo.hit(view, handles.x, handles.y))
-    view:mousepressed(handles.x + 60, handles.y, 1)
-    view:mousemoved(handles.x, handles.y + 60, -60, 60)
+    grabRotation(view)
+    rotatePointer(view, 45)
     near(120, object.transform.rotation)
     Assert.equal(20, object.transform.x)
     Assert.equal(30, object.transform.y)
     view:keypressed("escape")
     near(30, object.transform.rotation)
-    local a, b = math.rad(179), math.rad(-179)
-    local sx, sy = handles.x + math.cos(a) * 60, handles.y + math.sin(a) * 60
-    local tx, ty = handles.x + math.cos(b) * 60, handles.y + math.sin(b) * 60
-    view:mousepressed(sx, sy, 1)
-    view:mousemoved(tx, ty, tx - sx, ty - sy)
-    near(32, object.transform.rotation)
-    view:mousereleased(tx, ty, 1)
+    grabRotation(view)
+    for _, angle in ipairs({45, 135, 179, -179}) do rotatePointer(view, angle) end
+    near(256, object.transform.rotation)
+    view:mousereleased(0, 0, 1)
 end)
 
 add("Scale center changes both axes proportionally and local axis handles isolate dimensions", function()
@@ -383,10 +390,8 @@ add("Rotation wraps into 0 to 360 for dragging Inspector loading and saving", fu
     local view, object = scene()
     object.transform.rotation = 350
     view:setGizmoMode("rotate")
-    local handles = Gizmo.handles(view)
-    local angle = math.rad(30)
-    view:mousepressed(handles.x + 60, handles.y, 1)
-    view:mousemoved(0, 0, math.cos(angle) * 60 - 60, math.sin(angle) * 60)
+    grabRotation(view)
+    rotatePointer(view, -15)
     near(20, object.transform.rotation)
     view:mousereleased(0, 0, 1)
     local Inspector = require("editor.inspector")
@@ -448,9 +453,8 @@ add("Rotation and scale snap from their initial values while retaining uniform p
     assert(view:setSnap("scale", true, 0.25))
     object.transform.rotation = 350
     view:setGizmoMode("rotate")
-    local handles, angle = Gizmo.handles(view), math.rad(20)
-    view:mousepressed(handles.x + 60, handles.y, 1)
-    view:mousemoved(0, 0, math.cos(angle) * 60 - 60, math.sin(angle) * 60)
+    grabRotation(view)
+    rotatePointer(view, -25)
     near(20, object.transform.rotation)
     view:mousereleased(0, 0, 1)
     object.transform.rotation, object.transform.scaleX, object.transform.scaleY = 0, 2, 3
@@ -568,9 +572,73 @@ add("XY rotations normalize serialize duplicate and stay independent in Runtime"
     end
     local view = scene(); view.selectedLObject.transform.rotationX = 30; view.selectedLObject.transform.rotationY = 45
     view:setGizmoMode("rotate")
-    local handles = Gizmo.handles(view)
-    view:mousepressed(handles.x + 60, handles.y, 1); view:mousemoved(0, 0, -60, 60)
+    grabRotation(view); rotatePointer(view, 45)
     near(90, view.selectedLObject.transform.rotation)
     Assert.equal(30, view.selectedLObject.transform.rotationX); Assert.equal(45, view.selectedLObject.transform.rotationY)
+end)
+add("Rotation quarter handles map vertical to X horizontal to Y and arc to Z", function()
+    local view, object = scene(20, 30)
+    view:setGizmoMode("rotate")
+    local h = Gizmo.handles(view)
+    Assert.equal("x", Gizmo.hit(view, h.x, h.y - 40))
+    Assert.equal("y", Gizmo.hit(view, h.x + 40, h.y))
+    Assert.equal("z", Gizmo.hit(view, h.x + 60 / math.sqrt(2), h.y - 60 / math.sqrt(2)))
+    Assert.equal(nil, Gizmo.hit(view, h.x - 60, h.y))
+    Assert.equal(nil, Gizmo.hit(view, h.x, h.y + 60))
+    Assert.equal(nil, Gizmo.hit(view, h.x, h.y))
+    for _, axis in ipairs({"x", "y"}) do
+        local field = axis == "x" and "rotationX" or "rotationY"
+        object.transform[field] = 350
+        assert(view:setSnap("rotate", true, 30))
+        view:mousepressed(axis == "x" and h.x or h.x + 40, axis == "x" and h.y - 40 or h.y, 1)
+        Assert.equal(axis, view.drag.axis)
+        view:mousemoved(0, 0, 20, -20)
+        near(20, object.transform[field])
+        Assert.equal(0, object.transform.rotation)
+        Assert.equal(20, object.transform.x); Assert.equal(30, object.transform.y)
+        if axis == "x" then
+            Assert.equal("x", Gizmo.hit(view, h.x, h.y + 40))
+            Assert.equal(nil, Gizmo.hit(view, h.x + 40, h.y))
+        else
+            Assert.equal("y", Gizmo.hit(view, h.x - 40, h.y))
+            Assert.equal(nil, Gizmo.hit(view, h.x, h.y - 40))
+        end
+        view:keypressed("escape"); near(350, object.transform[field])
+        object.transform[field] = 0
+    end
+    grabRotation(view)
+    Assert.equal("z", Gizmo.hit(view, h.x - 60, h.y))
+    Assert.equal(nil, Gizmo.hit(view, h.x, h.y - 40))
+end)
+
+add("Rotation dragging displays only the selected diameter or full Z ring", function()
+    local view = scene()
+    view:setGizmoMode("rotate")
+    local h = Gizmo.handles(view)
+    local canvas = love.graphics.newCanvas(800, 600)
+    local function pixelsFor(axis)
+        view.drag = axis and Gizmo.begin(view, axis, h.x + 40, h.y - 40) or nil
+        love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.clear(0, 0, 0, 0)
+        Gizmo.draw(view); love.graphics.setCanvas(); love.graphics.pop()
+        local pixels = canvas:newImageData()
+        if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then pixels:encode("png", "rotation-" .. (axis or "idle") .. "-preview.png") end
+        return pixels
+    end
+    local function alpha(pixels, dx, dy)
+        local _, _, _, a = pixels:getPixel(h.x + dx, h.y + dy); return a
+    end
+    local idle = pixelsFor()
+    Assert.truthy(alpha(idle, 0, -30) > 0); Assert.truthy(alpha(idle, 30, 0) > 0)
+    Assert.truthy(alpha(idle, 42, -42) > 0)
+    Assert.equal(0, alpha(idle, -30, 0)); Assert.equal(0, alpha(idle, 0, 30)); idle:release()
+    local x = pixelsFor("x")
+    Assert.truthy(alpha(x, 0, 30) > 0); Assert.truthy(alpha(x, 0, -30) > 0)
+    Assert.equal(0, alpha(x, 30, 0)); Assert.equal(0, alpha(x, 42, -42)); x:release()
+    local y = pixelsFor("y")
+    Assert.truthy(alpha(y, -30, 0) > 0); Assert.truthy(alpha(y, 30, 0) > 0)
+    Assert.equal(0, alpha(y, 0, -30)); Assert.equal(0, alpha(y, 42, -42)); y:release()
+    local z = pixelsFor("z")
+    Assert.truthy(alpha(z, -60, 0) > 0); Assert.truthy(alpha(z, 0, 60) > 0)
+    Assert.equal(0, alpha(z, 0, -30)); z:release(); canvas:release()
 end)
 return tests

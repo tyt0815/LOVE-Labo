@@ -1,6 +1,7 @@
 # 0021. BeginPlay 초기화와 X/Y 직교 투영 회전
 
 - 상태: 채택
+- 후속 부분 대체: [ADR 0022](0022-three-axis-rotation-gizmo.md)의 X/Y/Z 회전 기즈모
 - 날짜: 2026-10-09
 - 부분 대체: [ADR 0019](0019-transform-modes-and-relative-snap.md)의 Z 전용 Transform
 - 부분 대체: [ADR 0020](0020-independent-snaps-and-inspector-selection.md)의 W/E/R 버튼
