@@ -364,6 +364,17 @@ function EditorApp:initializeUI()
             if reference:match("^Assets/.+%.level$") then return self:openProjectDocument(reference) end
             return true
         end
+        self.assetBrowser.canDelete = function(reference)
+            local path = self.project:resolvePath(reference)
+            local documentPath = self.document.path and self.document.path:gsub("\\", "/")
+            if require("ffi").os == "Windows" then
+                path, documentPath = path and path:lower(), documentPath and documentPath:lower()
+            end
+            if path and documentPath and (documentPath == path or documentPath:sub(1, #path + 1) == path .. "/") then
+                return false, "This entry contains the currently open level"
+            end
+            return true
+        end
         slots.assets = self.canvas:addChild(self.assetBrowser)
     end
     self.uiRoot.focused = sceneWidget
@@ -424,6 +435,7 @@ function EditorApp:wheelmoved(_, amount)
 end
 
 function EditorApp:textinput(text)
+    if self.uiRoot.popup then return self.uiRoot:textinput(text) end
     if self:isPlaying() then return end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
     return self.uiRoot:textinput(text)

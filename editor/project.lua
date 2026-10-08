@@ -236,6 +236,134 @@ function Project:resolveProjectFile(reference)
     return path
 end
 
+-- 쓰기 작업도 탐색과 동일하게 루트 경계와 모든 부모의 링크 여부를 검사한다.
+function Project:checkedEntry(reference)
+    if type(reference) ~= "string" or (reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/"
+        and reference ~= "Sources" and reference:sub(1, 8) ~= "Sources/") then
+        return nil, "Entry must be inside Assets or Sources"
+    end
+    local path, err = self:resolvePath(reference)
+    if not path then return nil, err end
+    local fs, current, last = filesystem(), self.rootPath, nil
+    for segment in reference:gmatch("[^/]+") do
+        current = fs.join(current, segment)
+        local info, infoError = fs.info(current)
+        if not info or info.isLink then return nil, infoError or "Entry is missing or is a filesystem link" end
+        if current ~= path and info.type ~= "directory" then return nil, "Parent is not a folder" end
+        last = info
+    end
+    return path, last
+end
+
+function Project:createEntry(folder, kind, name)
+    local valid, err = Project.isValidName(name)
+    if not valid then return false, err end
+    if kind ~= "folder" and kind ~= "level" and kind ~= "lua" then return false, "Unknown entry type" end
+    if kind == "level" and not folder:match("^Assets/?") then return false, "Levels belong in Assets" end
+    if kind == "lua" and not folder:match("^Sources/?") then return false, "Lua scripts belong in Sources" end
+    local entries, listError = self:listDirectory(folder)
+    if not entries then return false, listError end
+    local fs, createdDirectories, createdFiles = filesystem(), {}, {}
+    local function rollback(errorText)
+        for i = #createdFiles, 1, -1 do fs.removeFile(createdFiles[i]) end
+        for i = #createdDirectories, 1, -1 do fs.removeDirectory(createdDirectories[i]) end
+        return false, errorText
+    end
+    local function ensureFolder(reference)
+        local current = ""
+        for segment in reference:gmatch("[^/]+") do
+            current = current == "" and segment or current .. "/" .. segment
+            local path, pathError = self:resolvePath(current)
+            if not path then return false, pathError end
+            local info, infoError = fs.info(path)
+            if infoError then return false, infoError end
+            if info then
+                if info.type ~= "directory" or info.isLink then return false, "Parent is not a regular folder" end
+            else
+                local ok, createError = fs.mkdir(path)
+                if not ok then return false, createError end
+                createdDirectories[#createdDirectories + 1] = path
+            end
+        end
+        return true
+    end
+    local function writeNew(reference, text)
+        local parent = reference:match("^(.*)/[^/]+$")
+        local ok, parentError = ensureFolder(parent)
+        if not ok then return false, parentError end
+        local path, pathError = self:resolvePath(reference)
+        if not path then return false, pathError end
+        local wrote, writeError = fs.createFile(path, text)
+        if wrote then createdFiles[#createdFiles + 1] = path end
+        return wrote, writeError
+    end
+    local suffix = kind == "level" and ".level" or kind == "lua" and ".lua" or ""
+    if suffix ~= "" then
+        if name:sub(-#suffix):lower() == suffix then name = name:sub(1, -#suffix - 1) end
+        if name == "" then return false, "Enter a file name" end
+        name = name .. suffix
+    end
+    local reference = folder .. "/" .. name
+    local ok, createError
+    if kind == "folder" then
+        ok, createError = ensureFolder(folder)
+        if ok then ok, createError = fs.mkdir(assert(self:resolvePath(reference))) end
+    elseif kind == "lua" then
+        ok, createError = writeNew(reference, require("editor.level_script_template"))
+    else
+        local script = reference:gsub("^Assets/", "Sources/"):gsub("%.level$", ".lua")
+        local level = require("editor.level").new()
+        assert(level:setScriptReference(script))
+        local text, encodeError = require("editor.level_file").encode(level)
+        if not text then return rollback(encodeError) end
+        ok, createError = writeNew(script, require("editor.level_script_template"))
+        if ok then ok, createError = writeNew(reference, text) end
+    end
+    if not ok then return rollback(createError) end
+    return true, reference
+end
+
+function Project:deleteEntry(reference)
+    local path, info = self:checkedEntry(reference)
+    if not path then return false, info end
+    if reference == "Assets" or reference == "Sources" then return false, "Project roots cannot be deleted" end
+    local default = self.defaultLevelReference
+    -- 현재 호스트는 Windows이므로 대소문자만 다른 참조도 같은 파일로 보호한다.
+    local compared = reference:lower()
+    default = default and default:lower()
+    if default and (default == compared or default:sub(1, #compared + 1) == compared .. "/") then
+        return false, "This entry contains the project's default level"
+    end
+    local fs, removals = filesystem(), {}
+    local function collect(current)
+        local path, info = self:checkedEntry(current)
+        if not path then return false, info end
+        if info.type == "directory" then
+            local children, err = self:listDirectory(current)
+            if not children then return false, err end
+            for _, child in ipairs(children) do
+                local ok, childError = collect(child.reference)
+                if not ok then return false, childError end
+            end
+        end
+        removals[#removals + 1] = { reference = current, type = info.type }
+        return true
+    end
+    -- 먼저 전체를 검사해 링크가 섞인 폴더를 일부만 삭제하지 않는다.
+    local ok, err = collect(reference)
+    if not ok then return false, err end
+    for _, entry in ipairs(removals) do
+        local path, info = self:checkedEntry(entry.reference)
+        if not path then return false, info end
+        if info.type ~= entry.type then return false, "Entry changed during deletion" end
+        local removed, removeError
+        if info.type == "directory" then removed, removeError = fs.removeDirectory(path)
+        else removed, removeError = fs.removeFile(path) end
+        if not removed then return false, removeError end
+    end
+    return true
+end
+
 function Project.new(rootPath)
     if type(rootPath) ~= "string" or rootPath == "" then
         return nil, "project root path must be a non-empty string"

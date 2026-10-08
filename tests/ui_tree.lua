@@ -76,4 +76,61 @@ add("UI unhandled input bubbles to parent and popup dismissal blocks underlying 
     Assert.equal(1, clicks)
 end)
 
+add("context menu clamps panels and supports submenu keyboard actions", function()
+    local root = Root.new(Canvas.new())
+    local Menu = require("editor.ui.context_menu")
+    local selected = 0
+    local menu = Menu.new(root)
+    local width, height = love.graphics.getDimensions()
+    menu:show(width - 2, height - 2, {
+        { label = "New", children = {
+            { label = "Disabled", enabled = false, action = function() error("disabled action") end },
+            { label = "Folder", action = function() selected = selected + 1 end }
+        } },
+        { label = "Delete", action = function() selected = selected + 10 end }
+    })
+    Assert.truthy(menu.panels[1].x + menu.panels[1].w <= width)
+    Assert.truthy(menu.panels[1].y + menu.panels[1].h <= height)
+    root:keypressed("right")
+    Assert.equal(2, #menu.panels)
+    root:keypressed("return")
+    Assert.equal(0, selected)
+    Assert.equal(menu, root.popup)
+    root:keypressed("down")
+    root:keypressed("return")
+    Assert.equal(1, selected)
+    Assert.equal(nil, root.popup)
+    menu:show(20, 20, { { label = "Delete", action = function() selected = selected + 10 end } })
+    root:keypressed("right")
+    Assert.equal(1, selected)
+    root:keypressed("escape")
+    Assert.equal(nil, root.popup)
+end)
+
+add("popup blocks background pointer input and receives dialog text", function()
+    local canvas, moves = Canvas.new(), 0
+    canvas.handlers.mousemoved = function() moves = moves + 1; return true end
+    canvas:setBounds(0, 0, 500, 500)
+    local root = Root.new(canvas)
+    local menu = require("editor.ui.context_menu").new(root)
+    menu:show(10, 10, { { label = "New" } })
+    root:mousemoved(450, 450, 1, 1)
+    Assert.equal(0, moves)
+    local value
+    local dialog = require("editor.ui.dialog").new(root, { input = true, title = "New",
+        value = "Default", onConfirm = function(text)
+            if text == "Fail" then return false, "failed" end
+            value = text; return true
+        end })
+    root:textinput("Fail")
+    root:keypressed("return")
+    Assert.equal("failed", dialog.error)
+    Assert.equal(dialog, root.popup)
+    dialog.replace = true
+    root:textinput("한글")
+    root:keypressed("return")
+    Assert.equal("한글", value)
+    Assert.equal(nil, root.popup)
+end)
+
 return tests

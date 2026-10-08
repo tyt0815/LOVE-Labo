@@ -5,6 +5,8 @@ local Root = require("editor.ui.root")
 local Dropdown = require("editor.ui.dropdown")
 local Thumbnail = require("editor.asset_thumbnail")
 local Breadcrumb = require("editor.ui.breadcrumb")
+local ContextMenu = require("editor.ui.context_menu")
+local Dialog = require("editor.ui.dialog")
 
 local AssetBrowser = setmetatable({}, { __index = Canvas })
 AssetBrowser.__index = AssetBrowser
@@ -105,6 +107,8 @@ function AssetBrowser:getEntryAtPosition(x, y)
     local column = math.floor((x - split - 8) / CARD_WIDTH)
     local row = math.floor((y - top - 8) / CARD_HEIGHT)
     if column < 0 or column >= self:columns() or row < 0 then return nil end
+    if (x - split - 8) % CARD_WIDTH >= CARD_WIDTH - 6
+        or (y - top - 8) % CARD_HEIGHT >= CARD_HEIGHT - 6 then return nil end
     return self.entries[(row + self.fileScroll) * self:columns() + column + 1]
 end
 
@@ -155,8 +159,8 @@ function AssetBrowser:openFolder(reference)
     return true
 end
 
-function AssetBrowser:refresh()
-    self.uiRoot:dismissPopup()
+function AssetBrowser:refresh(keepPopup)
+    if not keepPopup then self.uiRoot:dismissPopup() end
     self.thumbnails:clear()
     self.children = {}
     local selected = self.selectedReference
@@ -232,14 +236,20 @@ function AssetBrowser:draw()
 end
 
 function AssetBrowser:mousepressed(x, y, button, presses)
-    if button ~= 1 or not self:containsPoint(x, y) then return end
+    if self.uiRoot == self.localRoot then
+        self.localRoot:mousepressed(x, y, button, presses)
+        self:setBounds(self.x, self.y, self.width, self.height)
+        return
+    end
+    if not self:containsPoint(x, y) then return end
     self.uiRoot:dispatchTo(self:hitTest(x, y), "mousepressed", x, y, button, presses)
     self:setBounds(self.x, self.y, self.width, self.height)
 end
 
 function AssetBrowser:handleContentMousepressed(x, y, button, presses)
-    if button ~= 1 then return end
     if self.collapsed or y < self.y + HEADER or y >= self.y + self.height - 28 then return end
+    if button == 2 then self:showContextMenu(x, y); return end
+    if button ~= 1 then return end
     local index = math.floor((y - self.y - HEADER) / ROW) + 1
     if x < self.x + self:treeWidth() then
         local node = self.tree[index + self.treeScroll]
@@ -258,6 +268,65 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
             if opened == false then self.error = err end
         end
     end
+end
+
+function AssetBrowser:showContextMenu(x, y)
+    local entry, folder = nil, self.folder
+    if x < self.x + self:treeWidth() then
+        local index = math.floor((y - self.y - HEADER) / ROW) + 1 + self.treeScroll
+        local node = self.tree[index]
+        if node then
+            entry = { reference = node.reference, name = node.name, type = "directory" }
+            folder = node.reference
+        end
+    else
+        entry = self:getEntryAtPosition(x, y)
+        self.selectedReference = entry and entry.reference or nil
+    end
+    local newItems = {}
+    for _, option in ipairs({ {"Folder", "folder"}, {"Level", "level"}, {"Lua Script", "lua"} }) do
+        local label, kind = option[1], option[2]
+        local root = folder:match("^[^/]+")
+        newItems[#newItems + 1] = { label = label,
+            enabled = kind == "folder" or kind == "level" and root == "Assets" or kind == "lua" and root == "Sources",
+            action = function() self:showCreateDialog(folder, kind) end }
+    end
+    local items = { { label = "New", children = newItems } }
+    if entry and entry.reference ~= "Assets" and entry.reference ~= "Sources" then
+        items[#items + 1] = { label = "Delete", enabled = not entry.isLink,
+            action = function() self:showDeleteDialog(entry) end }
+    end
+    ContextMenu.new(self.uiRoot):show(x, y, items)
+end
+
+function AssetBrowser:showCreateDialog(folder, kind)
+    local defaults = { folder = "NewFolder", level = "NewLevel", lua = "NewScript" }
+    Dialog.new(self.uiRoot, { title = "New " .. (kind == "lua" and "Lua Script" or kind == "level" and "Level" or "Folder"),
+        message = folder, input = true, value = defaults[kind],
+        onConfirm = function(name)
+            local ok, reference = self.project:createEntry(folder, kind, name)
+            if not ok then return false, reference end
+            self:refresh(true)
+            if self.folder == folder then self.selectedReference = reference end
+            return true
+        end })
+end
+
+function AssetBrowser:showDeleteDialog(entry)
+    Dialog.new(self.uiRoot, { title = "Delete " .. (entry.type == "directory" and "Folder" or "File"),
+        message = entry.reference,
+        detail = "Permanently delete" .. (entry.type == "directory" and " this folder and all its contents?" or " this file?"),
+        confirmLabel = "Delete", onConfirm = function()
+            if self.canDelete then
+                local allowed, err = self.canDelete(entry.reference)
+                if not allowed then return false, err end
+            end
+            local ok, err = self.project:deleteEntry(entry.reference)
+            -- 삭제 도중 파일 잠금 등으로 실패해도 실제 남은 항목을 다시 읽는다.
+            self:refresh(true)
+            if not ok then return false, err end
+            return true
+        end })
 end
 
 function AssetBrowser:drawTree()

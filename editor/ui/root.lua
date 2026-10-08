@@ -61,11 +61,19 @@ function Root:mousepressed(x, y, button, presses)
 end
 
 function Root:mousemoved(x, y, dx, dy)
+    if self.popup and not self.captured then
+        self:dispatchTo(self.popup:hitTest(x, y), "mousemoved", x, y, dx, dy)
+        return true
+    end
     local target = self.captured or (self.popup and self.popup:hitTest(x, y)) or self.canvas:hitTest(x, y)
     return self:dispatchTo(target, "mousemoved", x, y, dx, dy)
 end
 
 function Root:mousereleased(x, y, button)
+    if self.popup and not self.captured then
+        self:dispatchTo(self.popup:hitTest(x, y), "mousereleased", x, y, button)
+        return true
+    end
     local target = self.captured or self.canvas:hitTest(x, y)
     local handled = self:dispatchTo(target, "mousereleased", x, y, button)
     if button == self.captureButton then self.captured, self.captureButton = nil, nil end
@@ -87,7 +95,7 @@ function Root:keypressed(key)
 end
 
 function Root:textinput(text)
-    if self.popup then return true end
+    if self.popup then self:dispatchTo(self.popup, "textinput", text); return true end
     return self:dispatchTo(self.focused, "textinput", text)
 end
 
