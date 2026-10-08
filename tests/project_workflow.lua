@@ -1375,7 +1375,7 @@ enabled = {type="boolean",default=true}, name = {type="string",default="Stage"},
         app.activePanel = "scene"
         app:draw()
         assert(app:saveInspectedDocument())
-        Assert.equal(nil, app.inspector.classInspector.target)
+        Assert.equal(app.level.lobjects[1], app.inspector.classInspector.target.data)
     end)
 end)
 
@@ -1706,6 +1706,259 @@ add("global status bar shows live control hints and isolates modal and footer in
         Assert.equal(0, #app.level.lobjects)
         browser.error = "move failed"
         Assert.truthy(hover(x, y):find("move failed", 1, true))
+    end)
+end)
+
+local function componentProject(parent)
+    local project = assert(Project.create(parent, "Components"))
+    assert(project:createEntry("Sources", "lua", "Actor", {scriptKind = "lobject"}))
+    local id = project:getAssetId("Sources/Actor.lua")
+    assert(FS.writeAtomic(assert(project:resolveSourceFile(id)), [[
+local Engine = require("engine")
+local Counter = Engine.LObjectComponent:extend({properties = {count = {type = "number", default = 0}}})
+function Counter:Load(world) self.properties.count = self.properties.count + 1 end
+function Counter:Update(dt) self.properties.count = self.properties.count + dt end
+local Actor = {properties = {
+    speed = {type = "number", default = 10}, title = {type = "string", default = "Actor"},
+    enabled = {type = "boolean", default = true}, target = {type = "object", default = false}
+}}
+function Actor.build(self)
+    self:addComponent("sprite", Engine.SpriteComponent, {x = 3})
+    self:addComponent("counter", Counter)
+end
+function Actor.load(self, world)
+    if self.properties.target then assert(self.properties.target.components.sprite.owner == self.properties.target) end
+end
+return Actor
+]]))
+    assert(project:createEntry("Assets", "prefab", "Actor", {scriptReference = id}))
+    return project, project:getAssetId("Assets/Actor.prefab")
+end
+
+add("Prefab drag places at zoomed viewport coordinates without moving the source", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        app:draw()
+        app.sceneView.zoom, app.sceneView.cameraX, app.sceneView.cameraY = 2, 17, -9
+        local browser = app.assetBrowser
+        browser:setViewMode("list")
+        browser:openFolder("Assets")
+        local source = browser.fileSlot.widget
+        local x, y = source.x + 20, source.y + 4
+        app:mousepressed(x, y, 1)
+        local dx, dy = app.sceneView:worldToScreen(24, -12)
+        app:mousemoved(dx, dy, dx - x, dy - y)
+        Assert.equal("scene", browser.drag.destination)
+        app:mousereleased(dx, dy, 1)
+        Assert.equal(1, #app.level.lobjects)
+        local object = app.level.lobjects[1]
+        Assert.equal(24, object.transform.x)
+        Assert.equal(-12, object.transform.y)
+        Assert.equal(prefabId, object.definitionReference)
+        Assert.equal(object, app.sceneView.selectedLObject)
+        Assert.truthy(project:resolveAssetFile(prefabId))
+        Assert.equal(nil, browser.drag)
+        Assert.equal(nil, app.uiRoot.captured)
+        Assert.equal(false, app:placePrefab(prefabId, dx, dy) == false)
+        assert(app:startPlay())
+        Assert.equal(false, app:placePrefab(prefabId, dx, dy))
+        Assert.equal(2, #app.level.lobjects)
+    end)
+end)
+
+add("Instance Inspector persists basic component and cyclic object reference overrides", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local a, b = app.level:addLObject(0, 0, prefabId), app.level:addLObject(20, 0, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = a, "scene"
+        app:updateInspectorTarget()
+        local inspector = app.inspector.classInspector
+        assert(inspector:setProperty("speed", 42))
+        assert(inspector:setProperty("title", "한글"))
+        assert(inspector:setProperty("enabled", false))
+        assert(inspector:setProperty("sprite.x", 13))
+        assert(inspector:setProperty("target", b.authoringId))
+        b.propertyOverrides = {target = a.authoringId}
+        Assert.equal(2, #inspector:choices("target", b.authoringId).options - 1)
+        local copy = app.level:duplicateLObject(a)
+        Assert.equal(13, copy.componentOverrides.sprite.x)
+        copy.componentOverrides.sprite.x = 99
+        Assert.equal(13, a.componentOverrides.sprite.x)
+        local file = FS.join(project.rootPath, "Assets/Placed.level")
+        assert(app:saveCurrentDocument(file))
+        local loaded = assert(require("editor.level_document").load(file))
+        Assert.equal(42, loaded.level.lobjects[1].propertyOverrides.speed)
+        Assert.equal(false, loaded.level.lobjects[1].propertyOverrides.enabled)
+        Assert.equal(b.authoringId, loaded.level.lobjects[1].propertyOverrides.target)
+        app:setDocument(loaded)
+        assert(app:startPlay())
+        local ra, rb = app.runtimeWorld.lobjects[1], app.runtimeWorld.lobjects[2]
+        Assert.equal(rb, ra.properties.target)
+        Assert.equal(ra, rb.properties.target)
+        Assert.equal(13, ra.components.sprite.properties.x)
+        Assert.equal(1, ra.components.counter.properties.count)
+        assert(app.runtimeWorld:update(0.5))
+        Assert.equal(1.5, ra.components.counter.properties.count)
+        ra.properties.speed = 999
+        assert(app:stopPlay())
+        Assert.equal(42, app.level.lobjects[1].propertyOverrides.speed)
+        app.level:removeLObject(app.level.lobjects[2])
+        local ok, err = app:startPlay()
+        Assert.equal(false, ok)
+        Assert.truthy(err:find("Missing LObject reference", 1, true))
+        Assert.equal(nil, app.runtimeWorld)
+    end)
+end)
+
+add("Sprite image choices use movable asset IDs and render in edit and Play", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local imageData = love.image.newImageData(32, 20)
+        imageData:mapPixel(function() return 1, 0, 0, 1 end)
+        local bytes = imageData:encode("png"):getString()
+        imageData:release()
+        assert(FS.writeAtomic(assert(project:resolvePath("Assets/Sprite.png")), bytes))
+        assert(project:rebuildAssetIndex())
+        local imageId = project:getAssetId("Assets/Sprite.png")
+        local app = EditorApp.new(nil, project)
+        local a = app.level:addLObject(0, 0, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = a, "scene"
+        app:updateInspectorTarget()
+        local inspector = app.inspector.classInspector
+        Assert.equal(imageId, inspector:choices("sprite.image", false).options[2].value)
+        assert(inspector:setProperty("sprite.image", imageId))
+        assert(inspector:setProperty("sprite.x", 30))
+        assert(project:moveEntry("Assets/Sprite.png", "Assets/Renamed.png"))
+        local preview = assert(app.spriteAssets:preview(a))
+        local sprite = preview.components.sprite
+        Assert.truthy(sprite:isA(require("engine").SceneComponent))
+        Assert.truthy(sprite:isA(require("engine").LObjectComponent))
+        Assert.equal(30, sprite:getWorldPosition())
+        Assert.equal(a, app.sceneView:findLObjectAtWorldPosition(40, 0))
+        local canvas = love.graphics.newCanvas(64, 64)
+        love.graphics.push("all")
+        love.graphics.setCanvas(canvas)
+        love.graphics.clear(0, 0, 0, 0)
+        assert(require("core.sprite_renderer").draw(preview, function(ref) return app.spriteAssets:image(ref) end, function() return 32, 32 end, 1))
+        love.graphics.setCanvas()
+        local pixels = canvas:newImageData()
+        local r, g, b, alpha = pixels:getPixel(32, 32)
+        Assert.equal(1, r); Assert.equal(0, g); Assert.equal(0, b); Assert.equal(1, alpha)
+        pixels:release(); canvas:release(); love.graphics.pop()
+        assert(app:startPlay())
+        Assert.equal(imageId, app.runtimeWorld.lobjects[1].components.sprite.properties.image)
+        app:draw()
+        assert(app:stopPlay())
+        app:draw()
+        app.spriteAssets:clear()
+    end)
+end)
+
+add("Prefab component defaults can be edited and instance reset restores Prefab values", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        assert(app:inspectAsset("Assets/Actor.prefab"))
+        app.assetBrowser.selectedReference, app.activePanel = "Assets/Actor.prefab", "assets"
+        app:updateInspectorTarget()
+        local inspector = app.inspector.classInspector
+        assert(inspector:setProperty("sprite.x", 8))
+        assert(app:saveInspectedDocument())
+        local prefab = assert(require("editor.prefab").decode(assert(FS.read(assert(project:resolveAssetFile(prefabId))))))
+        Assert.equal(8, prefab.overrides.components.sprite.x)
+        local object = app.level:addLObject(0, 0, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = object, "scene"
+        app:updateInspectorTarget()
+        Assert.equal(8, inspector.class.properties["sprite.x"].default)
+        assert(inspector:setProperty("sprite.x", 12))
+        assert(inspector:setProperty("sprite.x", 8))
+        Assert.equal(nil, object.componentOverrides.sprite)
+        assert(app:startPlay())
+        Assert.equal(8, app.runtimeWorld.lobjects[1].components.sprite.properties.x)
+    end)
+end)
+
+add("Instance Inspector routes text and reference dropdown input through the UI", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local a, b = app.level:addLObject(0, 0, prefabId), app.level:addLObject(20, 0, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = a, "scene"
+        app:draw()
+        local inspector = app.inspector.classInspector
+        local function field(name)
+            for index, key in ipairs(inspector.names) do
+                if key == name then
+                    inspector.scroll = math.max(0, index - inspector.visibleRows)
+                    local y = 190 + require("editor.ui").metrics.contentPaddingY + (index - inspector.scroll - 1) * 56
+                    return inspector.left + 20, y + 3
+                end
+            end
+            error("Missing field " .. name)
+        end
+        local x, y = field("title")
+        app:mousepressed(x, y, 1)
+        app:textinput("새 이름")
+        app:keypressed("return")
+        Assert.equal("새 이름", a.propertyOverrides.title)
+        x, y = field("target")
+        app:mousepressed(x, y, 1)
+        Assert.truthy(app.uiRoot.popup)
+        app:keypressed("down")
+        app:keypressed("down")
+        app:keypressed("return")
+        Assert.equal(b.authoringId, a.propertyOverrides.target)
+        Assert.equal(nil, app.uiRoot.popup)
+        app:mousepressed(x, y, 1)
+        app:keypressed("escape")
+        Assert.equal(b.authoringId, a.propertyOverrides.target)
+        local spriteX, spriteY = field("sprite.x")
+        app:mousepressed(spriteX, spriteY, 1)
+        app:textinput("17")
+        app:keypressed("return")
+        Assert.equal(17, a.componentOverrides.sprite.x)
+    end)
+end)
+
+add("Invalid Prefab placement preserves the scene and component errors contain Play", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local x, y = app.sceneView:worldToScreen(0, 0)
+        assert(FS.writeAtomic(assert(project:resolveAssetFile(prefabId)), "invalid json"))
+        local ok = app:placePrefab(prefabId, x, y)
+        Assert.equal(false, ok)
+        Assert.equal(0, #app.level.lobjects)
+        assert(FS.writeAtomic(assert(project:resolveAssetFile(prefabId)), assert(require("editor.prefab").encode(project:getAssetId("Sources/Actor.lua")))))
+        app.level:addLObject(0, 0, prefabId).componentOverrides = {missing = {x = 1}}
+        local started, err = app:startPlay()
+        Assert.equal(false, started)
+        Assert.truthy(err:find("Unknown component", 1, true))
+        Assert.equal(nil, app.runtimeWorld)
+        app.level.lobjects[1].componentOverrides = nil
+        local source = assert(project:resolveSourceFile("Sources/Actor.lua"))
+        assert(FS.writeAtomic(source, [[
+local E = require("engine")
+local Bad = E.LObjectComponent:extend()
+function Bad:Load() error("component load error") end
+return {build = function(self) self:addComponent("bad", Bad) end}
+]]))
+        started, err = app:startPlay()
+        Assert.equal(false, started)
+        Assert.truthy(err:find("component load error", 1, true))
+        Assert.equal(nil, app.runtimeWorld)
+        assert(FS.writeAtomic(source, [[
+local E = require("engine")
+local Bad = E.LObjectComponent:extend()
+function Bad:Update() return false, "component update error" end
+return {build = function(self) self:addComponent("bad", Bad) end}
+]]))
+        assert(app:startPlay())
+        app:update(0.1)
+        Assert.equal(nil, app.runtimeWorld)
+        Assert.truthy(app.runtimeError:find("component update error", 1, true))
     end)
 end)
 

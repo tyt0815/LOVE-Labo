@@ -139,6 +139,19 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
     for i = #self.level.lobjects, 1, -1 do
         local lobject = self.level.lobjects[i]
         local transform = lobject.transform
+        if self.spriteAssets then
+            local preview = self.spriteAssets:preview(lobject)
+            for _, name in ipairs(preview and preview.componentOrder or {}) do
+                local component = preview.components[name]
+                if component:isA(require("core.sprite_component")) then
+                    local image = self.spriteAssets:image(component.properties.image)
+                    if image then
+                        local x, y = component:getWorldPosition()
+                        if math.abs(worldX - x) <= image:getWidth() / 2 and math.abs(worldY - y) <= image:getHeight() / 2 then return lobject end
+                    end
+                end
+            end
+        end
 
         local insideX =
             worldX >= transform.x - halfSize
@@ -358,7 +371,12 @@ function SceneView:drawLObjects()
     love.graphics.setLineWidth(2)
 
     for _, lobject in ipairs(self.level.lobjects) do
+        if self.spriteAssets then
+            local preview = self.spriteAssets:preview(lobject)
+            if preview then self.spriteAssets:draw(preview, self, self.zoom) end
+        end
         local transform = lobject.transform
+
         local screenX, screenY = self:worldToScreen(transform.x, transform.y)
         local size = LOBJECT_SIZE * self.zoom
         local halfSize = size * 0.5

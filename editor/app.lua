@@ -18,6 +18,10 @@ function EditorApp.new(document, project)
     self.inspector = Inspector.new()
 
     self.project = project
+    if project then
+        self.spriteAssets = require("editor.sprite_assets").new(project)
+        self.sceneView.spriteAssets, self.gameView.spriteAssets = self.spriteAssets, self.spriteAssets
+    end
     self.statusHeight = project and 26 or 0
     self.assetBrowser = project and require("editor.asset_browser").new(project) or nil
     self.assetBrowserHeight = 350
@@ -73,6 +77,8 @@ function EditorApp:setDocument(document)
     self.runtimeWorld = nil
 
     self.document = document
+    self.instanceInspectorObject, self.instanceInspectorTarget = nil, nil
+    if self.spriteAssets then self.spriteAssets:clear() end
     self.level = document.level
     self.documentReference = nil
 
@@ -145,6 +151,7 @@ function EditorApp:startPlay()
         local properties, propertyError = require("editor.lua_class").values(script, self.level.propertyOverrides)
         if not properties then self.runtimeError = propertyError; return false, propertyError end
         world.properties = properties
+        world.levelPropertySchema = script.properties
         levelClass = script
     end
 
@@ -195,32 +202,31 @@ end
 function EditorApp:bindRuntimeObjects(world)
     local LuaClass = require("editor.lua_class")
     local loadClass = LuaClass.loader(self.project)
-    local initialObjects = {}
-    for i, object in ipairs(world.lobjects) do initialObjects[i] = object end
+    local initialObjects, byId = {}, {}
+    local Definition = require("editor.object_definition")
+    for i, object in ipairs(world.lobjects) do initialObjects[i] = object; byId[object.authoringId] = object end
     -- 초기 레벨의 배치 객체만 바인딩한다. Lua가 직접 생성한 객체는 자신의 초기화 경로를 사용한다.
     for i, data in ipairs(self.level.lobjects) do
         local object = initialObjects[i]
-        local reference, overrides = data.definitionReference, {}
-        if reference then
-            local pathReference, referenceError = self.project:getAssetReference(reference)
-            if not pathReference then return false, referenceError end
-            if pathReference:match("^Assets/.+%.prefab$") then
-                local path, pathError = self.project:resolveAssetFile(reference)
-                if not path then return false, pathError end
-                local bytes, readError = require("editor.host_filesystem").read(path)
-                if not bytes then return false, readError end
-                local prefab, prefabError = require("editor.prefab").decode(bytes)
-                if not prefab then return false, prefabError end
-                reference, overrides = prefab.definitionReference, prefab.overrides.properties or {}
-            end
-            local class, classError
-            if reference then class, classError = loadClass(reference, "lobject") end
-            if reference and not class then return false, classError end
-            local properties, propertyError = LuaClass.values(class, overrides)
-            if not properties then return false, propertyError end
-            local bound, bindError = object:setClass(class, properties, world)
-            if not bound then return false, bindError end
+        local definition, err = Definition.resolve(self.project, data.definitionReference, loadClass)
+        if not definition then return false, err end
+        local configured, configureError = Definition.configure(object, definition, data.propertyOverrides, data.componentOverrides)
+        if not configured then return false, configureError end
+    end
+    local resolved, resolveError = Definition.resolveReferences(world.properties, world.levelPropertySchema, byId, self.project)
+    if not resolved then return false, resolveError end
+    for _, object in ipairs(initialObjects) do
+        local ok, err = Definition.resolveReferences(object.properties, object.luaClass and object.luaClass.properties, byId, self.project)
+        if not ok then return false, err end
+        for _, name in ipairs(object.componentOrder) do
+            local component = object.components[name]
+            local valid, fieldError = Definition.resolveReferences(component.properties, getmetatable(component).properties, byId, self.project)
+            if not valid then return false, fieldError end
         end
+    end
+    for _, object in ipairs(initialObjects) do
+        local ok, err = object:load(world)
+        if not ok then return false, err end
     end
     return true
 end
@@ -240,8 +246,46 @@ function EditorApp:inspectAsset(reference)
             return path and path:match("([^/]+)%.prefab$") or "Missing Prefab"
         end,
         isDirty = function() return document:isDirty() end,
-        getOverrides = function(target) return target.data.overrides.properties or {} end,
-        setOverrides = function(target, values) target.data.overrides.properties = next(values) and values or nil end}
+        getOverrides = function(target)
+            local values = require("editor.property_data").copy(target.data.overrides.properties)
+            for name, fields in pairs(target.data.overrides.components or {}) do
+                for field, value in pairs(fields) do values[name .. "." .. field] = value end
+            end
+            return values
+        end,
+        setOverrides = function(target, values)
+            local properties, components = {}, {}
+            for key, value in pairs(values) do
+                local name, field = key:match("^([^.]+)%.(.+)$")
+                if name then components[name] = components[name] or {}; components[name][field] = value
+                else properties[key] = value end
+            end
+            target.data.overrides.properties = next(properties) and properties or nil
+            target.data.overrides.components = next(components) and components or nil
+        end}
+    return true
+end
+
+function EditorApp:placePrefab(reference, x, y)
+    if self:isPlaying() then return false, "Stop Play before placing a Prefab" end
+    if not self.sceneView:containsPoint(x, y) then return false, "Drop inside the Scene View" end
+    local source, sourceError = self.project:getAssetReference(reference)
+    if not source then return false, sourceError end
+    if not source:match("^Assets/.+%.prefab$") then return false, "Expected a Prefab asset" end
+    if self.prefabDocument and self.prefabDocument.assetId == self.project:getAssetId(reference) and self.prefabDocument:isDirty() then
+        return false, "Save the edited Prefab first (Ctrl+S)"
+    end
+    local Definition = require("editor.object_definition")
+    local definition, err = Definition.resolve(self.project, reference)
+    if not definition then return false, err end
+    local target, targetError = Definition.inspectorTarget(self.project, {}, definition, self.level, "LObject")
+    if not target then return false, targetError end
+    self.inspector:commitEdit()
+    local wx, wy = self.sceneView:screenToWorld(x, y)
+    local object = assert(self.level:addLObject(wx, wy, self.project:getAssetId(reference) or reference))
+    self.sceneView.selectedLObject, self.activePanel = object, "scene"
+    self.assetBrowser.selectedReference = nil
+    self:updateInspectorTarget()
     return true
 end
 
@@ -272,8 +316,25 @@ function EditorApp:updateInspectorTarget()
         end
         self.inspector.assetSummary = {name = name, kind = kind, reference = selected}
     end
-    self.inspector.classInspector:setTarget(not object and not self.inspector.assetSummary
-        and (prefab and self.prefabInspectorTarget or self.levelInspectorTarget) or nil)
+    local target
+    if object then
+        if self.instanceInspectorObject ~= object then
+            self.inspector:commitEdit()
+            self.instanceInspectorObject = object
+            local Definition = require("editor.object_definition")
+            local definition, err = Definition.resolve(self.project, object.definitionReference)
+            local targetError
+            self.instanceInspectorTarget = nil
+            if definition then self.instanceInspectorTarget, targetError = Definition.inspectorTarget(self.project, object, definition, self.level, "LObject " .. object.authoringId) end
+            self.runtimeError = err or targetError
+        end
+        target = self.instanceInspectorTarget
+    elseif not self.inspector.assetSummary then
+        self.instanceInspectorObject = nil
+        target = prefab and self.prefabInspectorTarget or self.levelInspectorTarget
+    end
+    self.levelInspectorTarget.level = self.level
+    self.inspector.classInspector:setTarget(target)
     self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
         self.inspector.width, love.graphics.getHeight() - self.statusHeight)
     return object
@@ -284,6 +345,7 @@ function EditorApp:saveInspectedDocument()
     if self.prefabDocument and self.inspector.classInspector and self.inspector.classInspector.target == self.prefabInspectorTarget then
         local saved, err = self.prefabDocument:save(self.project)
         if not saved then self.inspector.classInspector.error = err end
+        if saved and self.spriteAssets then self.spriteAssets:clear(); self.instanceInspectorObject = nil end
         return saved, err
     end
     local saved, err = self:saveCurrentDocument()
@@ -567,9 +629,19 @@ function EditorApp:initializeUI()
         self.inspector.classInspector = require("editor.class_inspector").new(self.project, self.uiRoot)
         self:updateInspectorTarget()
         self.assetBrowser.onSelect = function(reference) return self:inspectAsset(reference) end
+        self.assetBrowser.externalDropTarget = function(entry, x, y)
+            if not self.sceneView:containsPoint(x, y) then return end
+            if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
+            if entry.type ~= "file" or not entry.reference:match("^Assets/.+%.prefab$") then return false, nil, "Drop a Prefab into the Scene View" end
+            local vx, vy, width, height = self.sceneView:getViewport()
+            return "scene", {x = vx, y = vy, w = width, h = height}
+        end
+        self.assetBrowser.onExternalDrop = function(entry, x, y) return self:placePrefab(entry.reference, x, y) end
         self.assetBrowser.onRefresh = function()
             self.inspector:commitEdit()
             self.inspector.classInspector:reload()
+            self.instanceInspectorObject = nil
+            self.spriteAssets:clear()
         end
         self.assetBrowser:setUIRoot(self.uiRoot)
         self.assetBrowser.onOpenFile = function(reference)
@@ -660,11 +732,13 @@ function EditorApp:statusText(x, y)
     local UI = require("editor.ui")
     if self.assetBrowser and self.assetBrowser.drag and self.assetBrowser.drag.active then
         local drag = self.assetBrowser.drag
-        return drag.error or "Move to " .. (drag.destination or "") .. ". Esc: cancel."
+        return drag.error or (drag.destination == "scene" and "Place Prefab in Scene. Esc: cancel."
+            or "Move to " .. (drag.destination or "") .. ". Esc: cancel.")
     end
     local hint = UI.hoverHint or self.uiRoot:getHint(x, y)
     local err = self.runtimeError or self.assetBrowser and self.assetBrowser.error
         or self.inspector.classInspector and self.inspector.classInspector.error
+        or self.spriteAssets and self.spriteAssets.error
     if err then return "Error: " .. err .. (hint and " | " .. hint or "") end
     if hint then return hint end
     return self.assetBrowser and self.assetBrowser.selectedReference

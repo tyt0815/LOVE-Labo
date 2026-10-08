@@ -53,25 +53,15 @@ function GameView:drawRuntimeLObjects(world)
         RUNTIME_LOBJECT_SIZE * 0.5
 
     for _, lobject in ipairs(world.lobjects) do
-        local transform = lobject.transform
-
-        local screenX, screenY =
-            self:worldToScreen(
-                transform.x,
-                transform.y
-            )
-
-        -- 실제 game rendering Component가 생기기 전까지
-        -- Runtime LObject의 존재/위치를 확인하기 위한 debug 표현이다.
-        Theme.setColor("text")
-
-        love.graphics.rectangle(
-            "fill",
-            screenX - halfSize,
-            screenY - halfSize,
-            RUNTIME_LOBJECT_SIZE,
-            RUNTIME_LOBJECT_SIZE
-        )
+        local drawn = self.spriteAssets and self.spriteAssets:draw(lobject, self, 1)
+        if not drawn then
+            local transform = lobject.transform
+            local screenX, screenY = self:worldToScreen(transform.x, transform.y)
+            -- 표시할 Sprite가 없는 객체도 위치를 확인할 수 있게 한다.
+            Theme.setColor("text")
+            love.graphics.rectangle("fill", screenX - halfSize, screenY - halfSize,
+                RUNTIME_LOBJECT_SIZE, RUNTIME_LOBJECT_SIZE)
+        end
     end
 end
 

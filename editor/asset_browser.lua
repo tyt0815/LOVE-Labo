@@ -336,6 +336,10 @@ function AssetBrowser:cancelDrag()
 end
 
 function AssetBrowser:dropTargetAt(x, y)
+    if self.externalDropTarget then
+        local target, rect, err = self.externalDropTarget(self.drag.entry, x, y)
+        if target ~= nil then return target or nil, rect, err end
+    end
     local folder, rect, treeNode
     local tree = self.treeSlot.widget
     if tree:containsPoint(x, y) then
@@ -410,7 +414,9 @@ function AssetBrowser:dragReleased(x, y, button)
     self:cancelDrag()
     if drag.active then
         if destination then
-            local moved, moveError = self:moveEntry(drag.entry, destination)
+            local moved, moveError
+            if destination == "scene" then moved, moveError = self.onExternalDrop(drag.entry, x, y)
+            else moved, moveError = self:moveEntry(drag.entry, destination) end
             self.error = not moved and moveError or nil
         else self.error = err end
     elseif drag.tree then self:openFolder(drag.entry.reference) end
@@ -455,7 +461,7 @@ function AssetBrowser:drawDragOverlay()
     Theme.setColor("border")
     love.graphics.rectangle("line", x, y, width, 54, 4, 4)
     UI.label(drag.entry.name, x + 8, y + 7, width - 16)
-    UI.text(drag.error or "Move to " .. (drag.destination or ""), x + 8, y + 29, width - 16,
+    UI.text(drag.error or (drag.destination == "scene" and "Place Prefab in Scene" or "Move to " .. (drag.destination or "")), x + 8, y + 29, width - 16,
         Theme.color(drag.destination and "textMuted" or "error"))
     love.graphics.pop()
 end

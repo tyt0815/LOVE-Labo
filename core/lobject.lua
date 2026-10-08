@@ -69,10 +69,10 @@ function LObject.new(runtimeId, initialState)
         setmetatable({}, LObject)
 
     self.runtimeId = runtimeId
+    self.authoringId = initialState.authoringId
+    self.components, self.componentOrder = {}, {}
 
-    -- 현재는 Definition 자체를 resolve하지 않고 identity만 보존한다.
-    -- 이후 Project Loader/registry가 이 reference를 Project Lua Definition으로
-    -- 연결하는 책임을 맡는다.
+    -- Definition 해석은 프로젝트 로더가 담당하고 Core에는 구성 결과만 전달한다.
     self.definitionReference =
         initialState.definitionReference
 
@@ -91,15 +91,50 @@ function LObject:update(dt)
         local ok, result, err = pcall(self.luaClass.update, self, dt)
         if not ok or result == false then return false, tostring(ok and err or result) end
     end
+    for _, name in ipairs(self.componentOrder) do
+        local component = self.components[name]
+        local ok, result, err = pcall(component.Update, component, dt)
+        if not ok or result == false then return false, tostring(ok and err or result) end
+    end
+end
+
+function LObject:addComponent(name, class, overrides)
+    assert(type(name) == "string" and name:match("^[%a_][%w_]*$"), "Component name must be an identifier")
+    assert(not self.components[name], "Duplicate component name: " .. name)
+    local component = class:new(overrides)
+    assert(component:isA(require("core.lobject_component")), "Expected LObjectComponent")
+    component.owner, component.name = self, name
+    self.components[name] = component
+    self.componentOrder[#self.componentOrder + 1] = name
+    if self.loaded then
+        local result, err = component:Load(self.world)
+        assert(result ~= false, err)
+    end
+    return component
+end
+
+function LObject:load(world)
+    self.world = world
+    for _, name in ipairs(self.componentOrder) do
+        local component = self.components[name]
+        local ok, result, err = pcall(component.Load, component, world)
+        if not ok or result == false then return false, tostring(ok and err or result) end
+    end
+    self.loaded = true
+    if self.luaClass and self.luaClass.load then
+        local ok, result, err = pcall(self.luaClass.load, self, world)
+        if not ok or result == false then return false, tostring(ok and err or result) end
+    end
+    return true
 end
 
 function LObject:setClass(class, properties, world)
     self.luaClass, self.properties = class, properties or {}
-    if class and class.load then
-        local ok, result, err = pcall(class.load, self, world)
+    if class and class.build then
+        local ok, result, err = pcall(class.build, self)
         if not ok or result == false then return false, tostring(ok and err or result) end
     end
-    return true
+    return self:load(world)
 end
 
 return LObject

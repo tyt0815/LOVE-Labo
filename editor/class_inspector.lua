@@ -21,7 +21,15 @@ function ClassInspector:reload()
     if not self.target then self.class, self.dropdown, self.names = nil, nil, {}; return end
     local reference = self.target and self.target.data[self.target.referenceField]
     self.class, self.error = nil, nil
-    if reference then self.class, self.error = LuaClass.load(self.project, reference, self.target.kind) end
+    if self.target.class then self.class = self.target.class
+    elseif reference then
+        self.class, self.error = LuaClass.load(self.project, reference, self.target.kind)
+        if self.class and self.target.kind == "lobject" then
+            local Definition = require("editor.object_definition")
+            local target, err = Definition.inspectorTarget(self.project, {}, {class = self.class, properties = {}, components = {}}, nil, "Prefab")
+            if target then self.class = target.class else self.class, self.error = nil, err end
+        end
+    end
     self.names = {}
     for name in pairs(self.class and self.class.properties or {}) do self.names[#self.names + 1] = name end
     table.sort(self.names)
@@ -50,6 +58,11 @@ function ClassInspector:selectParent(value)
     local class, err
     if value then class, err = LuaClass.load(self.project, value, self.target.kind) end
     if value and not class then self.error = err; return false end
+    if class and self.target.kind == "lobject" then
+        local target, targetError = require("editor.object_definition").inspectorTarget(self.project, {}, {class = class, properties = {}, components = {}}, nil, "Prefab")
+        if not target then self.error = targetError; return false end
+        class = target.class
+    end
     self.target.data[self.target.referenceField] = value or nil
     self.target:setOverrides(LuaClass.compatibleOverrides(class, self.target:getOverrides()))
     self:reload()
@@ -94,6 +107,30 @@ function ClassInspector:propertyRect(name, top)
     return {x = self.left + UI.metrics.contentPaddingX, y = top, w = math.max(0, width), h = 26}
 end
 
+function ClassInspector:choices(name, value)
+    local kind = self.class.properties[name].type
+    local options = {{label = "None", value = false}}
+    if kind == "object" then
+        for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
+            options[#options + 1] = {label = "LObject " .. object.authoringId, value = object.authoringId}
+        end
+    elseif kind == "image" then
+        local references = {}
+        for reference in pairs(self.project.assetMetadata or {}) do
+            if reference:match("^Assets/") and reference:lower():match("%.(.*)$") then
+                local extension = reference:lower():match("%.([^%.]+)$")
+                if ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension] then references[#references + 1] = reference end
+            end
+        end
+        table.sort(references)
+        for _, reference in ipairs(references) do options[#options + 1] = {label = reference, value = self.project:getAssetId(reference) or reference} end
+    end
+    local found = false
+    for _, option in ipairs(options) do if option.value == value then found = true end end
+    if not found then options[#options + 1] = {label = "Missing: " .. tostring(value), value = value} end
+    return Dropdown.new(self.root, options, value, function(selected) return self:setProperty(name, selected) end)
+end
+
 function ClassInspector:layout(left, width, height)
     self.left, self.width = left, width
     if not self.dropdown then return end
@@ -103,12 +140,16 @@ function ClassInspector:layout(left, width, height)
 end
 
 function ClassInspector:draw()
-    local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
-    if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
-    UI.label(label, self.left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
-    UI.text(self.target.label .. "  |  Ctrl+S: Save", self.left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
-    UI.label("Parent Class", self.left + UI.metrics.contentPaddingX, 78 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
-    self.dropdown:draw()
+    if not self.target.instance then
+        local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
+        if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
+        UI.label(label, self.left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
+        UI.text(self.target.label .. "  |  Ctrl+S: Save", self.left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+        if not self.target.hideParent then
+            UI.label("Parent Class", self.left + UI.metrics.contentPaddingX, 78 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
+            self.dropdown:draw()
+        end
+    end
     if self.error then UI.text(self.error, self.left + UI.metrics.contentPaddingX, 138 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("error")) end
     for row = 1, self.visibleRows do
         local name = self.names[row + self.scroll]
@@ -120,7 +161,11 @@ function ClassInspector:draw()
         UI.label(name .. " (" .. declaration.type .. ")", self.left + UI.metrics.contentPaddingX, y, self.width - 2 * UI.metrics.contentPaddingX)
         UI.hint({x = self.left + UI.metrics.contentPaddingX, y = y, w = self.width - 2 * UI.metrics.contentPaddingX, h = 20}, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
         local rect = self:propertyRect(name, y + 20)
-        if declaration.type == "boolean" then UI.button(value and "True" or "False", rect, false, "Toggle " .. name .. ". Ctrl+S: save.")
+        if declaration.type == "object" or declaration.type == "image" then
+            local choice = self:choices(name, value)
+            choice:setBounds(rect.x, rect.y, rect.w, rect.h)
+            choice:draw()
+        elseif declaration.type == "boolean" then UI.button(value and "True" or "False", rect, false, "Toggle " .. name .. ". Ctrl+S: save.")
         else UI.field(self.editing == name and IME.display(self, self.text, self.replace) or tostring(value),
             rect, self.editing == name, self.editing == name and self.composition) end
         local resetWidth = UI.buttonWidth("R")
@@ -131,7 +176,7 @@ end
 function ClassInspector:mousepressed(x, y, button)
     if button ~= 1 then return true end
     local dropdown = self.dropdown
-    if dropdown:containsPoint(x, y) then
+    if not self.target.hideParent and dropdown:containsPoint(x, y) then
         self:commitEdit()
         self:updateOptions()
         return dropdown:dispatch("mousepressed", x, y, button)
@@ -151,6 +196,13 @@ function ClassInspector:mousepressed(x, y, button)
             self:commitEdit()
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
+            if declaration.type == "object" or declaration.type == "image" then
+                local choice = self:choices(name, value)
+                local rect = self:propertyRect(name, top)
+                choice:setBounds(rect.x, rect.y, rect.w, rect.h)
+                self.propertyChoice = choice
+                return choice:dispatch("mousepressed", x, y, button)
+            end
             if declaration.type == "boolean" then return self:setProperty(name, not value) end
             self.editing, self.text, self.replace = name, tostring(value), true
             return true

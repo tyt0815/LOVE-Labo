@@ -153,6 +153,10 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if self.classInspector and self.classInspector.target and not selectedLObject then
         return self.classInspector:mousepressed(x, y, button)
     end
+    if selectedLObject and self.classInspector and self.classInspector.target and y >= 170 then
+        self:commitEdit()
+        return self.classInspector:mousepressed(x, y, button)
+    end
 
     -- Inspector 영역의 mouse press는 button 종류와 관계없이 소비한다.
     if button ~= 1 then
@@ -309,6 +313,10 @@ function Inspector:draw(selectedLObject)
     if selectedLObject.transform then
         self:drawField("X", "x", X_FIELD_Y, selectedLObject, left)
         self:drawField("Y", "y", Y_FIELD_Y, selectedLObject, left)
+    end
+    if self.classInspector and self.classInspector.target then
+        self.classInspector:layout(left, self.width, windowHeight)
+        self.classInspector:draw()
     end
 
     love.graphics.pop()

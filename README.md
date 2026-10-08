@@ -89,7 +89,7 @@ return Level
 
 Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최초 가져오기 때 종류를 결정하는 힌트다. 표식 없는 기존 Lua는 Level Class로 분류한다. 가져온 뒤에는 `.lua.meta`의 `scriptKind`를 사용한다. 호환성을 위해 기존 저장 필드명과 헤더는 유지한다. LObject Class 템플릿은 `load(self, world)`·`update(self, dt)` 함수를 제공한다.
 
-생성되는 Prefab은 다음 형태다. `definitionReference`는 선택한 LObject Class를 가리키며 부모가 없으면 생략한다. 빈 `overrides`는 원본 기본값을 유지한다. 레벨 배치 데이터의 `definitionReference`가 Prefab ID를 가리키면 Play에서 부모 클래스·프로퍼티를 적용한다. Prefab의 시각적 배치 도구는 아직 제공하지 않는다.
+생성되는 Prefab은 다음 형태다. `definitionReference`는 선택한 LObject Class를 가리키며 부모가 없으면 생략한다. 빈 `overrides`는 원본 기본값을 유지한다. Asset Browser의 Prefab을 Scene View에 드래그해서 배치하면 새 인스턴스가 선택된다. Inspector에서 클래스·컴포넌트 값을 편집하고 Ctrl+S로 레벨을 저장한다. Prefab 자체를 선택하면 Prefab 기본값을 편집한다.
 
 ```json
 {
@@ -102,6 +102,8 @@ Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최�
 **F5**는 Play/Stop이다. Play마다 코드 파일을 새로 읽고 Runtime World를 만든다. `load`는 한 번, `update`는 매 프레임 LObject 업데이트 전에 호출한다. Stop은 Runtime 변경을 버리며 배치 데이터에 반영하지 않는다. 코드 오류는 에디터에 표시하고 Play를 시작하지 않거나 중지한다. 자동화 테스트 모드에서는 프로젝트 코드를 실행하지 않는다.
 
 ## Lua Class 상속과 프로퍼티
+
+컴포넌트와 이미지·객체 참조의 선언 및 편집 예시는 [컴포넌트 사용법](components.md)을 참고한다.
 
 클래스는 일반 Lua 테이블을 반환한다. `extends`에는 같은 종류의 부모 `.lua.meta`의 `id`를 기록한다. ID를 사용하므로 부모 파일 이동·이름 변경에도 상속이 유지된다. 생략한 함수와 프로퍼티는 부모에게서 물려받으며, 자식 함수에서 `Child.super.load(world)`처럼 부모 함수를 명시적으로 호출할 수 있다. 순환 상속·다른 종류의 부모·잘못된 선언은 오류다.
 

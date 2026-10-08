@@ -4,6 +4,12 @@ local LObject = {}
 -- LObject.extends = "부모 클래스 ID"
 LObject.properties = {}
 
+-- 에디터에서도 실행되는 구성 선언이다. Load/Update의 동작은 여기에 넣지 않는다.
+function LObject.build(self)
+    -- local Engine = require("engine")
+    -- self:addComponent("sprite", Engine.SpriteComponent)
+end
+
 -- Runtime LObject가 생성될 때 초기화하는 동작을 작성한다.
 function LObject.load(self, world)
 end

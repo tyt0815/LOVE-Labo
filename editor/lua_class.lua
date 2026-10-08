@@ -3,8 +3,7 @@ local Id = require("editor.asset_id")
 local LuaClass = {}
 
 function LuaClass.validValue(kind, value)
-    if type(value) ~= kind then return false end
-    return kind ~= "number" or value == value and value ~= math.huge and value ~= -math.huge
+    return require("core.property_schema").validValue(kind, value)
 end
 
 -- 한 로드 범위 안에서만 클래스를 공유한다. 다음 검사·Play에서는 소스를 다시 읽는다.
@@ -44,14 +43,13 @@ function LuaClass.loader(project)
         if class.properties ~= nil and type(class.properties) ~= "table" then return fail("properties must be a table") end
         for name, declaration in pairs(class.properties or {}) do
             if type(name) ~= "string" or name == "" or type(declaration) ~= "table"
-                or (declaration.type ~= "number" and declaration.type ~= "string" and declaration.type ~= "boolean")
                 or not LuaClass.validValue(declaration.type, declaration.default) then
                 return fail("Invalid property declaration: " .. tostring(name))
             end
             if schema[name] and schema[name].type ~= declaration.type then return fail("Inherited property type cannot change: " .. name) end
             schema[name] = {type = declaration.type, default = declaration.default}
         end
-        for _, name in ipairs({"load", "update"}) do
+        for _, name in ipairs({"build", "load", "update"}) do
             if class[name] ~= nil and type(class[name]) ~= "function" then return fail(name .. " must be a function") end
         end
         class.properties, class.super = schema, parent

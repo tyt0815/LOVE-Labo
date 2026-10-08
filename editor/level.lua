@@ -70,6 +70,10 @@ local function validateLObjectData(data, usedAuthoringIds)
     end
 
     usedAuthoringIds[data.authoringId] = true
+    local properties, propertyError = require("editor.property_data").validate(data.propertyOverrides)
+    if not properties then return nil, propertyError end
+    local components, componentError = require("editor.property_data").validateComponents(data.componentOverrides)
+    if not components then return nil, componentError end
 
     -- 입력 data table을 그대로 Level에 넣지 않는다.
     -- serialized/authoring data 사이에 mutable table reference가 공유되지 않게
@@ -77,6 +81,8 @@ local function validateLObjectData(data, usedAuthoringIds)
     return {
         authoringId = data.authoringId,
         definitionReference = data.definitionReference,
+        propertyOverrides = properties,
+        componentOverrides = components,
         transform = {
             x = data.transform.x,
             y = data.transform.y
@@ -140,11 +146,14 @@ function Level:duplicateLObject(target, x, y)
             local duplicateX = x or transform.x
             local duplicateY = y or transform.y
 
-            return self:addLObject(
+            local duplicate = self:addLObject(
                 duplicateX,
                 duplicateY,
                 lobject.definitionReference
             )
+            duplicate.propertyOverrides = require("editor.property_data").copy(lobject.propertyOverrides)
+            duplicate.componentOverrides = require("editor.property_data").copyComponents(lobject.componentOverrides)
+            return duplicate
         end
     end
 
@@ -175,6 +184,8 @@ function Level:toData()
             authoringId = lobject.authoringId,
             definitionReference =
                 lobject.definitionReference,
+            propertyOverrides = next(lobject.propertyOverrides or {}) and require("editor.property_data").copy(lobject.propertyOverrides) or nil,
+            componentOverrides = next(lobject.componentOverrides or {}) and require("editor.property_data").copyComponents(lobject.componentOverrides) or nil,
             transform = {
                 x = lobject.transform.x,
                 y = lobject.transform.y

@@ -11,6 +11,8 @@ function Prefab.decode(text)
     if type(data.overrides) ~= "table" then return nil, "Prefab overrides must be an object" end
     local properties, propertyError = require("editor.property_data").validate(data.overrides.properties)
     if not properties then return nil, propertyError end
+    local components, componentError = require("editor.property_data").validateComponents(data.overrides.components)
+    if not components then return nil, componentError end
     return data
 end
 

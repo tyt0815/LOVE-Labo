@@ -16,3 +16,4 @@
 - [0014. LÖVE 기본 테마·독립 패널과 전역 호버 힌트](adr/0014-love-theme-panels-and-status-hints.md)
 - [0015. 나눔스퀘어 라운드 동봉과 공통 글꼴 관리](adr/0015-bundled-editor-font.md)
 - [0016. IME 조합 표시와 입력칸 확정](adr/0016-ime-composition-and-field-confirmation.md)
+- [0017. 컴포넌트 구성·인스턴스 프로퍼티와 Prefab 배치](adr/0017-components-instance-properties-and-prefab-placement.md)
