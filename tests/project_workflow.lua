@@ -829,7 +829,7 @@ add("browser context menus create entries and delete only after confirmation", f
         Assert.equal("Assets/Levels", browser.selectedReference)
         Assert.equal(4, #root.popup.panels[1].items)
         root:keypressed("escape")
-        local gapX = browser.fileSlot.widget.x + 8 + 108
+        local gapX = browser.fileSlot.widget.x + require("editor.ui").metrics.contentPaddingX + 108
         app:mousepressed(gapX, y, 2)
         Assert.equal(1, #root.popup.panels[1].items)
         root:keypressed("escape")

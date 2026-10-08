@@ -1,14 +1,14 @@
 local Theme = require("editor.theme")
+local UI = require("editor.ui")
 local Inspector = {}
 Inspector.__index = Inspector
 
 local DEFAULT_WIDTH = 300
 
-local FIELD_LEFT_OFFSET = 44
-local FIELD_RIGHT_MARGIN = 12
+local FIELD_LEFT_OFFSET = 32
 local FIELD_HEIGHT = 24
-local X_FIELD_Y = 100
-local Y_FIELD_Y = 132
+local X_FIELD_Y = 100 + UI.metrics.contentPaddingY
+local Y_FIELD_Y = 132 + UI.metrics.contentPaddingY
 
 local function pointInRect(x, y, left, top, width, height)
     return x >= left
@@ -61,8 +61,8 @@ function Inspector:getFieldAtPosition(x, y, windowWidth)
     end
 
     local left = windowWidth - self.width
-    local fieldLeft = left + FIELD_LEFT_OFFSET
-    local fieldWidth = self.width - FIELD_LEFT_OFFSET - FIELD_RIGHT_MARGIN
+    local fieldLeft = left + UI.metrics.contentPaddingX + FIELD_LEFT_OFFSET
+    local fieldWidth = self.width - FIELD_LEFT_OFFSET - 2 * UI.metrics.contentPaddingX
 
     if pointInRect(x, y, fieldLeft, X_FIELD_Y, fieldWidth, FIELD_HEIGHT) then
         return "x"
@@ -223,14 +223,14 @@ function Inspector:keypressed(key)
 end
 
 function Inspector:drawField(label, field, y, selectedLObject, left)
-    local fieldLeft = left + FIELD_LEFT_OFFSET
-    local fieldWidth = self.width - FIELD_LEFT_OFFSET - FIELD_RIGHT_MARGIN
+    local fieldLeft = left + UI.metrics.contentPaddingX + FIELD_LEFT_OFFSET
+    local fieldWidth = self.width - FIELD_LEFT_OFFSET - 2 * UI.metrics.contentPaddingX
     local isActive =
         self.activeField == field
         and self.editingLObject == selectedLObject
 
     Theme.setColor("textMuted")
-    require("editor.ui").label(label, left + 12, y + 4)
+    require("editor.ui").label(label, left + UI.metrics.contentPaddingX, y + 4)
 
     Theme.setColor("input")
 
@@ -260,17 +260,17 @@ function Inspector:draw(selectedLObject)
 
     local UI = require("editor.ui")
     UI.panel(left, 0, self.width, windowHeight)
-    UI.panelTitle("Inspector", left + 12, 12, self.width - 24)
+    UI.panelHeading("Inspector", left, 0, self.width)
     Theme.setColor("border")
-    love.graphics.line(left + 12, 35, windowWidth - 12, 35)
+    love.graphics.line(left + UI.metrics.contentPaddingX, 35, windowWidth - UI.metrics.contentPaddingX, 35)
 
     if self.assetSummary then
-        UI.label(self.assetSummary.name, left + 12, 44, self.width - 24)
-        UI.text(self.assetSummary.kind, left + 12, 60, self.width - 24, Theme.color("textMuted"))
-        UI.text(self.assetSummary.reference, left + 12, 86, self.width - 24, Theme.color("textMuted"))
+        UI.label(self.assetSummary.name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
+        UI.text(self.assetSummary.kind, left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+        UI.text(self.assetSummary.reference, left + UI.metrics.contentPaddingX, 86 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
         local hint = self.assetSummary.kind == "Level" and "Double-click to edit level"
             or self.assetSummary.kind == "Folder" and "Double-click to browse" or "Read-only asset information"
-        UI.text(hint, left + 12, 110, self.width - 24, Theme.color("textMuted"))
+        UI.text(hint, left + UI.metrics.contentPaddingX, 110 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
         love.graphics.pop()
         return
     end
@@ -283,7 +283,7 @@ function Inspector:draw(selectedLObject)
             return
         end
         Theme.setColor("textMuted")
-        love.graphics.print("No selection", left + 12, 44)
+        love.graphics.print("No selection", left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY)
         love.graphics.pop()
         return
     end
@@ -295,11 +295,11 @@ function Inspector:draw(selectedLObject)
 
     local name = type(selectedLObject.name) == "string" and selectedLObject.name ~= "" and selectedLObject.name
         or displayId and "LObject " .. displayId or "LObject"
-    UI.label(name, left + 12, 44, self.width - 24)
-    UI.text("LObject Instance", left + 12, 60, self.width - 24, Theme.color("textMuted"))
+    UI.label(name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
+    UI.text("LObject Instance", left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
 
     Theme.setColor("textMuted")
-    require("editor.ui").label("Transform", left + 12, 78, self.width - 24)
+    require("editor.ui").label("Transform", left + UI.metrics.contentPaddingX, 78 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
 
     if selectedLObject.transform then
         self:drawField("X", "x", X_FIELD_Y, selectedLObject, left)

@@ -1,4 +1,5 @@
 local Theme = require("editor.theme")
+local UI = require("editor.ui")
 local SceneView = {}
 SceneView.__index = SceneView
 
@@ -383,11 +384,11 @@ function SceneView:drawMouseWorldPosition()
 
         love.graphics.print(
             string.format("Mouse: (%.1f, %.1f)", worldX, worldY),
-            viewportX + 16,
-            viewportY + 36
+            viewportX + UI.metrics.contentPaddingX,
+            viewportY + 36 + UI.metrics.contentPaddingY
         )
     else
-        love.graphics.print("Mouse: --", viewportX + 16, viewportY + 36)
+        love.graphics.print("Mouse: --", viewportX + UI.metrics.contentPaddingX, viewportY + 36 + UI.metrics.contentPaddingY)
     end
 end
 
@@ -426,17 +427,17 @@ function SceneView:draw()
     self:drawLObjects()
 
     Theme.setColor("text")
-    require("editor.ui").panelTitle(
+    UI.panelHeading(
         string.format("Scene View  %.2fx", self.zoom),
-        viewportX + 16,
-        viewportY + 16,
-        width - 32
+        viewportX,
+        viewportY,
+        width
     )
     self:drawMouseWorldPosition()
     love.graphics.print(
         "A: Add  Ctrl+D: Duplicate  F: Frame  Delete: Delete",
-        viewportX + 16,
-        viewportY + 56
+        viewportX + UI.metrics.contentPaddingX,
+        viewportY + 56 + UI.metrics.contentPaddingY
     )
 
     love.graphics.pop()

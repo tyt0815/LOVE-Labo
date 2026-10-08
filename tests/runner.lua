@@ -509,7 +509,7 @@ tests[#tests + 1] = {
         local hierarchy = Hierarchy.new(level)
 
         Assert.equal(nil, hierarchy:getLObjectAtPosition(20, 10))
-        Assert.equal(nil, hierarchy:getLObjectAtPosition(250, 40))
+        Assert.equal(nil, hierarchy:getLObjectAtPosition(hierarchy.width + 30, 40))
         Assert.equal(nil, hierarchy:getLObjectAtPosition(20, 100))
     end
 }

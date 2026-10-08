@@ -83,32 +83,32 @@ function ClassInspector:isEditing() return self.editing ~= nil end
 function ClassInspector:layout(left, width, height)
     self.left, self.width = left, width
     if not self.dropdown then return end
-    self.dropdown:setBounds(left + 12, 100, math.max(0, width - 24), 28)
-    self.visibleRows = math.max(0, math.floor((height - 180) / 56))
+    self.dropdown:setBounds(left + UI.metrics.contentPaddingX, 100 + UI.metrics.contentPaddingY, math.max(0, width - 2 * UI.metrics.contentPaddingX), 28)
+    self.visibleRows = math.max(0, math.floor((height - 180 - UI.metrics.contentPaddingY) / 56))
     self.scroll = math.min(self.scroll, math.max(0, #self.names - self.visibleRows))
 end
 
 function ClassInspector:draw()
     local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
     if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
-    UI.label(label, self.left + 12, 44, self.width - 24)
-    UI.text(self.target.label .. "  |  Ctrl+S: Save", self.left + 12, 60, self.width - 24, Theme.color("textMuted"))
-    UI.label("Parent Class", self.left + 12, 78, self.width - 24)
+    UI.label(label, self.left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
+    UI.text(self.target.label .. "  |  Ctrl+S: Save", self.left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+    UI.label("Parent Class", self.left + UI.metrics.contentPaddingX, 78 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
     self.dropdown:draw()
-    if self.error then UI.text(self.error, self.left + 12, 138, self.width - 24, Theme.color("error")) end
+    if self.error then UI.text(self.error, self.left + UI.metrics.contentPaddingX, 138 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("error")) end
     for row = 1, self.visibleRows do
         local name = self.names[row + self.scroll]
         if not name then break end
         local declaration = self.class.properties[name]
         local value = self.target:getOverrides()[name]
         if value == nil then value = declaration.default end
-        local y = 170 + (row - 1) * 56
-        UI.label(name .. " (" .. declaration.type .. ")", self.left + 12, y, self.width - 24)
-        UI.hint({x = self.left + 12, y = y, w = self.width - 24, h = 20}, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
-        local rect = {x = self.left + 12, y = y + 20, w = self.width - 58, h = 26}
+        local y = 170 + UI.metrics.contentPaddingY + (row - 1) * 56
+        UI.label(name .. " (" .. declaration.type .. ")", self.left + UI.metrics.contentPaddingX, y, self.width - 2 * UI.metrics.contentPaddingX)
+        UI.hint({x = self.left + UI.metrics.contentPaddingX, y = y, w = self.width - 2 * UI.metrics.contentPaddingX, h = 20}, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
+        local rect = {x = self.left + UI.metrics.contentPaddingX, y = y + 20, w = self.width - 34 - 2 * UI.metrics.contentPaddingX, h = 26}
         if declaration.type == "boolean" then UI.button(value and "True" or "False", rect, false, "Toggle " .. name .. ". Ctrl+S: save.")
         else UI.field(self.editing == name and self.text or tostring(value), rect, self.editing == name) end
-        UI.button("R", {x = self.left + self.width - 40, y = y + 20, w = 28, h = 26})
+        UI.button("R", {x = self.left + self.width - UI.metrics.contentPaddingX - 28, y = y + 20, w = 28, h = 26})
     end
 end
 
@@ -123,10 +123,10 @@ function ClassInspector:mousepressed(x, y, button)
     for row = 1, self.visibleRows do
         local name = self.names[row + self.scroll]
         if not name then break end
-        local top = 190 + (row - 1) * 56
+        local top = 190 + UI.metrics.contentPaddingY + (row - 1) * 56
         if y >= top and y < top + 26 then
             local declaration = self.class.properties[name]
-            if x >= self.left + self.width - 40 then
+            if x >= self.left + self.width - UI.metrics.contentPaddingX - 28 then
                 self:commitEdit()
                 return self:setProperty(name, declaration.default)
             end

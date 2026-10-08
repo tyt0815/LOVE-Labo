@@ -11,7 +11,7 @@ local Dialog = require("editor.ui.dialog")
 
 local AssetBrowser = setmetatable({}, { __index = Canvas })
 AssetBrowser.__index = AssetBrowser
-local HEADER = 38
+local HEADER = 38 + UI.metrics.contentPaddingY
 local BREADCRUMB = 30
 local ROW = 26
 local CARD_WIDTH, CARD_HEIGHT = 112, 126
@@ -32,6 +32,7 @@ function AssetBrowser.new(project)
     self.viewDropdown = Dropdown.new(self.uiRoot,
         { {value = "thumbnails", label = "Thumbnails"}, {value = "list", label = "List"} },
         self.viewMode, function(mode) self:setViewMode(mode) end)
+    self.viewDropdown.flat, self.viewDropdown.label, self.viewDropdown.menuWidth = true, "View", 142
     self.viewDropdown.hint = "Choose Thumbnails or List for project files."
     self.treeSlot = self:addChild(Widget.new({
         draw = function() self:drawTree() end,
@@ -93,7 +94,7 @@ function AssetBrowser:setBounds(x, y, width, height)
     self.breadcrumb.visible = not self.collapsed
     self:setSlotBounds(self.breadcrumbSlot, self:treeWidth(), HEADER,
         self.width - self:treeWidth(), self.collapsed and 0 or BREADCRUMB)
-    self:setSlotBounds(self.dropdownSlot, self.width - 284, 8, 142, 26)
+    self:setSlotBounds(self.dropdownSlot, self.width - 194, 8, 52, 26)
     self:clampScroll()
 end
 
@@ -109,7 +110,7 @@ function AssetBrowser:setViewMode(mode)
 end
 
 function AssetBrowser:columns()
-    return math.max(1, math.floor((self.width - self:treeWidth() - 16) / CARD_WIDTH))
+    return math.max(1, math.floor((self.width - self:treeWidth() - 2 * UI.metrics.contentPaddingX) / CARD_WIDTH))
 end
 
 function AssetBrowser:getEntryAtPosition(x, y)
@@ -119,10 +120,10 @@ function AssetBrowser:getEntryAtPosition(x, y)
     if self.viewMode == "list" then
         return self.entries[math.floor((y - top) / ROW) + 1 + self.fileScroll]
     end
-    local column = math.floor((x - split - 8) / CARD_WIDTH)
+    local column = math.floor((x - split - UI.metrics.contentPaddingX) / CARD_WIDTH)
     local row = math.floor((y - top - 8) / CARD_HEIGHT)
     if column < 0 or column >= self:columns() or row < 0 then return nil end
-    if (x - split - 8) % CARD_WIDTH >= CARD_WIDTH - 6
+    if (x - split - UI.metrics.contentPaddingX) % CARD_WIDTH >= CARD_WIDTH - 6
         or (y - top - 8) % CARD_HEIGHT >= CARD_HEIGHT - 6 then return nil end
     return self.entries[(row + self.fileScroll) * self:columns() + column + 1]
 end
@@ -231,9 +232,9 @@ function AssetBrowser:draw()
     love.graphics.setScissor(self.x, self.y, self.width, self.height)
     UI.panel(self.x, self.y, self.width, self.height)
     local buttons = self:buttons()
-    UI.button(self.collapsed and "+" or "-", buttons.fold, false, "Collapse or expand the Project Browser.")
-    UI.panelTitle("Project Browser", self.x + 26, self.y + 11, math.max(0, self.width - 322))
-    UI.button("Refresh", buttons.refresh, false, "Rescan project files and reload class declarations. Ctrl+R: refresh.")
+    UI.button(self.collapsed and "+" or "-", buttons.fold, self.collapsed, "Collapse or expand the Project Browser.", true)
+    UI.panelHeading("Project Browser", self.x, self.y, math.max(0, self.width - 202))
+    UI.button("Refresh", buttons.refresh, false, "Rescan project files and reload class declarations. Ctrl+R: refresh.", true)
     if not self.collapsed then
         local split = self.x + self:treeWidth()
         local top = self.y + HEADER
@@ -273,7 +274,7 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
     if x < self.x + self:treeWidth() then
         local node = self.tree[index + self.treeScroll]
         if not node then return true end
-        if x < self.x + 28 + node.depth * 14 then
+        if x < self.x + UI.metrics.contentPaddingX + 18 + node.depth * 14 then
             self.expanded[node.reference] = not self.expanded[node.reference]
             self:rebuildTree()
         elseif node.reference == "Assets" or node.reference == "Sources" then self:openFolder(node.reference)
@@ -307,7 +308,7 @@ function AssetBrowser:contentHint(x, y)
     if self.treeSlot.widget:containsPoint(x, y) then
         local node = self.tree[math.floor((y - self.treeSlot.widget.y) / ROW) + 1 + self.treeScroll]
         if node then
-            if x < self.x + 28 + node.depth * 14 then return "Expand or collapse " .. node.reference .. "." end
+            if x < self.x + UI.metrics.contentPaddingX + 18 + node.depth * 14 then return "Expand or collapse " .. node.reference .. "." end
             return "Open " .. node.reference .. ". Drag the folder to move it. Right-click: menu."
         end
     else
@@ -347,7 +348,7 @@ function AssetBrowser:dropTargetAt(x, y)
                     if self.viewMode == "list" then
                         rect = {x = view.x, y = view.y + (i - 1 - self.fileScroll) * ROW, w = view.width, h = ROW}
                     else
-                        rect = {x = view.x + 8 + (i - 1) % self:columns() * CARD_WIDTH,
+                        rect = {x = view.x + UI.metrics.contentPaddingX + (i - 1) % self:columns() * CARD_WIDTH,
                             y = view.y + 8 + (math.floor((i - 1) / self:columns()) - self.fileScroll) * CARD_HEIGHT,
                             w = CARD_WIDTH - 6, h = CARD_HEIGHT - 6}
                     end
@@ -584,10 +585,9 @@ function AssetBrowser:drawTree()
         local rowY = view.y + (i - 1 - self.treeScroll) * ROW
         if rowY + ROW > view.y and rowY < view.y + view.height then
             if node.reference == self.folder then
-                Theme.setColor("selection")
-                love.graphics.rectangle("fill", view.x, rowY, view.width, ROW)
+                UI.selection(view.x, rowY, view.width, ROW)
             end
-            local arrowX, arrowY = view.x + 10 + node.depth * 14, rowY + ROW / 2
+            local arrowX, arrowY = view.x + UI.metrics.contentPaddingX + node.depth * 14, rowY + ROW / 2
             Theme.setColor("textMuted")
             love.graphics.setLineWidth(1.5)
             if self.expanded[node.reference] then
@@ -595,7 +595,7 @@ function AssetBrowser:drawTree()
             else
                 love.graphics.line(arrowX + 2, arrowY - 4, arrowX + 6, arrowY, arrowX + 2, arrowY + 4)
             end
-            UI.text(node.name, view.x + 26 + node.depth * 14, rowY + 5, view.width - 36 - node.depth * 14)
+            UI.text(node.name, view.x + UI.metrics.contentPaddingX + 16 + node.depth * 14, rowY + 5, view.width - UI.metrics.contentPaddingX - 26 - node.depth * 14)
         end
     end
     love.graphics.pop()
@@ -670,18 +670,18 @@ function AssetBrowser:drawFiles()
             local rowY = view.y + (i - 1 - self.fileScroll) * ROW
             if rowY + ROW > view.y and rowY < view.y + view.height then
                 if entry.reference == self.selectedReference then
-                    Theme.setColor("selection")
-                    love.graphics.rectangle("fill", view.x, rowY, view.width, ROW)
+                    UI.selection(view.x, rowY, view.width, ROW)
                 end
                 local kind = entry.isLink and "[Link] " or entry.type == "directory" and "[Folder] " or "[File] "
-                UI.text(kind .. entry.name, view.x + 12, rowY + 5, view.width - 24)
+                UI.text(kind .. entry.name, view.x + UI.metrics.contentPaddingX, rowY + 5, view.width - 2 * UI.metrics.contentPaddingX)
             end
         else
             local column, row = (i - 1) % columns, math.floor((i - 1) / columns) - self.fileScroll
-            local x, y = view.x + 8 + column * CARD_WIDTH, view.y + 8 + row * CARD_HEIGHT
+            local x, y = view.x + UI.metrics.contentPaddingX + column * CARD_WIDTH, view.y + 8 + row * CARD_HEIGHT
             if y + CARD_HEIGHT > view.y and y < view.y + view.height then
-                Theme.setColor(entry.reference == self.selectedReference and "selection" or "surface")
+                Theme.setColor("surface")
                 love.graphics.rectangle("fill", x, y, CARD_WIDTH - 6, CARD_HEIGHT - 6, 4, 4)
+                if entry.reference == self.selectedReference then UI.selection(x, y, CARD_WIDTH - 6, CARD_HEIGHT - 6) end
                 Theme.setColor("thumbnailBackground")
                 love.graphics.rectangle("fill", x + 9, y + 6, 88, 88)
                 local thumbnail = self.thumbnails:get(entry)
@@ -693,7 +693,7 @@ function AssetBrowser:drawFiles()
             end
         end
     end
-    if #self.entries == 0 then UI.text("This folder is empty", view.x + 12, view.y + 8) end
+    if #self.entries == 0 then UI.text("This folder is empty", view.x + UI.metrics.contentPaddingX, view.y + 8) end
     love.graphics.pop()
 end
 

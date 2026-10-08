@@ -2,6 +2,25 @@ local Theme = require("editor.theme")
 local Utf8 = require("utf8")
 local Fonts = require("editor.fonts")
 local UI = {}
+-- 패널의 공통 여백과 글자 크기. 제목 좌표는 패널 바깥쪽 경계를 기준으로 한다.
+UI.metrics = {
+    titlePaddingX = 16, titlePaddingY = 12, titleFontSize = 15,
+    contentPaddingX = 16, contentPaddingY = 4,
+    selectionPaddingX = 8, selectionPaddingY = 2, selectionRadius = 4,
+}
+
+function UI.selection(x, y, width, height)
+    local m = UI.metrics
+    Theme.setColor("selection")
+    love.graphics.rectangle("fill", x + m.selectionPaddingX, y + m.selectionPaddingY,
+        math.max(0, width - 2 * m.selectionPaddingX), math.max(0, height - 2 * m.selectionPaddingY),
+        m.selectionRadius, m.selectionRadius)
+end
+
+function UI.panelHeading(text, x, y, width)
+    local m = UI.metrics
+    UI.panelTitle(text, x + m.titlePaddingX, y + m.titlePaddingY, math.max(0, width - 2 * m.titlePaddingX))
+end
 function UI.beginFrame(x, y)
     UI.mouseX, UI.mouseY, UI.hoverHint = x, y, nil
 end
@@ -19,7 +38,7 @@ end
 
 function UI.panelTitle(text, x, y, width)
     love.graphics.push("all")
-    love.graphics.setFont(Fonts.get(15, true))
+    love.graphics.setFont(Fonts.get(UI.metrics.titleFontSize, true))
     UI.text(text, x, y, width, Theme.color("panelTitle"), true)
     love.graphics.pop()
 end
@@ -51,17 +70,21 @@ function UI.label(text, x, y, width)
     UI.text(text, x, y, width, Theme.color("text"), true)
 end
 
-function UI.button(label, rect, active, hint)
+function UI.button(label, rect, active, hint, flat)
     local hints = {Cancel = "Close this dialog without applying changes. Esc: cancel.",
         Create = "Create a new file or folder. Enter: confirm.", Save = "Save the document at the chosen path.",
         Move = "Move to the selected destination folder.", Rename = "Change the name in the current folder.",
         Delete = "Permanently delete this file or folder.", R = "Reset this property to its class default."}
     UI.hint(rect, hint or hints[label] or label)
     local mx, my = love.mouse.getPosition()
+    local hovered = UI.contains(mx, my, rect)
     if active then Theme.setColor("selection")
-    elseif UI.contains(mx, my, rect) then Theme.setColor("hover")
+    elseif hovered then Theme.setColor("hover")
     else Theme.setColor("button") end
-    love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 4, 4)
+    if not flat or active or hovered then
+        if flat and hovered and love.mouse.isDown(1) then Theme.setColor("selection") end
+        love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 4, 4)
+    end
     local padding = math.min(10, math.max(4, math.floor(rect.w * 0.2)))
     UI.text(label, rect.x + padding, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, rect.w - padding * 2)
 end

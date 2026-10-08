@@ -26,14 +26,14 @@ function Breadcrumb:update(dt)
 end
 
 function Breadcrumb:items()
-    local result, reference, left = {}, "", self.x + 8
+    local result, reference, left = {}, "", self.x + UI.metrics.contentPaddingX
     local font = love.graphics.getFont()
     for name in self.path:gmatch("[^/]+") do
         reference = reference == "" and name or reference .. "/" .. name
-        local width = math.min(font:getWidth(name) + 24, math.max(80, self.width * 0.5))
+        local width = font:getWidth(name)
         result[#result + 1] = { label = name, reference = reference, x = left,
             y = self.y + 2, w = width, h = self.height - 4 }
-        left = left + width + 16
+        left = left + width + font:getWidth("/")
     end
     return result
 end
@@ -41,18 +41,16 @@ end
 function Breadcrumb:draw()
     love.graphics.push("all")
     love.graphics.intersectScissor(self.x, self.y, self.width, self.height)
-    Theme.setColor("surface")
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
     for i, item in ipairs(self:items()) do
-        if i > 1 then UI.text("/", item.x - 12, self.y + 7) end
+        if i > 1 then UI.text("/", item.x - love.graphics.getFont():getWidth("/"), self.y + 7) end
         local amount = self.hover[item.reference] or 0
         if amount > 0.005 then
-            Theme.setColor("hover", amount * 0.85)
+            Theme.setColor(love.mouse.isDown(1) and amount > 0.5 and "selection" or "hover", amount * 0.85)
             love.graphics.rectangle("fill", item.x, item.y, item.w, item.h, 4, 4)
         end
         local font = love.graphics.getFont()
-        UI.text(item.label, item.x + 10, item.y + (item.h - font:getHeight()) / 2,
-            item.w - 20, Theme.mix("textMuted", "text", amount))
+        UI.text(item.label, item.x, item.y + (item.h - font:getHeight()) / 2,
+            item.w, Theme.mix("textMuted", "text", amount))
         UI.hint(item, "Open folder " .. item.reference .. ".")
     end
     love.graphics.pop()

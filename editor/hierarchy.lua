@@ -1,9 +1,10 @@
 local Theme = require("editor.theme")
+local UI = require("editor.ui")
 local Hierarchy = {}
 Hierarchy.__index = Hierarchy
 
 local DEFAULT_WIDTH = 300
-local HEADER_HEIGHT = 36
+local HEADER_HEIGHT = 36 + UI.metrics.contentPaddingY
 local ROW_HEIGHT = 24
 
 function Hierarchy.new(level, width)
@@ -42,7 +43,7 @@ function Hierarchy:draw(selectedLObject)
 
     local UI = require("editor.ui")
     UI.panel(0, 0, self.width, height)
-    UI.panelTitle("Hierarchy", 12, 12, self.width - 24)
+    UI.panelHeading("Hierarchy", 0, 0, self.width)
     Theme.setColor("border")
     love.graphics.line(12, 35, self.width - 12, 35)
     love.graphics.intersectScissor(6, 6, self.width - 12, math.max(0, height - 12))
@@ -56,14 +57,13 @@ function Hierarchy:draw(selectedLObject)
             end
 
             if lobject == selectedLObject then
-                Theme.setColor("selection")
-                love.graphics.rectangle("fill", 0, rowY, self.width, ROW_HEIGHT)
+                UI.selection(0, rowY, self.width, ROW_HEIGHT)
             end
 
             local displayId = lobject.authoringId or i
 
             Theme.setColor("text")
-            love.graphics.print("LObject " .. displayId, 12, rowY + 4)
+            love.graphics.print("LObject " .. displayId, UI.metrics.contentPaddingX, rowY + 4)
         end
     end
 

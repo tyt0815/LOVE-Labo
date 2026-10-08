@@ -59,6 +59,11 @@ end
 function Dropdown:draw()
     local label = ""
     for _, option in ipairs(self.options) do if option.value == self.value then label = option.label end end
+    if self.flat then
+        UI.button(self.label or label, {x = self.x, y = self.y, w = self.width, h = self.height},
+            self.root.popup == self.menu, self.hint, true)
+        return
+    end
     UI.button("", {x = self.x, y = self.y, w = self.width, h = self.height}, false,
         self.hint or "Open the choices. Up/Down: select. Enter: apply. Esc: close.")
     local divider = self.x + self.width - 28
@@ -87,7 +92,8 @@ function Dropdown:dispatch(event, ...)
     local height = self.visibleRows * 30 + 6
     local top = self.y + self.height + 2
     if top + height > windowHeight then top = math.max(0, math.min(windowHeight - height, self.y - height - 2)) end
-    self.menu:setBounds(self.x, top, self.width, height)
+    local width = self.menuWidth or self.width
+    self.menu:setBounds(math.min(self.x, love.graphics.getWidth() - width), top, width, height)
     self.root:setPopup(self.menu)
     return true
 end

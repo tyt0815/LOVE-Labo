@@ -1,4 +1,5 @@
 local Theme = require("editor.theme")
+local UI = require("editor.ui")
 local GameView = {}
 GameView.__index = GameView
 
@@ -104,11 +105,11 @@ function GameView:draw(world)
 
     Theme.setColor("text")
 
-    require("editor.ui").panelTitle(
+    UI.panelHeading(
         "Game View  [F5: Stop]",
-        viewportX + 16,
-        viewportY + 16,
-        width - 32
+        viewportX,
+        viewportY,
+        width
     )
 
     love.graphics.pop()

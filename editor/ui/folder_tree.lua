@@ -84,8 +84,7 @@ function FolderTree:draw()
         if not node then break end
         local y = self.y + (row - 1) * ROW
         if node.reference == self.selected then
-            Theme.setColor("selection")
-            love.graphics.rectangle("fill", self.x, y, self.width, ROW)
+            UI.selection(self.x, y, self.width, ROW)
         end
         local x = self.x + 10 + node.depth * 16
         Theme.setColor("textMuted")
