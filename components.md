@@ -68,4 +68,4 @@ end
 
 컴포넌트의 Load는 초기 구성·참조 연결 후 실행되고 Update는 LObject update 다음에 실행된다. `self.components.sprite`로 컴포넌트를 가져오며 컴포넌트에서는 `self.owner`로 LObject를 가져온다. 컴포넌트 이름은 코드 식별자이며 저장 데이터의 키이므로 안정적으로 유지한다. 런타임 load에서 추가한 컴포넌트도 Load/Update를 지원하지만 Inspector 구성에는 포함되지 않는다. 부모 클래스의 build를 확장할 때는 `Actor.super.build(self)`를 명시적으로 호출한다.
 
-이미지는 에셋 ID로 저장되어 Asset Browser에서 이동·이름 변경해도 연결을 유지한다. 원본 크기로 중앙에 표시되며 이미지 애니메이션·회전·스케일은 아직 제공하지 않는다. Scene View의 이미지 영역 클릭으로 선택·이동할 수 있다. Play에서 수정한 프로퍼티와 위치는 Stop 시 버려진다.
+이미지는 에셋 ID로 저장되어 Asset Browser에서 이동·이름 변경해도 연결을 유지한다. 원본 크기로 중앙에 표시되며 이미지 애니메이션·회전·스케일은 아직 제공하지 않는다. Scene View의 이미지 영역 클릭으로 선택하고 이동 기즈모를 드래그해 움직인다. Play에서 수정한 프로퍼티와 위치는 Stop 시 버려진다.

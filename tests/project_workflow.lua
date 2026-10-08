@@ -1760,7 +1760,10 @@ add("Prefab drag places at zoomed viewport coordinates without moving the source
         Assert.truthy(project:resolveAssetFile(prefabId))
         Assert.equal(nil, browser.drag)
         Assert.equal(nil, app.uiRoot.captured)
-        Assert.equal(false, app:placePrefab(prefabId, dx, dy) == false)
+        app.sceneView.snapEnabled, app.sceneView.snapUnit = true, 10
+        assert(app:placePrefab(prefabId, dx, dy))
+        Assert.equal(20, app.level.lobjects[2].transform.x)
+        Assert.equal(-10, app.level.lobjects[2].transform.y)
         assert(app:startPlay())
         Assert.equal(false, app:placePrefab(prefabId, dx, dy))
         Assert.equal(2, #app.level.lobjects)

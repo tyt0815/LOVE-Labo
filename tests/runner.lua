@@ -32,7 +32,8 @@ tests[#tests + 1] = {
         Assert.equal(-400, x)
         Assert.equal(-200, y)
         sceneView.level = require("editor.level").new()
-        sceneView:keypressed("a", false, 580, 250)
+        sceneView.level:addLObject(0, 0)
+        sceneView:mousepressed(580, 250, 1)
         Assert.equal(0, sceneView.selectedLObject.transform.x)
         Assert.equal(0, sceneView.selectedLObject.transform.y)
         sceneView.cameraX = 25
@@ -241,7 +242,7 @@ tests[#tests + 1] = {
 }
 
 tests[#tests + 1] = {
-    name = "scene view adds lobject at mouse position with a key",
+    name = "scene view A key no longer creates empty lobjects",
 
     fn = function()
         local Level = require("editor.level")
@@ -257,14 +258,13 @@ tests[#tests + 1] = {
         local x, y = sceneView:worldToScreen(20, 30)
         sceneView:keypressed("a", false, x, y)
 
-        Assert.equal(1, #level.lobjects)
-        Assert.equal(20, level.lobjects[1].transform.x)
-        Assert.equal(30, level.lobjects[1].transform.y)
+        Assert.equal(0, #level.lobjects)
+        Assert.equal(nil, sceneView.selectedLObject)
     end
 }
 
 tests[#tests + 1] = {
-    name = "scene view selects newly added lobject",
+    name = "scene view A key preserves existing selection",
 
     fn = function()
         local Level = require("editor.level")
@@ -273,10 +273,12 @@ tests[#tests + 1] = {
         local level = Level.new()
         local sceneView = SceneView.new(32, level)
 
+        local existing = level:addLObject(20, 30)
+        sceneView.selectedLObject = existing
         sceneView:keypressed("a", false, 40, 60)
 
         Assert.equal(1, #level.lobjects)
-        Assert.equal(level.lobjects[1], sceneView.selectedLObject)
+        Assert.equal(existing, sceneView.selectedLObject)
     end
 }
 
@@ -333,9 +335,9 @@ tests[#tests + 1] = {
         local lobject = level:addLObject(20, 30)
 
         local sceneView = SceneView.new(32, level)
-
+        sceneView.selectedLObject = lobject
         local x, y = sceneView:worldToScreen(20, 30)
-        sceneView:mousepressed(x, y, 1)
+        sceneView:mousepressed(x + 12, y - 12, 1)
 
         -- Screen 기준으로 (10, 5)만큼 이동.
         sceneView:mousemoved(30, 35, 10, 5)
@@ -359,9 +361,9 @@ tests[#tests + 1] = {
 
         local sceneView = SceneView.new(32, level)
         sceneView.zoom = 2
-
+        sceneView.selectedLObject = lobject
         local x, y = sceneView:worldToScreen(20, 30)
-        sceneView:mousepressed(x, y, 1)
+        sceneView:mousepressed(x + 12, y - 12, 1)
 
         -- Screen에서 10px 이동하면 World에서는 5만 이동해야 한다.
         sceneView:mousemoved(50, 70, 10, 10)
@@ -2805,6 +2807,9 @@ for _, test in ipairs(require("tests.project_workflow")) do
     tests[#tests + 1] = test
 end
 for _, test in ipairs(require("tests.ui_tree")) do
+    tests[#tests + 1] = test
+end
+for _, test in ipairs(require("tests.viewport_tools")) do
     tests[#tests + 1] = test
 end
 for _, test in ipairs(require("tests.ime")) do

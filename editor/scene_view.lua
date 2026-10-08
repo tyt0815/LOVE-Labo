@@ -1,5 +1,6 @@
 local Theme = require("editor.theme")
 local UI = require("editor.ui")
+local Gizmo = require("editor.translation_gizmo")
 local SceneView = {}
 SceneView.__index = SceneView
 
@@ -51,6 +52,7 @@ function SceneView.new(gridSize, level)
     -- 선택 상태와 drag 상태는 Editor에서만 사용하는 transient state다.
     self.selectedLObject = nil
     self.isDraggingLObject = false
+    self.snapEnabled, self.snapUnit = false, DEFAULT_GRID_SIZE
 
     return self
 end
@@ -179,12 +181,19 @@ function SceneView:mousepressed(x, y, button)
             return
         end
 
+        local axis = Gizmo.hit(self, x, y)
+        if axis then
+            local transform = self.selectedLObject.transform
+            self.drag = {axis = axis, object = self.selectedLObject, x = transform.x, y = transform.y, dx = 0, dy = 0, zoom = self.zoom}
+            self.isDraggingLObject = true
+            return
+        end
         local worldX, worldY = self:screenToWorld(x, y)
         local hitLObject = self:findLObjectAtWorldPosition(worldX, worldY)
 
         if hitLObject then
             self.selectedLObject = hitLObject
-            self.isDraggingLObject = true
+            self.isDraggingLObject = false
         else
             -- 빈 공간 클릭은 새 LObject를 만들지 않고 현재 선택만 해제한다.
             self.selectedLObject = nil
@@ -201,7 +210,7 @@ end
 
 function SceneView:mousereleased(x, y, button)
     if button == LEFT_MOUSE_BUTTON then
-        self.isDraggingLObject = false
+        self:cancelDrag(false)
     end
 
     if button == PAN_MOUSE_BUTTON then
@@ -209,14 +218,31 @@ function SceneView:mousereleased(x, y, button)
     end
 end
 
-function SceneView:mousemoved(x, y, dx, dy)
-    if self.isDraggingLObject and self.selectedLObject then
-        local worldDX = dx / self.zoom
-        local worldDY = dy / self.zoom
-        local transform = self.selectedLObject.transform
+function SceneView:cancelDrag(restore)
+    if restore and self.drag then
+        self.drag.object.transform.x, self.drag.object.transform.y = self.drag.x, self.drag.y
+    end
+    self.drag, self.isDraggingLObject = nil, false
+end
 
-        transform.x = transform.x + worldDX
-        transform.y = transform.y + worldDY
+function SceneView:snapValue(value)
+    if not self.snapEnabled then return value end
+    local scaled = value / self.snapUnit
+    return (scaled >= 0 and math.floor(scaled + 0.5) or math.ceil(scaled - 0.5)) * self.snapUnit
+end
+
+function SceneView:snapPosition(x, y)
+    return self:snapValue(x), self:snapValue(y)
+end
+
+function SceneView:mousemoved(x, y, dx, dy)
+    if self.isDraggingLObject and self.drag then
+        local drag = self.drag
+        drag.dx, drag.dy = drag.dx + dx, drag.dy + dy
+        local transform = drag.object.transform
+        -- 스냅된 값에 다음 delta를 더하지 않고 시작점 기준 누적 이동량을 사용한다.
+        if drag.axis ~= "y" then transform.x = self:snapValue(drag.x + drag.dx / drag.zoom) end
+        if drag.axis ~= "x" then transform.y = self:snapValue(drag.y + drag.dy / drag.zoom) end
         return
     end
 
@@ -242,25 +268,9 @@ function SceneView:frameSelected()
 end
 
 function SceneView:keypressed(key, controlDown, mouseX, mouseY)
+    if key == "escape" then self:cancelDrag(true); return end
     if key == "f" and not controlDown then
         self:frameSelected()
-        return
-    end
-
-    if key == "a" and not controlDown then
-        if not self.level
-            or mouseX == nil
-            or mouseY == nil
-            or not self:containsPoint(mouseX, mouseY)
-        then
-            return
-        end
-
-        local worldX, worldY = self:screenToWorld(mouseX, mouseY)
-
-        -- 현재는 별도 Asset/Palette가 없으므로 A 키를 임시 생성 입력으로 사용한다.
-        self.selectedLObject = self.level:addLObject(worldX, worldY)
-        self.isDraggingLObject = false
         return
     end
 
@@ -274,7 +284,7 @@ function SceneView:keypressed(key, controlDown, mouseX, mouseY)
             return
         end
 
-        local worldX, worldY = self:screenToWorld(mouseX, mouseY)
+        local worldX, worldY = self:snapPosition(self:screenToWorld(mouseX, mouseY))
         local duplicate = self.level:duplicateLObject(
             self.selectedLObject,
             worldX,
@@ -283,7 +293,7 @@ function SceneView:keypressed(key, controlDown, mouseX, mouseY)
 
         if duplicate then
             self.selectedLObject = duplicate
-            self.isDraggingLObject = false
+            self:cancelDrag(false)
         end
 
         return
@@ -299,10 +309,11 @@ function SceneView:keypressed(key, controlDown, mouseX, mouseY)
 
     self.level:removeLObject(self.selectedLObject)
     self.selectedLObject = nil
-    self.isDraggingLObject = false
+    self:cancelDrag(false)
 end
 
 function SceneView:zoomAtScreenPosition(screenX, screenY, wheelY)
+    if self.isDraggingLObject then return end
     if wheelY == 0 then
         return
     end
@@ -375,20 +386,8 @@ function SceneView:drawLObjects()
             local preview = self.spriteAssets:preview(lobject)
             if preview then self.spriteAssets:draw(preview, self, self.zoom) end
         end
-        local transform = lobject.transform
-
-        local screenX, screenY = self:worldToScreen(transform.x, transform.y)
-        local size = LOBJECT_SIZE * self.zoom
-        local halfSize = size * 0.5
-
-        if lobject == self.selectedLObject then
-            Theme.setColor("objectSelected")
-        else
-            Theme.setColor("object")
-        end
-
-        love.graphics.rectangle("line", screenX - halfSize, screenY - halfSize, size, size)
     end
+    Gizmo.draw(self)
 end
 
 function SceneView:drawMouseWorldPosition()
@@ -453,7 +452,7 @@ function SceneView:draw()
     )
     self:drawMouseWorldPosition()
     love.graphics.print(
-        "A: Add  Ctrl+D: Duplicate  F: Frame  Delete: Delete",
+        "Ctrl+D: Duplicate  F: Frame  Delete: Delete",
         viewportX + UI.metrics.contentPaddingX,
         viewportY + 56 + UI.metrics.contentPaddingY
     )
