@@ -100,7 +100,7 @@ function ClassInspector:isEditing() return self.editing ~= nil end
 function ClassInspector:propertyRect(name, top)
     local declaration = self.class.properties[name]
     local indent = declaration.component and 12 or 0
-    local resetWidth = UI.buttonWidth("R")
+    local resetWidth = 26
     local width = self.width - 2 * UI.metrics.contentPaddingX - UI.metrics.buttonGap - resetWidth - 2 * indent
     if declaration.type == "boolean" then
         local value = self.target:getOverrides()[name]
@@ -111,7 +111,7 @@ function ClassInspector:propertyRect(name, top)
 end
 
 function ClassInspector:resetRect(name, top)
-    local width = UI.buttonWidth("R")
+    local width = 26
     local indent = self.class.properties[name].component and 12 or 0
     return {x = self.left + self.width - UI.metrics.contentPaddingX - width - indent, y = top, w = width, h = 26}
 end
@@ -154,7 +154,7 @@ function ClassInspector:rebuildRows()
     end
     table.sort(groupNames)
     for _, component in ipairs(groupNames) do
-        local header = {component = component, height = 32}
+        local header = {component = component, height = self.expanded[component] and 32 or 26}
         rows[#rows + 1] = header
         if self.expanded[component] then
             for _, name in ipairs(groups[component]) do rows[#rows + 1] = {name = name, height = 56} end
@@ -210,10 +210,12 @@ function ClassInspector:draw()
         local y = self.propertyTop + row.offset - self.scroll
         if row.component and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             local groupLeft, groupWidth = self.left + UI.metrics.contentPaddingX, self.width - 2 * UI.metrics.contentPaddingX
-            Theme.setColor("surface")
-            love.graphics.rectangle("fill", groupLeft, y, groupWidth, row.groupHeight, 4, 4)
-            Theme.setColor("border")
-            love.graphics.rectangle("line", groupLeft + 0.5, y + 0.5, groupWidth - 1, row.groupHeight - 1, 4, 4)
+            if self.expanded[row.component] then
+                Theme.setColor("surface")
+                love.graphics.rectangle("fill", groupLeft, y, groupWidth, row.groupHeight, 4, 4)
+                Theme.setColor("border")
+                love.graphics.rectangle("line", groupLeft + 0.5, y + 0.5, groupWidth - 1, row.groupHeight - 1, 4, 4)
+            end
             local label = row.component .. " (" .. self.class.componentTypes[row.component] .. ")"
             UI.button("", {x = groupLeft, y = y, w = groupWidth, h = 26}, false, "Click to expand or collapse component properties.")
             UI.chevron(groupLeft + 10, y + 13, self.expanded[row.component])
@@ -233,7 +235,7 @@ function ClassInspector:draw()
             elseif declaration.type == "boolean" then UI.button(value and "True" or "False", rect, false, "Toggle " .. name .. ". Ctrl+S: save.")
             else UI.field(self.editing == name and IME.display(self, self.text, self.replace) or tostring(value),
                 rect, self.editing == name, self.editing == name and self.composition, self) end
-            UI.button("R", self:resetRect(name, y + 20))
+            UI.resetButton(self:resetRect(name, y + 20))
         end
     end
     love.graphics.pop()

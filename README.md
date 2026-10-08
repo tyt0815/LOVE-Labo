@@ -142,7 +142,7 @@ end
 return Child
 ```
 
-인스펙터에서 `number`·`string`은 입력칸, `boolean`은 토글로 편집한다. `R`은 클래스 기본값으로 되돌린다. 상속받은 프로퍼티도 편집할 수 있고 자식에서 기본값을 재정의할 수 있으나 타입은 유지해야 한다. Level은 `propertyOverrides`, Prefab은 `overrides.properties`에 기본값과 다른 값만 저장한다. 부모 변경 시 새 클래스와 호환되는 값만 유지하고 **None**으로 해제하면 변경값을 비운다. Play에서는 Level의 `world.properties`, LObject의 `self.properties`로 최종 값을 읽는다. Runtime 변경은 에셋에 반영하지 않는다.
+인스펙터에서 `number`·`string`은 입력칸, `boolean`은 토글로 편집한다. 되돌리기 화살표 아이콘(↺)은 클래스 기본값으로 되돌린다. 상속받은 프로퍼티도 편집할 수 있고 자식에서 기본값을 재정의할 수 있으나 타입은 유지해야 한다. Level은 `propertyOverrides`, Prefab은 `overrides.properties`에 기본값과 다른 값만 저장한다. 부모 변경 시 새 클래스와 호환되는 값만 유지하고 **None**으로 해제하면 변경값을 비운다. Play에서는 Level의 `world.properties`, LObject의 `self.properties`로 최종 값을 읽는다. Runtime 변경은 에셋에 반영하지 않는다.
 
 클래스 목록은 메타데이터만 읽지만, 프로퍼티 선언을 표시할 때는 선택한 클래스와 부모의 Lua 모듈을 로드한다. 모듈 최상위에는 선언만 두고 실제 게임 동작은 `BeginPlay`·`update`에 작성한다. 인스펙터 로드는 lifecycle 함수를 호출하지 않는다. 외부에서 클래스를 수정한 뒤에는 **Refresh** 또는 대상 문서 다시 열기로 선언을 갱신한다.
 

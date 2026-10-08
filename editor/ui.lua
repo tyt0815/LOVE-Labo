@@ -116,6 +116,22 @@ function UI.button(label, rect, active, hint, flat)
         math.max(0, rect.w - padding * 2), nil, false, "center")
 end
 
+function UI.resetButton(rect)
+    UI.button("", rect, false, "Reset to default.")
+    love.graphics.push("all")
+    Theme.setColor("textMuted")
+    love.graphics.setLineWidth(1.5)
+    local x, y, radius, points = rect.x + rect.w / 2, rect.y + rect.h / 2, 6, {}
+    for i = 0, 24 do
+        local angle = math.rad(30 - i * 300 / 24)
+        points[#points + 1], points[#points + 2] = x + math.cos(angle) * radius, y + math.sin(angle) * radius
+    end
+    love.graphics.line(points)
+    -- 글꼴에 의존하지 않는 되돌리기 화살표다.
+    love.graphics.line(x - 3, y + radius - 3, x, y + radius, x - 3, y + radius + 3)
+    love.graphics.pop()
+end
+
 function UI.chevron(x, y, expanded)
     love.graphics.push("all")
     Theme.setColor("textMuted")
