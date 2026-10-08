@@ -2,7 +2,7 @@ local Assert = require("tests.assert")
 local Project = require("editor.project")
 local FS = require("editor.host_filesystem")
 local AssetBrowser = require("editor.asset_browser")
-local Launcher = require("editor.launcher")
+local ProjectStart = require("editor.project_start")
 local EditorApp = require("editor.app")
 local tests = {}
 
@@ -140,66 +140,66 @@ add("asset browser navigates folders refreshes changes and preserves state on fa
     end)
 end)
 
-add("launcher creates and reopens project and contains failures", function()
+add("project start creates and reopens project and contains failures", function()
     fixture(function(parent)
         local opened
-        local launcher = Launcher.new(function(project) opened = EditorApp.new(nil, project); return true end)
-        launcher.path, launcher.name = parent, "Launch"
-        assert(launcher:submit())
+        local projectStart = ProjectStart.new(function(project) opened = EditorApp.new(nil, project); return true end)
+        projectStart.path, projectStart.name = parent, "Launch"
+        assert(projectStart:submit())
         Assert.equal("Launch", opened.project.name)
         Assert.truthy(opened.assetBrowser)
         Assert.equal(0, #opened.level.lobjects)
         local first = opened
-        launcher.mode, launcher.path = "open", first.project.rootPath
-        assert(launcher:submit())
+        projectStart.mode, projectStart.path = "open", first.project.rootPath
+        assert(projectStart:submit())
         Assert.equal(first.project.rootPath, opened.project.rootPath)
-        launcher.path = FS.join(parent, "Missing")
+        projectStart.path = FS.join(parent, "Missing")
         local current = opened
-        Assert.equal(false, launcher:submit())
+        Assert.equal(false, projectStart:submit())
         Assert.equal(current, opened)
-        Assert.truthy(launcher.error)
-        launcher.path = "invalid\0path"
-        Assert.equal(false, launcher:submit())
+        Assert.truthy(projectStart.error)
+        projectStart.path = "invalid\0path"
+        Assert.equal(false, projectStart:submit())
         Assert.equal(current, opened)
     end)
 end)
 
-add("launcher native Browse applies selection and preserves path on cancel or failure", function()
+add("project start native Browse applies selection and preserves path on cancel or failure", function()
     fixture(function(parent)
         local chosen = FS.join(parent, "한글 폴더")
         assert(FS.mkdir(chosen))
         local nextPath, nextError, receivedPath, receivedTitle = chosen
-        local launcher = Launcher.new(function() return true end, function(path, title)
+        local projectStart = ProjectStart.new(function() return true end, function(path, title)
             receivedPath, receivedTitle = path, title
             return nextPath, nextError
         end)
-        launcher.path = parent
-        local browse = launcher:layout().browse
-        launcher:mousepressed(browse.x + 5, browse.y + 5, 1)
+        projectStart.path = parent
+        local browse = projectStart:layout().browse
+        projectStart:mousepressed(browse.x + 5, browse.y + 5, 1)
         Assert.equal(parent, receivedPath)
         Assert.equal("새 프로젝트의 부모 폴더 선택", receivedTitle)
-        Assert.equal(chosen, launcher.path)
-        Assert.equal("path", launcher.activeField)
+        Assert.equal(chosen, projectStart.path)
+        Assert.equal("path", projectStart.activeField)
         nextPath = nil
-        launcher.mode = "open"
-        launcher:mousepressed(browse.x + 5, browse.y + 5, 1)
+        projectStart.mode = "open"
+        projectStart:mousepressed(browse.x + 5, browse.y + 5, 1)
         Assert.equal("프로젝트 폴더 열기", receivedTitle)
-        Assert.equal(chosen, launcher.path)
-        Assert.equal(nil, launcher.error)
+        Assert.equal(chosen, projectStart.path)
+        Assert.equal(nil, projectStart.error)
         nextError = "dialog failure"
-        launcher:mousepressed(browse.x + 5, browse.y + 5, 1)
-        Assert.equal(chosen, launcher.path)
-        Assert.equal("dialog failure", launcher.error)
-        launcher.selectFolder = function() error("unexpected dialog error") end
-        launcher:browse()
-        Assert.equal(chosen, launcher.path)
-        Assert.truthy(launcher.error:find("unexpected dialog error", 1, true))
-        launcher.activeField, launcher.replace = "name", true
-        launcher:textinput("테스트")
-        launcher:keypressed("backspace")
-        Assert.equal("테스", launcher.name)
-        launcher:textinput("트")
-        Assert.equal("테스트", launcher.name)
+        projectStart:mousepressed(browse.x + 5, browse.y + 5, 1)
+        Assert.equal(chosen, projectStart.path)
+        Assert.equal("dialog failure", projectStart.error)
+        projectStart.selectFolder = function() error("unexpected dialog error") end
+        projectStart:browse()
+        Assert.equal(chosen, projectStart.path)
+        Assert.truthy(projectStart.error:find("unexpected dialog error", 1, true))
+        projectStart.activeField, projectStart.replace = "name", true
+        projectStart:textinput("테스트")
+        projectStart:keypressed("backspace")
+        Assert.equal("테스", projectStart.name)
+        projectStart:textinput("트")
+        Assert.equal("테스트", projectStart.name)
     end)
 end)
 
@@ -260,18 +260,18 @@ add("editor bottom Assets layout routes inputs without changing lobject selectio
     end)
 end)
 
-add("launcher and editor UI render with isolated graphics state", function()
+add("project start and editor UI render with isolated graphics state", function()
     fixture(function(parent)
         local project = assert(Project.create(parent, "Render"))
         local app = EditorApp.new(nil, project)
-        local launcher = Launcher.new(function() return true end)
+        local projectStart = ProjectStart.new(function() return true end)
         local width, height = love.graphics.getDimensions()
         local canvas = love.graphics.newCanvas(width, height)
         love.graphics.setCanvas(canvas)
         local ok, err = pcall(function()
             love.graphics.setColor(0.3, 0.4, 0.5, 1)
             local before = love.graphics.getColor()
-            launcher:draw()
+            projectStart:draw()
             local r = love.graphics.getColor()
             Assert.equal(before, r)
             app:draw()

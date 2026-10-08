@@ -3,20 +3,20 @@ local FileSystem = require("editor.host_filesystem")
 local UI = require("editor.ui")
 local FolderDialog = require("editor.folder_dialog")
 
-local Launcher = {}
-Launcher.__index = Launcher
+local ProjectStart = {}
+ProjectStart.__index = ProjectStart
 
 local function rect(x, y, w, h) return { x = x, y = y, w = w, h = h } end
 
-function Launcher.new(onOpen, selectFolder)
+function ProjectStart.new(onOpen, selectFolder)
     return setmetatable({
         onOpen = onOpen, mode = "create", name = "New Project",
         path = love.filesystem.getUserDirectory(), activeField = "name",
         replace = true, error = nil, selectFolder = selectFolder or FolderDialog.selectFolder
-    }, Launcher)
+    }, ProjectStart)
 end
 
-function Launcher:layout()
+function ProjectStart:layout()
     local w, h = love.graphics.getDimensions()
     local left, top = math.max(16, (w - 680) / 2), math.max(16, (h - 460) / 2)
     local width = math.min(680, w - 32)
@@ -32,8 +32,8 @@ function Launcher:layout()
     return form
 end
 
-function Launcher:submit()
-    -- 경로/파일 오류는 런처 안에 남겨, 실패 시 반쯤 열린 에디터를 만들지 않는다.
+function ProjectStart:submit()
+    -- 경로/파일 오류는 프로젝트 시작 화면에 남겨, 실패 시 반쯤 열린 에디터를 만들지 않는다.
     local ok, project, err = pcall(function()
         if self.mode == "create" then return Project.create(self.path, self.name) end
         return Project.open(self.path)
@@ -46,7 +46,7 @@ function Launcher:submit()
     return true
 end
 
-function Launcher:browse()
+function ProjectStart:browse()
     local title = self.mode == "create" and "새 프로젝트의 부모 폴더 선택" or "프로젝트 폴더 열기"
     local ok, path, err = pcall(self.selectFolder, self.path, title)
     if not ok then self.error = tostring(path); return end
@@ -55,7 +55,7 @@ function Launcher:browse()
     self.activeField, self.replace = "path", true
 end
 
-function Launcher:draw()
+function ProjectStart:draw()
     local layout = self:layout()
     local p = layout.panel
     love.graphics.push("all")
@@ -84,7 +84,7 @@ function Launcher:draw()
     love.graphics.pop()
 end
 
-function Launcher:mousepressed(x, y, button)
+function ProjectStart:mousepressed(x, y, button)
     if button ~= 1 then return end
     local r = self:layout()
     if UI.contains(x, y, r.create) then self.mode = "create"; self.activeField = "name"; self.error = nil
@@ -98,13 +98,13 @@ function Launcher:mousepressed(x, y, button)
     self.replace = true
 end
 
-function Launcher:textinput(text)
+function ProjectStart:textinput(text)
     if not self.activeField then return end
     self[self.activeField] = (self.replace and "" or self[self.activeField]) .. text
     self.replace = false
 end
 
-function Launcher:keypressed(key)
+function ProjectStart:keypressed(key)
     if key == "return" or key == "kpenter" then
         self:submit()
         return
@@ -119,4 +119,4 @@ function Launcher:keypressed(key)
     end
 end
 
-return Launcher
+return ProjectStart
