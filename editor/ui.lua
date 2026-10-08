@@ -78,6 +78,24 @@ function UI.label(text, x, y, width)
     UI.text(text, x, y, width, Theme.color("text"), true)
 end
 
+function UI.textLines(text, x, y, width, maxLines)
+    local font = love.graphics.getFont()
+    local _, lines = font:getWrap(text, width)
+    local count = math.min(#lines, maxLines)
+    if #lines > maxLines then
+        local chars = {}
+        for _, code in Utf8.codes(lines[count]) do chars[#chars + 1] = Utf8.char(code) end
+        while #chars > 0 and font:getWidth(table.concat(chars) .. "...") > width do
+            chars[#chars] = nil
+        end
+        lines[count] = table.concat(chars) .. "..."
+    end
+    local lineHeight = font:getHeight() * font:getLineHeight()
+    for index = 1, count do
+        UI.text(lines[index], x, y + (index - 1) * lineHeight, width, nil, false, "center")
+    end
+end
+
 function UI.button(label, rect, active, hint, flat)
     local hints = {Cancel = "Close this dialog without applying changes. Esc: cancel.",
         Create = "Create a new file or folder. Enter: confirm.", Save = "Save the document at the chosen path.",

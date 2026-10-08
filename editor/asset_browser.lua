@@ -14,7 +14,7 @@ AssetBrowser.__index = AssetBrowser
 local HEADER = 38 + UI.metrics.contentPaddingY
 local BREADCRUMB = 30
 local ROW = 26
-local CARD_WIDTH, CARD_HEIGHT = 112, 126
+local CARD_WIDTH, CARD_HEIGHT = 112, 138
 
 function AssetBrowser.new(project)
     local self = setmetatable(Canvas.new(), AssetBrowser)
@@ -700,7 +700,7 @@ function AssetBrowser:drawFiles()
                     love.graphics.setColor(1, 1, 1, 1)
                     love.graphics.draw(thumbnail, x + 9, y + 6)
                 else self:drawIcon(entry, x + 9, y + 6) end
-                UI.text(entry.name, x + 7, y + 98, CARD_WIDTH - 20)
+                UI.textLines(entry.name, x + 7, y + 98, CARD_WIDTH - 20, 2)
             end
         end
     end

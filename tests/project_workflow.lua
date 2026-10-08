@@ -1460,7 +1460,7 @@ local function filePoint(browser, reference)
             local view = browser.fileSlot.widget
             if browser.viewMode == "list" then return view.x + 20, view.y + (i - 1 - browser.fileScroll) * 26 + 13 end
             return view.x + 28 + (i - 1) % browser:columns() * 112,
-                view.y + 28 + (math.floor((i - 1) / browser:columns()) - browser.fileScroll) * 126
+                view.y + 28 + (math.floor((i - 1) / browser:columns()) - browser.fileScroll) * 138
         end
     end
     error("File entry not found: " .. reference)
