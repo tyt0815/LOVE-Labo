@@ -326,7 +326,7 @@ add("project creation writes an empty default level using the existing JSON form
         Assert.equal(1, level.nextAuthoringId)
         local browser = AssetBrowser.new(project)
         assert(browser:openFolder("Assets/Levels"))
-        Assert.equal("Default.level", browser.entries[1].name)
+        Assert.equal("StartLevel.level", browser.entries[1].name)
         Assert.equal(Project.DEFAULT_LEVEL_REFERENCE, browser.entries[1].reference)
         assert(Project.open(project.rootPath))
         Assert.equal(text, assert(FS.read(path)))
@@ -734,7 +734,7 @@ add("entry deletion removes nested contents but protects roots default level and
         Assert.equal(false, project:deleteEntry("Sources"))
         Assert.equal(false, project:deleteEntry("Assets/Levels"))
         project.defaultLevelReference = project.defaultLevelReference:lower()
-        Assert.equal(false, project:deleteEntry("Assets/Levels/Default.level"))
+        Assert.equal(false, project:deleteEntry("Assets/Levels/StartLevel.level"))
         Assert.equal(false, project:deleteEntry("../outside"))
         local original = FS.info
         FS.info = function(path)

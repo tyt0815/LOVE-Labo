@@ -1,5 +1,5 @@
 {
-  "defaultLevelReference": "Assets/Levels/Default.level",
+  "defaultLevelReference": "Assets/Levels/StartLevel.level",
   "name": "TestProject",
   "version": 1
 }

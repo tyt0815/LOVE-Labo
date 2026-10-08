@@ -67,8 +67,8 @@ local function validateReference(reference)
 end
 
 Project.FILE_NAME = "project.labo"
-Project.DEFAULT_LEVEL_REFERENCE = "Assets/Levels/Default.level"
-Project.DEFAULT_SCRIPT_REFERENCE = "Sources/Levels/Default.lua"
+Project.DEFAULT_LEVEL_REFERENCE = "Assets/Levels/StartLevel.level"
+Project.DEFAULT_SCRIPT_REFERENCE = "Sources/Levels/StartLevel.lua"
 
 local function filesystem()
     return require("editor.host_filesystem")

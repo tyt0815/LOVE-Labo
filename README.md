@@ -20,7 +20,7 @@ love . --project "C:\Projects\TestProject"
 
 프로젝트 열기에 실패하거나 경로를 빠뜨리면 시작 화면에서 오류를 표시한다. `--test`를 함께 지정하면 자동화 테스트만 실행한다.
 
-- **New project**: 프로젝트 이름과 부모 폴더를 지정한 뒤 **Create project**를 누른다. 새 프로젝트에는 기본 레벨 `Assets/Levels/Default.level`과 연결된 코드 `Sources/Levels/Default.lua`를 만든다. 기존 폴더는 덮어쓰지 않는다. `.level` 파일의 내용은 JSON이다.
+- **New project**: 프로젝트 이름과 부모 폴더를 지정한 뒤 **Create project**를 누른다. 새 프로젝트에는 기본 레벨 `Assets/Levels/StartLevel.level`과 연결된 코드 `Sources/Levels/StartLevel.lua`를 만든다. 기존 폴더는 덮어쓰지 않는다. `.level` 파일의 내용은 JSON이다.
 - **Open project**: `project.labo`가 있는 프로젝트 폴더를 지정하고 **Open project**를 누른다. 프로젝트 폴더를 시작 화면으로 드래그해서 경로를 입력할 수도 있다.
 - **Browse**: Windows 기본 폴더 선택 창을 연다. 생성 모드에서는 부모 폴더를, 열기 모드에서는 프로젝트 폴더를 선택한다. 취소하면 기존 경로를 유지한다. 경로 입력 및 `Ctrl+V` 붙여넣기도 가능하다. 시작 화면의 경로는 입력 방식과 관계없이 `/`로 표시한다.
 
@@ -29,10 +29,10 @@ MyProject/
   project.labo
   Assets/
     Levels/
-      Default.level
+      StartLevel.level
   Sources/
     Levels/
-      Default.lua
+      StartLevel.lua
 ```
 
 프로젝트가 열리면 좌측 계층, 중앙 뷰포트, 우측 인스펙터와 하단 프로젝트 브라우저가 표시된다. 왼쪽 폴더 트리에 `Assets/`와 `Sources/`를 별도 루트로 보여준다.
@@ -59,7 +59,7 @@ MyProject/
 {
   "formatVersion": 1,
   "lobjects": [],
-  "scriptReference": "Sources/Levels/Default.lua"
+  "scriptReference": "Sources/Levels/StartLevel.lua"
 }
 ```
 

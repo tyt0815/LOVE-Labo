@@ -17,7 +17,7 @@
 
 ## 결정 및 근거
 
-프로젝트 생성 시 `Assets/Levels/Default.level`을 저장한다. 내용은 기존 `LevelFile.encode(Level.new())`가 생성하는 JSON이며 `formatVersion: 1`, `lobjects: []`를 갖는 빈 Level이다. 경로는 프로젝트 기준 상대 경로로 정의한다.
+프로젝트 생성 시 `Assets/Levels/StartLevel.level`을 저장한다. 내용은 기존 `LevelFile.encode(Level.new())`가 생성하는 JSON이며 `formatVersion: 1`, `lobjects: []`를 갖는 빈 Level이다. 경로는 프로젝트 기준 상대 경로로 정의한다.
 
 JSON은 폴더를 만들기 전에 완성하고, 파일 생성은 Unicode 호스트 파일시스템의 기존 파일 덮어쓰기 금지 방식을 사용한다. 기본 레벨과 프로젝트 정보 파일 중 어느 쪽이 실패해도 이번 작업에서 만든 파일·빈 디렉터리만 역순으로 정리한다. 열린 기존 프로젝트에는 기본 레벨을 자동으로 생성하거나 덮어쓰지 않는다.
 

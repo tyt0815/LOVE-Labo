@@ -18,7 +18,8 @@
 
 ## 결정 및 근거
 
-1. 새 프로젝트에 `Assets/Levels/Default.level`과 `Sources/Levels/Default.lua`를 생성한다. 생성은 기존 파일을 덮어쓰지 않으며 중간 실패 시 이번 생성의 파일·빈 폴더를 역순으로 정리한다.
+1. 새 프로젝트에 `Assets/Levels/StartLevel.level`과 `Sources/Levels/StartLevel.lua`를 생성한다. 생성은 기존 파일을 덮어쓰지 않으며 중간 실패 시 이번 생성의 파일·빈 폴더를 역순으로 정리한다.
+   초기 파일명은 사용자 요청에 따라 `Default`에서 `StartLevel`로 변경했다. 기존 프로젝트는 저장된 참조를 그대로 사용하며 파일명을 자동 변경하지 않는다.
 2. 레벨 JSON에 선택적인 `scriptReference`를 추가한다. 값은 canonical `Sources/.../*.lua` 상대 경로다. 기본 레벨은 기본 Lua를 참조한다. 레벨은 배치 데이터의 원본이며 Lua는 레벨의 동작을 담당한다. 기존 스크립트 없는 레벨을 허용하므로 `formatVersion: 1`을 유지한다.
 3. 프로젝트 정보에 선택적인 `defaultLevelReference`를 저장하고, 지정된 레벨을 에디터 진입 시 연다. 지정된 레벨이 잘못됐거나 읽히지 않으면 시작 화면에 오류를 표시한다. 지정이 없는 기존 프로젝트는 기존 빈 메모리 Level 동작을 유지한다. 기존 프로젝트를 열 때 파일을 자동 생성하거나 수정하지 않는다.
 4. Lua 파일은 `load(world)`와 `update(world, dt)` 함수가 있는 테이블을 반환한다. 두 함수는 생략할 수 있다. Play마다 소스를 새로 컴파일·실행하여 모듈과 전역 쓰기 영역을 만든다. `load` 후에만 새 Runtime을 에디터에 적용하며 `update`는 LObject 업데이트 전에 호출한다. 명시적 `false` 반환과 예외는 실패다. 실패는 에디터에 표시하며 시작 실패는 Runtime을 적용하지 않고 실행 중 실패는 Runtime을 폐기한다.
