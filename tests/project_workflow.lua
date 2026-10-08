@@ -42,6 +42,28 @@ local function fixture(fn)
     if not ok then error(err, 0) end
 end
 
+add("project creation retains final composing Hangul with Enter or submit click", function()
+    fixture(function(parent)
+        local IME = require("editor.ui.ime")
+        for _, mode in ipairs({"enter", "click"}) do
+            IME.update()
+            local created
+            local start = ProjectStart.new(function(project) created = project; return true end)
+            start:setPath(parent)
+            start:textinput(mode .. "한")
+            start:textedited("글")
+            if mode == "enter" then start:keypressed("return")
+            else
+                local rect = start:layout().submit
+                start:mousepressed(rect.x + 1, rect.y + 1, 1)
+            end
+            Assert.truthy(created)
+            Assert.equal(mode .. "한글", assert(Project.open(created.rootPath)).name)
+            IME.update()
+        end
+    end)
+end)
+
 add("project creation persists metadata and unicode Assets paths", function()
     fixture(function(parent)
         local project = assert(Project.create(parent, "한글 프로젝트"))

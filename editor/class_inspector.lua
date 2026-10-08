@@ -2,6 +2,7 @@ local UI = require("editor.ui")
 local Theme = require("editor.theme")
 local LuaClass = require("editor.lua_class")
 local Dropdown = require("editor.ui.dropdown")
+local IME = require("editor.ui.ime")
 local ClassInspector = {}
 ClassInspector.__index = ClassInspector
 
@@ -70,6 +71,7 @@ end
 
 function ClassInspector:commitEdit()
     if not self.editing then return false end
+    self.text, self.replace = IME.finish(self, self.text, self.replace)
     local name, text = self.editing, self.text
     self.editing = nil
     local declaration = self.class.properties[name]
@@ -77,7 +79,7 @@ function ClassInspector:commitEdit()
     return self:setProperty(name, value)
 end
 
-function ClassInspector:cancelEdit() self.editing = nil end
+function ClassInspector:cancelEdit() IME.cancel(self); self.editing = nil end
 function ClassInspector:isEditing() return self.editing ~= nil end
 
 function ClassInspector:propertyRect(name, top)
@@ -119,7 +121,8 @@ function ClassInspector:draw()
         UI.hint({x = self.left + UI.metrics.contentPaddingX, y = y, w = self.width - 2 * UI.metrics.contentPaddingX, h = 20}, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
         local rect = self:propertyRect(name, y + 20)
         if declaration.type == "boolean" then UI.button(value and "True" or "False", rect, false, "Toggle " .. name .. ". Ctrl+S: save.")
-        else UI.field(self.editing == name and self.text or tostring(value), rect, self.editing == name) end
+        else UI.field(self.editing == name and IME.display(self, self.text, self.replace) or tostring(value),
+            rect, self.editing == name, self.editing == name and self.composition) end
         local resetWidth = UI.buttonWidth("R")
         UI.button("R", {x = self.left + self.width - UI.metrics.contentPaddingX - resetWidth, y = y + 20, w = resetWidth, h = 26})
     end
@@ -159,6 +162,8 @@ end
 
 function ClassInspector:keypressed(key)
     if not self.editing then return false end
+    if IME.handlesKey(self, key) then return true end
+    if IME.endsComposition(key) then self.text, self.replace = IME.finish(self, self.text, self.replace) end
     if key == "return" or key == "kpenter" then self:commitEdit()
     elseif key == "escape" then self:cancelEdit()
     else self.text, self.replace = UI.editKey(self.text, key, self.replace) end
@@ -166,7 +171,12 @@ function ClassInspector:keypressed(key)
 end
 function ClassInspector:textinput(text)
     if not self.editing then return false end
-    self.text, self.replace = (self.replace and "" or self.text) .. text, false
+    self.text, self.replace = IME.input(self, self.text, text, self.replace)
+    return true
+end
+function ClassInspector:textedited(text)
+    if not self.editing then return false end
+    IME.edited(self, text)
     return true
 end
 function ClassInspector:wheelmoved(amount)

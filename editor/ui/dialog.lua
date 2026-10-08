@@ -1,6 +1,7 @@
 local Theme = require("editor.theme")
 local Widget = require("editor.ui.widget")
 local UI = require("editor.ui")
+local IME = require("editor.ui.ime")
 local Dialog = setmetatable({}, { __index = Widget })
 Dialog.__index = Dialog
 
@@ -35,6 +36,7 @@ function Dialog.new(root, options)
 end
 
 function Dialog:submit()
+    self.text, self.replace = IME.finish(self, self.text, self.replace)
     local choice = self.selected and self.options.choices[self.selected]
     local ok, err = self.options.onConfirm(self.text, choice and choice.value)
     if ok then self.root:dismissPopup() else self.error = err or "Operation failed" end
@@ -45,12 +47,20 @@ function Dialog:hitTest()
 end
 
 function Dialog:dispatch(event, ...)
-    if event == "textinput" and self.options.input and not self.choiceFocused then
+    if event == "dismiss" then IME.cancel(self)
+    elseif event == "textedited" and self.options.input and not self.choiceFocused then
         self.contentFocused = false
-        self.text = (self.replace and "" or self.text) .. (...)
-        self.replace, self.error = false, nil
+        IME.edited(self, (...))
+    elseif event == "textinput" and self.options.input and not self.choiceFocused then
+        self.contentFocused = false
+        self.text, self.replace = IME.input(self, self.text, (...), self.replace)
+        self.error = nil
     elseif event == "keypressed" then
         local key = ...
+        if IME.handlesKey(self, key) then return true end
+        if IME.endsComposition(key) then
+            self.text, self.replace = IME.finish(self, self.text, self.replace)
+        end
         if key == "return" or key == "kpenter" then self:submit()
         elseif key == "tab" and self.options.content then self.contentFocused = not self.contentFocused
         elseif self.contentFocused and self.options.content then self.options.content:dispatch(event, key)
@@ -63,6 +73,9 @@ function Dialog:dispatch(event, ...)
     elseif event == "mousepressed" then
         local x, y, button = ...
         if button == 1 then
+            if not UI.contains(x, y, self.field) and not UI.contains(x, y, self.cancel) then
+                self.text, self.replace = IME.finish(self, self.text, self.replace)
+            end
             if UI.contains(x, y, self.cancel) then self.root:dismissPopup()
             elseif UI.contains(x, y, self.confirm) then self:submit()
             elseif UI.contains(x, y, self.field) then self.choiceFocused, self.contentFocused = false, false
@@ -94,7 +107,8 @@ function Dialog:draw()
     love.graphics.rectangle("fill", box.x, box.y, box.w, box.h, 6, 6)
     UI.text(self.options.title, box.x + 16, box.y + 16, box.w - 32)
     UI.text(self.options.message or "", box.x + 16, box.y + 46, box.w - 32)
-    if self.options.input then UI.field(self.text, self.field, not self.choiceFocused and not self.contentFocused)
+    if self.options.input then UI.field(IME.display(self, self.text, self.replace), self.field,
+        not self.choiceFocused and not self.contentFocused, self.composition)
     else UI.text(self.options.detail or "", box.x + 16, box.y + 82, box.w - 32) end
     if self.options.choices then
         UI.text(self.options.choiceLabel or "Class", box.x + 16, box.y + 118, box.w - 32)

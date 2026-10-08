@@ -116,7 +116,7 @@ function UI.button(label, rect, active, hint, flat)
         math.max(0, rect.w - padding * 2), nil, false, "center")
 end
 
-function UI.field(text, rect, focused)
+function UI.field(text, rect, focused, composition)
     UI.hint(rect, "Edit the value. Enter: apply. Esc: cancel.")
     Theme.setColor("input")
     love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
@@ -127,6 +127,12 @@ function UI.field(text, rect, focused)
     local left = rect.x + 8
     if focused then left = math.min(left, rect.x + rect.w - 12 - font:getWidth(text)) end
     UI.text(text, left, rect.y + (rect.h - font:getHeight()) / 2)
+    if focused and composition then
+        Theme.setColor("focus")
+        local right = left + font:getWidth(text)
+        love.graphics.line(right - font:getWidth(composition), rect.y + (rect.h + font:getHeight()) / 2,
+            right, rect.y + (rect.h + font:getHeight()) / 2)
+    end
     if focused then
         local cursor = left + font:getWidth(text) + 2
         Theme.setColor("focus")

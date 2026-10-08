@@ -1,5 +1,6 @@
 local Theme = require("editor.theme")
 local UI = require("editor.ui")
+local IME = require("editor.ui.ime")
 local Inspector = {}
 Inspector.__index = Inspector
 
@@ -105,6 +106,7 @@ function Inspector:beginEdit(field, selectedLObject)
 end
 
 function Inspector:clearEditState()
+    IME.cancel(self)
     self.activeField = nil
     self.editingLObject = nil
     self.editText = ""
@@ -119,6 +121,7 @@ function Inspector:commitEdit()
 
     local field = self.activeField
     local lobject = self.editingLObject
+    self.editText, self.replaceOnTextInput = IME.finish(self, self.editText, self.replaceOnTextInput)
     local value = tonumber(self.editText)
 
     if value ~= nil and lobject and lobject.transform then
@@ -179,13 +182,15 @@ function Inspector:textinput(text)
         return false
     end
 
-    if self.replaceOnTextInput then
-        self.editText = text
-        self.replaceOnTextInput = false
-    else
-        self.editText = self.editText .. text
-    end
+    self.editText, self.replaceOnTextInput = IME.input(self, self.editText, text, self.replaceOnTextInput)
 
+    return true
+end
+
+function Inspector:textedited(text)
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:textedited(text) end
+    if not self:isEditing() then return false end
+    IME.edited(self, text)
     return true
 end
 
@@ -194,15 +199,17 @@ function Inspector:keypressed(key)
     if not self:isEditing() then
         return false
     end
+    if IME.handlesKey(self, key) then return true end
+    if IME.endsComposition(key) then
+        self.editText, self.replaceOnTextInput = IME.finish(self, self.editText, self.replaceOnTextInput)
+    end
 
     if key == "backspace" then
         if self.replaceOnTextInput then
             self.editText = ""
             self.replaceOnTextInput = false
         else
-            -- Transform field는 ASCII 숫자 입력만을 목표로 하므로
-            -- 현재 단계에서는 byte 단위 삭제로 충분하다.
-            self.editText = self.editText:sub(1, -2)
+            self.editText = UI.editKey(self.editText, key, false)
         end
 
         return true
@@ -242,7 +249,7 @@ function Inspector:drawField(label, field, y, selectedLObject, left)
     local text
 
     if isActive then
-        text = self.editText
+        text = IME.display(self, self.editText, self.replaceOnTextInput)
     else
         text = string.format("%.2f", selectedLObject.transform[field])
     end

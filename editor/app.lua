@@ -544,6 +544,7 @@ function EditorApp:initializeUI()
         end,
         keypressed = function(_, key) return self.inspector:keypressed(key) end,
         textinput = function(_, text) return self.inspector:textinput(text) end,
+        textedited = function(_, text) return self.inspector:textedited(text) end,
         wheelmoved = function(_, _, _, amount)
             if not self:isPlaying() and self.inspector.classInspector and self.inspector.classInspector.target then
                 self.inspector.classInspector:wheelmoved(amount)
@@ -709,6 +710,13 @@ function EditorApp:textinput(text)
     if self:isPlaying() then return end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
     return self.uiRoot:textinput(text)
+end
+
+function EditorApp:textedited(text, start, length)
+    if self.uiRoot.popup then return self.uiRoot:textedited(text, start, length) end
+    if self:isPlaying() then return end
+    if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
+    return self.uiRoot:textedited(text, start, length)
 end
 
 function EditorApp:handleSceneKey(key)

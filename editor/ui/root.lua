@@ -114,8 +114,14 @@ function Root:keypressed(key)
 end
 
 function Root:textinput(text)
+    if require("editor.ui.ime").consume(text) then return true end
     if self.popup then self:dispatchTo(self.popup, "textinput", text); return true end
     return self:dispatchTo(self.focused, "textinput", text)
+end
+
+function Root:textedited(text, start, length)
+    if self.popup then self:dispatchTo(self.popup, "textedited", text, start, length); return true end
+    return self:dispatchTo(self.focused, "textedited", text, start, length)
 end
 
 return Root

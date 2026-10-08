@@ -3,6 +3,7 @@ local Project = require("editor.project")
 local FileSystem = require("editor.host_filesystem")
 local UI = require("editor.ui")
 local FolderDialog = require("editor.folder_dialog")
+local IME = require("editor.ui.ime")
 
 local ProjectStart = {}
 ProjectStart.__index = ProjectStart
@@ -43,6 +44,7 @@ function ProjectStart:layout()
 end
 
 function ProjectStart:submit()
+    self:finishComposition()
     self:setPath(self.path)
     -- 경로/파일 오류는 프로젝트 시작 화면에 남겨, 실패 시 반쯤 열린 에디터를 만들지 않는다.
     local ok, project, err = pcall(function()
@@ -58,6 +60,7 @@ function ProjectStart:submit()
 end
 
 function ProjectStart:browse()
+    self:finishComposition()
     local title = self.mode == "create" and "새 프로젝트의 부모 폴더 선택" or "프로젝트 폴더 열기"
     local ok, path, err = pcall(self.selectFolder, self.path, title)
     if not ok then self.error = tostring(path); return end
@@ -79,12 +82,14 @@ function ProjectStart:draw()
     UI.button("Open project", layout.open, self.mode == "open")
     if self.mode == "create" then
         UI.text("Project name", p.x + 24, p.y + 136)
-        UI.field(self.name, layout.name, self.activeField == "name")
+        UI.field(self.activeField == "name" and IME.display(self, self.name, self.replace) or self.name,
+            layout.name, self.activeField == "name", self.activeField == "name" and self.composition)
     else
         UI.text("Select a folder containing " .. Project.FILE_NAME .. ".", p.x + 24, p.y + 158, p.w - 48)
     end
     UI.text(self.mode == "create" and "Parent folder" or "Project folder", p.x + 24, p.y + 212)
-    UI.field(self.path, layout.path, self.activeField == "path")
+    UI.field(self.activeField == "path" and IME.display(self, self.path, self.replace) or self.path,
+        layout.path, self.activeField == "path", self.activeField == "path" and self.composition)
     UI.button("Browse", layout.browse)
     if self.mode == "create" then
         UI.text("Create: " .. FileSystem.join(self.path, self.name), p.x + 24, p.y + 290, p.w - 48)
@@ -98,6 +103,9 @@ end
 function ProjectStart:mousepressed(x, y, button)
     if button ~= 1 then return end
     local r = self:layout()
+    local sameField = self.activeField and UI.contains(x, y, r[self.activeField])
+    if sameField then return end
+    self:finishComposition()
     if UI.contains(x, y, r.create) then self.mode = "create"; self.activeField = "name"; self.error = nil
     elseif UI.contains(x, y, r.open) then self.mode = "open"; self.activeField = "path"; self.error = nil
     elseif self.mode == "create" and UI.contains(x, y, r.name) then self.activeField = "name"
@@ -110,18 +118,33 @@ function ProjectStart:mousepressed(x, y, button)
 end
 
 function ProjectStart:textinput(text)
+    if IME.consume(text) then return end
     if not self.activeField then return end
-    self[self.activeField] = (self.replace and "" or self[self.activeField]) .. text
+    self[self.activeField], self.replace = IME.input(self, self[self.activeField], text, self.replace)
     if self.activeField == "path" then self:setPath(self.path) end
     self.replace = false
 end
 
+function ProjectStart:textedited(text)
+    if self.activeField then IME.edited(self, text) end
+end
+
+function ProjectStart:finishComposition()
+    if not self.activeField then return end
+    self[self.activeField], self.replace = IME.finish(self, self[self.activeField], self.replace)
+    if self.activeField == "path" then self:setPath(self.path) end
+end
+
 function ProjectStart:keypressed(key)
+    if IME.handlesKey(self, key) then return end
+    if key == "escape" then IME.cancel(self); return end
+    if IME.endsComposition(key) then self:finishComposition() end
     if key == "return" or key == "kpenter" then
         self:submit()
         return
     end
     if key == "tab" then
+        self:finishComposition()
         self.activeField = self.mode == "create" and self.activeField == "path" and "name" or "path"
         self.replace = true
         return

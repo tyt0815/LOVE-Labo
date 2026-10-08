@@ -15,3 +15,4 @@
 - [0013. 브라우저 드래그 이동과 에셋 종류별 색상](adr/0013-browser-drag-moves-and-asset-colors.md)
 - [0014. LÖVE 기본 테마·독립 패널과 전역 호버 힌트](adr/0014-love-theme-panels-and-status-hints.md)
 - [0015. 나눔스퀘어 라운드 동봉과 공통 글꼴 관리](adr/0015-bundled-editor-font.md)
+- [0016. IME 조합 표시와 입력칸 확정](adr/0016-ime-composition-and-field-confirmation.md)

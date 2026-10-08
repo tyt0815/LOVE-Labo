@@ -41,6 +41,7 @@ end
 -- love.update는 LÖVE Runtime이 매 프레임 호출한다.
 -- dt는 직전 프레임 이후 경과 시간(초)이다.
 function love.update(dt)
+    require("editor.ui.ime").update()
     if app and app.update then
         app:update(dt)
     end
@@ -73,6 +74,7 @@ end
 
 function love.directorydropped(path)
     if app and app.mode then
+        app:finishComposition()
         app.mode = "open"
         app:setPath(path)
         app.activeField = "path"
@@ -90,9 +92,15 @@ end
 -- love.textinput은 실제 입력된 문자(text)를 전달한다.
 -- Inspector의 숫자 field처럼 text editing이 필요한 UI에서 사용한다.
 function love.textinput(text)
+    if require("editor.ui.ime").consume(text) then return end
     if app then
         app:textinput(text)
     end
+end
+
+-- 조합 중인 글자는 확정 입력과 분리해 현재 입력칸에 표시한다.
+function love.textedited(text, start, length)
+    if app and app.textedited then app:textedited(text, start, length) end
 end
 
 function love.keypressed(key)
