@@ -6,8 +6,8 @@ function love.conf(t)
     t.console = true
 
     t.window.title = "LÖVE Labo"
-    t.window.width = 1280
-    t.window.height = 720
+    t.window.width = 1920
+    t.window.height = 1080
     t.window.resizable = true
     t.window.minwidth = 800
     t.window.minheight = 540

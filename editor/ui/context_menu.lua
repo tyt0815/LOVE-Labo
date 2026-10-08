@@ -7,6 +7,7 @@ local WIDTH, ROW, PAD = 190, 30, 4
 function Menu.new(root)
     local self = setmetatable(Widget.new(), Menu)
     self.root, self.panels = root, {}
+    self.reopenOnRightClick = true
     return self
 end
 

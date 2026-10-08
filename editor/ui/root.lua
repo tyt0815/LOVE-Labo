@@ -44,11 +44,16 @@ end
 
 function Root:mousepressed(x, y, button, presses)
     if self.popup then
-        local target = self.popup:hitTest(x, y)
-        if target then return self:dispatchTo(target, "mousepressed", x, y, button, presses) end
-        -- 메뉴 바깥 클릭은 닫기에만 사용하여 뒤쪽 객체를 실수로 조작하지 않는다.
-        self:dismissPopup()
-        return true
+        if button == 2 and self.popup.reopenOnRightClick then
+            -- 컨텍스트 메뉴는 새 우클릭 위치의 위젯이 바로 다음 메뉴를 열게 한다.
+            self:dismissPopup()
+        else
+            local target = self.popup:hitTest(x, y)
+            if target then return self:dispatchTo(target, "mousepressed", x, y, button, presses) end
+            -- 일반 바깥 클릭은 닫기에만 사용하여 뒤쪽 객체를 실수로 조작하지 않는다.
+            self:dismissPopup()
+            return true
+        end
     end
     local target = self.canvas:hitTest(x, y)
     if self.beforeMousepressed then self.beforeMousepressed(target, x, y, button) end

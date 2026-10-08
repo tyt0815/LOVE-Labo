@@ -287,9 +287,10 @@ function AssetBrowser:showContextMenu(x, y)
     for _, option in ipairs({ {"Folder", "folder"}, {"Level", "level"}, {"Lua Script", "lua"} }) do
         local label, kind = option[1], option[2]
         local root = folder:match("^[^/]+")
-        newItems[#newItems + 1] = { label = label,
-            enabled = kind == "folder" or kind == "level" and root == "Assets" or kind == "lua" and root == "Sources",
-            action = function() self:showCreateDialog(folder, kind) end }
+        if kind == "folder" or kind == "level" and root == "Assets" or kind == "lua" and root == "Sources" then
+            newItems[#newItems + 1] = { label = label,
+                action = function() self:showCreateDialog(folder, kind) end }
+        end
     end
     local items = { { label = "New", children = newItems } }
     if entry and entry.reference ~= "Assets" and entry.reference ~= "Sources" then

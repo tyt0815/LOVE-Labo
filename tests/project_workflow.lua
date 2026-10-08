@@ -768,7 +768,8 @@ add("browser context menus create entries and delete only after confirmation", f
         app:mousepressed(browser.x + browser.width - 20, y, 2)
         Assert.equal(1, #root.popup.panels[1].items)
         root:keypressed("right")
-        Assert.equal(3, #root.popup.panels[2].items)
+        Assert.equal(2, #root.popup.panels[2].items)
+        Assert.equal("Level", root.popup.panels[2].items[2].label)
         root:keypressed("return")
         app:textinput("Temporary")
         app:keypressed("return")
@@ -786,6 +787,49 @@ add("browser context menus create entries and delete only after confirmation", f
         root:keypressed("return")
         Assert.truthy(root.popup.error:find("currently open", 1, true))
         Assert.truthy(FS.info(FS.join(project.rootPath, "Assets/Open.level")))
+    end)
+end)
+
+add("browser replaces context menu on right click and hides unavailable creation types", function()
+    fixture(function(parent)
+        local app = EditorApp.new(nil, assert(Project.create(parent, "RetargetMenu")))
+        local browser, root = app.assetBrowser, app.uiRoot
+        local x, y = browser.fileSlot.widget.x + 20, browser.fileSlot.widget.y + 20
+        app:mousepressed(x, y, 2)
+        local first = root.popup
+        Assert.equal(2, #first.panels[1].items)
+        local emptyX = browser.x + browser.width - 20
+        app:mousepressed(emptyX, y, 2)
+        Assert.truthy(root.popup ~= first)
+        Assert.equal(nil, browser.selectedReference)
+        Assert.equal(1, #root.popup.panels[1].items)
+        root:keypressed("right")
+        local assetsItems = root.popup.panels[2].items
+        Assert.equal(2, #assetsItems)
+        Assert.equal("Folder", assetsItems[1].label)
+        Assert.equal("Level", assetsItems[2].label)
+        local sourceIndex
+        for i, node in ipairs(browser.tree) do if node.reference == "Sources" then sourceIndex = i end end
+        local sourceY = browser.treeSlot.widget.y + (sourceIndex - 1) * 26 + 13
+        app:mousepressed(browser.x + 70, sourceY, 2)
+        root:keypressed("right")
+        local sourcesItems = root.popup.panels[2].items
+        Assert.equal(2, #sourcesItems)
+        Assert.equal("Folder", sourcesItems[1].label)
+        Assert.equal("Lua Script", sourcesItems[2].label)
+        root:keypressed("down")
+        root:keypressed("return")
+        local dialog = root.popup
+        Assert.equal("Sources", dialog.options.message)
+        -- 입력·삭제 확인 창의 우클릭은 메뉴 교체 동작에 포함하지 않는다.
+        app:mousepressed(x, y, 2)
+        Assert.equal(dialog, root.popup)
+        root:keypressed("escape")
+        app:mousepressed(x, y, 2)
+        local selected = browser.selectedReference
+        app:mousepressed(emptyX, y, 1)
+        Assert.equal(nil, root.popup)
+        Assert.equal(selected, browser.selectedReference)
     end)
 end)
 
