@@ -2801,6 +2801,10 @@ tests[#tests + 1] = {
 }
 
 
+for _, test in ipairs(require("tests.project_workflow")) do
+    tests[#tests + 1] = test
+end
+
 local TestRunner = {}
 
 function TestRunner.runAll()

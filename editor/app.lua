@@ -17,6 +17,10 @@ function EditorApp.new(document, project)
     self.inspector = Inspector.new()
 
     self.project = project
+    self.assetBrowser = project and require("editor.asset_browser").new(project) or nil
+    self.assetBrowserHeight = 220
+    self.isResizingAssets = false
+    self.activePanel = "scene"
     self.documentReference = nil
 
     -- Play 중에만 존재하는 Runtime World다.
@@ -261,19 +265,29 @@ function EditorApp:updateSceneViewport()
     local width =
         math.max(0, viewportWidth)
 
+    local editorHeight = windowHeight
+    if self.assetBrowser then
+        local browserHeight = self.assetBrowser.collapsed and 38
+            or math.max(100, math.min(self.assetBrowserHeight, windowHeight - 160))
+        editorHeight = math.max(0, windowHeight - browserHeight)
+        self.assetBrowser:setBounds(0, editorHeight,
+            math.max(0, windowWidth - self.inspector.width), browserHeight)
+    end
+    self.hierarchy.height = editorHeight
+
     -- Scene View와 Game View는 같은 중앙 editor 영역을 번갈아 사용한다.
     self.sceneView:setViewport(
         viewportX,
         0,
         width,
-        windowHeight
+        editorHeight
     )
 
     self.gameView:setViewport(
         viewportX,
         0,
         width,
-        windowHeight
+        editorHeight
     )
 end
 
@@ -310,14 +324,30 @@ function EditorApp:draw()
     self.inspector:draw(
         self.sceneView.selectedLObject
     )
+    if self.assetBrowser then self.assetBrowser:draw() end
 end
 
 function EditorApp:mousepressed(
     x,
     y,
-    button
+    button,
+    presses
 )
     self:updateSceneViewport()
+
+    if self.assetBrowser and self.assetBrowser:containsPoint(x, y) then
+        self.inspector:commitEdit()
+        self.sceneView.isDraggingLObject = false
+        self.sceneView.isPanning = false
+        self.activePanel = "assets"
+        if button == 1 and not self.assetBrowser.collapsed and y < self.assetBrowser.y + 5 then
+            self.isResizingAssets = true
+        else
+            self.assetBrowser:mousepressed(x, y, button, presses)
+        end
+        self:updateSceneViewport()
+        return
+    end
 
     -- 아직 Runtime input forwarding이 없으므로 Play 중에는
     -- Editor authoring mouse input을 전부 막는다.
@@ -333,6 +363,7 @@ function EditorApp:mousepressed(
         y,
         windowWidth
     ) then
+        self.activePanel = "inspector"
         self.sceneView.isDraggingLObject =
             false
 
@@ -350,6 +381,7 @@ function EditorApp:mousepressed(
     self.inspector:commitEdit()
 
     if self.hierarchy:containsPoint(x, y) then
+        self.activePanel = "hierarchy"
         if button == 1 then
             self.sceneView.selectedLObject =
                 self.hierarchy:getLObjectAtPosition(
@@ -365,6 +397,7 @@ function EditorApp:mousepressed(
     end
 
     if self.sceneView:containsPoint(x, y) then
+        self.activePanel = "scene"
         self.sceneView:mousepressed(
             x,
             y,
@@ -378,6 +411,7 @@ function EditorApp:mousereleased(
     y,
     button
 )
+    if button == 1 then self.isResizingAssets = false end
     if self:isPlaying() then
         return
     end
@@ -395,6 +429,12 @@ function EditorApp:mousemoved(
     dx,
     dy
 )
+    if self.isResizingAssets then
+        local height = love.graphics.getHeight()
+        self.assetBrowserHeight = math.max(100, math.min(height - 160, height - y))
+        self:updateSceneViewport()
+        return
+    end
     if self:isPlaying() then
         return
     end
@@ -408,6 +448,12 @@ function EditorApp:mousemoved(
 end
 
 function EditorApp:wheelmoved(x, y)
+    self:updateSceneViewport()
+    local browserMouseX, browserMouseY = love.mouse.getPosition()
+    if self.assetBrowser and self.assetBrowser:containsPoint(browserMouseX, browserMouseY) then
+        self.assetBrowser:wheelmoved(browserMouseX, browserMouseY, y)
+        return
+    end
     if self:isPlaying() then
         return
     end
@@ -468,6 +514,19 @@ function EditorApp:keypressed(key)
     -- Runtime input forwarding을 만들기 전까지
     -- Play 중 다른 key가 authoring shortcut으로 들어가지 않게 막는다.
     if self:isPlaying() then
+        return
+    end
+
+    if self.activePanel == "assets" then
+        if key == "backspace" then return self.assetBrowser:goUp() end
+        if key == "r" and controlDown then return self.assetBrowser:refresh() end
+        if key == "return" then
+            for _, entry in ipairs(self.assetBrowser.entries) do
+                if entry.reference == self.assetBrowser.selectedReference and entry.type == "directory" and not entry.isLink then
+                    return self.assetBrowser:openFolder(entry.reference)
+                end
+            end
+        end
         return
     end
 

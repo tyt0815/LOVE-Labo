@@ -25,15 +25,27 @@ function love.load(args)
         return
     end
 
-    -- Editor mode에서만 EditorApp을 생성한다.
-    local EditorApp = require("editor.app")
-    app = EditorApp.new()
+    local Launcher = require("editor.launcher")
+    -- 한글 프로젝트 이름과 경로를 표시할 수 있는 호스트 글꼴을 사용한다.
+    local fs = require("editor.host_filesystem")
+    local fontPath = fs.join(os.getenv("WINDIR") or "C:/Windows", "Fonts/malgun.ttf")
+    local fontBytes = fs.read(fontPath)
+    if fontBytes then
+        love.graphics.setFont(love.graphics.newFont(love.filesystem.newFileData(fontBytes, "malgun.ttf"), 14))
+    end
+    app = Launcher.new(function(project)
+        local ok, editor = pcall(require("editor.app").new, nil, project)
+        if not ok then return false, tostring(editor) end
+        app = editor
+        love.window.setTitle("LOVE Labo - " .. project.name)
+        return true
+    end)
 end
 
 -- love.update는 LÖVE Runtime이 매 프레임 호출한다.
 -- dt는 직전 프레임 이후 경과 시간(초)이다.
 function love.update(dt)
-    if app then
+    if app and app.update then
         app:update(dt)
     end
 end
@@ -45,21 +57,32 @@ function love.draw()
     end
 end
 
-function love.mousepressed(x, y, button)
+function love.mousepressed(x, y, button, istouch, presses)
     if app then
-        app:mousepressed(x, y, button)
+        app:mousepressed(x, y, button, presses)
     end
 end
 
 function love.mousereleased(x, y, button)
-    if app then
+    if app and app.mousereleased then
         app:mousereleased(x, y, button)
     end
 end
 
 function love.mousemoved(x, y, dx, dy)
-    if app then
+    if app and app.mousemoved then
         app:mousemoved(x, y, dx, dy)
+    end
+end
+
+function love.directorydropped(path)
+    if app and app.mode then
+        app.mode = "open"
+        app.path = path
+        app.activeField = "path"
+        app.replace = true
+        app.picker = nil
+        app.error = nil
     end
 end
 

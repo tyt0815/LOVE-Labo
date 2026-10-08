@@ -33,6 +33,10 @@ local function validateReference(reference)
         return false, "project reference must use '/' separators"
     end
 
+    if reference:find('[%z\1-\31:*?"<>|]') then
+        return false, "project reference contains invalid path characters"
+    end
+
     -- reference는 Project root 기준이어야 하며 실제 OS absolute path를
     -- authoring data 안에 저장하지 않는다.
     if reference:sub(1, 1) == "/"
@@ -54,14 +58,124 @@ local function validateReference(reference)
         if segment == "." or segment == ".." then
             return false, "project reference contains a non-canonical path segment"
         end
+        if segment:match("[ .]$") then
+            return false, "project reference contains a non-canonical path segment"
+        end
     end
 
     return true
 end
 
+Project.FILE_NAME = "project.labo"
+
+local function filesystem()
+    return require("editor.host_filesystem")
+end
+
+function Project.isValidName(name)
+    if type(name) ~= "string" or name == "" or name:match("^%s")
+        or name:match("[ .]$") or name:find('[%z\1-\31/\\:*?"<>|]') then
+        return false, "Enter a valid project folder name"
+    end
+    local base = name:match("^[^.]+") or name
+    base = base:upper()
+    if base == "CON" or base == "PRN" or base == "AUX" or base == "NUL"
+        or base:match("^COM[1-9]$") or base:match("^LPT[1-9]$") then
+        return false, "This folder name is reserved by Windows"
+    end
+    return true
+end
+
+function Project.create(parentPath, name)
+    local valid, nameError = Project.isValidName(name)
+    if not valid then return nil, nameError end
+    local parent, pathError = Project.new(parentPath)
+    if not parent then return nil, pathError end
+    local fs = filesystem()
+    local info, infoError = fs.info(parent.rootPath)
+    if not info or info.type ~= "directory" then
+        return nil, infoError or "Parent folder does not exist"
+    end
+    local root = fs.join(parent.rootPath, name)
+    local existing, existingError = fs.info(root)
+    if existing then return nil, "Project folder already exists" end
+    if existingError then return nil, existingError end
+    local created, err = fs.mkdir(root)
+    if not created then return nil, err end
+    local assets = fs.join(root, "Assets")
+    created, err = fs.mkdir(assets)
+    if not created then
+        fs.removeDirectory(root)
+        return nil, err
+    end
+    local Json = require("editor.json")
+    local text = assert(Json.encode({ version = 1, name = name }, true)) .. "\n"
+    created, err = fs.createFile(fs.join(root, Project.FILE_NAME), text)
+    if not created then
+        -- 이번 생성에서 만든 빈 디렉터리만 정리하며 기존 데이터에는 손대지 않는다.
+        fs.removeDirectory(assets)
+        fs.removeDirectory(root)
+        return nil, err
+    end
+    return Project.open(root)
+end
+
+function Project.open(rootPath)
+    local project, err = Project.new(rootPath)
+    if not project then return nil, err end
+    local fs = filesystem()
+    local info, infoError = fs.info(project.rootPath)
+    if not info or info.type ~= "directory" then return nil, infoError or "Project folder does not exist" end
+    local text, readError = fs.read(fs.join(project.rootPath, Project.FILE_NAME))
+    if not text then return nil, "Cannot open " .. Project.FILE_NAME .. ": " .. tostring(readError) end
+    local data, decodeError = require("editor.json").decode(text)
+    if type(data) ~= "table" or data.version ~= 1 then
+        return nil, decodeError or "Unsupported project format"
+    end
+    local valid, nameError = Project.isValidName(data.name)
+    if not valid then return nil, nameError end
+    local assets, assetsError = fs.info(fs.join(project.rootPath, "Assets"))
+    if not assets or assets.type ~= "directory" or assets.isLink then
+        return nil, assetsError or "Project must contain a regular Assets folder"
+    end
+    local entries, listError = fs.list(fs.join(project.rootPath, "Assets"))
+    if not entries then return nil, listError end
+    project.name = data.name
+    return project
+end
+
+function Project:listAssets(reference)
+    reference = reference or "Assets"
+    if reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/" then
+        return nil, "Asset folder must be inside Assets"
+    end
+    local path, err = self:resolvePath(reference)
+    if not path then return nil, err end
+    local fs = filesystem()
+    local current = self.rootPath
+    -- 각 segment를 검사하여 junction/symlink를 통한 Assets 밖 탐색을 막는다.
+    for segment in reference:gmatch("[^/]+") do
+        current = fs.join(current, segment)
+        local info, infoError = fs.info(current)
+        if not info or info.type ~= "directory" or info.isLink then
+            return nil, infoError or "Asset folder is missing or is a filesystem link"
+        end
+    end
+    local entries, listError = fs.list(path)
+    if not entries then return nil, listError end
+    for _, entry in ipairs(entries) do
+        entry.reference = reference .. "/" .. entry.name
+    end
+    return entries
+end
+
 function Project.new(rootPath)
     if type(rootPath) ~= "string" or rootPath == "" then
         return nil, "project root path must be a non-empty string"
+    end
+
+    if rootPath:find("\0", 1, true) then
+        return nil, "project root path contains a null character"
     end
 
     local normalized = normalizeRootPath(rootPath)

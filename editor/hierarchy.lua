@@ -16,6 +16,7 @@ end
 
 function Hierarchy:containsPoint(x, y)
     return x >= 0 and x < self.width and y >= 0
+        and (not self.height or y < self.height)
 end
 
 function Hierarchy:getLObjectAtPosition(x, y)
@@ -33,8 +34,10 @@ end
 
 function Hierarchy:draw(selectedLObject)
     local _, height = love.graphics.getDimensions()
+    height = self.height or height
 
     love.graphics.push("all")
+    love.graphics.setScissor(0, 0, self.width, height)
 
     -- 현재는 별도 Docking/Layout system 없이 고정 폭 패널로 시작한다.
     love.graphics.setColor(0.11, 0.12, 0.14, 1.0)
