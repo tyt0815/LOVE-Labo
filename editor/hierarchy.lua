@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local Hierarchy = {}
 Hierarchy.__index = Hierarchy
 
@@ -40,13 +41,13 @@ function Hierarchy:draw(selectedLObject)
     love.graphics.setScissor(0, 0, self.width, height)
 
     -- 현재는 별도 Docking/Layout system 없이 고정 폭 패널로 시작한다.
-    love.graphics.setColor(0.11, 0.12, 0.14, 1.0)
+    Theme.setColor("panel")
     love.graphics.rectangle("fill", 0, 0, self.width, height)
 
-    love.graphics.setColor(0.28, 0.29, 0.33, 1.0)
+    Theme.setColor("border")
     love.graphics.line(self.width, 0, self.width, height)
 
-    love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
+    Theme.setColor("text")
     love.graphics.print("Hierarchy", 12, 10)
 
     if self.level then
@@ -58,13 +59,13 @@ function Hierarchy:draw(selectedLObject)
             end
 
             if lobject == selectedLObject then
-                love.graphics.setColor(0.22, 0.28, 0.36, 1.0)
+                Theme.setColor("selection")
                 love.graphics.rectangle("fill", 0, rowY, self.width, ROW_HEIGHT)
             end
 
             local displayId = lobject.authoringId or i
 
-            love.graphics.setColor(0.86, 0.87, 0.90, 1.0)
+            Theme.setColor("text")
             love.graphics.print("LObject " .. displayId, 12, rowY + 4)
         end
     end

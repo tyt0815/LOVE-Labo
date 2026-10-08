@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local SceneView = {}
 SceneView.__index = SceneView
 
@@ -331,19 +332,19 @@ function SceneView:drawWorldAxes()
     love.graphics.setLineWidth(2)
 
     if originX >= viewportX and originX <= right then
-        love.graphics.setColor(0.75, 0.32, 0.32, 1.0)
+        Theme.setColor("axisX")
         love.graphics.line(originX, viewportY, originX, bottom)
     end
 
     if originY >= viewportY and originY <= bottom then
-        love.graphics.setColor(0.32, 0.70, 0.38, 1.0)
+        Theme.setColor("axisY")
         love.graphics.line(viewportX, originY, right, originY)
     end
 
     if originX >= viewportX and originX <= right
         and originY >= viewportY and originY <= bottom
     then
-        love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
+        Theme.setColor("origin")
         love.graphics.circle("fill", originX, originY, 4)
     end
 end
@@ -362,9 +363,9 @@ function SceneView:drawLObjects()
         local halfSize = size * 0.5
 
         if lobject == self.selectedLObject then
-            love.graphics.setColor(0.0, 1.0, 0.0, 1.0)
+            Theme.setColor("objectSelected")
         else
-            love.graphics.setColor(1.0, 0.0, 0.0, 1.0)
+            Theme.setColor("object")
         end
 
         love.graphics.rectangle("line", screenX - halfSize, screenY - halfSize, size, size)
@@ -375,7 +376,7 @@ function SceneView:drawMouseWorldPosition()
     local mouseX, mouseY = love.mouse.getPosition()
     local viewportX, viewportY = self:getViewport()
 
-    love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
+    Theme.setColor("text")
 
     if self:containsPoint(mouseX, mouseY) then
         local worldX, worldY = self:screenToWorld(mouseX, mouseY)
@@ -406,10 +407,10 @@ function SceneView:draw()
     -- Scene View는 이제 자신의 실제 viewport 밖으로 그리지 않는다.
     love.graphics.setScissor(viewportX, viewportY, width, height)
 
-    love.graphics.setColor(0.08, 0.09, 0.11, 1.0)
+    Theme.setColor("background")
     love.graphics.rectangle("fill", viewportX, viewportY, width, height)
 
-    love.graphics.setColor(0.16, 0.17, 0.20, 1.0)
+    Theme.setColor("grid")
     love.graphics.setLineWidth(1)
 
     for _, x in ipairs(vertical) do
@@ -423,7 +424,7 @@ function SceneView:draw()
     self:drawWorldAxes()
     self:drawLObjects()
 
-    love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
+    Theme.setColor("text")
     love.graphics.print(
         string.format("Scene View  %.2fx", self.zoom),
         viewportX + 16,

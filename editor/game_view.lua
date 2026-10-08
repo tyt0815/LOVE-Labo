@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local GameView = {}
 GameView.__index = GameView
 
@@ -61,12 +62,7 @@ function GameView:drawRuntimeLObjects(world)
 
         -- 실제 game rendering Component가 생기기 전까지
         -- Runtime LObject의 존재/위치를 확인하기 위한 debug 표현이다.
-        love.graphics.setColor(
-            0.92,
-            0.92,
-            0.94,
-            1.0
-        )
+        Theme.setColor("text")
 
         love.graphics.rectangle(
             "fill",
@@ -99,12 +95,7 @@ function GameView:draw(world)
         height
     )
 
-    love.graphics.setColor(
-        0.035,
-        0.04,
-        0.05,
-        1.0
-    )
+    Theme.setColor("gameBackground")
 
     love.graphics.rectangle(
         "fill",
@@ -118,12 +109,7 @@ function GameView:draw(world)
         self:drawRuntimeLObjects(world)
     end
 
-    love.graphics.setColor(
-        0.92,
-        0.92,
-        0.94,
-        1.0
-    )
+    Theme.setColor("text")
 
     love.graphics.print(
         "Game View  [F5: Stop]",

@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local UI = require("editor.ui")
 local Canvas = require("editor.ui.canvas")
 local Widget = require("editor.ui.widget")
@@ -208,9 +209,9 @@ function AssetBrowser:draw()
     if self.width <= 0 or self.height <= 0 then return end
     love.graphics.push("all")
     love.graphics.setScissor(self.x, self.y, self.width, self.height)
-    love.graphics.setColor(0.105, 0.12, 0.145, 1)
+    Theme.setColor("panel")
     love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-    love.graphics.setColor(0.28, 0.30, 0.35, 1)
+    Theme.setColor("border")
     love.graphics.line(self.x, self.y, self.x + self.width, self.y)
     local buttons = self:buttons()
     UI.button(self.collapsed and "+" or "-", buttons.fold)
@@ -219,11 +220,11 @@ function AssetBrowser:draw()
     if not self.collapsed then
         local split = self.x + self:treeWidth()
         local top, contentHeight = self.y + HEADER, math.max(0, self.height - HEADER - 28)
-        love.graphics.setColor(0.28, 0.30, 0.35, 1)
+        Theme.setColor("border")
         love.graphics.line(split, top, split, self.y + self.height)
         local status = self.error or self.selectedReference or "Double-click a folder or level. Click the path to go to a parent."
         UI.text(status, self.x + 12, self.y + self.height - 21, self.width - 24,
-            self.error and {1, 0.55, 0.5, 1} or nil)
+            self.error and Theme.color("error") or nil)
     end
     Canvas.draw(self)
     if self.uiRoot == self.localRoot and self.localRoot.popup then
@@ -339,11 +340,11 @@ function AssetBrowser:drawTree()
         local rowY = view.y + (i - 1 - self.treeScroll) * ROW
         if rowY + ROW > view.y and rowY < view.y + view.height then
             if node.reference == self.folder then
-                love.graphics.setColor(0.18, 0.27, 0.38, 1)
+                Theme.setColor("selection")
                 love.graphics.rectangle("fill", view.x, rowY, view.width, ROW)
             end
             local arrowX, arrowY = view.x + 10 + node.depth * 14, rowY + ROW / 2
-            love.graphics.setColor(0.8, 0.84, 0.9, 1)
+            Theme.setColor("textMuted")
             love.graphics.setLineWidth(1.5)
             if self.expanded[node.reference] then
                 love.graphics.line(arrowX, arrowY - 2, arrowX + 4, arrowY + 2, arrowX + 8, arrowY - 2)
@@ -358,22 +359,22 @@ end
 
 function AssetBrowser:drawIcon(entry, x, y)
     if entry.type == "directory" and not entry.isLink then
-        love.graphics.setColor(0.76, 0.57, 0.25, 1)
+        Theme.setColor("folderTab")
         love.graphics.rectangle("fill", x + 13, y + 19, 28, 13, 3, 3)
-        love.graphics.setColor(0.90, 0.72, 0.34, 1)
+        Theme.setColor("folderBody")
         love.graphics.rectangle("fill", x + 13, y + 29, 62, 42, 4, 4)
     else
         love.graphics.push("all")
-        love.graphics.setColor(0.24, 0.35, 0.55, 1)
+        Theme.setColor("iconBackground")
         love.graphics.rectangle("fill", x + 12, y + 12, 64, 64, 6, 6)
-        love.graphics.setColor(0.45, 0.61, 0.82, 1)
+        Theme.setColor("iconBorder")
         love.graphics.rectangle("line", x + 12.5, y + 12.5, 63, 63, 6, 6)
         self.fileIconFont = self.fileIconFont or love.graphics.newFont(26)
         local extension = (entry.name:match("%.([^%.]+)$") or "File"):lower()
         local label = entry.isLink and "Link" or extension == "level" and "Lv"
             or extension == "lua" and "Lua" or extension == "file" and "File" or extension:upper()
         love.graphics.setFont(self.fileIconFont)
-        love.graphics.setColor(0.94, 0.97, 1, 1)
+        Theme.setColor("iconText")
         local font = self.fileIconFont
         if font:getWidth(label) > 52 then
             self.smallFileIconFont = self.smallFileIconFont or love.graphics.newFont(16)
@@ -381,7 +382,7 @@ function AssetBrowser:drawIcon(entry, x, y)
             love.graphics.setFont(font)
         end
         UI.text(label, x + 44 - math.min(font:getWidth(label), 52) / 2,
-            y + 44 - font:getHeight() / 2, 52, { 0.94, 0.97, 1, 1 })
+            y + 44 - font:getHeight() / 2, 52, Theme.color("iconText"))
         love.graphics.pop()
     end
 end
@@ -407,7 +408,7 @@ function AssetBrowser:drawFiles()
             local rowY = view.y + (i - 1 - self.fileScroll) * ROW
             if rowY + ROW > view.y and rowY < view.y + view.height then
                 if entry.reference == self.selectedReference then
-                    love.graphics.setColor(0.18, 0.27, 0.38, 1)
+                    Theme.setColor("selection")
                     love.graphics.rectangle("fill", view.x, rowY, view.width, ROW)
                 end
                 local kind = entry.isLink and "[Link] " or entry.type == "directory" and "[Folder] " or "[File] "
@@ -417,11 +418,9 @@ function AssetBrowser:drawFiles()
             local column, row = (i - 1) % columns, math.floor((i - 1) / columns) - self.fileScroll
             local x, y = view.x + 8 + column * CARD_WIDTH, view.y + 8 + row * CARD_HEIGHT
             if y + CARD_HEIGHT > view.y and y < view.y + view.height then
-                love.graphics.setColor(entry.reference == self.selectedReference and 0.18 or 0.13,
-                    entry.reference == self.selectedReference and 0.30 or 0.15,
-                    entry.reference == self.selectedReference and 0.44 or 0.19, 1)
+                Theme.setColor(entry.reference == self.selectedReference and "selection" or "surface")
                 love.graphics.rectangle("fill", x, y, CARD_WIDTH - 6, CARD_HEIGHT - 6, 4, 4)
-                love.graphics.setColor(0.075, 0.085, 0.105, 1)
+                Theme.setColor("thumbnailBackground")
                 love.graphics.rectangle("fill", x + 9, y + 6, 88, 88)
                 local thumbnail = self.thumbnails:get(entry)
                 if thumbnail then

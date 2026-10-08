@@ -2807,6 +2807,9 @@ end
 for _, test in ipairs(require("tests.ui_tree")) do
     tests[#tests + 1] = test
 end
+for _, test in ipairs(require("tests.theme")) do
+    tests[#tests + 1] = test
+end
 
 local TestRunner = {}
 

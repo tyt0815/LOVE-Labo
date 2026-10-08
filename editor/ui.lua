@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local Utf8 = require("utf8")
 local UI = {}
 
@@ -6,7 +7,7 @@ function UI.contains(x, y, rect)
 end
 
 function UI.text(text, x, y, width, color)
-    love.graphics.setColor(unpack(color or { 0.87, 0.89, 0.93, 1 }))
+    love.graphics.setColor(unpack(color or Theme.color("text")))
     if width then
         local font = love.graphics.getFont()
         if font:getWidth(text) > width then
@@ -23,17 +24,17 @@ end
 
 function UI.button(label, rect, active)
     local mx, my = love.mouse.getPosition()
-    if active then love.graphics.setColor(0.20, 0.36, 0.55, 1)
-    elseif UI.contains(mx, my, rect) then love.graphics.setColor(0.24, 0.27, 0.33, 1)
-    else love.graphics.setColor(0.17, 0.19, 0.24, 1) end
+    if active then Theme.setColor("selection")
+    elseif UI.contains(mx, my, rect) then Theme.setColor("hover")
+    else Theme.setColor("button") end
     love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 4, 4)
     UI.text(label, rect.x + 10, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, rect.w - 20)
 end
 
 function UI.field(text, rect, focused)
-    love.graphics.setColor(0.075, 0.085, 0.105, 1)
+    Theme.setColor("input")
     love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
-    love.graphics.setColor(focused and 0.40 or 0.27, focused and 0.65 or 0.30, focused and 0.90 or 0.36, 1)
+    Theme.setColor(focused and "focus" or "border")
     love.graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, 3, 3)
     love.graphics.setScissor(rect.x + 8, rect.y, math.max(0, rect.w - 16), rect.h)
     local font = love.graphics.getFont()
@@ -42,7 +43,7 @@ function UI.field(text, rect, focused)
     UI.text(text, left, rect.y + (rect.h - font:getHeight()) / 2)
     if focused then
         local cursor = left + font:getWidth(text) + 2
-        love.graphics.setColor(0.7, 0.8, 1, 1)
+        Theme.setColor("focus")
         love.graphics.line(cursor, rect.y + 8, cursor, rect.y + rect.h - 8)
     end
     love.graphics.setScissor()

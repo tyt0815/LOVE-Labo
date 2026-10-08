@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local Widget = require("editor.ui.widget")
 local UI = require("editor.ui")
 local Menu = setmetatable({}, { __index = Widget })
@@ -83,18 +84,18 @@ end
 
 function Menu:draw()
     for _, panel in ipairs(self.panels) do
-        love.graphics.setColor(0.12, 0.14, 0.18, 1)
+        Theme.setColor("surface")
         love.graphics.rectangle("fill", panel.x, panel.y, panel.w, panel.h, 4, 4)
-        love.graphics.setColor(0.30, 0.34, 0.41, 1)
+        Theme.setColor("border")
         love.graphics.rectangle("line", panel.x + 0.5, panel.y + 0.5, panel.w - 1, panel.h - 1, 4, 4)
         for i, item in ipairs(panel.items) do
             local y = panel.y + PAD + (i - 1) * ROW
             if i == panel.selected and item.enabled ~= false then
-                love.graphics.setColor(0.22, 0.30, 0.40, 1)
+                Theme.setColor("selection")
                 love.graphics.rectangle("fill", panel.x + PAD, y, panel.w - PAD * 2, ROW, 3, 3)
             end
             UI.text(item.label, panel.x + 12, y + 7, panel.w - 38,
-                item.enabled == false and {0.45, 0.48, 0.53, 1} or nil)
+                item.enabled == false and Theme.color("textDisabled") or nil)
             if item.children then UI.text(">", panel.x + panel.w - 22, y + 7) end
         end
     end

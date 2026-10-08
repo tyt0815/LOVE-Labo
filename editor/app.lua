@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local World = require("core.world")
 local LevelDocument = require("editor.level_document")
 local SceneView = require("editor.scene_view")
@@ -307,7 +308,7 @@ function EditorApp:initializeUI()
             else self.sceneView:draw() end
             if self.runtimeError then
                 require("editor.ui").text(self.runtimeError, self.sceneView.viewportX + 16, 94,
-                    self.sceneView.viewportWidth - 32, { 1, 0.5, 0.45, 1 })
+                    self.sceneView.viewportWidth - 32, Theme.color("error"))
             end
         end,
         mousepressed = function(_, x, y, button)
@@ -408,7 +409,7 @@ end
 
 function EditorApp:draw()
     self:updateSceneViewport()
-    love.graphics.clear(0.08, 0.09, 0.11, 1)
+    Theme.clear("background")
     self.uiRoot:draw()
 end
 

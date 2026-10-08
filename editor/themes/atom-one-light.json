@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "colors": {
+    "background": "#FAFAFA",
+    "panel": "#EAEAEB",
+    "surface": "#F0F0F0",
+    "button": "#E0E0E1",
+    "hover": "#D8E2F4",
+    "selection": "#BFCEEC",
+    "border": "#D4D4D4",
+    "focus": "#4078F2",
+    "input": "#FFFFFF",
+    "text": "#383A42",
+    "textMuted": "#696C77",
+    "textDisabled": "#A0A1A7",
+    "error": "#E45649",
+    "overlay": "#383A4266",
+    "thumbnailBackground": "#FAFAFA",
+    "iconBackground": "#E1E8F8",
+    "iconBorder": "#4078F2",
+    "iconText": "#325AA3",
+    "folderTab": "#A78632",
+    "folderBody": "#CDAA53",
+    "grid": "#E5E5E6",
+    "axisX": "#E45649",
+    "axisY": "#50A14F",
+    "origin": "#383A42",
+    "object": "#E45649",
+    "objectSelected": "#50A14F",
+    "gameBackground": "#FAFAFA"
+  }
+}

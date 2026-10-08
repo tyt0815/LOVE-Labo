@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local Widget = require("editor.ui.widget")
 local UI = require("editor.ui")
 local Dropdown = setmetatable({}, { __index = Widget })
@@ -8,7 +9,7 @@ function Dropdown.new(root, options, value, onChange)
     self.root, self.options, self.value, self.onChange = root, options, value, onChange
     self.menu = Widget.new({
         draw = function(widget)
-            love.graphics.setColor(0.12, 0.14, 0.18, 1)
+            Theme.setColor("surface")
             love.graphics.rectangle("fill", widget.x, widget.y, widget.width, widget.height)
             for i, option in ipairs(self.options) do
                 UI.button(option.label, {x = widget.x + 3, y = widget.y + (i - 1) * 30 + 3,

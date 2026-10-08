@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local Widget = require("editor.ui.widget")
 local UI = require("editor.ui")
 local Breadcrumb = setmetatable({}, { __index = Widget })
@@ -40,18 +41,18 @@ end
 function Breadcrumb:draw()
     love.graphics.push("all")
     love.graphics.intersectScissor(self.x, self.y, self.width, self.height)
-    love.graphics.setColor(0.13, 0.15, 0.19, 1)
+    Theme.setColor("surface")
     love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
     for i, item in ipairs(self:items()) do
         if i > 1 then UI.text("/", item.x - 12, self.y + 7) end
         local amount = self.hover[item.reference] or 0
         if amount > 0.005 then
-            love.graphics.setColor(0.24, 0.30, 0.39, amount * 0.85)
+            Theme.setColor("hover", amount * 0.85)
             love.graphics.rectangle("fill", item.x, item.y, item.w, item.h, 4, 4)
         end
         local font = love.graphics.getFont()
         UI.text(item.label, item.x + 10, item.y + (item.h - font:getHeight()) / 2,
-            item.w - 20, { 0.78 + amount * 0.15, 0.82 + amount * 0.13, 0.88 + amount * 0.1, 1 })
+            item.w - 20, Theme.mix("textMuted", "text", amount))
     end
     love.graphics.pop()
 end

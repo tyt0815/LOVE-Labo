@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local Widget = require("editor.ui.widget")
 local UI = require("editor.ui")
 local Dialog = setmetatable({}, { __index = Widget })
@@ -46,15 +47,15 @@ end
 
 function Dialog:draw()
     local box = self.box
-    love.graphics.setColor(0, 0, 0, 0.55)
+    Theme.setColor("overlay")
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
-    love.graphics.setColor(0.13, 0.15, 0.19, 1)
+    Theme.setColor("surface")
     love.graphics.rectangle("fill", box.x, box.y, box.w, box.h, 6, 6)
     UI.text(self.options.title, box.x + 16, box.y + 16, box.w - 32)
     UI.text(self.options.message or "", box.x + 16, box.y + 46, box.w - 32)
     if self.options.input then UI.field(self.text, self.field, true)
     else UI.text(self.options.detail or "", box.x + 16, box.y + 82, box.w - 32) end
-    if self.error then UI.text(self.error, box.x + 16, box.y + 128, box.w - 32, {1, 0.55, 0.5, 1}) end
+    if self.error then UI.text(self.error, box.x + 16, box.y + 128, box.w - 32, Theme.color("error")) end
     UI.button("Cancel", self.cancel)
     UI.button(self.options.confirmLabel or "Create", self.confirm)
 end

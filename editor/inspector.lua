@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local Inspector = {}
 Inspector.__index = Inspector
 
@@ -220,18 +221,14 @@ function Inspector:drawField(label, field, y, selectedLObject, left)
         self.activeField == field
         and self.editingLObject == selectedLObject
 
-    love.graphics.setColor(0.72, 0.74, 0.78, 1.0)
+    Theme.setColor("textMuted")
     love.graphics.print(label, left + 20, y + 4)
 
-    if isActive then
-        love.graphics.setColor(0.22, 0.28, 0.36, 1.0)
-    else
-        love.graphics.setColor(0.15, 0.16, 0.19, 1.0)
-    end
+    Theme.setColor("input")
 
     love.graphics.rectangle("fill", fieldLeft, y, fieldWidth, FIELD_HEIGHT)
 
-    love.graphics.setColor(0.34, 0.35, 0.39, 1.0)
+    Theme.setColor(isActive and "focus" or "border")
     love.graphics.rectangle("line", fieldLeft, y, fieldWidth, FIELD_HEIGHT)
 
     local text
@@ -242,7 +239,7 @@ function Inspector:drawField(label, field, y, selectedLObject, left)
         text = string.format("%.2f", selectedLObject.transform[field])
     end
 
-    love.graphics.setColor(0.90, 0.91, 0.93, 1.0)
+    Theme.setColor("text")
     love.graphics.print(text, fieldLeft + 6, y + 4)
 end
 
@@ -253,17 +250,17 @@ function Inspector:draw(selectedLObject)
     love.graphics.push("all")
 
     -- 현재는 별도 Docking/Layout system 없이 오른쪽 고정 폭 패널로 시작한다.
-    love.graphics.setColor(0.11, 0.12, 0.14, 1.0)
+    Theme.setColor("panel")
     love.graphics.rectangle("fill", left, 0, self.width, windowHeight)
 
-    love.graphics.setColor(0.28, 0.29, 0.33, 1.0)
+    Theme.setColor("border")
     love.graphics.line(left, 0, left, windowHeight)
 
-    love.graphics.setColor(0.92, 0.92, 0.94, 1.0)
+    Theme.setColor("text")
     love.graphics.print("Inspector", left + 12, 10)
 
     if not selectedLObject then
-        love.graphics.setColor(0.62, 0.63, 0.67, 1.0)
+        Theme.setColor("textMuted")
         love.graphics.print("No selection", left + 12, 44)
         love.graphics.pop()
         return
@@ -272,7 +269,7 @@ function Inspector:draw(selectedLObject)
     local index = self:getLObjectIndex(selectedLObject)
     local displayId = selectedLObject.authoringId or index
 
-    love.graphics.setColor(0.86, 0.87, 0.90, 1.0)
+    Theme.setColor("text")
 
     if displayId then
         love.graphics.print("LObject " .. displayId, left + 12, 44)
@@ -280,7 +277,7 @@ function Inspector:draw(selectedLObject)
         love.graphics.print("LObject", left + 12, 44)
     end
 
-    love.graphics.setColor(0.72, 0.74, 0.78, 1.0)
+    Theme.setColor("textMuted")
     love.graphics.print("Transform", left + 12, 78)
 
     if selectedLObject.transform then

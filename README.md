@@ -81,6 +81,47 @@ return Level
 
 **F5**는 Play/Stop이다. Play마다 코드 파일을 새로 읽고 Runtime World를 만든다. `load`는 한 번, `update`는 매 프레임 LObject 업데이트 전에 호출한다. Stop은 Runtime 변경을 버리며 배치 데이터에 반영하지 않는다. 코드 오류는 에디터에 표시하고 Play를 시작하지 않거나 중지한다. 자동화 테스트 모드에서는 프로젝트 코드를 실행하지 않는다.
 
+## 에디터 테마
+
+테마는 게임 프로젝트와 별도로 에디터 소스/설치 폴더에서 관리한다. `editor/settings.json`의 `theme`를 바꾸고 에디터를 재시작하면 적용된다.
+
+```json
+{
+  "version": 1,
+  "theme": "atom-one-light"
+}
+```
+
+- `default`: `editor/theme.lua`에 내장된 어두운 배경과 파란 강조색. JSON 파일 없이도 동작하는 기본 선택이다.
+- `atom-one-light`: [VS Code Atom One Light](https://github.com/akamud/vscode-theme-onelight/blob/master/themes/OneLight.json) 스타일의 밝은 회색 배경, 짙은 글자와 파란 강조색.
+
+색을 직접 바꾸려면 아래처럼 `editor/themes/my-theme.json`을 만들고 설정에서 `"theme": "my-theme"`을 선택한다. 파일의 `colors`는 `#RRGGBB` 또는 알파를 포함한 `#RRGGBBAA` 색을 받는다. 일부 색만 지정해도 나머지는 코드에 내장된 기본 테마를 사용한다. 모든 색 항목은 `atom-one-light.json`을 참고한다.
+
+```json
+{
+  "version": 1,
+  "colors": {
+    "panel": "#20242C",
+    "selection": "#405C85",
+    "focus": "#80B4FF"
+  }
+}
+```
+
+글자·경계·선택 등 공통 색은 공유하고, 버튼·입력칸·아이콘 등 독립적으로 조절할 부분은 용도별 색을 제공한다. 새 UI에서 별도 색이 필요하면 코드의 기본 테마와 제공하는 테마 JSON에 항목을 함께 추가한다. 기존 사용자 테마에 새 항목이 없으면 기본값을 상속하므로 파일을 즉시 수정할 필요는 없다.
+
+| 역할 | 용도 |
+|---|---|
+| `background` | 화면 바탕 |
+| `panel`, `surface`, `button`, `input` | 패널·팝업 표면·버튼·입력칸 |
+| `text`, `textMuted`, `textDisabled` | 일반·보조·비활성 글자 |
+| `border`, `focus`, `hover`, `selection` | 경계·포커스·호버·선택 상태 |
+| `error`, `overlay` | 오류와 모달 뒤 덮개 |
+| `thumbnailBackground`, `iconBackground`, `iconBorder`, `iconText`, `folderTab`, `folderBody` | 썸네일·파일 아이콘·폴더 아이콘 |
+| `grid`, `axisX`, `axisY`, `origin`, `object`, `objectSelected`, `gameBackground` | 뷰포트 격자·축·디버그 표시·Game View 바탕 |
+
+설정이나 선택된 테마가 없거나 잘못되면 코드의 기본 테마로 시작한다. 기본 테마 JSON은 읽지 않는다. 이미지 미리보기의 원래 색은 유지한다.
+
 ## 에디터 UI 구성
 
 `editor/ui/`는 위젯 트리와 입력 전달을 관리한다. Core Runtime 및 LObject 생명주기와 분리된다.

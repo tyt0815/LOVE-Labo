@@ -1,3 +1,4 @@
+local Theme = require("editor.theme")
 local Project = require("editor.project")
 local FileSystem = require("editor.host_filesystem")
 local UI = require("editor.ui")
@@ -67,8 +68,8 @@ function ProjectStart:draw()
     local layout = self:layout()
     local p = layout.panel
     love.graphics.push("all")
-    love.graphics.clear(0.065, 0.075, 0.095, 1)
-    love.graphics.setColor(0.105, 0.12, 0.15, 1)
+    Theme.clear("background")
+    Theme.setColor("panel")
     love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 8, 8)
     UI.text("LOVE Labo", p.x + 24, p.y + 22)
     UI.text("Create or open a project to start editing.", p.x + 24, p.y + 48)
@@ -86,7 +87,7 @@ function ProjectStart:draw()
     if self.mode == "create" then
         UI.text("Create: " .. FileSystem.join(self.path, self.name), p.x + 24, p.y + 290, p.w - 48)
     end
-    if self.error then UI.text(self.error, p.x + 24, p.y + 316, p.w - 48, {1, 0.55, 0.5, 1}) end
+    if self.error then UI.text(self.error, p.x + 24, p.y + 316, p.w - 48, Theme.color("error")) end
     UI.button(self.mode == "create" and "Create project" or "Open project", layout.submit, true)
     UI.text("Tab: next field    Enter: confirm    Ctrl+V: paste path", p.x + 24, p.y + 412, p.w - 48)
     love.graphics.pop()

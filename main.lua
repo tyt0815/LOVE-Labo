@@ -15,6 +15,7 @@ end
 -- love.load는 일반 Lua main()이 아니라
 -- LÖVE Runtime이 프로그램 시작 시 한 번 호출하는 callback이다.
 function love.load(args)
+    require("editor.theme").load()
     if hasArg(args, "--test") then
         local runner = require("tests.runner")
 
