@@ -18,7 +18,7 @@ function EditorApp.new(document, project)
 
     self.project = project
     self.assetBrowser = project and require("editor.asset_browser").new(project) or nil
-    self.assetBrowserHeight = 220
+    self.assetBrowserHeight = 350
     self.isResizingAssets = false
     self.activePanel = "scene"
     self.documentReference = nil
