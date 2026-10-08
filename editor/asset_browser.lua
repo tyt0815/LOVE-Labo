@@ -93,7 +93,7 @@ function AssetBrowser:setBounds(x, y, width, height)
     self.breadcrumb.visible = not self.collapsed
     self:setSlotBounds(self.breadcrumbSlot, self:treeWidth(), HEADER,
         self.width - self:treeWidth(), self.collapsed and 0 or BREADCRUMB)
-    self:setSlotBounds(self.dropdownSlot, self.width - 218, 8, 116, 26)
+    self:setSlotBounds(self.dropdownSlot, self.width - 244, 8, 142, 26)
     self:clampScroll()
 end
 
@@ -232,7 +232,7 @@ function AssetBrowser:draw()
     UI.panel(self.x, self.y, self.width, self.height)
     local buttons = self:buttons()
     UI.button(self.collapsed and "+" or "-", buttons.fold, false, "Collapse or expand the Project Browser.")
-    UI.panelTitle("Project Browser", self.x + 52, self.y + 11, math.max(0, self.width - 280))
+    UI.panelTitle("Project Browser", self.x + 52, self.y + 11, math.max(0, self.width - 306))
     UI.button("Refresh", buttons.refresh, false, "Rescan project files and reload class declarations. Ctrl+R: refresh.")
     if not self.collapsed then
         local split = self.x + self:treeWidth()
@@ -611,21 +611,21 @@ function AssetBrowser:drawIcon(entry, x, y)
         love.graphics.push("all")
         Theme.setColor("iconBackground")
         love.graphics.rectangle("fill", x + 12, y + 12, 64, 64, 6, 6)
-        self.fileIconFont = self.fileIconFont or love.graphics.newFont(24)
+        self.fileIconFont = self.fileIconFont or require("editor.fonts").get(24)
         local label, color, badge = self:iconStyle(entry)
         Theme.setColor(color)
         love.graphics.rectangle("line", x + 12.5, y + 12.5, 63, 63, 6, 6)
         love.graphics.setFont(self.fileIconFont)
         local font = self.fileIconFont
         if font:getWidth(label) > 52 then
-            self.smallFileIconFont = self.smallFileIconFont or love.graphics.newFont(16)
+            self.smallFileIconFont = self.smallFileIconFont or require("editor.fonts").get(16)
             font = self.smallFileIconFont
             love.graphics.setFont(font)
         end
         UI.text(label, x + 44 - math.min(font:getWidth(label), 52) / 2,
             y + 44 - font:getHeight() / 2, 52, Theme.color(color))
         if badge then
-            self.badgeFont = self.badgeFont or love.graphics.newFont(11)
+            self.badgeFont = self.badgeFont or require("editor.fonts").get(11, true)
             love.graphics.setFont(self.badgeFont)
             UI.text(badge, x + 72 - self.badgeFont:getWidth(badge), y + 59, 40, Theme.color(color), true)
         end

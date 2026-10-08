@@ -587,7 +587,7 @@ add("browser separates Assets and Sources and breadcrumb navigates without Up bu
         for _, node in ipairs(browser.tree) do found[node.reference] = true end
         Assert.truthy(found.Assets and found.Sources and found["Sources/Levels"])
         Assert.equal(nil, browser:buttons().up)
-        Assert.equal(browser.x + browser.width - 218, browser.viewDropdown.x)
+        Assert.equal(browser:buttons().refresh.x - browser.viewDropdown.width - 8, browser.viewDropdown.x)
         Assert.truthy(browser.viewDropdown.x + browser.viewDropdown.width < browser:buttons().refresh.x)
         assert(browser:openFolder("Sources/Levels/Extra"))
         Assert.equal("Sources/Levels/Extra", browser.breadcrumb.path)

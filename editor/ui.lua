@@ -1,5 +1,6 @@
 local Theme = require("editor.theme")
 local Utf8 = require("utf8")
+local Fonts = require("editor.fonts")
 local UI = {}
 function UI.beginFrame(x, y)
     UI.mouseX, UI.mouseY, UI.hoverHint = x, y, nil
@@ -18,8 +19,7 @@ end
 
 function UI.panelTitle(text, x, y, width)
     love.graphics.push("all")
-    UI.titleFont = UI.titleFont or love.graphics.newFont(15)
-    love.graphics.setFont(UI.titleFont)
+    love.graphics.setFont(Fonts.get(15, true))
     UI.text(text, x, y, width, Theme.color("panelTitle"), true)
     love.graphics.pop()
 end
@@ -29,6 +29,8 @@ function UI.contains(x, y, rect)
 end
 
 function UI.text(text, x, y, width, color, bold)
+    local previousFont = love.graphics.getFont()
+    if bold then love.graphics.setFont(Fonts.boldFor(previousFont)) end
     love.graphics.setColor(unpack(color or Theme.color("text")))
     if width then
         local font = love.graphics.getFont()
@@ -42,8 +44,7 @@ function UI.text(text, x, y, width, color, bold)
         end
     end
     love.graphics.print(text, x, y)
-    -- 시스템 폰트 경로에 의존하지 않고 현재 폰트의 글자 굵기만 강조한다.
-    if bold then love.graphics.print(text, x + 0.75, y) end
+    if bold then love.graphics.setFont(previousFont) end
 end
 
 function UI.label(text, x, y, width)
@@ -61,7 +62,8 @@ function UI.button(label, rect, active, hint)
     elseif UI.contains(mx, my, rect) then Theme.setColor("hover")
     else Theme.setColor("button") end
     love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 4, 4)
-    UI.text(label, rect.x + 10, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, rect.w - 20)
+    local padding = math.min(10, math.max(4, math.floor(rect.w * 0.2)))
+    UI.text(label, rect.x + padding, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, rect.w - padding * 2)
 end
 
 function UI.field(text, rect, focused)

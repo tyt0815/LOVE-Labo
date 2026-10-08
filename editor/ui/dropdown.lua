@@ -59,8 +59,19 @@ end
 function Dropdown:draw()
     local label = ""
     for _, option in ipairs(self.options) do if option.value == self.value then label = option.label end end
-    UI.button(label .. "  v", {x = self.x, y = self.y, w = self.width, h = self.height}, false,
+    UI.button("", {x = self.x, y = self.y, w = self.width, h = self.height}, false,
         self.hint or "Open the choices. Up/Down: select. Enter: apply. Esc: close.")
+    local divider = self.x + self.width - 28
+    UI.text(label, self.x + 10, self.y + (self.height - love.graphics.getFont():getHeight()) / 2,
+        math.max(0, self.width - 46))
+    love.graphics.push("all")
+    Theme.setColor("border")
+    love.graphics.line(divider, self.y + 5, divider, self.y + self.height - 5)
+    Theme.setColor("textMuted")
+    love.graphics.setLineWidth(1.5)
+    local cx, cy = divider + 14, self.y + self.height / 2
+    love.graphics.line(cx - 4, cy - 2, cx, cy + 2, cx + 4, cy - 2)
+    love.graphics.pop()
 end
 
 function Dropdown:dispatch(event, ...)

@@ -3,6 +3,7 @@
 - 상태: 채택
 - 날짜: 2026-10-08
 - 확장: [ADR 0011](0011-asset-ids-metadata-and-path-cache.md)의 ID 유지 이동, [ADR 0012](0012-lua-classes-properties-and-unsaved-levels.md)의 Move·Rename
+- 글리프 겹침 강조는 [ADR 0015](0015-bundled-editor-font.md)의 동봉 Bold 글꼴로 대체
 
 ## 배경과 제약
 

@@ -16,6 +16,7 @@ end
 -- LÖVE Runtime이 프로그램 시작 시 한 번 호출하는 callback이다.
 function love.load(args)
     require("editor.theme").load()
+    require("editor.fonts").apply()
     if hasArg(args, "--test") then
         local runner = require("tests.runner")
 
@@ -27,13 +28,6 @@ function love.load(args)
     end
 
     local ProjectStart = require("editor.project_start")
-    -- 한글 프로젝트 이름과 경로를 표시할 수 있는 호스트 글꼴을 사용한다.
-    local fs = require("editor.host_filesystem")
-    local fontPath = fs.join(os.getenv("WINDIR") or "C:/Windows", "Fonts/malgun.ttf")
-    local fontBytes = fs.read(fontPath)
-    if fontBytes then
-        love.graphics.setFont(love.graphics.newFont(love.filesystem.newFileData(fontBytes, "malgun.ttf"), 14))
-    end
     app = ProjectStart.new(function(project)
         local ok, editor = pcall(require("editor.app").new, nil, project)
         if not ok then return false, tostring(editor) end
