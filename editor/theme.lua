@@ -4,17 +4,19 @@ local Theme = {}
 -- 기본 테마의 유일한 원본이다. 외부 파일 없이도 모든 UI가 그려진다.
 -- 공통 역할을 공유하되 독립적인 조절이 필요한 UI에는 용도별 색을 제공한다.
 local defaults = {
-    background = "#14171C", panel = "#1B1F25", surface = "#222831",
-    button = "#2B313D", hover = "#3D4554", selection = "#335C8C",
-    border = "#474D59", focus = "#66A6E6", input = "#13161B",
-    text = "#DFE3ED", textMuted = "#A6AFBF", textDisabled = "#737B87", error = "#FF8C80",
-    overlay = "#0000008C", thumbnailBackground = "#FFFFFF",
-    iconBackground = "#FFFFFF", iconBorder = "#739CD1", iconText = "#325AA3",
-    assetLevel = "#4078F2", assetPrefab = "#A626A4",
-    classLevel = "#0184BC", classLObject = "#50A14F", classComponent = "#986801",
-    folderTab = "#C29140", folderBody = "#E6B857",
-    grid = "#292B33", axisX = "#BF5252", axisY = "#52B361", origin = "#EBEBF0",
-    object = "#FF6666", objectSelected = "#66E68C", gameBackground = "#090A0D"
+    -- love2d.org/style/style.css와 box.svg의 배경·텍스트·강조색을 사용한다.
+    background = "#E0F4FC", panel = "#B1E3FA", surface = "#E0F4FC",
+    button = "#E0F4FC", hover = "#FFFFFF", selection = "#25AAE14D",
+    border = "#4C90B166", panelBorder = "#4C90B166", panelTitle = "#1B4D68",
+    focus = "#EA316E", input = "#FFFFFF",
+    text = "#383F4A", textMuted = "#4C90B1", textDisabled = "#7798A9", error = "#EA316E",
+    overlay = "#1B4D6866", thumbnailBackground = "#FFFFFF",
+    iconBackground = "#FFFFFF", iconBorder = "#25AAE1", iconText = "#1B4D68",
+    assetLevel = "#25AAE1", assetPrefab = "#EA316E",
+    classLevel = "#1B4D68", classLObject = "#00A651", classComponent = "#4C90B1",
+    folderTab = "#4C90B1", folderBody = "#25AAE1",
+    grid = "#B1E3FA", axisX = "#EA316E", axisY = "#00A651", origin = "#1B4D68",
+    object = "#EA316E", objectSelected = "#00A651", gameBackground = "#E0F4FC"
 }
 
 local function parseColor(value)

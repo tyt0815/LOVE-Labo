@@ -22,11 +22,23 @@ function Root:draw()
     self.canvas:draw()
     if self.captured then self.captured:dispatch("drawOverlay") end
     if self.popup then
+        require("editor.ui").resetHints()
         love.graphics.push("all")
         love.graphics.setScissor()
         self.popup:draw()
         love.graphics.pop()
     end
+end
+
+function Root:getHint(x, y)
+    local target = self.popup and self.popup:hitTest(x, y) or not self.popup and self.canvas:hitTest(x, y)
+    while target do
+        local hint = target.hint
+        if target.handlers.hint then hint = target.handlers.hint(target, x, y) end
+        if type(hint) == "string" then return hint end
+        target = target.parent
+    end
+    return self.popup and "Choose an option or edit this dialog. Esc: close." or nil
 end
 
 function Root:update(dt)

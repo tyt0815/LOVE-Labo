@@ -5,6 +5,7 @@ Layout.__index = Layout
 function Layout.new(app, canvas, slots)
     local self = setmetatable({ app = app, canvas = canvas, slots = slots, drag = nil, cursors = {} }, Layout)
     self.resizeWidget = Widget.new({
+        hint = function() return "Drag this divider to resize the panels." end,
         hitTest = function(_, x, y) return self:edgesAt(x, y) ~= nil end,
         mousepressed = function(_, x, y, button)
             if button ~= 1 then return true end
@@ -29,24 +30,27 @@ end
 
 function Layout:arrange(width, height)
     local app = self.app
+    local workspaceHeight = math.max(0, height - (app.statusHeight or 0))
     app.hierarchy.width = math.max(140, math.min(app.hierarchy.width, math.max(140, width - app.inspector.width - 160)))
     app.inspector.width = math.max(180, math.min(app.inspector.width, math.max(180, width - app.hierarchy.width - 160)))
     local browserHeight = 0
     if app.assetBrowser then
-        browserHeight = app.assetBrowser.collapsed and 38 or math.max(100, math.min(app.assetBrowserHeight, height - 160))
+        browserHeight = app.assetBrowser.collapsed and 38 or math.max(100, math.min(app.assetBrowserHeight, workspaceHeight - 160))
     end
-    self.editorHeight = math.max(0, height - browserHeight)
+    self.editorHeight = math.max(0, workspaceHeight - browserHeight)
+    self.workspaceHeight = workspaceHeight
     self.width, self.height = width, height
     self.canvas:setBounds(0, 0, width, height)
     self.canvas:setSlotBounds(self.slots.hierarchy, 0, 0, app.hierarchy.width, self.editorHeight)
     self.canvas:setSlotBounds(self.slots.center, app.hierarchy.width, 0,
         math.max(0, width - app.hierarchy.width - app.inspector.width), self.editorHeight)
-    self.canvas:setSlotBounds(self.slots.inspector, width - app.inspector.width, 0, app.inspector.width, height)
+    self.canvas:setSlotBounds(self.slots.inspector, width - app.inspector.width, 0, app.inspector.width, workspaceHeight)
     if self.slots.assets then self.canvas:setSlotBounds(self.slots.assets, 0, self.editorHeight, width - app.inspector.width, browserHeight) end
+    if self.slots.status then self.canvas:setSlotBounds(self.slots.status, 0, workspaceHeight, width, app.statusHeight) end
 end
 
 function Layout:edgesAt(x, y)
-    if not self.width or x < 0 or y < 0 or x >= self.width or y >= self.height then return nil end
+    if not self.width or x < 0 or y < 0 or x >= self.width or y >= self.workspaceHeight then return nil end
     local app, edges = self.app, {}
     edges.hierarchy = math.abs(x - app.hierarchy.width) <= 3 and y <= self.editorHeight
     edges.inspector = math.abs(x - (self.width - app.inspector.width)) <= 3
@@ -59,7 +63,7 @@ function Layout:resize(x, y)
     local app = self.app
     if self.drag.hierarchy then app.hierarchy.width = math.max(140, math.min(x, self.width - app.inspector.width - 160)) end
     if self.drag.inspector then app.inspector.width = math.max(180, math.min(self.width - x, self.width - app.hierarchy.width - 160)) end
-    if self.drag.assets then app.assetBrowserHeight = math.max(100, math.min(self.height - y, self.height - 160)) end
+    if self.drag.assets then app.assetBrowserHeight = math.max(100, math.min(self.workspaceHeight - y, self.workspaceHeight - 160)) end
     self:arrange(self.width, self.height)
 end
 

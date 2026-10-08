@@ -13,3 +13,4 @@
 - [0011. 에셋 ID·메타데이터와 프로젝트 경로 캐시](adr/0011-asset-ids-metadata-and-path-cache.md)
 - [0012. Lua Class 상속·프로퍼티와 저장 전 레벨 문서](adr/0012-lua-classes-properties-and-unsaved-levels.md)
 - [0013. 브라우저 드래그 이동과 에셋 종류별 색상](adr/0013-browser-drag-moves-and-asset-colors.md)
+- [0014. LÖVE 기본 테마·독립 패널과 전역 호버 힌트](adr/0014-love-theme-panels-and-status-hints.md)

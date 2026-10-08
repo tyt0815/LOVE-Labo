@@ -53,6 +53,7 @@ function Breadcrumb:draw()
         local font = love.graphics.getFont()
         UI.text(item.label, item.x + 10, item.y + (item.h - font:getHeight()) / 2,
             item.w - 20, Theme.mix("textMuted", "text", amount))
+        UI.hint(item, "Open folder " .. item.reference .. ".")
     end
     love.graphics.pop()
 end

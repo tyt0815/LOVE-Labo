@@ -275,7 +275,7 @@ add("editor bottom Assets layout routes inputs without changing lobject selectio
         local width, height = love.graphics.getDimensions()
         local browser = app.assetBrowser
         Assert.equal(width - app.inspector.width, browser.width)
-        Assert.equal(height - browser.height, app.sceneView.viewportHeight)
+        Assert.equal(height - app.statusHeight - browser.height, app.sceneView.viewportHeight)
         Assert.equal(false, app.hierarchy:containsPoint(10, browser.y + 40))
         Assert.equal(false, app.sceneView:containsPoint(400, browser.y + 40))
         local fileX, fileY = browser:treeWidth() + 20, browser.fileSlot.widget.y + 16
@@ -289,12 +289,12 @@ add("editor bottom Assets layout routes inputs without changing lobject selectio
         local buttons = browser:buttons()
         app:mousepressed(buttons.fold.x + 4, buttons.fold.y + 4, 1)
         Assert.equal(38, browser.height)
-        Assert.equal(height - 38, app.hierarchy.height)
+        Assert.equal(height - app.statusHeight - 38, app.hierarchy.height)
         app:mousepressed(buttons.fold.x + 4, browser.y + 12, 1)
         app:mousepressed(400, browser.y + 1, 1)
         app:mousemoved(400, height - 300, 0, -80)
         app:mousereleased(400, height - 300, 1)
-        Assert.equal(300, browser.height)
+        Assert.equal(300 - app.statusHeight, browser.height)
         Assert.equal(false, app.isResizingAssets)
     end)
 end)
@@ -569,7 +569,7 @@ add("editor shared borders resize panels with pointer capture and preserve cente
         app:mousemoved(340, height - 300, 40, -80)
         app:mousereleased(-100, -100, 1)
         Assert.equal(340, app.hierarchy.width)
-        Assert.equal(300, app.assetBrowser.height)
+        Assert.equal(300 - app.statusHeight, app.assetBrowser.height)
         Assert.equal(nil, app.uiRoot.captured)
         local x, y = app.sceneView:worldToScreen(0, 0)
         Assert.equal(app.sceneView.viewportX + app.sceneView.viewportWidth / 2, x)
@@ -1611,6 +1611,47 @@ add("drag hover expands folders and scrolling refreshes the live drop target", f
         app:keypressed("escape")
         Assert.equal(nil, app.uiRoot.captured)
         Assert.truthy(project:getAssetId("Assets/Item.level"))
+    end)
+end)
+
+add("global status bar shows live control hints and isolates modal and footer input", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "StatusHints"))
+        assert(project:createEntry("Assets", "folder", "Folder"))
+        local app = EditorApp.new(nil, project)
+        local browser = app.assetBrowser
+        local function hover(x, y)
+            local original = love.mouse.getPosition
+            love.mouse.getPosition = function() return x, y end
+            local ok, err = pcall(app.draw, app)
+            love.mouse.getPosition = original
+            if not ok then error(err, 0) end
+            return app.statusHint
+        end
+        local refresh = browser:buttons().refresh
+        Assert.truthy(hover(refresh.x + 10, refresh.y + 10):find("Rescan", 1, true))
+        local dropdown = browser.viewDropdown
+        Assert.truthy(hover(dropdown.x + 10, dropdown.y + 10):find("Thumbnails or List", 1, true))
+        local x, y = filePoint(browser, "Assets/Folder")
+        Assert.truthy(hover(x, y):find("Assets/Folder", 1, true))
+        Assert.truthy(hover(x, y):find("Drag: move", 1, true))
+        local parentClass = app.inspector.classInspector.dropdown
+        Assert.truthy(hover(parentClass.x + 5, parentClass.y + 5):find("Parent Class", 1, true))
+        browser:showCreateDialog("Assets", "folder")
+        Assert.equal("Choose an option or edit this dialog. Esc: close.", hover(refresh.x + 10, refresh.y + 10))
+        local cancel = app.uiRoot.popup.cancel
+        Assert.truthy(hover(cancel.x + 5, cancel.y + 5):find("without applying", 1, true))
+        app:keypressed("escape")
+        Assert.truthy(hover(refresh.x + 10, refresh.y + 10):find("Rescan", 1, true))
+        local width, height = love.graphics.getDimensions()
+        Assert.equal(height - app.statusHeight, browser.y + browser.height)
+        Assert.equal(height - app.statusHeight, app.inspector.height)
+        Assert.equal(nil, app.uiLayout:edgesAt(width - app.inspector.width, height - 5))
+        app:mousepressed(width - app.inspector.width, height - 5, 1)
+        Assert.equal(nil, app.uiRoot.captured)
+        Assert.equal(0, #app.level.lobjects)
+        browser.error = "move failed"
+        Assert.truthy(hover(x, y):find("move failed", 1, true))
     end)
 end)
 

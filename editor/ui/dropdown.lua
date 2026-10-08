@@ -15,7 +15,7 @@ function Dropdown.new(root, options, value, onChange)
                 local index = row + self.scroll
                 local option = self.options[index]
                 if option then UI.button(option.label, {x = widget.x + 3, y = widget.y + (row - 1) * 30 + 3,
-                    w = widget.width - 6, h = 28}, index == self.highlight) end
+                    w = widget.width - 6, h = 28}, index == self.highlight, "Select " .. option.label .. ". Enter: apply.") end
             end
         end,
         mousepressed = function(widget, x, y, button)
@@ -59,7 +59,8 @@ end
 function Dropdown:draw()
     local label = ""
     for _, option in ipairs(self.options) do if option.value == self.value then label = option.label end end
-    UI.button(label .. "  v", {x = self.x, y = self.y, w = self.width, h = self.height})
+    UI.button(label .. "  v", {x = self.x, y = self.y, w = self.width, h = self.height}, false,
+        self.hint or "Open the choices. Up/Down: select. Enter: apply. Esc: close.")
 end
 
 function Dropdown:dispatch(event, ...)

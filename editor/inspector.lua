@@ -253,19 +253,16 @@ end
 
 function Inspector:draw(selectedLObject)
     local windowWidth, windowHeight = love.graphics.getDimensions()
+    windowHeight = self.height or windowHeight
     local left = windowWidth - self.width
 
     love.graphics.push("all")
 
-    -- 현재는 별도 Docking/Layout system 없이 오른쪽 고정 폭 패널로 시작한다.
-    Theme.setColor("panel")
-    love.graphics.rectangle("fill", left, 0, self.width, windowHeight)
-
+    local UI = require("editor.ui")
+    UI.panel(left, 0, self.width, windowHeight)
+    UI.panelTitle("Inspector", left + 18, 12, self.width - 36)
     Theme.setColor("border")
-    love.graphics.line(left, 0, left, windowHeight)
-
-    Theme.setColor("text")
-    love.graphics.print("Inspector", left + 12, 10)
+    love.graphics.line(left + 12, 35, windowWidth - 12, 35)
 
     if not selectedLObject then
         if self.classInspector and self.classInspector.target then

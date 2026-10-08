@@ -96,6 +96,8 @@ function Menu:draw()
             end
             UI.text(item.label, panel.x + 12, y + 7, panel.w - 38,
                 item.enabled == false and Theme.color("textDisabled") or nil)
+            UI.hint({x = panel.x, y = y, w = panel.w, h = ROW},
+                item.enabled == false and item.label .. " is unavailable here." or item.label .. ". Click or press Enter to select.")
             if item.children then UI.text(">", panel.x + panel.w - 22, y + 7) end
         end
     end

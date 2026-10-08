@@ -8,6 +8,8 @@
     "hover": "#D8E2F4",
     "selection": "#BFCEEC",
     "border": "#D4D4D4",
+    "panelBorder": "#D4D4D4",
+    "panelTitle": "#383A42",
     "focus": "#4078F2",
     "input": "#FFFFFF",
     "text": "#383A42",

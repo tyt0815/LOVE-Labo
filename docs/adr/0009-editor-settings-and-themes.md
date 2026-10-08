@@ -1,5 +1,7 @@
 # 0009. 에디터 공통 설정과 JSON 테마
 
+- 기본 색상은 [ADR 0014](0014-love-theme-panels-and-status-hints.md)의 LÖVE 공식 홈페이지 팔레트로 부분 대체
+
 - 상태: 채택
 - 날짜: 2026-10-08
 - 확장: [ADR 0006](0006-widget-canvas-and-asset-views.md)의 UI 표현과 [ADR 0008](0008-context-menu-and-project-entries.md)의 팝업

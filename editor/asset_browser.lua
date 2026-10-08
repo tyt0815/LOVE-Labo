@@ -32,8 +32,10 @@ function AssetBrowser.new(project)
     self.viewDropdown = Dropdown.new(self.uiRoot,
         { {value = "thumbnails", label = "Thumbnails"}, {value = "list", label = "List"} },
         self.viewMode, function(mode) self:setViewMode(mode) end)
+    self.viewDropdown.hint = "Choose Thumbnails or List for project files."
     self.treeSlot = self:addChild(Widget.new({
         draw = function() self:drawTree() end,
+        hint = function(_, x, y) return self:contentHint(x, y) end,
         mousepressed = function(_, ...) return self:handleContentMousepressed(...) end,
         mousemoved = function(_, x, y) return self:dragMoved(x, y) end,
         mousereleased = function(_, x, y, button) return self:dragReleased(x, y, button) end,
@@ -43,6 +45,7 @@ function AssetBrowser.new(project)
     }))
     self.fileSlot = self:addChild(Widget.new({
         draw = function() self:drawFiles() end,
+        hint = function(_, x, y) return self:contentHint(x, y) end,
         mousepressed = function(_, ...) return self:handleContentMousepressed(...) end,
         mousemoved = function(_, x, y) return self:dragMoved(x, y) end,
         mousereleased = function(_, x, y, button) return self:dragReleased(x, y, button) end,
@@ -76,13 +79,14 @@ function AssetBrowser.new(project)
         return true
     end
     self.handlers.update = function(_, dt) self:updateDrag(dt) end
+    self.hint = "Project Browser: browse Assets and Sources. Right-click: create or manage files."
     self:refresh()
     return self
 end
 
 function AssetBrowser:setBounds(x, y, width, height)
     Canvas.setBounds(self, x, y, width, height)
-    local contentHeight = self.collapsed and 0 or math.max(0, height - HEADER - 28)
+    local contentHeight = self.collapsed and 0 or math.max(0, height - HEADER - 6)
     self:setSlotBounds(self.treeSlot, 0, HEADER, self:treeWidth(), contentHeight)
     self:setSlotBounds(self.fileSlot, self:treeWidth(), HEADER + BREADCRUMB,
         self.width - self:treeWidth(), math.max(0, contentHeight - BREADCRUMB))
@@ -111,7 +115,7 @@ end
 function AssetBrowser:getEntryAtPosition(x, y)
     local split = self.x + self:treeWidth()
     local top = self.y + HEADER + BREADCRUMB
-    if x < split or x >= self.x + self.width or y < top or y >= self.y + self.height - 28 then return nil end
+    if x < split or x >= self.x + self.width - 6 or y < top or y >= self.y + self.height - 6 then return nil end
     if self.viewMode == "list" then
         return self.entries[math.floor((y - top) / ROW) + 1 + self.fileScroll]
     end
@@ -202,12 +206,12 @@ function AssetBrowser:goUp()
 end
 
 function AssetBrowser:clampScroll()
-    local visible = math.max(1, math.floor((self.height - HEADER - 28) / ROW))
+    local visible = math.max(1, math.floor((self.height - HEADER - 6) / ROW))
     self.treeScroll = math.floor(math.max(0, math.min(self.treeScroll, math.max(0, #self.tree - visible))))
     local fileRows = #self.entries
-    visible = math.max(1, math.floor((self.height - HEADER - BREADCRUMB - 28) / ROW))
+    visible = math.max(1, math.floor((self.height - HEADER - BREADCRUMB - 6) / ROW))
     if self.viewMode == "thumbnails" then
-        visible = math.max(1, math.floor((self.height - HEADER - BREADCRUMB - 36) / CARD_HEIGHT))
+        visible = math.max(1, math.floor((self.height - HEADER - BREADCRUMB - 14) / CARD_HEIGHT))
         fileRows = math.ceil(#self.entries / self:columns())
     end
     self.fileScroll = math.floor(math.max(0, math.min(self.fileScroll, math.max(0, fileRows - visible))))
@@ -225,23 +229,19 @@ function AssetBrowser:draw()
     if self.width <= 0 or self.height <= 0 then return end
     love.graphics.push("all")
     love.graphics.setScissor(self.x, self.y, self.width, self.height)
-    Theme.setColor("panel")
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-    Theme.setColor("border")
-    love.graphics.line(self.x, self.y, self.x + self.width, self.y)
+    UI.panel(self.x, self.y, self.width, self.height)
     local buttons = self:buttons()
-    UI.button(self.collapsed and "+" or "-", buttons.fold)
-    UI.text("Project Browser", self.x + 50, self.y + 14, math.max(0, self.width - 280))
-    UI.button("Refresh", buttons.refresh)
+    UI.button(self.collapsed and "+" or "-", buttons.fold, false, "Collapse or expand the Project Browser.")
+    UI.panelTitle("Project Browser", self.x + 52, self.y + 11, math.max(0, self.width - 280))
+    UI.button("Refresh", buttons.refresh, false, "Rescan project files and reload class declarations. Ctrl+R: refresh.")
     if not self.collapsed then
         local split = self.x + self:treeWidth()
-        local top, contentHeight = self.y + HEADER, math.max(0, self.height - HEADER - 28)
+        local top = self.y + HEADER
         Theme.setColor("border")
-        love.graphics.line(split, top, split, self.y + self.height)
-        local status = self.error or self.selectedReference or "Double-click a folder or level. Click the path to go to a parent."
-        UI.text(status, self.x + 12, self.y + self.height - 21, self.width - 24,
-            self.error and Theme.color("error") or nil)
+        love.graphics.line(split, top, split, self.y + self.height - 6)
+        love.graphics.line(self.x + 12, top, self.x + self.width - 12, top)
     end
+    love.graphics.intersectScissor(self.x + 6, self.y + 6, math.max(0, self.width - 12), math.max(0, self.height - 12))
     Canvas.draw(self)
     if self.uiRoot == self.localRoot then self:drawDragOverlay() end
     if self.uiRoot == self.localRoot and self.localRoot.popup then
@@ -265,7 +265,7 @@ function AssetBrowser:mousepressed(x, y, button, presses)
 end
 
 function AssetBrowser:handleContentMousepressed(x, y, button, presses)
-    if self.collapsed or y < self.y + HEADER or y >= self.y + self.height - 28 then return true end
+    if self.collapsed or y < self.y + HEADER or y >= self.y + self.height - 6 then return true end
     self:cancelDrag()
     if button == 2 then self:showContextMenu(x, y); return true end
     if button ~= 1 then return true end
@@ -301,6 +301,23 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
         end
     end
     return true
+end
+
+function AssetBrowser:contentHint(x, y)
+    if self.treeSlot.widget:containsPoint(x, y) then
+        local node = self.tree[math.floor((y - self.treeSlot.widget.y) / ROW) + 1 + self.treeScroll]
+        if node then
+            if x < self.x + 28 + node.depth * 14 then return "Expand or collapse " .. node.reference .. "." end
+            return "Open " .. node.reference .. ". Drag the folder to move it. Right-click: menu."
+        end
+    else
+        local entry = self:getEntryAtPosition(x, y)
+        if entry then
+            if entry.isLink then return entry.reference .. ": filesystem links cannot be opened or moved." end
+            return entry.reference .. ". Double-click: open. Drag: move. Right-click: menu."
+        end
+        return "Right-click: create a file or folder. Drop here to move into " .. self.folder .. "."
+    end
 end
 
 function AssetBrowser:cancelDrag()
@@ -594,7 +611,7 @@ function AssetBrowser:drawIcon(entry, x, y)
         love.graphics.push("all")
         Theme.setColor("iconBackground")
         love.graphics.rectangle("fill", x + 12, y + 12, 64, 64, 6, 6)
-        self.fileIconFont = self.fileIconFont or love.graphics.newFont(26)
+        self.fileIconFont = self.fileIconFont or love.graphics.newFont(24)
         local label, color, badge = self:iconStyle(entry)
         Theme.setColor(color)
         love.graphics.rectangle("line", x + 12.5, y + 12.5, 63, 63, 6, 6)
@@ -606,7 +623,7 @@ function AssetBrowser:drawIcon(entry, x, y)
             love.graphics.setFont(font)
         end
         UI.text(label, x + 44 - math.min(font:getWidth(label), 52) / 2,
-            y + (badge and 38 or 44) - font:getHeight() / 2, 52, Theme.color(color))
+            y + 44 - font:getHeight() / 2, 52, Theme.color(color))
         if badge then
             self.badgeFont = self.badgeFont or love.graphics.newFont(11)
             love.graphics.setFont(self.badgeFont)

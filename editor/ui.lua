@@ -1,6 +1,28 @@
 local Theme = require("editor.theme")
 local Utf8 = require("utf8")
 local UI = {}
+function UI.beginFrame(x, y)
+    UI.mouseX, UI.mouseY, UI.hoverHint = x, y, nil
+end
+function UI.hint(rect, text)
+    if text and UI.mouseX and UI.contains(UI.mouseX, UI.mouseY, rect) then UI.hoverHint = text end
+end
+function UI.resetHints() UI.hoverHint = nil end
+
+function UI.panel(x, y, width, height)
+    Theme.setColor("panel")
+    love.graphics.rectangle("fill", x + 6, y + 6, math.max(0, width - 12), math.max(0, height - 12), 6, 6)
+    Theme.setColor("panelBorder")
+    love.graphics.rectangle("line", x + 6.5, y + 6.5, math.max(0, width - 13), math.max(0, height - 13), 6, 6)
+end
+
+function UI.panelTitle(text, x, y, width)
+    love.graphics.push("all")
+    UI.titleFont = UI.titleFont or love.graphics.newFont(15)
+    love.graphics.setFont(UI.titleFont)
+    UI.text(text, x, y, width, Theme.color("panelTitle"), true)
+    love.graphics.pop()
+end
 
 function UI.contains(x, y, rect)
     return x >= rect.x and y >= rect.y and x < rect.x + rect.w and y < rect.y + rect.h
@@ -28,7 +50,12 @@ function UI.label(text, x, y, width)
     UI.text(text, x, y, width, Theme.color("text"), true)
 end
 
-function UI.button(label, rect, active)
+function UI.button(label, rect, active, hint)
+    local hints = {Cancel = "Close this dialog without applying changes. Esc: cancel.",
+        Create = "Create a new file or folder. Enter: confirm.", Save = "Save the document at the chosen path.",
+        Move = "Move to the selected destination folder.", Rename = "Change the name in the current folder.",
+        Delete = "Permanently delete this file or folder.", R = "Reset this property to its class default."}
+    UI.hint(rect, hint or hints[label] or label)
     local mx, my = love.mouse.getPosition()
     if active then Theme.setColor("selection")
     elseif UI.contains(mx, my, rect) then Theme.setColor("hover")
@@ -38,6 +65,7 @@ function UI.button(label, rect, active)
 end
 
 function UI.field(text, rect, focused)
+    UI.hint(rect, "Edit the value. Enter: apply. Esc: cancel.")
     Theme.setColor("input")
     love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
     Theme.setColor(focused and "focus" or "border")

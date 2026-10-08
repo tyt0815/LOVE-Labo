@@ -40,15 +40,12 @@ function Hierarchy:draw(selectedLObject)
     love.graphics.push("all")
     love.graphics.setScissor(0, 0, self.width, height)
 
-    -- 현재는 별도 Docking/Layout system 없이 고정 폭 패널로 시작한다.
-    Theme.setColor("panel")
-    love.graphics.rectangle("fill", 0, 0, self.width, height)
-
+    local UI = require("editor.ui")
+    UI.panel(0, 0, self.width, height)
+    UI.panelTitle("Hierarchy", 18, 12, self.width - 36)
     Theme.setColor("border")
-    love.graphics.line(self.width, 0, self.width, height)
-
-    Theme.setColor("text")
-    love.graphics.print("Hierarchy", 12, 10)
+    love.graphics.line(12, 35, self.width - 12, 35)
+    love.graphics.intersectScissor(6, 6, self.width - 12, math.max(0, height - 12))
 
     if self.level then
         for i, lobject in ipairs(self.level.lobjects) do

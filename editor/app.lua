@@ -18,6 +18,7 @@ function EditorApp.new(document, project)
     self.inspector = Inspector.new()
 
     self.project = project
+    self.statusHeight = project and 26 or 0
     self.assetBrowser = project and require("editor.asset_browser").new(project) or nil
     self.assetBrowserHeight = 350
     self.isResizingAssets = false
@@ -244,7 +245,7 @@ function EditorApp:updateInspectorTarget()
     local object = not prefab and self.sceneView.selectedLObject or nil
     self.inspector.classInspector:setTarget(not object and (prefab and self.prefabInspectorTarget or self.levelInspectorTarget) or nil)
     self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
-        self.inspector.width, love.graphics.getHeight())
+        self.inspector.width, love.graphics.getHeight() - self.statusHeight)
     return object
 end
 
@@ -452,6 +453,7 @@ function EditorApp:initializeUI()
         return canvas, content
     end
     local center, sceneWidget = panel("scene", {
+        hint = function() return self:isPlaying() and "Game View. F5: stop Play." or "Scene View. A: add. Ctrl+D: duplicate. F: frame. Middle drag: pan. Wheel: zoom." end,
         bounds = function(_, x, y, width, height)
             self.sceneView:setViewport(x, y, width, height)
             self.gameView:setViewport(x, y, width, height)
@@ -485,6 +487,11 @@ function EditorApp:initializeUI()
     })
     self.sceneWidget = sceneWidget
     local hierarchy = panel("hierarchy", {
+        hint = function(_, x, y)
+            local object = self.hierarchy:getLObjectAtPosition(x, y)
+            return object and "Select LObject " .. object.authoringId .. ". Delete: remove. Ctrl+D: duplicate."
+                or "Hierarchy: objects in the current level. Click an empty row to inspect the level."
+        end,
         bounds = function(_, _, _, _, height) self.hierarchy.height = height end,
         draw = function() self.hierarchy:draw(self.sceneView.selectedLObject) end,
         mousepressed = function(_, x, y, button)
@@ -496,6 +503,8 @@ function EditorApp:initializeUI()
         keypressed = function(_, key) return self:handleSceneKey(key) end
     })
     local inspector, inspectorWidget = panel("inspector", {
+        bounds = function(_, _, _, _, height) self.inspector.height = height end,
+        hint = function() return "Inspector: edit the selected object, level or Prefab. Ctrl+S: save." end,
         draw = function() self.inspector:draw(self:updateInspectorTarget()) end,
         mousepressed = function(_, x, y, button)
             if not self:isPlaying() then
@@ -518,6 +527,11 @@ function EditorApp:initializeUI()
         hierarchy = self.canvas:addChild(hierarchy),
         inspector = self.canvas:addChild(inspector)
     }
+    if self.statusHeight > 0 then
+        self.statusWidget = Widget.new({mousepressed = function() return true end, wheelmoved = function() return true end})
+        self.statusWidget.focusable = false
+        slots.status = self.canvas:addChild(self.statusWidget, {z = 101})
+    end
     if self.assetBrowser then
         self.inspector.classInspector = require("editor.class_inspector").new(self.project, self.uiRoot)
         self:updateInspectorTarget()
@@ -603,8 +617,39 @@ end
 
 function EditorApp:draw()
     self:updateSceneViewport()
+    local UI = require("editor.ui")
+    local x, y = love.mouse.getPosition()
+    UI.beginFrame(x, y)
     Theme.clear("background")
     self.uiRoot:draw()
+    self:drawStatusBar(x, y)
+end
+
+function EditorApp:statusText(x, y)
+    local UI = require("editor.ui")
+    if self.assetBrowser and self.assetBrowser.drag and self.assetBrowser.drag.active then
+        local drag = self.assetBrowser.drag
+        return drag.error or "Move to " .. (drag.destination or "") .. ". Esc: cancel."
+    end
+    local hint = UI.hoverHint or self.uiRoot:getHint(x, y)
+    local err = self.runtimeError or self.assetBrowser and self.assetBrowser.error
+        or self.inspector.classInspector and self.inspector.classInspector.error
+    if err then return "Error: " .. err .. (hint and " | " .. hint or "") end
+    if hint then return hint end
+    return self.assetBrowser and self.assetBrowser.selectedReference
+        or "Double-click a folder or level to open it. Ctrl+S: save. F5: Play / Stop."
+end
+
+function EditorApp:drawStatusBar(x, y)
+    if self.statusHeight == 0 then return end
+    local width, height = love.graphics.getDimensions()
+    love.graphics.push("all")
+    love.graphics.setScissor(0, height - self.statusHeight, width, self.statusHeight)
+    Theme.setColor("background")
+    love.graphics.rectangle("fill", 0, height - self.statusHeight, width, self.statusHeight)
+    self.statusHint = self:statusText(x, y)
+    require("editor.ui").text(self.statusHint, 12, height - self.statusHeight + 6, width - 24, Theme.color("text"))
+    love.graphics.pop()
 end
 
 function EditorApp:mousepressed(x, y, button, presses)

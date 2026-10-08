@@ -425,10 +425,11 @@ function SceneView:draw()
     self:drawLObjects()
 
     Theme.setColor("text")
-    love.graphics.print(
+    require("editor.ui").panelTitle(
         string.format("Scene View  %.2fx", self.zoom),
         viewportX + 16,
-        viewportY + 16
+        viewportY + 16,
+        width - 32
     )
     self:drawMouseWorldPosition()
     love.graphics.print(

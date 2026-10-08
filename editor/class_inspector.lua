@@ -25,6 +25,7 @@ function ClassInspector:reload()
     for name in pairs(self.class and self.class.properties or {}) do self.names[#self.names + 1] = name end
     table.sort(self.names)
     self.dropdown = Dropdown.new(self.root, {}, reference or false, function(value) return self:selectParent(value) end)
+    self.dropdown.hint = "Choose a Parent Class. None: use the built-in Level or LObject."
     self:updateOptions()
 end
 
@@ -103,8 +104,9 @@ function ClassInspector:draw()
         if value == nil then value = declaration.default end
         local y = 170 + (row - 1) * 56
         UI.label(name .. " (" .. declaration.type .. ")", self.left + 12, y, self.width - 24)
+        UI.hint({x = self.left + 12, y = y, w = self.width - 24, h = 20}, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
         local rect = {x = self.left + 12, y = y + 20, w = self.width - 58, h = 26}
-        if declaration.type == "boolean" then UI.button(value and "True" or "False", rect)
+        if declaration.type == "boolean" then UI.button(value and "True" or "False", rect, false, "Toggle " .. name .. ". Ctrl+S: save.")
         else UI.field(self.editing == name and self.text or tostring(value), rect, self.editing == name) end
         UI.button("R", {x = self.left + self.width - 40, y = y + 20, w = 28, h = 26})
     end

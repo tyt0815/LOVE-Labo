@@ -34,6 +34,8 @@ MyProject/
 
 프로젝트가 열리면 좌측 계층, 중앙 뷰포트, 우측 인스펙터와 하단 프로젝트 브라우저가 표시된다. 왼쪽 폴더 트리에 `Assets/`와 `Sources/`를 별도 루트로 보여준다.
 
+계층·인스펙터·브라우저는 배경 위에 여백과 둥근 테두리가 있는 독립 패널로 표시한다. 제목은 굵고 큰 글씨와 구분선으로 내용과 구별한다. 창 맨 아래의 상태 표시줄은 패널 밖 배경 위에 표시하며, 버튼·경로·파일·프로퍼티·패널 경계 등에 마우스를 올리면 해당 UI의 사용 힌트가 바뀐다. 드래그 안내와 실제 오류도 이 영역에 표시한다. 상태 표시줄은 문서 편집이나 패널 크기 조절 입력을 소비한다.
+
 - 왼쪽 폴더 트리의 오른쪽·아래쪽 화살표로 펼치거나 접고, 이름을 클릭해서 해당 폴더를 연다.
 - 기본 파일 보기는 **Thumbnails**다. 이미지 파일은 실제 미리보기, 폴더는 폴더 아이콘을 표시한다. 파일은 흰 정사각형에 종류 텍스트를 넣는다. Level은 `Lv`, Prefab은 `Pf`, Lua Class는 종류별 `Lv`·`LO`·`Cp`와 우하단 작은 `Lua` 표식을 표시한다. Level·Prefab·Level Class·LObject Class·Component Class는 서로 다른 테마 색을 사용한다. 우측 Refresh 왼쪽의 드롭다운에서 **List**로 전환할 수 있다. 드롭다운은 방향키·Enter·Escape도 지원한다.
 - 오른쪽 목록의 폴더는 더블클릭 또는 선택 후 `Enter`로 연다. 파일 영역 위의 경로에서 상위 폴더 이름을 클릭하거나 `Backspace`로 이동한다. Assets·Sources 루트 밖으로 이동하지 않는다.
@@ -149,11 +151,11 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 ```json
 {
   "version": 1,
-  "theme": "atom-one-light"
+  "theme": "default"
 }
 ```
 
-- `default`: `editor/theme.lua`에 내장된 어두운 배경과 파란 강조색. JSON 파일 없이도 동작하는 기본 선택이다.
+- `default`: [LÖVE 공식 홈페이지](https://love2d.org/)의 [CSS](https://love2d.org/style/style.css?b)·[박스 SVG](https://love2d.org/style/box.svg)를 참고한 하늘색 배경 `#E0F4FC`, 패널 `#B1E3FA`, 짙은 제목 `#1B4D68`, 분홍 `#EA316E`·파랑 `#25AAE1` 강조색이다. `editor/theme.lua`에 내장되어 JSON 파일 없이도 동작하며 현재 설정도 default를 선택한다.
 - `atom-one-light`: [VS Code Atom One Light](https://github.com/akamud/vscode-theme-onelight/blob/master/themes/OneLight.json) 스타일의 밝은 회색 배경, 짙은 글자와 파란 강조색.
 
 색을 직접 바꾸려면 아래처럼 `editor/themes/my-theme.json`을 만들고 설정에서 `"theme": "my-theme"`을 선택한다. 파일의 `colors`는 `#RRGGBB` 또는 알파를 포함한 `#RRGGBBAA` 색을 받는다. 일부 색만 지정해도 나머지는 코드에 내장된 기본 테마를 사용한다. 모든 색 항목은 `atom-one-light.json`을 참고한다.
@@ -175,6 +177,7 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 |---|---|
 | `background` | 화면 바탕 |
 | `panel`, `surface`, `button`, `input` | 패널·팝업 표면·버튼·입력칸 |
+| `panelBorder`, `panelTitle` | 독립 패널의 외곽선·제목 |
 | `text`, `textMuted`, `textDisabled` | 일반·보조·비활성 글자 |
 | `border`, `focus`, `hover`, `selection` | 경계·포커스·호버·선택 상태 |
 | `error`, `overlay` | 오류와 모달 뒤 덮개 |

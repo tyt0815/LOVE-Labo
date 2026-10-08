@@ -109,6 +109,7 @@ function Dialog:draw()
                     love.graphics.rectangle("fill", rect.x + 2, y + 1, rect.w - 4, 28, 3, 3)
                 end
                 UI.text(choice.label, rect.x + 8, y + 7, rect.w - 16)
+                UI.hint({x = rect.x, y = y, w = rect.w, h = 30}, "Select " .. choice.label .. ". Enter: confirm.")
             end
         end
         if #self.options.choices == 0 then UI.text("No matching classes. Create one in Sources.", rect.x + 8, rect.y + 8, rect.w - 16) end

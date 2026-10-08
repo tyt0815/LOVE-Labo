@@ -92,6 +92,7 @@ function FolderTree:draw()
         if self.expanded[node.reference] then love.graphics.line(x, y + 11, x + 4, y + 15, x + 8, y + 11)
         else love.graphics.line(x + 2, y + 9, x + 6, y + 13, x + 2, y + 17) end
         UI.text(node.name, x + 16, y + 7, self.width - (x - self.x) - 24)
+        UI.hint({x = self.x, y = y, w = self.width, h = ROW}, "Select destination " .. node.reference .. ". Arrows: expand or collapse.")
     end
     love.graphics.pop()
 end

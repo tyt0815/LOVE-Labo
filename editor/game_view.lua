@@ -111,10 +111,11 @@ function GameView:draw(world)
 
     Theme.setColor("text")
 
-    love.graphics.print(
+    require("editor.ui").panelTitle(
         "Game View  [F5: Stop]",
         viewportX + 16,
-        viewportY + 16
+        viewportY + 16,
+        width - 32
     )
 
     love.graphics.pop()
