@@ -2,6 +2,9 @@ local FS = require("editor.host_filesystem")
 local ProjectScript = {}
 
 function ProjectScript.load(project, reference)
+    local kind, kindError = project:getScriptKind(reference)
+    if not kind then return nil, kindError end
+    if kind ~= "level" then return nil, "Level requires a Level Script" end
     local path, pathError = project:resolveSourceFile(reference)
     if not path then return nil, pathError end
     local text, readError = FS.read(path)

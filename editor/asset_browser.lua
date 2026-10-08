@@ -285,10 +285,10 @@ function AssetBrowser:showContextMenu(x, y)
         self.selectedReference = entry and entry.reference or nil
     end
     local newItems = {}
-    for _, option in ipairs({ {"Folder", "folder"}, {"Level", "level"}, {"Lua Script", "lua"} }) do
+    for _, option in ipairs({ {"Folder", "folder"}, {"Level", "level"}, {"Prefab", "prefab"}, {"Lua Script", "lua"} }) do
         local label, kind = option[1], option[2]
         local root = folder:match("^[^/]+")
-        if kind == "folder" or kind == "level" and root == "Assets" or kind == "lua" and root == "Sources" then
+        if kind == "folder" or (kind == "level" or kind == "prefab") and root == "Assets" or kind == "lua" and root == "Sources" then
             newItems[#newItems + 1] = { label = label,
                 action = function() self:showCreateDialog(folder, kind) end }
         end
@@ -302,16 +302,31 @@ function AssetBrowser:showContextMenu(x, y)
 end
 
 function AssetBrowser:showCreateDialog(folder, kind)
-    local defaults = { folder = "NewFolder", level = "NewLevel", lua = "NewScript" }
-    Dialog.new(self.uiRoot, { title = "New " .. (kind == "lua" and "Lua Script" or kind == "level" and "Level" or "Folder"),
-        message = folder, input = true, value = defaults[kind],
-        onConfirm = function(name)
-            local ok, reference = self.project:createEntry(folder, kind, name)
+    local defaults = { folder = "NewFolder", level = "NewLevel", prefab = "NewPrefab", lua = "NewScript" }
+    local choices, listError
+    if kind == "lua" then
+        choices = { {label = "Level Script", value = "level"}, {label = "LObject Script", value = "lobject"} }
+    elseif kind == "level" or kind == "prefab" then
+        choices = {}
+        local scripts
+        scripts, listError = self.project:listScripts(kind == "level" and "level" or "lobject")
+        for _, reference in ipairs(scripts or {}) do choices[#choices + 1] = {label = reference, value = reference} end
+    end
+    local titles = {folder = "Folder", level = "Level", prefab = "Prefab", lua = "Lua Script"}
+    local dialog = Dialog.new(self.uiRoot, { title = "New " .. titles[kind],
+        message = folder, input = true, value = defaults[kind], choices = choices,
+        choiceLabel = kind == "lua" and "Script type" or kind == "prefab" and "LObject Script" or "Level Script",
+        onConfirm = function(name, choice)
+            if listError then return false, listError end
+            local options = kind == "lua" and {scriptKind = choice} or {scriptReference = choice}
+            local ok, reference = self.project:createEntry(folder, kind, name, options)
             if not ok then return false, reference end
             self:refresh(true)
-            if self.folder == folder then self.selectedReference = reference end
+            if self.folder ~= folder then self:openFolder(folder) end
+            self.selectedReference = reference
             return true
         end })
+    dialog.error = listError
 end
 
 function AssetBrowser:showDeleteDialog(entry)
@@ -371,7 +386,7 @@ function AssetBrowser:drawIcon(entry, x, y)
         love.graphics.rectangle("line", x + 12.5, y + 12.5, 63, 63, 6, 6)
         self.fileIconFont = self.fileIconFont or love.graphics.newFont(26)
         local extension = (entry.name:match("%.([^%.]+)$") or "File"):lower()
-        local label = entry.isLink and "Link" or extension == "level" and "Lv"
+        local label = entry.isLink and "Link" or extension == "level" and "Lv" or extension == "prefab" and "Pf"
             or extension == "lua" and "Lua" or extension == "file" and "File" or extension:upper()
         love.graphics.setFont(self.fileIconFont)
         Theme.setColor("iconText")

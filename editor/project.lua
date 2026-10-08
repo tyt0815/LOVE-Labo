@@ -255,14 +255,64 @@ function Project:checkedEntry(reference)
     return path, last
 end
 
-function Project:createEntry(folder, kind, name)
+function Project:getScriptKind(reference)
+    local path, err = self:resolveSourceFile(reference)
+    if not path then return nil, err end
+    local text, readError = filesystem().read(path)
+    if not text then return nil, readError end
+    text = text:gsub("^\239\187\191", "")
+    local firstLine = text:match("^([^\r\n]*)") or ""
+    local kind = firstLine:match("^%s*%-%-%s*labo%-script:%s*([%w_-]+)%s*$")
+    if kind == "level" or kind == "lobject" then return kind end
+    if firstLine:find("labo-script:", 1, true) then return nil, "Invalid script type marker" end
+    -- 종류 표식 도입 전에 작성한 프로젝트 코드는 기존 Level 동작을 유지한다.
+    return "level"
+end
+
+function Project:listScripts(kind)
+    if kind ~= "level" and kind ~= "lobject" then return nil, "Unknown script type" end
+    local scripts = {}
+    local function visit(folder)
+        local entries, err = self:listDirectory(folder)
+        if not entries then return false, err end
+        for _, entry in ipairs(entries) do
+            if not entry.isLink then
+                if entry.type == "directory" then
+                    local ok, childError = visit(entry.reference)
+                    if not ok then return false, childError end
+                elseif entry.name:match("%.lua$") then
+                    local scriptKind, kindError = self:getScriptKind(entry.reference)
+                    if not scriptKind then return false, entry.reference .. ": " .. tostring(kindError) end
+                    if scriptKind == kind then scripts[#scripts + 1] = entry.reference end
+                end
+            end
+        end
+        return true
+    end
+    local ok, err = visit("Sources")
+    if not ok then return nil, err end
+    table.sort(scripts)
+    return scripts
+end
+
+function Project:createEntry(folder, kind, name, options)
+    options = options or {}
     local valid, err = Project.isValidName(name)
     if not valid then return false, err end
-    if kind ~= "folder" and kind ~= "level" and kind ~= "lua" then return false, "Unknown entry type" end
-    if kind == "level" and not folder:match("^Assets/?") then return false, "Levels belong in Assets" end
+    if kind ~= "folder" and kind ~= "level" and kind ~= "prefab" and kind ~= "lua" then return false, "Unknown entry type" end
+    if (kind == "level" or kind == "prefab") and not folder:match("^Assets/?") then return false, "Level and Prefab assets belong in Assets" end
     if kind == "lua" and not folder:match("^Sources/?") then return false, "Lua scripts belong in Sources" end
     local entries, listError = self:listDirectory(folder)
     if not entries then return false, listError end
+    if kind == "lua" and options.scriptKind ~= "level" and options.scriptKind ~= "lobject" then
+        return false, "Choose Level Script or LObject Script"
+    end
+    if kind == "level" or kind == "prefab" then
+        local required = kind == "level" and "level" or "lobject"
+        local actual, scriptError = self:getScriptKind(options.scriptReference)
+        if not actual then return false, scriptError end
+        if actual ~= required then return false, "Choose a " .. required .. " script" end
+    end
     local fs, createdDirectories, createdFiles = filesystem(), {}, {}
     local function rollback(errorText)
         for i = #createdFiles, 1, -1 do fs.removeFile(createdFiles[i]) end
@@ -297,7 +347,7 @@ function Project:createEntry(folder, kind, name)
         if wrote then createdFiles[#createdFiles + 1] = path end
         return wrote, writeError
     end
-    local suffix = kind == "level" and ".level" or kind == "lua" and ".lua" or ""
+    local suffix = kind == "level" and ".level" or kind == "prefab" and ".prefab" or kind == "lua" and ".lua" or ""
     if suffix ~= "" then
         if name:sub(-#suffix):lower() == suffix then name = name:sub(1, -#suffix - 1) end
         if name == "" then return false, "Enter a file name" end
@@ -309,15 +359,18 @@ function Project:createEntry(folder, kind, name)
         ok, createError = ensureFolder(folder)
         if ok then ok, createError = fs.mkdir(assert(self:resolvePath(reference))) end
     elseif kind == "lua" then
-        ok, createError = writeNew(reference, require("editor.level_script_template"))
-    else
-        local script = reference:gsub("^Assets/", "Sources/"):gsub("%.level$", ".lua")
+        ok, createError = writeNew(reference, require(options.scriptKind == "level"
+            and "editor.level_script_template" or "editor.lobject_script_template"))
+    elseif kind == "level" then
         local level = require("editor.level").new()
-        assert(level:setScriptReference(script))
+        assert(level:setScriptReference(options.scriptReference))
         local text, encodeError = require("editor.level_file").encode(level)
         if not text then return rollback(encodeError) end
-        ok, createError = writeNew(script, require("editor.level_script_template"))
-        if ok then ok, createError = writeNew(reference, text) end
+        ok, createError = writeNew(reference, text)
+    else
+        local text, encodeError = require("editor.prefab").encode(options.scriptReference)
+        if not text then return rollback(encodeError) end
+        ok, createError = writeNew(reference, text)
     end
     if not ok then return rollback(createError) end
     return true, reference

@@ -1,4 +1,5 @@
-return [[local Level = {}
+return [[-- labo-script: level
+local Level = {}
 
 -- Play 시작 시 새 Runtime World를 초기화한다.
 function Level.load(world)

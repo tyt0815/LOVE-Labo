@@ -9,3 +9,4 @@
 - [0007. Sources 탐색과 레벨 Lua 스크립트 연결](adr/0007-sources-and-level-scripts.md)
 - [0008. 공통 컨텍스트 메뉴와 프로젝트 항목 생성·삭제](adr/0008-context-menu-and-project-entries.md)
 - [0009. 에디터 공통 설정과 JSON 테마](adr/0009-editor-settings-and-themes.md)
+- [0010. Lua 종류 선택과 스크립트 기반 Level·Prefab 생성](adr/0010-script-types-and-prefab-creation.md)

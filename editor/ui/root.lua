@@ -86,7 +86,7 @@ function Root:mousereleased(x, y, button)
 end
 
 function Root:wheelmoved(x, y, amount)
-    if self.popup then return true end
+    if self.popup then self:dispatchTo(self.popup, "wheelmoved", x, y, amount); return true end
     return self:dispatchTo(self.canvas:hitTest(x, y), "wheelmoved", x, y, amount)
 end
 

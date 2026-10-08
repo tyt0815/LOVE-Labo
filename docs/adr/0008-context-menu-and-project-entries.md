@@ -3,6 +3,7 @@
 - 상태: 채택
 - 날짜: 2026-10-08
 - 확장: [ADR 0006](0006-widget-canvas-and-asset-views.md)의 팝업 입력과 [ADR 0007](0007-sources-and-level-scripts.md)의 프로젝트 탐색·레벨 연결
+- 수동 Level 생성의 소스 자동 생성은 [ADR 0010](0010-script-types-and-prefab-creation.md)의 종류별 스크립트 선택으로 대체
 
 ## 배경과 제약
 

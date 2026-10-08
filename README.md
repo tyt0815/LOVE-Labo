@@ -41,7 +41,8 @@ MyProject/
 - 기본 파일 보기는 **Thumbnails**다. 이미지 파일은 실제 미리보기, 폴더는 폴더 아이콘을 표시한다. 파일의 기본 아이콘은 정사각형에 종류 텍스트를 넣는 형태로 통일한다(`Lv`, `Lua`, `TXT` 등). 우측 Refresh 왼쪽의 드롭다운에서 **List**로 전환할 수 있다. 드롭다운은 방향키·Enter·Escape도 지원한다.
 - 오른쪽 목록의 폴더는 더블클릭 또는 선택 후 `Enter`로 연다. 파일 영역 위의 경로에서 상위 폴더 이름을 클릭하거나 `Backspace`로 이동한다. Assets·Sources 루트 밖으로 이동하지 않는다.
 - 경로는 평소 일반 텍스트로 표시하고, 폴더 이름에 마우스를 올리면 클릭 영역의 배경이 부드럽게 나타난다.
-- 빈 공간을 우클릭하면 **New**, 파일·폴더를 우클릭하면 **New / Delete** 메뉴를 연다. **New**에는 Assets에서 **Folder / Level**, Sources에서 **Folder / Lua Script**만 표시한다. 메뉴가 열린 상태에서 다른 위치를 우클릭하면 해당 위치의 메뉴로 바로 바뀐다. 이름 입력 후 Enter 또는 Create로 생성하며 기존 파일은 덮어쓰지 않는다. 새 Level은 대응하는 Sources 경로에 같은 이름의 Lua도 생성하고 연결한다.
+- 빈 공간을 우클릭하면 **New**, 파일·폴더를 우클릭하면 **New / Delete** 메뉴를 연다. **New**에는 Assets에서 **Folder / Level / Prefab**, Sources에서 **Folder / Lua Script**만 표시한다. 메뉴가 열린 상태에서 다른 위치를 우클릭하면 해당 위치의 메뉴로 바로 바뀐다. 이름 입력 후 Enter 또는 Create로 생성하며 기존 파일은 덮어쓰지 않는다.
+- **Lua Script** 생성 시 **Level Script / LObject Script**를 고른다. **Level** 생성은 기존 Level Script를, **Prefab** 생성은 기존 LObject Script를 선택한다. Sources의 하위 폴더까지 종류에 맞는 소스만 표시하며 선택 목록은 클릭·방향키·휠을 지원한다. Tab으로 이름과 목록 사이를 전환한다. 해당 종류의 소스가 없으면 먼저 Sources에서 만든다. 선택한 소스는 수정하지 않으며 여러 에셋이 같은 코드를 참조할 수 있다.
 - **Delete**는 확인 후 파일이나 폴더의 전체 내용을 영구 삭제한다. 프로젝트 루트·기본 레벨·현재 열린 레벨을 포함하는 경로와 파일시스템 링크는 삭제하지 않는다. 레벨에 연결된 Lua나 다른 파일의 참조를 자동으로 정리하지 않는다. 메뉴는 방향키·Enter·Escape로도 조작한다.
 - `.level` 파일을 더블클릭하면 해당 레벨을 연다. 현재 레벨에 저장하지 않은 변경이 있으면 유지하고 오류를 표시한다. Lua 코드는 외부 편집기로 수정한다.
 - **Refresh** 또는 브라우저에 포커스가 있을 때 `Ctrl+R`로 외부에서 추가·삭제한 파일을 반영한다. 트리와 목록은 각각 마우스 휠로 스크롤한다.
@@ -66,6 +67,7 @@ MyProject/
 `.level`은 배치 데이터, Lua는 레벨의 동작을 담당한다. 생성되는 Lua 파일은 다음 형태의 테이블을 반환한다.
 
 ```lua
+-- labo-script: level
 local Level = {}
 
 function Level.load(world)
@@ -77,6 +79,18 @@ function Level.update(world, dt)
 end
 
 return Level
+```
+
+종류 표식은 Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`다. 표식이 없는 기존 Lua는 Level Script로 분류한다. 목록을 만들 때 코드를 실행하지 않는다. LObject Script 템플릿은 `load(self, world)`·`update(self, dt)` 함수를 제공한다.
+
+생성되는 Prefab은 다음 형태다. `definitionReference`는 선택한 LObject Script를 가리키며 빈 `overrides`는 원본 기본값을 유지한다. 현재는 에셋 생성과 참조 저장을 지원한다. Prefab 편집·배치와 LObject Definition의 Runtime 연결은 후속 구현 범위다.
+
+```json
+{
+  "formatVersion": 1,
+  "definitionReference": "Sources/Enemy.lua",
+  "overrides": {}
+}
 ```
 
 **F5**는 Play/Stop이다. Play마다 코드 파일을 새로 읽고 Runtime World를 만든다. `load`는 한 번, `update`는 매 프레임 LObject 업데이트 전에 호출한다. Stop은 Runtime 변경을 버리며 배치 데이터에 반영하지 않는다. 코드 오류는 에디터에 표시하고 Play를 시작하지 않거나 중지한다. 자동화 테스트 모드에서는 프로젝트 코드를 실행하지 않는다.
