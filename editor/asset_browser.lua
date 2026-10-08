@@ -691,8 +691,10 @@ function AssetBrowser:drawFiles()
                     love.graphics.rectangle("fill", x, y, CARD_WIDTH - 6, CARD_HEIGHT - 6,
                         UI.metrics.selectionRadius, UI.metrics.selectionRadius)
                 end
-                Theme.setColor("thumbnailBackground")
-                love.graphics.rectangle("fill", x + 9, y + 6, 88, 88)
+                if entry.type ~= "directory" then
+                    Theme.setColor("thumbnailBackground")
+                    love.graphics.rectangle("fill", x + 9, y + 6, 88, 88, 6, 6)
+                end
                 local thumbnail = self.thumbnails:get(entry)
                 if thumbnail then
                     love.graphics.setColor(1, 1, 1, 1)
