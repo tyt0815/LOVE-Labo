@@ -37,10 +37,10 @@ add("project creation persists metadata and unicode Assets paths", function()
         assert(FS.createFile(FS.join(project.rootPath, "hidden.txt"), "outside assets"))
         local reopened = assert(Project.open(project.rootPath))
         local entries = assert(reopened:listAssets())
-        Assert.equal(2, #entries)
+        Assert.equal(3, #entries)
         Assert.equal("directory", entries[1].type)
-        Assert.equal("Assets/이미지.png", entries[2].reference)
-        Assert.equal("image data", assert(FS.read(assert(reopened:resolvePath(entries[2].reference)))))
+        Assert.equal("Assets/이미지.png", entries[3].reference)
+        Assert.equal("image data", assert(FS.read(assert(reopened:resolvePath(entries[3].reference)))))
     end)
 end)
 
@@ -60,16 +60,21 @@ add("project creation rejects existing folders without overwriting", function()
     end)
 end)
 
-add("project creation cleans only its new directories on metadata failure", function()
+add("project creation cleans its level and directories on file creation failure", function()
     fixture(function(parent)
         local original = FS.createFile
-        FS.createFile = function() return false, "simulated write failure" end
-        local ok, project, err = pcall(Project.create, parent, "Failed")
-        FS.createFile = original
-        Assert.truthy(ok)
-        Assert.equal(nil, project)
-        Assert.equal("simulated write failure", err)
-        Assert.equal(nil, FS.info(FS.join(parent, "Failed")))
+        for _, target in ipairs({ Project.DEFAULT_LEVEL_REFERENCE, Project.FILE_NAME }) do
+            FS.createFile = function(path, text)
+                if path == FS.join(parent, "Failed/" .. target) then return false, "simulated write failure" end
+                return original(path, text)
+            end
+            local ok, project, err = pcall(Project.create, parent, "Failed")
+            FS.createFile = original
+            Assert.truthy(ok)
+            Assert.equal(nil, project)
+            Assert.equal("simulated write failure", err)
+            Assert.equal(nil, FS.info(FS.join(parent, "Failed")))
+        end
     end)
 end)
 
@@ -116,7 +121,7 @@ add("asset browser navigates folders refreshes changes and preserves state on fa
         assert(FS.mkdir(FS.join(assets, "Sprites")))
         assert(FS.createFile(FS.join(assets, "Sprites/a.png"), "a"))
         local browser = AssetBrowser.new(project)
-        Assert.equal(2, #browser.tree)
+        Assert.equal(3, #browser.tree)
         assert(browser:openFolder("Assets/Sprites"))
         browser.selectedReference = "Assets/Sprites/a.png"
         assert(FS.createFile(FS.join(assets, "Sprites/b.png"), "b"))
@@ -136,7 +141,7 @@ add("asset browser navigates folders refreshes changes and preserves state on fa
         browser:refresh()
         Assert.equal("Assets", browser.folder)
         Assert.truthy(browser.error)
-        Assert.equal(0, #browser.entries)
+        Assert.equal(1, #browser.entries)
     end)
 end)
 
@@ -305,6 +310,26 @@ add("startup without project option keeps project start screen", function()
     Assert.equal("create", projectStart.mode)
     Assert.equal(path, projectStart.path)
     Assert.equal(nil, projectStart.error)
+end)
+
+add("project creation writes an empty default level using the existing JSON format", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "기본 레벨"))
+        local path = assert(project:resolvePath(Project.DEFAULT_LEVEL_REFERENCE))
+        local text = assert(FS.read(path))
+        local data = assert(require("editor.json").decode(text))
+        Assert.equal(1, data.formatVersion)
+        Assert.truthy(text:find('"lobjects": []', 1, true))
+        local level = assert(require("editor.level_file").decode(text))
+        Assert.equal(0, #level.lobjects)
+        Assert.equal(1, level.nextAuthoringId)
+        local browser = AssetBrowser.new(project)
+        assert(browser:openFolder("Assets/Levels"))
+        Assert.equal("Default.level", browser.entries[1].name)
+        Assert.equal(Project.DEFAULT_LEVEL_REFERENCE, browser.entries[1].reference)
+        assert(Project.open(project.rootPath))
+        Assert.equal(text, assert(FS.read(path)))
+    end)
 end)
 
 add("startup opens absolute and relative project paths with spaces and unicode", function()

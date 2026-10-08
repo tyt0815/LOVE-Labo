@@ -67,6 +67,7 @@ local function validateReference(reference)
 end
 
 Project.FILE_NAME = "project.labo"
+Project.DEFAULT_LEVEL_REFERENCE = "Assets/Levels/Default.level"
 
 local function filesystem()
     return require("editor.host_filesystem")
@@ -100,22 +101,30 @@ function Project.create(parentPath, name)
     local existing, existingError = fs.info(root)
     if existing then return nil, "Project folder already exists" end
     if existingError then return nil, existingError end
-    local created, err = fs.mkdir(root)
-    if not created then return nil, err end
-    local assets = fs.join(root, "Assets")
-    created, err = fs.mkdir(assets)
-    if not created then
-        fs.removeDirectory(root)
-        return nil, err
-    end
     local Json = require("editor.json")
     local text = assert(Json.encode({ version = 1, name = name }, true)) .. "\n"
-    created, err = fs.createFile(fs.join(root, Project.FILE_NAME), text)
-    if not created then
-        -- 이번 생성에서 만든 빈 디렉터리만 정리하며 기존 데이터에는 손대지 않는다.
-        fs.removeDirectory(assets)
-        fs.removeDirectory(root)
+    local levelText, encodeError = require("editor.level_file").encode(require("editor.level").new())
+    if not levelText then return nil, encodeError end
+    local createdDirectories, createdFiles = {}, {}
+    local function rollback(err)
+        -- 이번 생성에서 성공한 파일·빈 폴더만 역순으로 정리한다.
+        -- 다른 프로세스가 추가한 데이터는 재귀 삭제하지 않는다.
+        for i = #createdFiles, 1, -1 do fs.removeFile(createdFiles[i]) end
+        for i = #createdDirectories, 1, -1 do fs.removeDirectory(createdDirectories[i]) end
         return nil, err
+    end
+    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Assets/Levels") }) do
+        local created, err = fs.mkdir(directory)
+        if not created then return rollback(err) end
+        createdDirectories[#createdDirectories + 1] = directory
+    end
+    for _, file in ipairs({
+        { path = fs.join(root, Project.DEFAULT_LEVEL_REFERENCE), text = levelText },
+        { path = fs.join(root, Project.FILE_NAME), text = text }
+    }) do
+        local created, err = fs.createFile(file.path, file.text)
+        if not created then return rollback(err) end
+        createdFiles[#createdFiles + 1] = file.path
     end
     return Project.open(root)
 end

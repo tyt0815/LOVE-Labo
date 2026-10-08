@@ -2,6 +2,7 @@
 
 - 상태: 채택
 - 폴더 선택 UI 결정은 [ADR 0003](0003-native-folder-dialog.md)으로 대체
+- 프로젝트 초기 파일 구성은 [ADR 0005](0005-default-level-on-project-creation.md)로 확장
 - 날짜: 2026-10-08
 
 ## 배경과 제약
