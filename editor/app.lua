@@ -9,10 +9,14 @@ local Inspector = require("editor.inspector")
 local EditorApp = {}
 EditorApp.__index = EditorApp
 
-function EditorApp.new(document, project)
+function EditorApp.new(document, project, preferences)
     local self = setmetatable({}, EditorApp)
 
     self.sceneView = SceneView.new()
+    if preferences then
+        self.sceneView.snapSettings = require("editor.snap_settings").copy(preferences.snapSettings)
+        self.sceneView.onSnapChanged = preferences.saveSnapSettings
+    end
     self.gameView = GameView.new()
     self.hierarchy = Hierarchy.new()
     self.inspector = Inspector.new()
@@ -295,7 +299,8 @@ end
 function EditorApp:updateInspectorTarget()
     if not self.inspector.classInspector then return self.sceneView.selectedLObject end
     local selected = self.assetBrowser.selectedReference
-    local assetSelected = (self.activePanel == "assets" or self.activePanel == "inspector") and selected
+    if self.activePanel ~= "inspector" then self.inspectorSource = self.activePanel == "assets" and "assets" or "scene" end
+    local assetSelected = self.inspectorSource == "assets" and selected
     local prefab = assetSelected and self.prefabDocument
         and selected and self.project:getAssetId(selected) == self.prefabDocument.assetId
     local currentLevelAsset = assetSelected and self.documentAssetId
@@ -584,9 +589,10 @@ function EditorApp:initializeUI()
     self.sceneWidget = sceneWidget
     self.viewportControls = require("editor.ui.viewport_controls").new(self.sceneView)
     local snapSlot = center:addChild(self.viewportControls, {z = 1})
-    center.handlers.bounds = function(_, _, _, width)
-        snapSlot.x, snapSlot.y = math.max(6, width - 250), 10
-        snapSlot.width, snapSlot.height = math.max(0, math.min(238, width - 12)), 94
+    center.handlers.bounds = function(_, _, _, width, height)
+        snapSlot.width = math.max(0, math.min(432, width - 12))
+        snapSlot.x, snapSlot.y = math.max(6, width - snapSlot.width - 12), 6
+        snapSlot.height = math.min(self.viewportControls:preferredHeight(snapSlot.width), math.max(0, height - 12))
     end
     local hierarchy = panel("hierarchy", {
         hint = function(_, x, y)
@@ -711,6 +717,7 @@ function EditorApp:initializeUI()
         while ancestor and not ancestor.panelName do ancestor = ancestor.parent end
         local name = ancestor and ancestor.panelName
         if name then self.activePanel = name end
+        if name and name ~= "inspector" then self.inspectorSource = name == "assets" and "assets" or "scene" end
         if not self:isPlaying() and name ~= "inspector" then self.inspector:commitEdit() end
         if name ~= "scene" then
             self.sceneView:cancelDrag(false)
@@ -757,6 +764,7 @@ function EditorApp:statusText(x, y)
     local err = self.runtimeError or self.assetBrowser and self.assetBrowser.error
         or self.inspector.classInspector and self.inspector.classInspector.error
         or self.spriteAssets and self.spriteAssets.error
+        or self.viewportControls.error
     if err then return "Error: " .. err .. (hint and " | " .. hint or "") end
     if hint then return hint end
     return self.assetBrowser and self.assetBrowser.selectedReference

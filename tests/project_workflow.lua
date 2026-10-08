@@ -1760,7 +1760,7 @@ add("Prefab drag places at zoomed viewport coordinates without moving the source
         Assert.truthy(project:resolveAssetFile(prefabId))
         Assert.equal(nil, browser.drag)
         Assert.equal(nil, app.uiRoot.captured)
-        app.sceneView.snapEnabled, app.sceneView.snapUnit = true, 10
+        assert(app.sceneView:setSnap("translate", true, 10))
         assert(app:placePrefab(prefabId, dx, dy))
         Assert.equal(24, app.level.lobjects[2].transform.x)
         Assert.equal(-12, app.level.lobjects[2].transform.y)
@@ -1922,6 +1922,44 @@ add("Instance Inspector routes text and reference dropdown input through the UI"
         app:textinput("17")
         app:keypressed("return")
         Assert.equal(17, a.componentOverrides.sprite.x)
+    end)
+end)
+
+add("Prefab asset selection cannot replace the instance Inspector when editing after selection", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local a, b = app.level:addLObject(0, 0, prefabId), app.level:addLObject(80, 0, prefabId)
+        local browser = app.assetBrowser
+        browser:setViewMode("list"); browser:openFolder("Assets")
+        local bx, by = browser.fileSlot.widget.x + 20, browser.fileSlot.widget.y + 5
+        app:mousepressed(bx, by, 1); app:mousereleased(bx, by, 1); app:draw()
+        Assert.equal(app.prefabInspectorTarget, app.inspector.classInspector.target)
+        assert(app.inspector.classInspector:setProperty("speed", 77))
+        local function editSpeed(object, value)
+            app:draw()
+            local inspector = app.inspector.classInspector
+            Assert.equal(object, inspector.target.data)
+            local index
+            for i, name in ipairs(inspector.names) do if name == "speed" then index = i end end
+            inspector.scroll = math.max(0, index - inspector.visibleRows)
+            local y = inspector.propertyTop + 23 + (index - inspector.scroll - 1) * 56
+            app:mousepressed(inspector.left + 20, y, 1)
+            Assert.equal(object, inspector.target.data)
+            app:textinput(tostring(value)); app:keypressed("return")
+            Assert.equal(value, object.propertyOverrides.speed)
+            Assert.equal(77, app.prefabDocument.data.overrides.properties.speed)
+            app:draw()
+            Assert.equal(object, inspector.target.data)
+        end
+        local x, y = app.sceneView:worldToScreen(0, 0)
+        app:mousepressed(x, y, 1); app:mousereleased(x, y, 1)
+        editSpeed(a, 55)
+        app:mousepressed(bx, by, 1); app:mousereleased(bx, by, 1); app:draw()
+        Assert.equal(app.prefabInspectorTarget, app.inspector.classInspector.target)
+        app:mousepressed(20, 76, 1)
+        Assert.equal(b, app.sceneView.selectedLObject)
+        editSpeed(b, 66)
     end)
 end)
 

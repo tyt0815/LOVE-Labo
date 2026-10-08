@@ -29,7 +29,8 @@ function love.load(args)
 
     local ProjectStart = require("editor.project_start")
     app = ProjectStart.new(function(project)
-        local ok, editor = pcall(require("editor.app").new, nil, project)
+        local Settings = require("editor.snap_settings")
+        local ok, editor = pcall(require("editor.app").new, nil, project, {snapSettings = Settings.load(), saveSnapSettings = Settings.save})
         if not ok then return false, tostring(editor) end
         app = editor
         love.window.setTitle("LOVE Labo - " .. project.name)
@@ -107,4 +108,8 @@ function love.keypressed(key)
     if app then
         app:keypressed(key)
     end
+end
+
+function love.quit()
+    if app and app.viewportControls then app.viewportControls:commit() end
 end

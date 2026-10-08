@@ -18,7 +18,7 @@ end
 local function onAxis(handles, x, y, ux, uy)
     local dx, dy = x - handles.x, y - handles.y
     local along, across = dx * ux + dy * uy, math.abs(-dx * uy + dy * ux)
-    return along >= 12 and along <= LENGTH + 7 and across <= 7
+    return along >= 0 and along <= LENGTH + 7 and across <= 7
 end
 
 function Gizmo.hit(view, x, y)
@@ -56,7 +56,7 @@ function Gizmo.update(view, drag, dx, dy)
         -- ±180도 경계에서도 드래그가 역방향으로 튀지 않게 차이를 감싼다.
         local delta = (angle - drag.angle + math.pi) % (2 * math.pi) - math.pi
         drag.rotationDelta, drag.angle = drag.rotationDelta + delta, angle
-        transform.rotation = initial.rotation + math.deg(drag.rotationDelta)
+        transform.rotation = Transform.normalizeRotation(initial.rotation + view:snapValue(math.deg(drag.rotationDelta), "rotate"))
     elseif drag.mode == "scale" then
         local amount
         if drag.axis == "x" then amount = drag.dx * drag.handles.ux + drag.dy * drag.handles.uy
@@ -64,10 +64,11 @@ function Gizmo.update(view, drag, dx, dy)
         else amount = drag.dx - drag.dy end
         local factor = math.exp(math.max(-20, math.min(20, amount / 100)))
         if drag.axis == "free" then
+            factor = 1 + view:snapValue(initial.scaleX * (factor - 1), "scale") / initial.scaleX
             factor = math.max(factor, 0.01 / initial.scaleX, 0.01 / initial.scaleY)
             transform.scaleX, transform.scaleY = initial.scaleX * factor, initial.scaleY * factor
-        elseif drag.axis == "x" then transform.scaleX = math.max(0.01, initial.scaleX * factor)
-        else transform.scaleY = math.max(0.01, initial.scaleY * factor) end
+        elseif drag.axis == "x" then transform.scaleX = math.max(0.01, initial.scaleX + view:snapValue(initial.scaleX * (factor - 1), "scale"))
+        else transform.scaleY = math.max(0.01, initial.scaleY + view:snapValue(initial.scaleY * (factor - 1), "scale")) end
     else
         if drag.axis ~= "y" then transform.x = initial.x + view:snapValue(drag.dx / drag.zoom) end
         if drag.axis ~= "x" then transform.y = initial.y + view:snapValue(drag.dy / drag.zoom) end
@@ -79,7 +80,7 @@ local function drawAxis(view, handles, axis, ux, uy, hovered)
     Theme.setColor(axis == "x" and "axisX" or "axisY")
     love.graphics.setLineWidth((active == axis or hovered == axis or active == "free" and view.gizmoMode == "scale") and 4 or 3)
     local x, y = handles.x, handles.y
-    love.graphics.line(x + ux * 12, y + uy * 12, x + ux * 60, y + uy * 60)
+    love.graphics.line(x, y, x + ux * 60, y + uy * 60)
     local endX, endY = x + ux * LENGTH, y + uy * LENGTH
     if view.gizmoMode == "scale" then
         love.graphics.rectangle("fill", endX - 6, endY - 6, 12, 12)

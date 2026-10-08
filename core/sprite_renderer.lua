@@ -30,4 +30,22 @@ function Renderer.hit(object, imageFor, worldX, worldY)
     end
     return false
 end
+function Renderer.outline(object, imageFor, toScreen)
+    for _, name in ipairs(object.componentOrder or {}) do
+        local component = object.components[name]
+        if component:isA(Sprite) and component.properties.image ~= false then
+            local image = imageFor(component.properties.image)
+            if image then
+                local halfWidth, halfHeight = image:getWidth() / 2, image:getHeight() / 2
+                local points = {}
+                for _, corner in ipairs({{-halfWidth, -halfHeight}, {halfWidth, -halfHeight}, {halfWidth, halfHeight}, {-halfWidth, halfHeight}}) do
+                    local wx, wy = require("core.transform").point(object.transform, component.properties.x + corner[1], component.properties.y + corner[2])
+                    local x, y = toScreen(wx, wy)
+                    points[#points + 1], points[#points + 2] = x, y
+                end
+                love.graphics.polygon("line", points)
+            end
+        end
+    end
+end
 return Renderer

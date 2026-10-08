@@ -19,3 +19,4 @@
 - [0017. 컴포넌트 구성·인스턴스 프로퍼티와 Prefab 배치](adr/0017-components-instance-properties-and-prefab-placement.md)
 - [0018. 이동 기즈모와 뷰포트 스냅 컨트롤](adr/0018-translation-gizmo-and-snap-controls.md)
 - [0019. 2D 변환 모드와 시작점 기준 스냅](adr/0019-transform-modes-and-relative-snap.md)
+- [0020. 독립 스냅 설정·회전 정규화와 Inspector 선택 유지](adr/0020-independent-snaps-and-inspector-selection.md)

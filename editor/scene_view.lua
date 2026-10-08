@@ -52,7 +52,7 @@ function SceneView.new(gridSize, level)
     -- 선택 상태와 drag 상태는 Editor에서만 사용하는 transient state다.
     self.selectedLObject = nil
     self.isDraggingLObject = false
-    self.snapEnabled, self.snapUnit = false, DEFAULT_GRID_SIZE
+    self.snapSettings = require("editor.snap_settings").copy()
     self.gizmoMode = "translate"
 
     return self
@@ -222,10 +222,18 @@ function SceneView:setGizmoMode(mode)
     return true
 end
 
-function SceneView:snapValue(value)
-    if not self.snapEnabled then return value end
-    local scaled = value / self.snapUnit
-    return (scaled >= 0 and math.floor(scaled + 0.5) or math.ceil(scaled - 0.5)) * self.snapUnit
+function SceneView:setSnap(mode, enabled, unit)
+    if not self.snapSettings[mode] or type(enabled) ~= "boolean" or not require("editor.snap_settings").validUnit(unit) then return false, "Snap unit must be a positive finite number" end
+    self.snapSettings[mode] = {enabled = enabled, unit = unit}
+    if self.onSnapChanged then return self.onSnapChanged(self.snapSettings) end
+    return true
+end
+
+function SceneView:snapValue(value, mode)
+    local setting = self.snapSettings[mode or "translate"]
+    if not setting.enabled then return value end
+    local scaled = value / setting.unit
+    return (scaled >= 0 and math.floor(scaled + 0.5) or math.ceil(scaled - 0.5)) * setting.unit
 end
 
 function SceneView:snapPosition(x, y)
@@ -383,6 +391,15 @@ function SceneView:drawLObjects()
         if self.spriteAssets then
             local preview = self.spriteAssets:preview(lobject)
             if preview then self.spriteAssets:draw(preview, self, self.zoom) end
+        end
+    end
+    if self.selectedLObject and self.spriteAssets then
+        local preview = self.spriteAssets:preview(self.selectedLObject)
+        if preview then
+            Theme.setColor("objectSelected")
+            love.graphics.setLineWidth(2)
+            require("core.sprite_renderer").outline(preview, function(reference) return self.spriteAssets:image(reference) end,
+                function(x, y) return self:worldToScreen(x, y) end)
         end
     end
     Gizmo.draw(self)

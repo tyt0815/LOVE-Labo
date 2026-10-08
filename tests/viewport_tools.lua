@@ -58,7 +58,8 @@ end)
 
 add("Snap steps are relative to the drag start and preserve the locked axis", function()
     local view, object = scene(3, 7)
-    view.zoom, view.snapEnabled, view.snapUnit = 2, true, 10
+    view.zoom = 2
+    assert(view:setSnap("translate", true, 10))
     grab(view, "x")
     for _ = 1, 12 do view:mousemoved(0, 0, 1, -2) end
     Assert.equal(13, object.transform.x)
@@ -72,9 +73,9 @@ add("Snap steps are relative to the drag start and preserve the locked axis", fu
     view:keypressed("escape")
     Assert.equal(-3, object.transform.x)
     Assert.equal(-7, object.transform.y)
-    view.snapEnabled, view.snapUnit = false, 0.5
+    assert(view:setSnap("translate", false, 0.5))
     Assert.equal(1.3, view:snapValue(1.3))
-    view.snapEnabled = true
+    assert(view:setSnap("translate", true, 0.5))
     Assert.equal(1.5, view:snapValue(1.3))
     Assert.equal(-1.5, view:snapValue(-1.3))
 end)
@@ -88,7 +89,7 @@ add("Snap panel consumes pointer and text input and rejects invalid units", func
     Assert.truthy(controls.x > vx + vw / 2)
     local check, field = controls:rects()
     app:mousepressed(check.x + 5, check.y + 5, 1)
-    Assert.equal(true, view.snapEnabled)
+    Assert.equal(true, view.snapSettings.translate.enabled)
     Assert.equal(object, view.selectedLObject)
     Assert.equal(false, view.isPanning)
     local zoom = view.zoom
@@ -97,25 +98,45 @@ add("Snap panel consumes pointer and text input and rejects invalid units", func
     app:mousepressed(field.x + 5, field.y + 5, 1)
     app:textinput("12.5")
     app:keypressed("return")
-    Assert.equal(12.5, view.snapUnit)
+    Assert.equal(12.5, view.snapSettings.translate.unit)
     for _, invalid in ipairs({"0", "-10", "nan", "1e999"}) do
         app:mousepressed(field.x + 5, field.y + 5, 1)
         app:textinput(invalid)
         app:keypressed("return")
-        Assert.equal(12.5, view.snapUnit)
+        Assert.equal(12.5, view.snapSettings.translate.unit)
     end
     app:mousepressed(field.x + 5, field.y + 5, 1)
     app:textinput("50")
     app:keypressed("escape")
-    Assert.equal(12.5, view.snapUnit)
+    Assert.equal(12.5, view.snapSettings.translate.unit)
     app:mousepressed(field.x + 5, field.y + 5, 1)
     app:textinput("8")
     local sx, sy = view:worldToScreen(0, 0)
     app:mousepressed(sx, sy + 40, 1)
-    Assert.equal(8, view.snapUnit)
+    Assert.equal(8, view.snapSettings.translate.unit)
     app.sceneView.selectedLObject = object
     app:draw()
     if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
+        local data = love.image.newImageData(64, 32)
+        data:mapPixel(function(x, y)
+            if math.abs(x - 32) < 2 or math.abs(y - 16) < 2 then return 1, 0.75, 0.2, 1 end
+            return 0.15, 0.55, 0.9, 1
+        end)
+        local image = love.graphics.newImage(data)
+        data:release()
+        view.spriteAssets = {
+            preview = function(_, authoring)
+                local preview = assert(require("core.lobject").new(1, authoring))
+                preview:addComponent("first", require("engine").SpriteComponent, {image = "preview"})
+                preview:addComponent("second", require("engine").SpriteComponent, {x = 80, y = 30, image = "preview"})
+                return preview
+            end,
+            image = function() return image end,
+            draw = function(_, preview, sceneView, zoom)
+                return require("core.sprite_renderer").draw(preview, function() return image end,
+                    function(x, y) return sceneView:worldToScreen(x, y) end, zoom)
+            end,
+        }
         for _, mode in ipairs({"translate", "rotate", "scale"}) do
             view:setGizmoMode(mode)
             object.transform.rotation, object.transform.scaleX, object.transform.scaleY = 30, 1.5, 0.8
@@ -128,6 +149,8 @@ add("Snap panel consumes pointer and text input and rejects invalid units", func
             data:encode("png", "gizmo-" .. mode .. "-preview.png")
             data:release(); canvas:release(); love.graphics.pop()
         end
+        view.spriteAssets = nil
+        image:release()
     end
     assert(app:startPlay())
     app:draw()
@@ -154,7 +177,8 @@ add("Gizmo capture survives viewport exit and Escape restores the starting posit
 end)
 add("Snapped duplication uses world coordinates without sharing transforms", function()
     local view, object = scene(3, 7)
-    view.snapEnabled, view.snapUnit, view.zoom = true, 10, 2
+    view.zoom = 2
+    assert(view:setSnap("translate", true, 10))
     local x, y = view:worldToScreen(24, -16)
     view:keypressed("d", true, x, y)
     Assert.equal(23, view.selectedLObject.transform.x)
@@ -168,7 +192,7 @@ add("Translation center is a circle and snap 100 preserves an offset of 20", fun
     local handles = Gizmo.handles(view)
     Assert.equal("free", Gizmo.hit(view, handles.x, handles.y))
     Assert.equal(nil, Gizmo.hit(view, handles.x + 8, handles.y - 8))
-    view.snapEnabled, view.snapUnit = true, 100
+    assert(view:setSnap("translate", true, 100))
     for _, direction in ipairs({1, -1}) do
         grab(view, "x")
         for _ = 1, 70 do view:mousemoved(0, 0, direction, 1) end
@@ -258,7 +282,7 @@ add("UE mode shortcuts and toolbar buttons respect numeric input focus", functio
     app:keypressed("e")
     Assert.equal("scale", app.sceneView.gizmoMode)
     app:textinput("1e2"); app:keypressed("return")
-    Assert.equal(100, app.sceneView.snapUnit)
+    Assert.equal(100, app.sceneView.snapSettings.translate.unit)
     local left = love.graphics.getWidth() - app.inspector.width
     app:mousepressed(left + 110, 175, 1)
     app:keypressed("w")
@@ -352,5 +376,124 @@ add("Grid axes and transform axes use identical theme colors", function()
     local handles = Gizmo.handles(view)
     sameColor(handles.x + 30, handles.y, colors.x); sameColor(handles.x, handles.y - 30, colors.y)
     pixels:release(); canvas:release(); love.graphics.pop()
+end)
+
+add("Rotation wraps into 0 to 360 for dragging Inspector loading and saving", function()
+    local view, object = scene()
+    object.transform.rotation = 350
+    view:setGizmoMode("rotate")
+    local handles = Gizmo.handles(view)
+    local angle = math.rad(30)
+    view:mousepressed(handles.x + 60, handles.y, 1)
+    view:mousemoved(0, 0, math.cos(angle) * 60 - 60, math.sin(angle) * 60)
+    near(20, object.transform.rotation)
+    view:mousereleased(0, 0, 1)
+    local Inspector = require("editor.inspector")
+    local inspector = Inspector.new(view.level)
+    assert(inspector:beginEdit("rotation", object))
+    inspector:textinput("-740"); inspector:keypressed("return")
+    near(340, object.transform.rotation)
+    object.transform.rotation = 1080
+    local data = view.level:toData()
+    Assert.equal(nil, data.lobjects[1].transform.rotation)
+    data.lobjects[1].transform.rotation = -10
+    local loaded = assert(Level.fromData(data))
+    Assert.equal(350, loaded.lobjects[1].transform.rotation)
+    Assert.equal(350, assert(require("core.world").fromLevelData(data)).lobjects[1].transform.rotation)
+end)
+
+add("Independent snap buttons values and toggles survive preference reload", function()
+    local Settings = require("editor.snap_settings")
+    local stored = {}
+    local app = require("editor.app").new(nil, nil, {snapSettings = Settings.copy(),
+        saveSnapSettings = function(values)
+            return Settings.save(values, function(path, bytes) stored[path] = bytes; return true end)
+        end})
+    local controls = app.viewportControls
+    for _, pair in ipairs({{"translate", "100"}, {"rotate", "30"}, {"scale", "0.25"}}) do
+        local button, field = controls:rects(pair[1])
+        app:mousepressed(field.x + 5, field.y + 5, 1)
+        app:textinput(pair[2])
+        -- 토글 클릭 시 편집 중인 새 값을 먼저 확정해야 한다.
+        app:mousepressed(button.x + 5, button.y + 5, 1)
+        Assert.equal(tonumber(pair[2]), app.sceneView.snapSettings[pair[1]].unit)
+        Assert.equal(true, app.sceneView.snapSettings[pair[1]].enabled)
+        Assert.equal("translate", app.sceneView.gizmoMode)
+    end
+    local reload = Settings.load(function(path) return stored[path] end)
+    local nextApp = require("editor.app").new(nil, nil, {snapSettings = reload})
+    Assert.equal(100, nextApp.sceneView.snapSettings.translate.unit)
+    Assert.equal(30, nextApp.sceneView.snapSettings.rotate.unit)
+    Assert.equal(0.25, nextApp.sceneView.snapSettings.scale.unit)
+    for _, mode in ipairs({"translate", "rotate", "scale"}) do
+        Assert.equal(true, nextApp.sceneView.snapSettings[mode].enabled)
+        app.sceneView:setGizmoMode(mode)
+    end
+    local button = controls:rects("rotate")
+    app:mousepressed(button.x + 5, button.y + 5, 1)
+    Assert.equal(false, app.sceneView.snapSettings.rotate.enabled)
+    Assert.equal(true, app.sceneView.snapSettings.translate.enabled)
+    Assert.equal(true, app.sceneView.snapSettings.scale.enabled)
+    reload = Settings.load(function(path) return stored[path] end)
+    Assert.equal(false, reload.rotate.enabled)
+    Assert.equal(30, reload.rotate.unit)
+    Assert.equal(15, Settings.load(function() return "invalid JSON" end).rotate.unit)
+end)
+
+add("Rotation and scale snap from their initial values while retaining uniform proportions", function()
+    local view, object = scene(20, 30)
+    assert(view:setSnap("translate", true, 100))
+    assert(view:setSnap("rotate", true, 30))
+    assert(view:setSnap("scale", true, 0.25))
+    object.transform.rotation = 350
+    view:setGizmoMode("rotate")
+    local handles, angle = Gizmo.handles(view), math.rad(20)
+    view:mousepressed(handles.x + 60, handles.y, 1)
+    view:mousemoved(0, 0, math.cos(angle) * 60 - 60, math.sin(angle) * 60)
+    near(20, object.transform.rotation)
+    view:mousereleased(0, 0, 1)
+    object.transform.rotation, object.transform.scaleX, object.transform.scaleY = 0, 2, 3
+    view:setGizmoMode("scale")
+    grab(view, "free")
+    view:mousemoved(0, 0, math.log(1.1) * 100, 0)
+    near(2.25, object.transform.scaleX)
+    near(3.375, object.transform.scaleY)
+    near(1.5, object.transform.scaleY / object.transform.scaleX)
+    Assert.equal(20, object.transform.x)
+    Assert.equal(30, object.transform.y)
+    view:keypressed("escape")
+    grab(view, "y")
+    view:mousemoved(0, 0, 0, -math.log(1.1) * 100)
+    near(2, object.transform.scaleX)
+    near(3.25, object.transform.scaleY)
+    view:keypressed("escape")
+end)
+
+add("Selected rendering bounds include every transformed Sprite and hide missing images", function()
+    local object = assert(require("core.lobject").new(1, {transform = {x = 60, y = 60, rotation = 90, scaleX = 2, scaleY = 3}}))
+    local Sprite = require("engine").SpriteComponent
+    object:addComponent("first", Sprite, {image = "image"})
+    object:addComponent("second", Sprite, {x = 20, image = "image"})
+    object:addComponent("missing", Sprite, {image = "missing"})
+    local data = love.image.newImageData(20, 10)
+    local image = love.graphics.newImage(data)
+    data:release()
+    local canvas = love.graphics.newCanvas(160, 160)
+    love.graphics.push("all")
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear(0, 0, 0, 0)
+    love.graphics.setColor(0, 1, 0, 1)
+    love.graphics.setLineWidth(2)
+    require("core.sprite_renderer").outline(object, function(ref) return ref == "image" and image or nil end,
+        function(x, y) return x, y end)
+    love.graphics.setCanvas()
+    local pixels = canvas:newImageData()
+    local _, g1, _, a1 = pixels:getPixel(60, 40)
+    local _, g2, _, a2 = pixels:getPixel(60, 120)
+    local _, _, _, center = pixels:getPixel(60, 60)
+    Assert.equal(1, g1); Assert.equal(1, a1)
+    Assert.equal(1, g2); Assert.equal(1, a2)
+    Assert.equal(0, center)
+    pixels:release(); canvas:release(); image:release(); love.graphics.pop()
 end)
 return tests

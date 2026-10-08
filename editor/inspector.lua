@@ -124,7 +124,7 @@ function Inspector:commitEdit()
 
     if require("core.transform").finite(value) and lobject and lobject.transform
         and ((field ~= "scaleX" and field ~= "scaleY") or value > 0) then
-        lobject.transform[field] = value
+        lobject.transform[field] = field == "rotation" and require("core.transform").normalizeRotation(value) or value
         self:clearEditState()
         return true
     end

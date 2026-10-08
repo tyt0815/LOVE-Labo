@@ -153,6 +153,8 @@ Runtime LObject의 mutable data가 Definition, Prefab, Level 원본과 의도치
 
 LObject의 2D Transform은 위치, Z축 회전(도), 양수 X/Y 스케일을 가지며 편집 기즈모·Inspector·저장·Runtime·Sprite 렌더링이 같은 값을 사용한다. 현재 변환과 스냅 계약은 [ADR 0019](adr/0019-transform-modes-and-relative-snap.md)를 따른다.
 
+회전값의 범위, 모드별 스냅 저장, Inspector 선택 출처 및 선택 Sprite 외곽선은 [ADR 0020](adr/0020-independent-snaps-and-inspector-selection.md)의 후속 계약을 따른다.
+
 Component는 LObject의 구조화된 state/capability data다.
 
 초기 구현에서는 실제 authoring에 필요한 최소 Component부터 시작한다. Transform과 기본적인 2D rendering data가 우선 후보지만 정확한 schema는 구현 중 결정한다.
