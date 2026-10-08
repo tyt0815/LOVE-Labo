@@ -1,6 +1,9 @@
 local FS = require("editor.host_filesystem")
 local Id = require("editor.asset_id")
 local LuaClass = {}
+local classNames = setmetatable({}, {__mode = "k"})
+-- 클래스 테이블에 Editor 필드를 추가하지 않고 현재 모듈 이름을 별도로 보관한다.
+function LuaClass.name(class) return classNames[class] end
 
 function LuaClass.validValue(kind, value)
     return require("core.property_schema").validValue(kind, value)
@@ -56,6 +59,7 @@ function LuaClass.loader(project)
         if class.BeginPlay == nil and class.load ~= nil then class.BeginPlay = class.load end
         if class.load == nil and class.BeginPlay ~= nil then class.load = class.BeginPlay end
         class.properties, class.super = schema, parent
+        classNames[class] = canonical:match("([^/]+)%.lua$") or canonical
         if parent then setmetatable(class, {__index = parent}) end
         loaded[key], visiting[key] = class, nil
         return class

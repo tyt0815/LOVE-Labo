@@ -1,6 +1,7 @@
 # 0023. 공통 텍스트 편집 상태와 컴포넌트 그룹 경계
 
 - 상태: 채택
+- 후속 부분 대체: [ADR 0024](0024-collapsible-details-and-property-columns.md)의 Transform·클래스 접기 그룹과 이름/값 열
 - 날짜: 2026-10-09
 - 부분 대체: [ADR 0016](0016-ime-composition-and-field-confirmation.md)의 문자열 끝 입력·전체 선택 모델
 - 확장: [ADR 0021](0021-begin-play-and-orthographic-rotation.md)의 컴포넌트 그룹 UI

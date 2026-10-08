@@ -583,9 +583,10 @@ tests[#tests + 1] = {
         local inspector = Inspector.new(nil, 240)
 
         -- Window width 1000 기준 Inspector left는 760.
-        Assert.equal("x", inspector:getFieldAtPosition(820, 110, 1000))
-        Assert.equal("y", inspector:getFieldAtPosition(820, 140, 1000))
-        Assert.equal(nil, inspector:getFieldAtPosition(820, 180, 1000))
+        local x, y = inspector:fieldRect("x", 1000), inspector:fieldRect("y", 1000)
+        Assert.equal("x", inspector:getFieldAtPosition(x.x + 3, x.y + 3, 1000))
+        Assert.equal("y", inspector:getFieldAtPosition(y.x + 3, y.y + 3, 1000))
+        Assert.equal(nil, inspector:getFieldAtPosition(820, x.y + 3, 1000))
     end
 }
 
@@ -600,7 +601,8 @@ tests[#tests + 1] = {
         local lobject = level:addLObject(10, 20)
         local inspector = Inspector.new(level, 240)
 
-        inspector:mousepressed(820, 110, 1, 1000, lobject)
+        local rect = inspector:fieldRect("x", 1000)
+        inspector:mousepressed(rect.x + 3, rect.y + 3, 1, 1000, lobject)
 
         Assert.equal(true, inspector:isEditing())
 
@@ -624,7 +626,8 @@ tests[#tests + 1] = {
         local lobject = level:addLObject(10, 20)
         local inspector = Inspector.new(level, 240)
 
-        inspector:mousepressed(820, 140, 1, 1000, lobject)
+        local rect = inspector:fieldRect("y", 1000)
+        inspector:mousepressed(rect.x + 3, rect.y + 3, 1, 1000, lobject)
         inspector:textinput("99")
         inspector:keypressed("escape")
 
@@ -644,7 +647,8 @@ tests[#tests + 1] = {
         local lobject = level:addLObject(10, 20)
         local inspector = Inspector.new(level, 240)
 
-        inspector:mousepressed(820, 110, 1, 1000, lobject)
+        local rect = inspector:fieldRect("x", 1000)
+        inspector:mousepressed(rect.x + 3, rect.y + 3, 1, 1000, lobject)
         inspector:textinput("invalid")
         inspector:keypressed("return")
 

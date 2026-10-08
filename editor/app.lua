@@ -344,7 +344,7 @@ function EditorApp:updateInspectorTarget()
     self.levelInspectorTarget.level = self.level
     self.inspector.classInspector:setTarget(target)
     self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
-        self.inspector.width, love.graphics.getHeight() - self.statusHeight)
+        self.inspector.width, love.graphics.getHeight() - self.statusHeight, object and self.inspector:getPropertyTop())
     return object
 end
 

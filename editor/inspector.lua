@@ -2,27 +2,17 @@ local Theme = require("editor.theme")
 local UI = require("editor.ui")
 local IME = require("editor.ui.ime")
 local Edit = require("editor.ui.text_edit")
+local PropertyLayout = require("editor.ui.property_layout")
 local Inspector = {}
 Inspector.__index = Inspector
 
 local DEFAULT_WIDTH = 300
 
-local FIELD_LEFT_OFFSET = 32
-local FIELD_HEIGHT = 24
-local X_FIELD_Y = 100 + UI.metrics.contentPaddingY
-local Y_FIELD_Y = 132 + UI.metrics.contentPaddingY
-local TRANSFORM_FIELDS = {x = X_FIELD_Y, y = Y_FIELD_Y,
-    rotationX = 164 + UI.metrics.contentPaddingY, rotationY = 196 + UI.metrics.contentPaddingY,
-    rotation = 228 + UI.metrics.contentPaddingY,
-    scaleX = 260 + UI.metrics.contentPaddingY, scaleY = 292 + UI.metrics.contentPaddingY}
-local function fieldOffset(field) return (field == "x" or field == "y") and FIELD_LEFT_OFFSET or 72 end
-
-local function pointInRect(x, y, left, top, width, height)
-    return x >= left
-        and x < left + width
-        and y >= top
-        and y < top + height
-end
+local TRANSFORM_ORDER = {"x", "y", "rotationX", "rotationY", "rotation", "scaleX", "scaleY"}
+local TRANSFORM_FIELDS = {}
+for i, field in ipairs(TRANSFORM_ORDER) do TRANSFORM_FIELDS[field] = i end
+local TRANSFORM_LABELS = {x = "X", y = "Y", rotationX = "Rot X°", rotationY = "Rot Y°", rotation = "Rot Z°", scaleX = "Scale X", scaleY = "Scale Y"}
+local TRANSFORM_TOP = 78 + UI.metrics.contentPaddingY
 
 function Inspector.new(level, width)
     local self = setmetatable({}, Inspector)
@@ -35,6 +25,7 @@ function Inspector.new(level, width)
     self.editingLObject = nil
     self.editText = ""
     self.replaceOnTextInput = false
+    self.transformExpanded = true
 
     return self
 end
@@ -67,10 +58,9 @@ function Inspector:getFieldAtPosition(x, y, windowWidth)
         return nil
     end
 
-    local left = windowWidth - self.width
-    for field, top in pairs(TRANSFORM_FIELDS) do
-        local offset = fieldOffset(field)
-        if pointInRect(x, y, left + UI.metrics.contentPaddingX + offset, top, self.width - offset - 2 * UI.metrics.contentPaddingX, FIELD_HEIGHT) then return field end
+    if not self.transformExpanded then return nil end
+    for _, field in ipairs(TRANSFORM_ORDER) do
+        if UI.contains(x, y, self:fieldRect(field, windowWidth)) then return field end
     end
 
     return nil
@@ -155,7 +145,13 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if self.classInspector and self.classInspector.target and not selectedLObject then
         return self.classInspector:mousepressed(x, y, button)
     end
-    if selectedLObject and self.classInspector and self.classInspector.target and y >= 334 then
+    if selectedLObject and UI.contains(x, y, {x = windowWidth - self.width + UI.metrics.contentPaddingX, y = TRANSFORM_TOP, w = self.width - 2 * UI.metrics.contentPaddingX, h = PropertyLayout.headerHeight}) and button == 1 then
+        self:commitEdit()
+        self.transformExpanded = not self.transformExpanded
+        if self.classInspector and self.classInspector.target then self.classInspector:layout(windowWidth - self.width, self.width, self.height or love.graphics.getHeight(), self:getPropertyTop()) end
+        return true
+    end
+    if selectedLObject and self.classInspector and self.classInspector.target and y >= self:getPropertyTop() then
         if self.activeField then self:commitEdit() end
         return self.classInspector:mousepressed(x, y, button)
     end
@@ -163,6 +159,17 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     -- Inspector 영역의 mouse press는 button 종류와 관계없이 소비한다.
     if button ~= 1 then
         return true
+    end
+
+    if selectedLObject and self.transformExpanded then
+        for _, field in ipairs(TRANSFORM_ORDER) do
+            local _, _, reset = PropertyLayout.cells(windowWidth - self.width, self.width, self:fieldRect(field, windowWidth).y - 3)
+            if UI.contains(x, y, reset) then
+                self:commitEdit()
+                selectedLObject.transform[field] = field:match("^scale") and 1 or 0
+                return true
+            end
+        end
     end
 
     local field = self:getFieldAtPosition(x, y, windowWidth)
@@ -186,9 +193,11 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
 end
 
 function Inspector:fieldRect(field, windowWidth)
-    local offset = fieldOffset(field)
-    return {x = windowWidth - self.width + UI.metrics.contentPaddingX + offset, y = TRANSFORM_FIELDS[field],
-        w = self.width - offset - 2 * UI.metrics.contentPaddingX, h = FIELD_HEIGHT}
+    local _, rect = PropertyLayout.cells(windowWidth - self.width, self.width, TRANSFORM_TOP + 32 + (TRANSFORM_FIELDS[field] - 1) * PropertyLayout.rowHeight)
+    return rect
+end
+function Inspector:getPropertyTop()
+    return TRANSFORM_TOP + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.rowHeight or PropertyLayout.headerHeight) + 8
 end
 function Inspector:mousemoved(x)
     if self.classInspector and self.classInspector:isEditing() then return self.classInspector:mousemoved(x) end
@@ -240,15 +249,12 @@ function Inspector:keypressed(key)
 end
 
 function Inspector:drawField(label, field, y, selectedLObject, left)
-    local offset = fieldOffset(field)
-    local fieldLeft = left + UI.metrics.contentPaddingX + offset
-    local fieldWidth = self.width - offset - 2 * UI.metrics.contentPaddingX
+    local labelRect, rect, reset = PropertyLayout.cells(left, self.width, y - 3)
     local isActive =
         self.activeField == field
         and self.editingLObject == selectedLObject
 
-    Theme.setColor("textMuted")
-    require("editor.ui").label(label, left + UI.metrics.contentPaddingX, y + 4)
+    UI.text(label, labelRect.x, labelRect.y, labelRect.w)
 
     local text
 
@@ -258,7 +264,8 @@ function Inspector:drawField(label, field, y, selectedLObject, left)
         text = string.format("%.2f", selectedLObject.transform[field])
     end
 
-    UI.field(text, {x = fieldLeft, y = y, w = fieldWidth, h = FIELD_HEIGHT}, isActive, isActive and self.composition, self)
+    UI.field(text, rect, isActive, isActive and self.composition, self)
+    UI.resetButton(reset)
 end
 
 function Inspector:draw(selectedLObject)
@@ -267,6 +274,7 @@ function Inspector:draw(selectedLObject)
     local left = windowWidth - self.width
 
     love.graphics.push("all")
+    love.graphics.intersectScissor(left, 0, self.width, windowHeight)
 
     local UI = require("editor.ui")
     UI.panel(left, 0, self.width, windowHeight)
@@ -306,20 +314,16 @@ function Inspector:draw(selectedLObject)
     UI.label(name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
     UI.text("LObject Instance", left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
 
-    Theme.setColor("textMuted")
-    require("editor.ui").label("Transform", left + UI.metrics.contentPaddingX, 78 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
-
     if selectedLObject.transform then
-        self:drawField("Rot X°", "rotationX", TRANSFORM_FIELDS.rotationX, selectedLObject, left)
-        self:drawField("Rot Y°", "rotationY", TRANSFORM_FIELDS.rotationY, selectedLObject, left)
-        self:drawField("X", "x", X_FIELD_Y, selectedLObject, left)
-        self:drawField("Y", "y", Y_FIELD_Y, selectedLObject, left)
-        self:drawField("Rot Z°", "rotation", TRANSFORM_FIELDS.rotation, selectedLObject, left)
-        self:drawField("Scale X", "scaleX", TRANSFORM_FIELDS.scaleX, selectedLObject, left)
-        self:drawField("Scale Y", "scaleY", TRANSFORM_FIELDS.scaleY, selectedLObject, left)
+        PropertyLayout.group(left, self.width, TRANSFORM_TOP, self:getPropertyTop() - TRANSFORM_TOP - 8, "Transform", self.transformExpanded)
+        if self.transformExpanded then
+            for _, field in ipairs(TRANSFORM_ORDER) do
+                self:drawField(TRANSFORM_LABELS[field], field, self:fieldRect(field, windowWidth).y, selectedLObject, left)
+            end
+        end
     end
     if self.classInspector and self.classInspector.target then
-        self.classInspector:layout(left, self.width, windowHeight)
+        self.classInspector:layout(left, self.width, windowHeight, self:getPropertyTop())
         self.classInspector:draw()
     end
 

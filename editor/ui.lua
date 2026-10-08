@@ -117,7 +117,7 @@ function UI.button(label, rect, active, hint, flat)
 end
 
 function UI.resetButton(rect)
-    UI.button("", rect, false, "Reset to default.")
+    UI.button("", rect, false, "Reset to default.", true)
     love.graphics.push("all")
     Theme.setColor("textMuted")
     love.graphics.setLineWidth(1.5)

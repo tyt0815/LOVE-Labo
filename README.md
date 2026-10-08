@@ -72,7 +72,7 @@ MyProject/
 
 텍스트 입력칸은 `|` 커서 위치에서 삽입한다. 편집 중 같은 입력칸을 클릭하면 커서를 옮기고 마우스 드래그 또는 Shift+좌우/Home/End로 문자를 선택한다. 선택 영역이 있을 때는 커서를 숨기며 좌우 화살표로 선택을 해제하면 왼쪽/오른쪽 경계에 커서를 표시한다. 선택 영역에 입력·붙여넣기하면 선택한 문자만 교체한다. 좌우·Home/End로 커서를 이동하고 Backspace/Delete로 앞/뒤 문자 또는 선택 영역을 지운다. Ctrl+A/C/X/V는 전체 선택·선택 복사·잘라내기·붙여넣기이며 Ctrl+좌우는 공백 단위 이동이다. 최초 Inspector·스냅 입력칸 포커스는 빠른 값 교체를 위해 전체 선택한다. 한글 조합은 커서 위치에 밑줄로 표시하고 확인·필드 이동에서 확정한다. 선택 하이라이트는 테마의 `textSelection`, 커서·조합 밑줄은 `focus` 색을 사용한다.
 
-Inspector는 **Transform → 컴포넌트 그룹 → 오브젝트 선언 프로퍼티** 순서다. 컴포넌트 그룹은 펼쳤을 때 배경 박스·테두리로 전체 범위를 감싸고 내부 항목을 들여쓴다. 그룹을 접어도 프로퍼티 변경값은 유지된다.
+Inspector는 **Transform → 컴포넌트 그룹 → 클래스 이름 그룹** 순서로 모두 접고 펼칠 수 있다. 예를 들어 `Transform`, `sprite (SpriteComponent)`, `NewClass` 헤더를 표시한다. 기본 상태는 Transform·클래스 그룹 펼침, 컴포넌트 그룹 접힘이다. 각 프로퍼티는 한 줄에 왼쪽 절반의 변수 이름과 오른쪽 절반의 값·초기값 복원 아이콘으로 표시한다. 복원 아이콘은 평소 기호만 표시하고 마우스를 올리면 배경이 나타난다. 펼친 그룹은 배경 박스·테두리로 전체 범위를 감싼다. 그룹을 접어도 값은 유지되며 편집 중 접으면 입력을 확정한다.
 
 ## 레벨 코드 연결
 
@@ -148,7 +148,7 @@ return Child
 
 ## 에셋 ID와 메타데이터
 
-인스펙터의 Parent Class·프로퍼티 이름·Transform 라벨은 굵게 표시한다. `-- labo-script: component` 또는 `.lua.meta`의 `scriptKind: "component"`도 가져오기·아이콘 분류에서 인식한다. Component Class의 생성 UI·부착·실행 모델은 아직 제공하지 않으며 Level·Prefab 부모 선택 목록에는 포함하지 않는다.
+인스펙터의 선택 대상 이름과 Parent Class 라벨은 굵게 표시하고, 그룹 제목·프로퍼티 이름은 본문 글꼴로 표시한다. `-- labo-script: component` 또는 `.lua.meta`의 `scriptKind: "component"`도 가져오기·아이콘 분류에서 인식한다. Component Class의 생성 UI·부착·실행 모델은 아직 제공하지 않으며 Level·Prefab 부모 선택 목록에는 포함하지 않는다.
 
 Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 둔다. ID는 여기만 원본으로 보관한다. 예를 들어 `StartLevel.lua.meta`는 다음 형태다.
 

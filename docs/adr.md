@@ -23,3 +23,4 @@
 - [0021. BeginPlay 초기화와 X/Y 직교 투영 회전](adr/0021-begin-play-and-orthographic-rotation.md)
 - [0022. 세 축 회전 기즈모와 활성 축 표시](adr/0022-three-axis-rotation-gizmo.md)
 - [0023. 공통 텍스트 편집 상태와 컴포넌트 그룹 경계](adr/0023-text-edit-and-component-group-layout.md)
+- [0024. 접기 가능한 Details 그룹과 좌우 프로퍼티 열](adr/0024-collapsible-details-and-property-columns.md)

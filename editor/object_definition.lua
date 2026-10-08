@@ -83,7 +83,7 @@ function Definition.inspectorTarget(project, data, definition, level, label)
         end
     end
     return {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,
-        class = {properties = schema, componentTypes = componentTypes}, preview = object,
+        class = {properties = schema, componentTypes = componentTypes, className = LuaClass.name(definition.class) or "LObject"}, preview = object,
         getOverrides = function(target)
             local result = require("editor.property_data").copy(target.data.propertyOverrides)
             for name, fields in pairs(target.data.componentOverrides or {}) do

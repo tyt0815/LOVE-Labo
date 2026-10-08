@@ -149,7 +149,7 @@ Runtime LObject의 mutable data가 Definition, Prefab, Level 원본과 의도치
 
 ## 4.3 Component
 
-현재 컴포넌트 구성·위치·이미지 및 인스턴스 프로퍼티 계약은 [ADR 0017](adr/0017-components-instance-properties-and-prefab-placement.md)을 따른다. 프로젝트 코드는 `require("engine")`의 공개 컴포넌트 클래스를 `build(self)`에서 이름을 지정해 부착한다. Inspector는 구성 변경 없이 선언한 값과 참조를 편집한다.
+현재 컴포넌트 구성·위치·이미지 및 인스턴스 프로퍼티 계약은 [ADR 0017](adr/0017-components-instance-properties-and-prefab-placement.md)을 따른다. 프로젝트 코드는 `require("engine")`의 공개 컴포넌트 클래스를 `build(self)`에서 이름을 지정해 부착한다. Inspector는 구성 변경 없이 선언한 값과 참조를 편집한다. 접기 그룹·이름/값 좌우 열·기본 펼침 상태는 [ADR 0024](adr/0024-collapsible-details-and-property-columns.md)를 따른다.
 
 LObject의 Transform은 위치, X/Y/Z 회전(도), 양수 X/Y 스케일을 가진다. X/Y 기울기는 XY 직교 투영하며 회전 기즈모는 위쪽 선으로 X, 오른쪽 선으로 Y, 두 선을 잇는 호로 Z를 조절한다. 편집 기즈모·Inspector·저장·Runtime·Sprite 렌더링이 같은 값을 사용한다. 현재 계약은 [ADR 0022](adr/0022-three-axis-rotation-gizmo.md), [ADR 0021](adr/0021-begin-play-and-orthographic-rotation.md)과 [ADR 0020](adr/0020-independent-snaps-and-inspector-selection.md)를 따른다.
 
