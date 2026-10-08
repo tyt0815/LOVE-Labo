@@ -34,12 +34,20 @@ function AssetBrowser.new(project)
         self.viewMode, function(mode) self:setViewMode(mode) end)
     self.treeSlot = self:addChild(Widget.new({
         draw = function() self:drawTree() end,
-        mousepressed = function(_, ...) self:handleContentMousepressed(...); return true end,
+        mousepressed = function(_, ...) return self:handleContentMousepressed(...) end,
+        mousemoved = function(_, x, y) return self:dragMoved(x, y) end,
+        mousereleased = function(_, x, y, button) return self:dragReleased(x, y, button) end,
+        cancel = function() self:cancelDrag(); return true end,
+        drawOverlay = function() self:drawDragOverlay() end,
         wheelmoved = function(_, ...) self:wheelmoved(...); return true end
     }))
     self.fileSlot = self:addChild(Widget.new({
         draw = function() self:drawFiles() end,
-        mousepressed = function(_, ...) self:handleContentMousepressed(...); return true end,
+        mousepressed = function(_, ...) return self:handleContentMousepressed(...) end,
+        mousemoved = function(_, x, y) return self:dragMoved(x, y) end,
+        mousereleased = function(_, x, y, button) return self:dragReleased(x, y, button) end,
+        cancel = function() self:cancelDrag(); return true end,
+        drawOverlay = function() self:drawDragOverlay() end,
         wheelmoved = function(_, ...) self:wheelmoved(...); return true end
     }))
     self.dropdownSlot = self:addChild(self.viewDropdown, { z = 1 })
@@ -55,7 +63,8 @@ function AssetBrowser.new(project)
         return true
     end
     self.handlers.keypressed = function(_, key)
-        if key == "backspace" then self:goUp()
+        if key == "escape" then self:cancelDrag()
+        elseif key == "backspace" then self:goUp()
         elseif key == "r" and love.keyboard.isDown("lctrl", "rctrl") then self:refresh()
         elseif key == "return" then
             for _, entry in ipairs(self.entries) do
@@ -66,6 +75,7 @@ function AssetBrowser.new(project)
         end
         return true
     end
+    self.handlers.update = function(_, dt) self:updateDrag(dt) end
     self:refresh()
     return self
 end
@@ -143,6 +153,7 @@ function AssetBrowser:rebuildTree()
 end
 
 function AssetBrowser:openFolder(reference)
+    if self.drag and self.drag.active then return false, "Finish or cancel the drag first" end
     local entries, err = self.project:listDirectory(reference)
     if not entries then self.error = err; return false, err end
     self.folder, self.entries, self.error = reference, entries, nil
@@ -161,6 +172,7 @@ function AssetBrowser:openFolder(reference)
 end
 
 function AssetBrowser:refresh(keepPopup)
+    self:cancelDrag()
     if not keepPopup then self.uiRoot:dismissPopup() end
     local rebuilt, rebuildError = self.project:rebuildAssetIndex()
     if not rebuilt then self.error = rebuildError; return false, rebuildError end
@@ -231,6 +243,7 @@ function AssetBrowser:draw()
             self.error and Theme.color("error") or nil)
     end
     Canvas.draw(self)
+    if self.uiRoot == self.localRoot then self:drawDragOverlay() end
     if self.uiRoot == self.localRoot and self.localRoot.popup then
         love.graphics.push("all")
         love.graphics.setScissor()
@@ -252,22 +265,29 @@ function AssetBrowser:mousepressed(x, y, button, presses)
 end
 
 function AssetBrowser:handleContentMousepressed(x, y, button, presses)
-    if self.collapsed or y < self.y + HEADER or y >= self.y + self.height - 28 then return end
-    if button == 2 then self:showContextMenu(x, y); return end
-    if button ~= 1 then return end
+    if self.collapsed or y < self.y + HEADER or y >= self.y + self.height - 28 then return true end
+    self:cancelDrag()
+    if button == 2 then self:showContextMenu(x, y); return true end
+    if button ~= 1 then return true end
     local index = math.floor((y - self.y - HEADER) / ROW) + 1
     if x < self.x + self:treeWidth() then
         local node = self.tree[index + self.treeScroll]
-        if not node then return end
+        if not node then return true end
         if x < self.x + 28 + node.depth * 14 then
             self.expanded[node.reference] = not self.expanded[node.reference]
             self:rebuildTree()
-        else self:openFolder(node.reference) end
+        elseif node.reference == "Assets" or node.reference == "Sources" then self:openFolder(node.reference)
+        else
+            -- 트리 탐색은 release까지 미뤄 이동 중에 현재 폴더가 바뀌지 않게 한다.
+            self.drag = {entry = {reference = node.reference, name = node.name, type = "directory"},
+                x = x, y = y, startX = x, startY = y, tree = true}
+            return true, true
+        end
     else
         local entry = self:getEntryAtPosition(x, y)
         if self.onSelect then
             local ok, err = self.onSelect(entry and entry.reference)
-            if ok == false then self.error = err; return end
+            if ok == false then self.error = err; return true end
         end
         self.selectedReference = entry and entry.reference or nil
         if entry and entry.type == "directory" and not entry.isLink and (presses or 1) >= 2 then
@@ -275,8 +295,144 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
         elseif entry and entry.type == "file" and not entry.isLink and (presses or 1) >= 2 and self.onOpenFile then
             local opened, err = self.onOpenFile(entry.reference)
             if opened == false then self.error = err end
+        elseif entry and not entry.isLink and (presses or 1) == 1 then
+            self.drag = {entry = entry, x = x, y = y, startX = x, startY = y}
+            return true, true
         end
     end
+    return true
+end
+
+function AssetBrowser:cancelDrag()
+    self.drag = nil
+    if self.uiRoot.captured == self.fileSlot.widget or self.uiRoot.captured == self.treeSlot.widget then
+        self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
+    end
+end
+
+function AssetBrowser:dropTargetAt(x, y)
+    local folder, rect, treeNode
+    local tree = self.treeSlot.widget
+    if tree:containsPoint(x, y) then
+        local index = math.floor((y - tree.y) / ROW) + 1 + self.treeScroll
+        treeNode = self.tree[index]
+        if treeNode then
+            folder = treeNode.reference
+            rect = {x = tree.x, y = tree.y + (index - 1 - self.treeScroll) * ROW, w = tree.width, h = ROW}
+        end
+    elseif self.fileSlot.widget:containsPoint(x, y) then
+        local entry = self:getEntryAtPosition(x, y)
+        local view = self.fileSlot.widget
+        if entry and entry.type == "directory" and not entry.isLink then
+            folder = entry.reference
+            for i, candidate in ipairs(self.entries) do
+                if candidate == entry then
+                    if self.viewMode == "list" then
+                        rect = {x = view.x, y = view.y + (i - 1 - self.fileScroll) * ROW, w = view.width, h = ROW}
+                    else
+                        rect = {x = view.x + 8 + (i - 1) % self:columns() * CARD_WIDTH,
+                            y = view.y + 8 + (math.floor((i - 1) / self:columns()) - self.fileScroll) * CARD_HEIGHT,
+                            w = CARD_WIDTH - 6, h = CARD_HEIGHT - 6}
+                    end
+                    break
+                end
+            end
+        elseif not entry then
+            folder, rect = self.folder, {x = view.x, y = view.y, w = view.width, h = view.height}
+        end
+    end
+    if not folder then return nil, nil, "Drop on a folder or empty file area" end
+    local source = self.drag.entry.reference
+    local destination = folder .. "/" .. self.drag.entry.name
+    local errorText
+    if source:match("^[^/]+") ~= folder:match("^[^/]+") then errorText = "Keep Assets and Sources separate"
+    elseif destination:lower() == source:lower() then errorText = "Already in this folder"
+    elseif self.drag.entry.type == "directory" and (folder:lower() == source:lower()
+        or folder:lower():sub(1, #source + 1) == source:lower() .. "/") then errorText = "Cannot move into itself"
+    else
+        local parentPath, parentInfo = self.project:checkedEntry(folder)
+        if not parentPath or parentInfo.type ~= "directory" then errorText = "Destination folder is unavailable"
+        else
+            local path = self.project:resolvePath(destination)
+            local fs = require("editor.host_filesystem")
+            for _, candidate in ipairs({path, path .. ".meta"}) do
+                local info, err = fs.info(candidate)
+                if info or err then errorText = err or "Destination already exists"; break end
+            end
+        end
+    end
+    return not errorText and destination or nil, rect, errorText, treeNode
+end
+
+function AssetBrowser:dragMoved(x, y)
+    local drag = self.drag
+    if not drag then return true end
+    drag.x, drag.y = x, y
+    if not drag.active and (x - drag.startX)^2 + (y - drag.startY)^2 >= 36 then drag.active = true end
+    if drag.active then
+        drag.destination, drag.rect, drag.error, drag.node = self:dropTargetAt(x, y)
+        local hover = drag.node and drag.node.reference
+        if drag.hover ~= hover then drag.hover, drag.hoverTime = hover, 0 end
+    end
+    return true
+end
+
+function AssetBrowser:dragReleased(x, y, button)
+    if button ~= 1 or not self.drag then return true end
+    local drag = self.drag
+    local destination, _, err
+    if drag.active then destination, _, err = self:dropTargetAt(x, y) end
+    self:cancelDrag()
+    if drag.active then
+        if destination then
+            local moved, moveError = self:moveEntry(drag.entry, destination)
+            self.error = not moved and moveError or nil
+        else self.error = err end
+    elseif drag.tree then self:openFolder(drag.entry.reference) end
+    return true
+end
+
+function AssetBrowser:updateDrag(dt)
+    local drag = self.drag
+    if not drag or not drag.active then return end
+    if drag.destination and drag.hover and not self.expanded[drag.hover] then
+        drag.hoverTime = (drag.hoverTime or 0) + dt
+        if drag.hoverTime >= 0.6 then self.expanded[drag.hover] = true; self:rebuildTree() end
+    end
+    local view = self.treeSlot.widget:containsPoint(drag.x, drag.y) and self.treeSlot.widget
+        or self.fileSlot.widget:containsPoint(drag.x, drag.y) and self.fileSlot.widget
+    if view then
+        local direction = drag.y < view.y + 18 and -1 or drag.y > view.y + view.height - 18 and 1 or 0
+        drag.scrollTime = (drag.scrollTime or 0) + dt
+        if direction ~= 0 and drag.scrollTime >= 0.15 then
+            self:wheelmoved(drag.x, drag.y, -direction)
+            drag.scrollTime = 0
+        end
+    end
+    self:dragMoved(drag.x, drag.y)
+end
+
+function AssetBrowser:drawDragOverlay()
+    local drag = self.drag
+    if not drag or not drag.active then return end
+    love.graphics.push("all")
+    love.graphics.setScissor()
+    if drag.rect then
+        Theme.setColor(drag.destination and "focus" or "error")
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", drag.rect.x + 1, drag.rect.y + 1, math.max(0, drag.rect.w - 2), math.max(0, drag.rect.h - 2))
+    end
+    local width = 260
+    local x = math.max(0, math.min(drag.x + 16, love.graphics.getWidth() - width))
+    local y = math.max(0, math.min(drag.y + 18, love.graphics.getHeight() - 54))
+    Theme.setColor("surface")
+    love.graphics.rectangle("fill", x, y, width, 54, 4, 4)
+    Theme.setColor("border")
+    love.graphics.rectangle("line", x, y, width, 54, 4, 4)
+    UI.label(drag.entry.name, x + 8, y + 7, width - 16)
+    UI.text(drag.error or "Move to " .. (drag.destination or ""), x + 8, y + 29, width - 16,
+        Theme.color(drag.destination and "textMuted" or "error"))
+    love.graphics.pop()
 end
 
 function AssetBrowser:showContextMenu(x, y)
@@ -438,14 +594,11 @@ function AssetBrowser:drawIcon(entry, x, y)
         love.graphics.push("all")
         Theme.setColor("iconBackground")
         love.graphics.rectangle("fill", x + 12, y + 12, 64, 64, 6, 6)
-        Theme.setColor("iconBorder")
-        love.graphics.rectangle("line", x + 12.5, y + 12.5, 63, 63, 6, 6)
         self.fileIconFont = self.fileIconFont or love.graphics.newFont(26)
-        local extension = (entry.name:match("%.([^%.]+)$") or "File"):lower()
-        local label = entry.isLink and "Link" or extension == "level" and "Lv" or extension == "prefab" and "Pf"
-            or extension == "lua" and "Lua" or extension == "file" and "File" or extension:upper()
+        local label, color, badge = self:iconStyle(entry)
+        Theme.setColor(color)
+        love.graphics.rectangle("line", x + 12.5, y + 12.5, 63, 63, 6, 6)
         love.graphics.setFont(self.fileIconFont)
-        Theme.setColor("iconText")
         local font = self.fileIconFont
         if font:getWidth(label) > 52 then
             self.smallFileIconFont = self.smallFileIconFont or love.graphics.newFont(16)
@@ -453,9 +606,30 @@ function AssetBrowser:drawIcon(entry, x, y)
             love.graphics.setFont(font)
         end
         UI.text(label, x + 44 - math.min(font:getWidth(label), 52) / 2,
-            y + 44 - font:getHeight() / 2, 52, Theme.color("iconText"))
+            y + (badge and 38 or 44) - font:getHeight() / 2, 52, Theme.color(color))
+        if badge then
+            self.badgeFont = self.badgeFont or love.graphics.newFont(11)
+            love.graphics.setFont(self.badgeFont)
+            UI.text(badge, x + 72 - self.badgeFont:getWidth(badge), y + 59, 40, Theme.color(color), true)
+        end
         love.graphics.pop()
     end
+end
+
+function AssetBrowser:iconStyle(entry)
+    if entry.isLink then return "Link", "iconText" end
+    local extension = (entry.name:match("%.([^%.]+)$") or "file"):lower()
+    if extension == "level" then return "Lv", "assetLevel" end
+    if extension == "prefab" then return "Pf", "assetPrefab" end
+    if extension == "lua" then
+        local meta = self.project.assetMetadata and self.project.assetMetadata[entry.reference]
+        local kind = meta and meta.scriptKind
+        if kind == "level" then return "Lv", "classLevel", "Lua" end
+        if kind == "lobject" then return "LO", "classLObject", "Lua" end
+        if kind == "component" then return "Cp", "classComponent", "Lua" end
+        return "?", "iconText", "Lua"
+    end
+    return extension == "file" and "File" or extension:upper(), "iconText"
 end
 
 function AssetBrowser:drawFiles()
@@ -511,6 +685,7 @@ function AssetBrowser:wheelmoved(x, y, amount)
     if x < self.x + self:treeWidth() then self.treeScroll = self.treeScroll - amount * 3
     else self.fileScroll = self.fileScroll - amount * (self.viewMode == "list" and 3 or 1) end
     self:clampScroll()
+    if self.drag and self.drag.active then self:dragMoved(self.drag.x, self.drag.y) end
 end
 
 return AssetBrowser

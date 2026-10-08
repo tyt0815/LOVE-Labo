@@ -8,8 +8,10 @@ local defaults = {
     button = "#2B313D", hover = "#3D4554", selection = "#335C8C",
     border = "#474D59", focus = "#66A6E6", input = "#13161B",
     text = "#DFE3ED", textMuted = "#A6AFBF", textDisabled = "#737B87", error = "#FF8C80",
-    overlay = "#0000008C", thumbnailBackground = "#13161B",
-    iconBackground = "#3D598C", iconBorder = "#739CD1", iconText = "#F0F7FF",
+    overlay = "#0000008C", thumbnailBackground = "#FFFFFF",
+    iconBackground = "#FFFFFF", iconBorder = "#739CD1", iconText = "#325AA3",
+    assetLevel = "#4078F2", assetPrefab = "#A626A4",
+    classLevel = "#0184BC", classLObject = "#50A14F", classComponent = "#986801",
     folderTab = "#C29140", folderBody = "#E6B857",
     grid = "#292B33", axisX = "#BF5252", axisY = "#52B361", origin = "#EBEBF0",
     object = "#FF6666", objectSelected = "#66E68C", gameBackground = "#090A0D"

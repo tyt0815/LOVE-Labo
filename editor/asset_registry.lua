@@ -12,7 +12,7 @@ local function headerKind(text)
     text = text:gsub("^\239\187\191", "")
     local line = text:match("^([^\r\n]*)") or ""
     local kind = line:match("^%s*%-%-%s*labo%-script:%s*([%w_-]+)%s*$")
-    if kind == "level" or kind == "lobject" then return kind end
+    if kind == "level" or kind == "lobject" or kind == "component" then return kind end
     if line:find("labo-script:", 1, true) then return nil, "Invalid script type marker" end
     return "level"
 end
@@ -111,7 +111,7 @@ function Registry.rebuild(project)
                             if not kind then return false, kindError end
                             meta.scriptKind = kind
                         end
-                        if meta.scriptKind ~= "level" and meta.scriptKind ~= "lobject" then
+                        if meta.scriptKind ~= "level" and meta.scriptKind ~= "lobject" and meta.scriptKind ~= "component" then
                             return false, "Invalid script metadata: " .. entry.reference
                         end
                     end

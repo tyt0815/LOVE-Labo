@@ -313,7 +313,7 @@ function Project:getScriptKind(reference)
     text = text:gsub("^\239\187\191", "")
     local firstLine = text:match("^([^\r\n]*)") or ""
     local kind = firstLine:match("^%s*%-%-%s*labo%-script:%s*([%w_-]+)%s*$")
-    if kind == "level" or kind == "lobject" then return kind end
+    if kind == "level" or kind == "lobject" or kind == "component" then return kind end
     if firstLine:find("labo-script:", 1, true) then return nil, "Invalid script type marker" end
     -- 종류 표식 도입 전에 작성한 프로젝트 코드는 기존 Level 동작을 유지한다.
     return "level"

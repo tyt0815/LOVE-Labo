@@ -257,6 +257,7 @@ add("asset browser scrolls long lists and keeps fractional wheel input clickable
         Assert.truthy(browser.treeScroll > 0)
         Assert.equal(4, browser.fileScroll)
         browser:mousepressed(70, 445, 1)
+        browser.localRoot:mousereleased(70, 445, 1)
         Assert.truthy(browser.folder ~= "Assets")
         browser:wheelmoved(400, 450, -100)
         Assert.equal(0, browser.fileScroll)
@@ -1408,6 +1409,208 @@ add("Move selects destination folders while Rename changes only the name", funct
         Assert.equal(id, project:getAssetId("Sources/Renamed.lua"))
         local prefab = assert(require("editor.prefab").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/Actor.prefab"))))))
         Assert.equal(id, prefab.definitionReference)
+    end)
+end)
+
+local function treePoint(browser, reference)
+    for i, node in ipairs(browser.tree) do
+        if node.reference == reference then
+            return browser.treeSlot.widget.x + 60 + node.depth * 14,
+                browser.treeSlot.widget.y + (i - 1 - browser.treeScroll) * 26 + 13
+        end
+    end
+    error("Tree entry not found: " .. reference)
+end
+
+local function filePoint(browser, reference)
+    for i, entry in ipairs(browser.entries) do
+        if entry.reference == reference then
+            local view = browser.fileSlot.widget
+            if browser.viewMode == "list" then return view.x + 20, view.y + (i - 1 - browser.fileScroll) * 26 + 13 end
+            return view.x + 28 + (i - 1) % browser:columns() * 112,
+                view.y + 28 + (math.floor((i - 1) / browser:columns()) - browser.fileScroll) * 126
+        end
+    end
+    error("File entry not found: " .. reference)
+end
+
+local function dragEntry(app, sx, sy, tx, ty)
+    app:mousepressed(sx, sy, 1)
+    app:mousemoved(tx, ty, tx - sx, ty - sy)
+    Assert.truthy(app.uiRoot.captured)
+    Assert.truthy(app.assetBrowser.drag.active)
+    app:mousereleased(tx, ty, 1)
+    Assert.equal(nil, app.uiRoot.captured)
+    Assert.equal(nil, app.assetBrowser.drag)
+end
+
+add("drag moves between file and tree views in every direction and keeps IDs", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "DragViews"))
+        for _, name in ipairs({"A", "B"}) do assert(project:createEntry("Assets", "folder", name)) end
+        assert(project:createEntry("Assets/A", "folder", "C"))
+        assert(project:createEntry("Assets", "level", "Item"))
+        local id = project:getAssetId("Assets/Item.level")
+        local app = EditorApp.new(nil, project)
+        local browser = app.assetBrowser
+        browser:setViewMode("list")
+        local sx, sy = filePoint(browser, "Assets/Item.level")
+        local tx, ty = treePoint(browser, "Assets/A")
+        dragEntry(app, sx, sy, tx, ty)
+        Assert.equal(id, project:getAssetId("Assets/A/Item.level"))
+        assert(browser:openFolder("Assets/A"))
+        browser:setViewMode("thumbnails")
+        sx, sy = filePoint(browser, "Assets/A/Item.level")
+        tx, ty = filePoint(browser, "Assets/A/C")
+        dragEntry(app, sx, sy, tx, ty)
+        Assert.equal(id, project:getAssetId("Assets/A/C/Item.level"))
+        assert(browser:openFolder("Assets/A/C"))
+        assert(browser:openFolder("Assets/B"))
+        sx, sy = treePoint(browser, "Assets/A/C")
+        tx, ty = browser.fileSlot.widget.x + 50, browser.fileSlot.widget.y + 60
+        dragEntry(app, sx, sy, tx, ty)
+        Assert.equal(id, project:getAssetId("Assets/B/C/Item.level"))
+        assert(browser:openFolder("Assets/B/C"))
+        sx, sy = treePoint(browser, "Assets/B/C")
+        tx, ty = treePoint(browser, "Assets/A")
+        dragEntry(app, sx, sy, tx, ty)
+        Assert.equal(id, project:getAssetId("Assets/A/C/Item.level"))
+        Assert.equal("Assets/A/C", browser.folder)
+        local reopened = assert(Project.open(project.rootPath))
+        Assert.equal(id, reopened:getAssetId("Assets/A/C/Item.level"))
+    end)
+end)
+
+add("drag cancels safely and rejects roots self drops wrong roots and conflicts", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "DragGuards"))
+        assert(project:createEntry("Assets", "folder", "A"))
+        assert(project:createEntry("Assets/A", "folder", "Child"))
+        assert(project:createEntry("Assets", "level", "Item"))
+        assert(project:createEntry("Assets/A", "level", "Item"))
+        local id = project:getAssetId("Assets/Item.level")
+        local app = EditorApp.new(nil, project)
+        local browser = app.assetBrowser
+        browser:setViewMode("list")
+        local sx, sy = treePoint(browser, "Assets")
+        app:mousepressed(sx, sy, 1)
+        Assert.equal(nil, browser.drag)
+        sx, sy = filePoint(browser, "Assets/Item.level")
+        for _, destination in ipairs({"Assets", "Assets/A", "Sources"}) do
+            local tx, ty = treePoint(browser, destination)
+            dragEntry(app, sx, sy, tx, ty)
+            Assert.truthy(browser.error)
+            Assert.equal(id, project:getAssetId("Assets/Item.level"))
+        end
+        app:mousepressed(sx, sy, 1)
+        app:mousemoved(sx + 10, sy, 10, 0)
+        app:keypressed("escape")
+        Assert.equal(nil, browser.drag)
+        Assert.equal(nil, app.uiRoot.captured)
+        app:mousereleased(-10, -10, 1)
+        Assert.equal(id, project:getAssetId("Assets/Item.level"))
+        dragEntry(app, sx, sy, -20, -20)
+        Assert.equal(id, project:getAssetId("Assets/Item.level"))
+        assert(browser:openFolder("Assets/A/Child"))
+        sx, sy = treePoint(browser, "Assets/A")
+        local tx, ty = treePoint(browser, "Assets/A/Child")
+        dragEntry(app, sx, sy, tx, ty)
+        Assert.truthy(FS.info(assert(project:resolvePath("Assets/A/Child"))))
+        Assert.equal("Assets/A/Child", browser.folder)
+        app:mousepressed(sx, sy, 1)
+        app:mousereleased(sx, sy, 1)
+        Assert.equal("Assets/A", browser.folder)
+    end)
+end)
+
+add("dragging a source preserves open document references and move failures", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "DragSource"))
+        assert(project:createEntry("Sources", "folder", "Classes"))
+        assert(project:createEntry("Sources", "lua", "Stage", {scriptKind="level"}))
+        assert(project:createEntry("Assets", "level", "Stage", {scriptReference="Sources/Stage.lua"}))
+        local id = project:getAssetId("Sources/Stage.lua")
+        local app = EditorApp.new(nil, project)
+        assert(app:openProjectDocument("Assets/Stage.level"))
+        app.level:addLObject(1, 2)
+        local browser = app.assetBrowser
+        assert(browser:openFolder("Sources"))
+        browser:setViewMode("list")
+        local sx, sy = filePoint(browser, "Sources/Stage.lua")
+        local tx, ty = treePoint(browser, "Sources/Classes")
+        local original = FS.rename
+        FS.rename = function() return false, "locked source" end
+        local called, err = pcall(dragEntry, app, sx, sy, tx, ty)
+        FS.rename = original
+        Assert.truthy(called, err)
+        Assert.equal("locked source", browser.error)
+        Assert.equal(id, project:getAssetId("Sources/Stage.lua"))
+        dragEntry(app, sx, sy, tx, ty)
+        Assert.equal(id, project:getAssetId("Sources/Classes/Stage.lua"))
+        Assert.equal(id, app.level.scriptReference)
+        Assert.truthy(app.document:isDirty())
+        assert(app:saveCurrentDocument())
+        assert(app:startPlay())
+        Assert.equal(1, #app.runtimeWorld.lobjects)
+    end)
+end)
+
+add("Lua thumbnails classify metadata without running code and use distinct theme colors", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "IconTypes"))
+        for _, item in ipairs({{"Level", "level"}, {"Object", "lobject"}, {"Component", "component"}}) do
+            assert(FS.createFile(assert(project:resolvePath("Sources/" .. item[1] .. ".lua")),
+                "-- labo-script: " .. item[2] .. '\nerror("must not execute")'))
+        end
+        local browser = AssetBrowser.new(project)
+        local seen = {}
+        for _, item in ipairs({
+            {"Stage.level", "Assets/Stage.level", "Lv", "assetLevel"},
+            {"Object.prefab", "Assets/Object.prefab", "Pf", "assetPrefab"},
+            {"Level.lua", "Sources/Level.lua", "Lv", "classLevel", "Lua"},
+            {"Object.lua", "Sources/Object.lua", "LO", "classLObject", "Lua"},
+            {"Component.lua", "Sources/Component.lua", "Cp", "classComponent", "Lua"},
+        }) do
+            local label, role, badge = browser:iconStyle({name=item[1], reference=item[2], type="file"})
+            Assert.equal(item[3], label)
+            Assert.equal(item[4], role)
+            Assert.equal(item[5], badge)
+            local color = require("editor.theme").color(role)
+            local key = table.concat(color, ",")
+            Assert.equal(nil, seen[key])
+            seen[key] = true
+        end
+        Assert.equal("component", project:getScriptKind("Sources/Component.lua"))
+    end)
+end)
+
+add("drag hover expands folders and scrolling refreshes the live drop target", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "DragHover"))
+        assert(project:createEntry("Assets", "level", "Item"))
+        for i = 1, 24 do assert(project:createEntry("Assets", "folder", string.format("Folder%02d", i))) end
+        assert(project:createEntry("Assets/Folder01", "folder", "Nested"))
+        local app = EditorApp.new(nil, project)
+        local browser = app.assetBrowser
+        browser:setViewMode("list")
+        browser.fileScroll = 24
+        local sx, sy = filePoint(browser, "Assets/Item.level")
+        local tx, ty = treePoint(browser, "Assets/Folder01")
+        app:mousepressed(sx, sy, 1)
+        app:mousemoved(tx, ty, tx - sx, ty - sy)
+        app:update(0.65)
+        Assert.truthy(browser.expanded["Assets/Folder01"])
+        Assert.truthy(treePoint(browser, "Assets/Folder01/Nested"))
+        local view = browser.treeSlot.widget
+        app:mousemoved(view.x + 60, view.y + view.height - 5, 0, 0)
+        local before = browser.treeScroll
+        app:update(0.2)
+        Assert.truthy(browser.treeScroll > before)
+        local destination = browser.drag.destination
+        Assert.equal(browser:dropTargetAt(browser.drag.x, browser.drag.y), destination)
+        app:keypressed("escape")
+        Assert.equal(nil, app.uiRoot.captured)
+        Assert.truthy(project:getAssetId("Assets/Item.level"))
     end)
 end)
 

@@ -230,7 +230,7 @@ function Inspector:drawField(label, field, y, selectedLObject, left)
         and self.editingLObject == selectedLObject
 
     Theme.setColor("textMuted")
-    love.graphics.print(label, left + 20, y + 4)
+    require("editor.ui").label(label, left + 20, y + 4)
 
     Theme.setColor("input")
 
@@ -292,7 +292,7 @@ function Inspector:draw(selectedLObject)
     end
 
     Theme.setColor("textMuted")
-    love.graphics.print("Transform", left + 12, 78)
+    require("editor.ui").label("Transform", left + 12, 78, self.width - 24)
 
     if selectedLObject.transform then
         self:drawField("X", "x", X_FIELD_Y, selectedLObject, left)

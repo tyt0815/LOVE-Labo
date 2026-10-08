@@ -35,12 +35,13 @@ MyProject/
 프로젝트가 열리면 좌측 계층, 중앙 뷰포트, 우측 인스펙터와 하단 프로젝트 브라우저가 표시된다. 왼쪽 폴더 트리에 `Assets/`와 `Sources/`를 별도 루트로 보여준다.
 
 - 왼쪽 폴더 트리의 오른쪽·아래쪽 화살표로 펼치거나 접고, 이름을 클릭해서 해당 폴더를 연다.
-- 기본 파일 보기는 **Thumbnails**다. 이미지 파일은 실제 미리보기, 폴더는 폴더 아이콘을 표시한다. 파일의 기본 아이콘은 정사각형에 종류 텍스트를 넣는 형태로 통일한다(`Lv`, `Lua`, `TXT` 등). 우측 Refresh 왼쪽의 드롭다운에서 **List**로 전환할 수 있다. 드롭다운은 방향키·Enter·Escape도 지원한다.
+- 기본 파일 보기는 **Thumbnails**다. 이미지 파일은 실제 미리보기, 폴더는 폴더 아이콘을 표시한다. 파일은 흰 정사각형에 종류 텍스트를 넣는다. Level은 `Lv`, Prefab은 `Pf`, Lua Class는 종류별 `Lv`·`LO`·`Cp`와 우하단 작은 `Lua` 표식을 표시한다. Level·Prefab·Level Class·LObject Class·Component Class는 서로 다른 테마 색을 사용한다. 우측 Refresh 왼쪽의 드롭다운에서 **List**로 전환할 수 있다. 드롭다운은 방향키·Enter·Escape도 지원한다.
 - 오른쪽 목록의 폴더는 더블클릭 또는 선택 후 `Enter`로 연다. 파일 영역 위의 경로에서 상위 폴더 이름을 클릭하거나 `Backspace`로 이동한다. Assets·Sources 루트 밖으로 이동하지 않는다.
 - 경로는 평소 일반 텍스트로 표시하고, 폴더 이름에 마우스를 올리면 클릭 영역의 배경이 부드럽게 나타난다.
 - 빈 공간을 우클릭하면 **New**, 파일·폴더를 우클릭하면 각각 별개인 **New / Move / Rename / Delete** 메뉴를 연다. **New**에는 Assets에서 **Folder / Level / Prefab**, Sources에서 **Folder / Lua Class**만 표시한다. 메뉴가 열린 상태에서 다른 위치를 우클릭하면 해당 위치의 메뉴로 바로 바뀐다. 이름 입력 후 Enter 또는 Create로 생성하며 기존 파일은 덮어쓰지 않는다.
 - **Move**는 경로 입력란 아래의 폴더 트리에서 목적지 폴더를 선택한다. 폴더 경로를 직접 입력해도 된다(예: `Sources/Enemies`). 이름은 유지하고 원본과 메타를 함께 옮긴다. 트리는 같은 Assets·Sources 루트만 표시하며 링크와 이동할 폴더 자신·하위 폴더는 제외한다. 화살표로 펼치고 이름을 클릭해서 선택한다. Tab으로 경로·트리 입력을 전환하고 방향키·휠로 탐색할 수 있다.
 - **Rename**은 현재 폴더에서 이름만 변경하고 파일 확장자는 유지한다. 이동·이름 변경 모두 기존 파일을 덮어쓰지 않고 ID를 유지한다. 현재 열린 레벨과 Prefab도 ID로 새 저장 위치를 찾는다.
+- 파일·폴더를 드래그해서 이동할 수도 있다. 목록↔트리 양방향과 각 영역 내부의 이동을 지원한다. 폴더 위에 놓으면 그 폴더로, 파일 영역의 빈 공간에 놓으면 현재 폴더로 이동한다. 트리 화살표는 펼치기·접기 전용이고 폴더 이름의 일반 클릭은 마우스를 놓을 때 탐색한다. 루트·링크는 드래그하지 않으며 다른 루트·자기 하위·같은 위치·이름 충돌로의 드롭은 막는다. 드래그 중 목적지와 실패 사유를 표시하고 트리의 폴더 위에 잠시 머물면 펼친다. 각 영역 가장자리의 자동 스크롤·휠 스크롤과 Esc 취소를 지원한다.
 - **Lua Class** 생성 시 **Level Class / LObject Class**를 고른다. **Level / Prefab**의 부모 클래스 선택에는 **None**도 있어 Lua 파일 없이 생성할 수 있다. Level은 Level Class, Prefab은 LObject Class를 사용하며 생성 후 인스펙터에서도 선택·변경·해제할 수 있다. 소스 목록은 코드를 실행하지 않고 메타데이터에서 종류를 읽는다.
 - **Delete**는 확인 후 파일이나 폴더의 전체 내용을 영구 삭제한다. 프로젝트 루트·기본 레벨·현재 열린 레벨을 포함하는 경로와 파일시스템 링크는 삭제하지 않는다. 레벨에 연결된 Lua나 다른 파일의 참조를 자동으로 정리하지 않는다. 메뉴는 방향키·Enter·Escape로도 조작한다.
 - `.level` 파일을 더블클릭하면 해당 레벨을 연다. 현재 레벨에 저장하지 않은 변경이 있으면 유지하고 오류를 표시한다. Lua 코드는 외부 편집기로 수정한다.
@@ -125,6 +126,8 @@ return Child
 
 ## 에셋 ID와 메타데이터
 
+인스펙터의 Parent Class·프로퍼티 이름·Transform 라벨은 굵게 표시한다. `-- labo-script: component` 또는 `.lua.meta`의 `scriptKind: "component"`도 가져오기·아이콘 분류에서 인식한다. Component Class의 생성 UI·부착·실행 모델은 아직 제공하지 않으며 Level·Prefab 부모 선택 목록에는 포함하지 않는다.
+
 Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 둔다. ID는 여기만 원본으로 보관한다. 예를 들어 `StartLevel.lua.meta`는 다음 형태다.
 
 ```json
@@ -176,6 +179,7 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 | `border`, `focus`, `hover`, `selection` | 경계·포커스·호버·선택 상태 |
 | `error`, `overlay` | 오류와 모달 뒤 덮개 |
 | `thumbnailBackground`, `iconBackground`, `iconBorder`, `iconText`, `folderTab`, `folderBody` | 썸네일·파일 아이콘·폴더 아이콘 |
+| `assetLevel`, `assetPrefab`, `classLevel`, `classLObject`, `classComponent` | Level·Prefab·종류별 Lua Class의 아이콘 테두리와 텍스트 |
 | `grid`, `axisX`, `axisY`, `origin`, `object`, `objectSelected`, `gameBackground` | 뷰포트 격자·축·디버그 표시·Game View 바탕 |
 
 설정이나 선택된 테마가 없거나 잘못되면 코드의 기본 테마로 시작한다. 기본 테마 JSON은 읽지 않는다. 이미지 미리보기의 원래 색은 유지한다.

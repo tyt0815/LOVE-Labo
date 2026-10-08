@@ -6,7 +6,7 @@ function UI.contains(x, y, rect)
     return x >= rect.x and y >= rect.y and x < rect.x + rect.w and y < rect.y + rect.h
 end
 
-function UI.text(text, x, y, width, color)
+function UI.text(text, x, y, width, color, bold)
     love.graphics.setColor(unpack(color or Theme.color("text")))
     if width then
         local font = love.graphics.getFont()
@@ -20,6 +20,12 @@ function UI.text(text, x, y, width, color)
         end
     end
     love.graphics.print(text, x, y)
+    -- 시스템 폰트 경로에 의존하지 않고 현재 폰트의 글자 굵기만 강조한다.
+    if bold then love.graphics.print(text, x + 0.75, y) end
+end
+
+function UI.label(text, x, y, width)
+    UI.text(text, x, y, width, Theme.color("text"), true)
 end
 
 function UI.button(label, rect, active)

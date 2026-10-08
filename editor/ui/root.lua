@@ -7,6 +7,7 @@ function Root.new(canvas)
 end
 
 function Root:setPopup(widget)
+    if self.captured then self.captured:dispatch("cancel"); self.captured, self.captureButton = nil, nil end
     if self.popup and self.popup ~= widget then self.popup:dispatch("dismiss") end
     self.popup = widget
 end
@@ -19,6 +20,7 @@ end
 
 function Root:draw()
     self.canvas:draw()
+    if self.captured then self.captured:dispatch("drawOverlay") end
     if self.popup then
         love.graphics.push("all")
         love.graphics.setScissor()

@@ -12,3 +12,4 @@
 - [0010. Lua 종류 선택과 스크립트 기반 Level·Prefab 생성](adr/0010-script-types-and-prefab-creation.md)
 - [0011. 에셋 ID·메타데이터와 프로젝트 경로 캐시](adr/0011-asset-ids-metadata-and-path-cache.md)
 - [0012. Lua Class 상속·프로퍼티와 저장 전 레벨 문서](adr/0012-lua-classes-properties-and-unsaved-levels.md)
+- [0013. 브라우저 드래그 이동과 에셋 종류별 색상](adr/0013-browser-drag-moves-and-asset-colors.md)

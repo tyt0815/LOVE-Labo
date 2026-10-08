@@ -92,7 +92,7 @@ function ClassInspector:draw()
     if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
     UI.text(label, self.left + 12, 44, self.width - 24)
     UI.text("Ctrl+S: Save", self.left + 12, 60, self.width - 24, Theme.color("textMuted"))
-    UI.text("Parent Class", self.left + 12, 78, self.width - 24, Theme.color("textMuted"))
+    UI.label("Parent Class", self.left + 12, 78, self.width - 24)
     self.dropdown:draw()
     if self.error then UI.text(self.error, self.left + 12, 138, self.width - 24, Theme.color("error")) end
     for row = 1, self.visibleRows do
@@ -102,7 +102,7 @@ function ClassInspector:draw()
         local value = self.target:getOverrides()[name]
         if value == nil then value = declaration.default end
         local y = 170 + (row - 1) * 56
-        UI.text(name .. " (" .. declaration.type .. ")", self.left + 12, y, self.width - 24, Theme.color("textMuted"))
+        UI.label(name .. " (" .. declaration.type .. ")", self.left + 12, y, self.width - 24)
         local rect = {x = self.left + 12, y = y + 20, w = self.width - 58, h = 26}
         if declaration.type == "boolean" then UI.button(value and "True" or "False", rect)
         else UI.field(self.editing == name and self.text or tostring(value), rect, self.editing == name) end
