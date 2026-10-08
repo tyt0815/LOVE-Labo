@@ -3,6 +3,20 @@ Level.__index = Level
 
 local FORMAT_VERSION = 1
 
+function Level.isValidScriptReference(reference)
+    if reference == nil then return true end
+    if type(reference) ~= "string" or not reference:match("^Sources/.+%.lua$")
+        or reference:find('[%z\1-\31\\:*?"<>|]') or reference:find("//", 1, true) then
+        return false, "level scriptReference must be a canonical Sources/*.lua reference"
+    end
+    for segment in reference:gmatch("[^/]+") do
+        if segment == "." or segment == ".." or segment:match("[ .]$") then
+            return false, "level scriptReference contains a non-canonical path segment"
+        end
+    end
+    return true
+end
+
 local function isPositiveInteger(value)
     return type(value) == "number"
         and value >= 1
@@ -108,6 +122,13 @@ function Level:addLObject(x, y, definitionReference)
     return instance
 end
 
+function Level:setScriptReference(reference)
+    local valid, err = Level.isValidScriptReference(reference)
+    if not valid then return false, err end
+    self.scriptReference = reference
+    return true
+end
+
 function Level:duplicateLObject(target, x, y)
     -- 복제본은 원본과 다른 stable authoring identity를 가져야 한다.
     -- source identity는 유지하고 mutable Transform은 새 table로 만든다.
@@ -161,6 +182,7 @@ function Level:toData()
 
     return {
         formatVersion = FORMAT_VERSION,
+        scriptReference = self.scriptReference,
         lobjects = lobjects
     }
 end
@@ -173,6 +195,9 @@ function Level.fromData(data)
     if data.formatVersion ~= FORMAT_VERSION then
         return nil, "unsupported level format version"
     end
+
+    local validScript, scriptError = Level.isValidScriptReference(data.scriptReference)
+    if not validScript then return nil, scriptError end
 
     if type(data.lobjects) ~= "table" then
         return nil, "level lobjects must be a table"
@@ -209,6 +234,7 @@ function Level.fromData(data)
 
     local level = Level.new()
     level.lobjects = validatedLObjects
+    level.scriptReference = data.scriptReference
 
     -- 저장 시 nextAuthoringId 자체를 직렬화하지 않고,
     -- 가장 큰 stable ID 다음 값으로 복원한다.

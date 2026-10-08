@@ -28,6 +28,16 @@ function EditorApp.new(document, project)
     self.runtimeWorld = nil
 
     if not document then
+        if project and project.defaultLevelReference then
+            local path, pathError = project:resolveAssetFile(project.defaultLevelReference)
+            if not path then error(pathError) end
+            local loaded, loadError = LevelDocument.load(path)
+            if not loaded then error(loadError) end
+            document = loaded
+        end
+    end
+
+    if not document then
         local newDocument, err =
             LevelDocument.new()
 
@@ -39,6 +49,9 @@ function EditorApp.new(document, project)
     end
 
     self:setDocument(document)
+    if project and project.defaultLevelReference and document.path == project:resolvePath(project.defaultLevelReference) then
+        self.documentReference = project.defaultLevelReference
+    end
     self:initializeUI()
 
     return self
@@ -65,6 +78,7 @@ function EditorApp:setDocument(document)
     self.sceneView.isDraggingLObject = false
     self.sceneView.isPanning = false
     self.inspector:cancelEdit()
+    self.runtimeError = nil
     if self.uiRoot then
         self.uiRoot:dismissPopup()
         self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
@@ -101,9 +115,24 @@ function EditorApp:startPlay()
         )
 
     if not world then
+        self.runtimeError = worldError
         return false, worldError
     end
 
+    if self.level.scriptReference then
+        if not self.project then
+            self.runtimeError = "Level script requires a project"
+            return false, self.runtimeError
+        end
+        local ok, script, scriptError = pcall(require("editor.project_script").load, self.project, self.level.scriptReference)
+        if not ok then self.runtimeError = tostring(script); return false, self.runtimeError end
+        if not script then self.runtimeError = scriptError; return false, scriptError end
+        local attached, loaded, loadError = pcall(world.setLevelScript, world, script)
+        if not attached then self.runtimeError = tostring(loaded); return false, self.runtimeError end
+        if not loaded then self.runtimeError = loadError; return false, loadError end
+    end
+
+    self.runtimeError = nil
     self.runtimeWorld = world
 
     -- Play 중 hidden Scene View drag/pan 상태가 남아 있지 않게 정리한다.
@@ -276,6 +305,10 @@ function EditorApp:initializeUI()
         draw = function()
             if self:isPlaying() then self.gameView:draw(self.runtimeWorld)
             else self.sceneView:draw() end
+            if self.runtimeError then
+                require("editor.ui").text(self.runtimeError, self.sceneView.viewportX + 16, 94,
+                    self.sceneView.viewportWidth - 32, { 1, 0.5, 0.45, 1 })
+            end
         end,
         mousepressed = function(_, x, y, button)
             if self:isPlaying() then return true end
@@ -327,6 +360,10 @@ function EditorApp:initializeUI()
     }
     if self.assetBrowser then
         self.assetBrowser:setUIRoot(self.uiRoot)
+        self.assetBrowser.onOpenFile = function(reference)
+            if reference:match("^Assets/.+%.level$") then return self:openProjectDocument(reference) end
+            return true
+        end
         slots.assets = self.canvas:addChild(self.assetBrowser)
     end
     self.uiRoot.focused = sceneWidget
@@ -349,7 +386,12 @@ function EditorApp:updateSceneViewport()
 end
 
 function EditorApp:update(dt)
-    if self.runtimeWorld then return self.runtimeWorld:update(dt) end
+    if self.runtimeWorld then
+        local ok, updated, err = pcall(self.runtimeWorld.update, self.runtimeWorld, dt)
+        if not ok then err, updated = tostring(updated), false end
+        if updated == false then self.runtimeError = err; self.runtimeWorld = nil end
+        return updated, err
+    end
 end
 
 function EditorApp:draw()

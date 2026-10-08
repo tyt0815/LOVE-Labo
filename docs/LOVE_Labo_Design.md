@@ -203,6 +203,8 @@ Prefab inheritance나 복잡한 composition 기능은 실제 필요가 확인되
 
 Level은 visual placement와 instance override의 Source of Truth다.
 
+Level 전체의 동작은 프로젝트 Lua에 둘 수 있다. `.level`은 `Sources/` 아래 코드의 프로젝트 상대 참조를 저장하며, 배치 데이터와 실행 동작의 책임을 분리한다. 현재 기본 레벨·소스 생성 및 callback 계약은 [ADR 0007](adr/0007-sources-and-level-scripts.md)을 따른다.
+
 Level LObject Instance는 개념적으로 다음을 가진다.
 
 ```text

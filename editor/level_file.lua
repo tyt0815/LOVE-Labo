@@ -2,8 +2,23 @@ local Json = require("editor.json")
 local Level = require("editor.level")
 
 local LevelFile = {}
+local nativeFS = require("ffi").os == "Windows" and require("editor.host_filesystem") or nil
+
+local function removeFile(path)
+    if nativeFS then return nativeFS.removeFile(path) end
+    return os.remove(path)
+end
+
+local function renameFile(source, target)
+    if nativeFS then return nativeFS.rename(source, target) end
+    return os.rename(source, target)
+end
 
 local function fileExists(path)
+    if nativeFS then
+        local info = nativeFS.info(path)
+        return info ~= nil and info.type == "file"
+    end
     local file = io.open(path, "rb")
 
     if not file then
@@ -15,6 +30,7 @@ local function fileExists(path)
 end
 
 local function readText(path)
+    if nativeFS then return nativeFS.read(path) end
     local file, openError = io.open(path, "rb")
 
     if not file then
@@ -36,6 +52,7 @@ local function readText(path)
 end
 
 local function writeText(path, text)
+    if nativeFS then return nativeFS.createFile(path, text) end
     local file, openError = io.open(path, "wb")
 
     if not file then
@@ -74,6 +91,8 @@ function LevelFile.encode(level)
     end
 
     local data = level:toData()
+    local validScript, scriptError = Level.isValidScriptReference(data.scriptReference)
+    if not validScript then return nil, scriptError end
 
     -- 빈 Level도 JSON에서 []로 저장되도록 array 의미를 명시한다.
     data.lobjects = Json.array(data.lobjects)
@@ -118,7 +137,7 @@ function LevelFile.save(path, level)
     -- 정상 target이 없고 backup만 남아 있다면 먼저 복구한다.
     if not fileExists(path) and fileExists(backupPath) then
         local recovered, recoverError =
-            os.rename(backupPath, path)
+            renameFile(backupPath, path)
 
         if not recovered then
             return false,
@@ -128,7 +147,7 @@ function LevelFile.save(path, level)
     end
 
     if fileExists(tempPath) then
-        local removed, removeError = os.remove(tempPath)
+        local removed, removeError = removeFile(tempPath)
 
         if not removed then
             return false,
@@ -141,7 +160,7 @@ function LevelFile.save(path, level)
         writeText(tempPath, text)
 
     if not wroteTemp then
-        os.remove(tempPath)
+        removeFile(tempPath)
         return false, writeError
     end
 
@@ -151,10 +170,10 @@ function LevelFile.save(path, level)
         -- target이 정상적으로 존재하면 오래된 backup은 더 이상 필요 없다.
         if fileExists(backupPath) then
             local removed, removeError =
-                os.remove(backupPath)
+                removeFile(backupPath)
 
             if not removed then
-                os.remove(tempPath)
+                removeFile(tempPath)
                 return false,
                     "failed to remove stale backup: "
                     .. tostring(removeError)
@@ -162,10 +181,10 @@ function LevelFile.save(path, level)
         end
 
         local backedUp, backupError =
-            os.rename(path, backupPath)
+            renameFile(path, backupPath)
 
         if not backedUp then
-            os.remove(tempPath)
+            removeFile(tempPath)
             return false,
                 "failed to back up existing level: "
                 .. tostring(backupError)
@@ -173,14 +192,14 @@ function LevelFile.save(path, level)
     end
 
     local replaced, replaceError =
-        os.rename(tempPath, path)
+        renameFile(tempPath, path)
 
     if not replaced then
-        os.remove(tempPath)
+        removeFile(tempPath)
 
         if hadExistingFile then
             local restored, restoreError =
-                os.rename(backupPath, path)
+                renameFile(backupPath, path)
 
             if not restored then
                 return false,
@@ -198,7 +217,7 @@ function LevelFile.save(path, level)
 
     if hadExistingFile then
         -- 새 파일이 정상 위치에 들어간 뒤에만 backup을 제거한다.
-        os.remove(backupPath)
+        removeFile(backupPath)
     end
 
     return true

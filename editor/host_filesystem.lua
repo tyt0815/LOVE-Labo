@@ -22,6 +22,7 @@ uint32_t __stdcall GetFileAttributesW(const uint16_t *path);
 int __stdcall CreateDirectoryW(const uint16_t *path, void *security);
 int __stdcall RemoveDirectoryW(const uint16_t *path);
 int __stdcall DeleteFileW(const uint16_t *path);
+int __stdcall MoveFileW(const uint16_t *source, const uint16_t *target);
 void * __stdcall FindFirstFileW(const uint16_t *path, LaboFindData *data);
 int __stdcall FindNextFileW(void *handle, LaboFindData *data);
 int __stdcall FindClose(void *handle);
@@ -112,6 +113,11 @@ end
 
 function FileSystem.removeFile(path)
     if win.DeleteFileW(wide(path)) == 0 then return false, failure("Remove file") end
+    return true
+end
+
+function FileSystem.rename(source, target)
+    if win.MoveFileW(wide(source), wide(target)) == 0 then return false, failure("Move file") end
     return true
 end
 

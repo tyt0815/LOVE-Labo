@@ -4,10 +4,12 @@ local Widget = require("editor.ui.widget")
 local Root = require("editor.ui.root")
 local Dropdown = require("editor.ui.dropdown")
 local Thumbnail = require("editor.asset_thumbnail")
+local Breadcrumb = require("editor.ui.breadcrumb")
 
 local AssetBrowser = setmetatable({}, { __index = Canvas })
 AssetBrowser.__index = AssetBrowser
 local HEADER = 38
+local BREADCRUMB = 30
 local ROW = 26
 local CARD_WIDTH, CARD_HEIGHT = 112, 126
 
@@ -15,7 +17,7 @@ function AssetBrowser.new(project)
     local self = setmetatable(Canvas.new(), AssetBrowser)
     local state = {
         project = project, folder = "Assets", entries = {}, selectedReference = nil,
-        expanded = { Assets = true }, children = {}, tree = {},
+        expanded = { Assets = true, Sources = true }, children = {}, tree = {},
         treeScroll = 0, fileScroll = 0, collapsed = false,
         x = 0, y = 0, width = 0, height = 0, error = nil,
         viewMode = "thumbnails", panelName = "assets"
@@ -38,11 +40,14 @@ function AssetBrowser.new(project)
         wheelmoved = function(_, ...) self:wheelmoved(...); return true end
     }))
     self.dropdownSlot = self:addChild(self.viewDropdown, { z = 1 })
+    self.breadcrumb = Breadcrumb.new(function(reference)
+        if reference ~= self.folder then self:openFolder(reference) end
+    end)
+    self.breadcrumbSlot = self:addChild(self.breadcrumb, { z = 1 })
     self.handlers.mousepressed = function(_, x, y, button)
         if button ~= 1 then return true end
         local buttons = self:buttons()
         if UI.contains(x, y, buttons.fold) then self.collapsed = not self.collapsed
-        elseif UI.contains(x, y, buttons.up) then self:goUp()
         elseif UI.contains(x, y, buttons.refresh) then self:refresh() end
         return true
     end
@@ -66,8 +71,12 @@ function AssetBrowser:setBounds(x, y, width, height)
     Canvas.setBounds(self, x, y, width, height)
     local contentHeight = self.collapsed and 0 or math.max(0, height - HEADER - 28)
     self:setSlotBounds(self.treeSlot, 0, HEADER, self:treeWidth(), contentHeight)
-    self:setSlotBounds(self.fileSlot, self:treeWidth(), HEADER, self.width - self:treeWidth(), contentHeight)
-    self:setSlotBounds(self.dropdownSlot, 48, 8, 116, 26)
+    self:setSlotBounds(self.fileSlot, self:treeWidth(), HEADER + BREADCRUMB,
+        self.width - self:treeWidth(), math.max(0, contentHeight - BREADCRUMB))
+    self.breadcrumb.visible = not self.collapsed
+    self:setSlotBounds(self.breadcrumbSlot, self:treeWidth(), HEADER,
+        self.width - self:treeWidth(), self.collapsed and 0 or BREADCRUMB)
+    self:setSlotBounds(self.dropdownSlot, self.width - 218, 8, 116, 26)
     self:clampScroll()
 end
 
@@ -88,7 +97,7 @@ end
 
 function AssetBrowser:getEntryAtPosition(x, y)
     local split = self.x + self:treeWidth()
-    local top = self.y + HEADER
+    local top = self.y + HEADER + BREADCRUMB
     if x < split or x >= self.x + self.width or y < top or y >= self.y + self.height - 28 then return nil end
     if self.viewMode == "list" then
         return self.entries[math.floor((y - top) / ROW) + 1 + self.fileScroll]
@@ -113,7 +122,7 @@ function AssetBrowser:rebuildTree()
         self.tree[#self.tree + 1] = { reference = reference, name = name, depth = depth }
         if not self.expanded[reference] then return end
         if not self.children[reference] then
-            local entries, err = self.project:listAssets(reference)
+            local entries, err = self.project:listDirectory(reference)
             if not entries then self.error = err; return end
             self.children[reference] = entries
         end
@@ -124,13 +133,15 @@ function AssetBrowser:rebuildTree()
         end
     end
     visit("Assets", "Assets", 0)
+    visit("Sources", "Sources", 0)
     self:clampScroll()
 end
 
 function AssetBrowser:openFolder(reference)
-    local entries, err = self.project:listAssets(reference)
+    local entries, err = self.project:listDirectory(reference)
     if not entries then self.error = err; return false, err end
     self.folder, self.entries, self.error = reference, entries, nil
+    self.breadcrumb.path = reference
     self.thumbnails:clear()
     self.children[reference] = entries
     self.selectedReference, self.fileScroll = nil, 0
@@ -152,7 +163,8 @@ function AssetBrowser:refresh()
     local opened, err = self:openFolder(self.folder)
     if not opened then
         self.entries = {}
-        if self.folder ~= "Assets" then self:openFolder("Assets") end
+        local root = self.folder:match("^[^/]+")
+        if self.folder ~= root then self:openFolder(root) end
         self.error = err
         self:rebuildTree()
     elseif selected then
@@ -164,7 +176,7 @@ function AssetBrowser:refresh()
 end
 
 function AssetBrowser:goUp()
-    if self.folder == "Assets" then return false end
+    if self.folder == "Assets" or self.folder == "Sources" then return false end
     return self:openFolder(self.folder:match("^(.*)/[^/]+$"))
 end
 
@@ -172,8 +184,9 @@ function AssetBrowser:clampScroll()
     local visible = math.max(1, math.floor((self.height - HEADER - 28) / ROW))
     self.treeScroll = math.floor(math.max(0, math.min(self.treeScroll, math.max(0, #self.tree - visible))))
     local fileRows = #self.entries
+    visible = math.max(1, math.floor((self.height - HEADER - BREADCRUMB - 28) / ROW))
     if self.viewMode == "thumbnails" then
-        visible = math.max(1, math.floor((self.height - HEADER - 36) / CARD_HEIGHT))
+        visible = math.max(1, math.floor((self.height - HEADER - BREADCRUMB - 36) / CARD_HEIGHT))
         fileRows = math.ceil(#self.entries / self:columns())
     end
     self.fileScroll = math.floor(math.max(0, math.min(self.fileScroll, math.max(0, fileRows - visible))))
@@ -183,7 +196,6 @@ function AssetBrowser:buttons()
     local function button(x, w) return { x = x, y = self.y + 8, w = w, h = 26 } end
     return {
         fold = button(self.x + 8, 32),
-        up = button(self.x + self.width - 154, 52),
         refresh = button(self.x + self.width - 94, 86)
     }
 end
@@ -198,15 +210,14 @@ function AssetBrowser:draw()
     love.graphics.line(self.x, self.y, self.x + self.width, self.y)
     local buttons = self:buttons()
     UI.button(self.collapsed and "+" or "-", buttons.fold)
-    UI.text(self.folder, self.x + 176, self.y + 14, math.max(0, self.width - 338))
-    UI.button("Up", buttons.up)
+    UI.text("Project Browser", self.x + 50, self.y + 14, math.max(0, self.width - 280))
     UI.button("Refresh", buttons.refresh)
     if not self.collapsed then
         local split = self.x + self:treeWidth()
         local top, contentHeight = self.y + HEADER, math.max(0, self.height - HEADER - 28)
         love.graphics.setColor(0.28, 0.30, 0.35, 1)
         love.graphics.line(split, top, split, self.y + self.height)
-        local status = self.error or self.selectedReference or "Double-click a folder to open it. Files are listed without importing."
+        local status = self.error or self.selectedReference or "Double-click a folder or level. Click the path to go to a parent."
         UI.text(status, self.x + 12, self.y + self.height - 21, self.width - 24,
             self.error and {1, 0.55, 0.5, 1} or nil)
     end
@@ -242,6 +253,9 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
         self.selectedReference = entry and entry.reference or nil
         if entry and entry.type == "directory" and not entry.isLink and (presses or 1) >= 2 then
             self:openFolder(entry.reference)
+        elseif entry and entry.type == "file" and not entry.isLink and (presses or 1) >= 2 and self.onOpenFile then
+            local opened, err = self.onOpenFile(entry.reference)
+            if opened == false then self.error = err end
         end
     end
 end
@@ -258,8 +272,15 @@ function AssetBrowser:drawTree()
                 love.graphics.setColor(0.18, 0.27, 0.38, 1)
                 love.graphics.rectangle("fill", view.x, rowY, view.width, ROW)
             end
-            UI.text((self.expanded[node.reference] and "- " or "+ ") .. node.name,
-                view.x + 10 + node.depth * 14, rowY + 5, view.width - 20 - node.depth * 14)
+            local arrowX, arrowY = view.x + 10 + node.depth * 14, rowY + ROW / 2
+            love.graphics.setColor(0.8, 0.84, 0.9, 1)
+            love.graphics.setLineWidth(1.5)
+            if self.expanded[node.reference] then
+                love.graphics.line(arrowX, arrowY - 2, arrowX + 4, arrowY + 2, arrowX + 8, arrowY - 2)
+            else
+                love.graphics.line(arrowX + 2, arrowY - 4, arrowX + 6, arrowY, arrowX + 2, arrowY + 4)
+            end
+            UI.text(node.name, view.x + 26 + node.depth * 14, rowY + 5, view.width - 36 - node.depth * 14)
         end
     end
     love.graphics.pop()

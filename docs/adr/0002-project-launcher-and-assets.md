@@ -4,6 +4,7 @@
 - 폴더 선택 UI 결정은 [ADR 0003](0003-native-folder-dialog.md)으로 대체
 - 프로젝트 초기 파일 구성은 [ADR 0005](0005-default-level-on-project-creation.md)로 확장
 - 에디터 UI 배치·입력과 에셋 보기는 [ADR 0006](0006-widget-canvas-and-asset-views.md)으로 확장
+- 탐색 루트와 초기 레벨 연결은 [ADR 0007](0007-sources-and-level-scripts.md)로 부분 대체
 - 날짜: 2026-10-08
 
 ## 배경과 제약

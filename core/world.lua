@@ -57,6 +57,11 @@ function World:update(dt)
         return false, validationError
     end
 
+    if self.levelScript and self.levelScript.update then
+        local ok, result, err = pcall(self.levelScript.update, self, dt)
+        if not ok or result == false then return false, "level script update failed: " .. tostring(ok and err or result) end
+    end
+
     -- World가 Runtime LObject lifecycle의 호출 순서를 소유한다.
     -- LObject:update()가 false를 명시적으로 반환한 경우만 실패로 취급한다.
     -- 일반적인 Lua callback처럼 nil을 반환하는 update는 정상 완료로 본다.
@@ -76,6 +81,19 @@ function World:update(dt)
     self.elapsedTime =
         self.elapsedTime + dt
 
+    return true
+end
+
+function World:setLevelScript(script)
+    if type(script) ~= "table" then return false, "level script must be a table" end
+    for _, name in ipairs({ "load", "update" }) do
+        if script[name] ~= nil and type(script[name]) ~= "function" then return false, "invalid level script callback: " .. name end
+    end
+    if script.load then
+        local ok, result, err = pcall(script.load, self)
+        if not ok or result == false then return false, "level script load failed: " .. tostring(ok and err or result) end
+    end
+    self.levelScript = script
     return true
 end
 

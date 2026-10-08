@@ -68,6 +68,7 @@ end
 
 Project.FILE_NAME = "project.labo"
 Project.DEFAULT_LEVEL_REFERENCE = "Assets/Levels/Default.level"
+Project.DEFAULT_SCRIPT_REFERENCE = "Sources/Levels/Default.lua"
 
 local function filesystem()
     return require("editor.host_filesystem")
@@ -102,8 +103,11 @@ function Project.create(parentPath, name)
     if existing then return nil, "Project folder already exists" end
     if existingError then return nil, existingError end
     local Json = require("editor.json")
-    local text = assert(Json.encode({ version = 1, name = name }, true)) .. "\n"
-    local levelText, encodeError = require("editor.level_file").encode(require("editor.level").new())
+    local text = assert(Json.encode({ version = 1, name = name,
+        defaultLevelReference = Project.DEFAULT_LEVEL_REFERENCE }, true)) .. "\n"
+    local level = require("editor.level").new()
+    assert(level:setScriptReference(Project.DEFAULT_SCRIPT_REFERENCE))
+    local levelText, encodeError = require("editor.level_file").encode(level)
     if not levelText then return nil, encodeError end
     local createdDirectories, createdFiles = {}, {}
     local function rollback(err)
@@ -113,12 +117,14 @@ function Project.create(parentPath, name)
         for i = #createdDirectories, 1, -1 do fs.removeDirectory(createdDirectories[i]) end
         return nil, err
     end
-    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Assets/Levels") }) do
+    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Assets/Levels"),
+        fs.join(root, "Sources"), fs.join(root, "Sources/Levels") }) do
         local created, err = fs.mkdir(directory)
         if not created then return rollback(err) end
         createdDirectories[#createdDirectories + 1] = directory
     end
     for _, file in ipairs({
+        { path = fs.join(root, Project.DEFAULT_SCRIPT_REFERENCE), text = require("editor.level_script_template") },
         { path = fs.join(root, Project.DEFAULT_LEVEL_REFERENCE), text = levelText },
         { path = fs.join(root, Project.FILE_NAME), text = text }
     }) do
@@ -149,6 +155,19 @@ function Project.open(rootPath)
     end
     local entries, listError = fs.list(fs.join(project.rootPath, "Assets"))
     if not entries then return nil, listError end
+    local sources, sourcesError = fs.info(fs.join(project.rootPath, "Sources"))
+    if sourcesError then return nil, sourcesError end
+    if sources and (sources.type ~= "directory" or sources.isLink) then
+        return nil, "Sources must be a regular folder"
+    end
+    if data.defaultLevelReference ~= nil then
+        if type(data.defaultLevelReference) ~= "string" or not data.defaultLevelReference:match("^Assets/.+%.level$") then
+            return nil, "defaultLevelReference must refer to an Assets/*.level file"
+        end
+        local validReference, referenceError = validateReference(data.defaultLevelReference)
+        if not validReference then return nil, referenceError end
+    end
+    project.defaultLevelReference = data.defaultLevelReference
     project.name = data.name
     return project
 end
@@ -158,16 +177,25 @@ function Project:listAssets(reference)
     if reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/" then
         return nil, "Asset folder must be inside Assets"
     end
+    return self:listDirectory(reference)
+end
+
+function Project:listDirectory(reference)
+    if type(reference) ~= "string" or (reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/"
+        and reference ~= "Sources" and reference:sub(1, 8) ~= "Sources/") then
+        return nil, "Folder must be inside Assets or Sources"
+    end
     local path, err = self:resolvePath(reference)
     if not path then return nil, err end
     local fs = filesystem()
     local current = self.rootPath
-    -- 각 segment를 검사하여 junction/symlink를 통한 Assets 밖 탐색을 막는다.
+    -- 각 segment를 검사하여 junction/symlink를 통한 프로젝트 밖 탐색을 막는다.
     for segment in reference:gmatch("[^/]+") do
         current = fs.join(current, segment)
         local info, infoError = fs.info(current)
+        if not info and not infoError and reference == "Sources" then return {} end
         if not info or info.type ~= "directory" or info.isLink then
-            return nil, infoError or "Asset folder is missing or is a filesystem link"
+            return nil, infoError or "Project folder is missing or is a filesystem link"
         end
     end
     local entries, listError = fs.list(path)
@@ -181,6 +209,19 @@ end
 function Project:resolveAssetFile(reference)
     if type(reference) ~= "string" or reference:sub(1, 7) ~= "Assets/" then
         return nil, "Asset file must be inside Assets"
+    end
+    return self:resolveProjectFile(reference)
+end
+
+function Project:resolveSourceFile(reference)
+    local valid, err = require("editor.level").isValidScriptReference(reference)
+    if reference == nil or not valid then return nil, err or "Source reference is required" end
+    return self:resolveProjectFile(reference)
+end
+
+function Project:resolveProjectFile(reference)
+    if type(reference) ~= "string" or (reference:sub(1, 7) ~= "Assets/" and reference:sub(1, 8) ~= "Sources/") then
+        return nil, "File must be inside Assets or Sources"
     end
     local path, err = self:resolvePath(reference)
     if not path then return nil, err end

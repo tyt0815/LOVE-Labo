@@ -3,6 +3,7 @@
 - 상태: 채택
 - 날짜: 2026-10-08
 - 확장: [ADR 0002](0002-project-launcher-and-assets.md)의 에디터 UI 배치·입력과 에셋 보기
+- 탐색 루트·경로 UI는 [ADR 0007](0007-sources-and-level-scripts.md)로 확장
 
 ## 배경과 제약
 

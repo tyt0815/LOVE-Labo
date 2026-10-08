@@ -63,7 +63,7 @@ end)
 add("project creation cleans its level and directories on file creation failure", function()
     fixture(function(parent)
         local original = FS.createFile
-        for _, target in ipairs({ Project.DEFAULT_LEVEL_REFERENCE, Project.FILE_NAME }) do
+        for _, target in ipairs({ Project.DEFAULT_SCRIPT_REFERENCE, Project.DEFAULT_LEVEL_REFERENCE, Project.FILE_NAME }) do
             FS.createFile = function(path, text)
                 if path == FS.join(parent, "Failed/" .. target) then return false, "simulated write failure" end
                 return original(path, text)
@@ -121,7 +121,7 @@ add("asset browser navigates folders refreshes changes and preserves state on fa
         assert(FS.mkdir(FS.join(assets, "Sprites")))
         assert(FS.createFile(FS.join(assets, "Sprites/a.png"), "a"))
         local browser = AssetBrowser.new(project)
-        Assert.equal(3, #browser.tree)
+        Assert.equal(5, #browser.tree)
         assert(browser:openFolder("Assets/Sprites"))
         browser.selectedReference = "Assets/Sprites/a.png"
         assert(FS.createFile(FS.join(assets, "Sprites/b.png"), "b"))
@@ -232,7 +232,7 @@ add("asset browser scrolls long lists and keeps fractional wheel input clickable
         browser:setViewMode("list")
         browser:wheelmoved(400, 450, -1.5)
         Assert.equal(4, browser.fileScroll)
-        browser:mousepressed(400, 445, 1, 1)
+        browser:mousepressed(400, browser.fileSlot.widget.y + 5, 1, 1)
         Assert.equal("Assets/Folder05", browser.selectedReference)
         browser:wheelmoved(20, 450, -100)
         Assert.truthy(browser.treeScroll > 0)
@@ -258,7 +258,7 @@ add("editor bottom Assets layout routes inputs without changing lobject selectio
         Assert.equal(height - browser.height, app.sceneView.viewportHeight)
         Assert.equal(false, app.hierarchy:containsPoint(10, browser.y + 40))
         Assert.equal(false, app.sceneView:containsPoint(400, browser.y + 40))
-        local fileX, fileY = browser:treeWidth() + 20, browser.y + 54
+        local fileX, fileY = browser:treeWidth() + 20, browser.fileSlot.widget.y + 16
         app:mousepressed(fileX, fileY, 1, 1)
         Assert.equal("Assets/Folder", browser.selectedReference)
         Assert.equal(object, app.sceneView.selectedLObject)
@@ -416,7 +416,7 @@ add("thumbnail grid hit testing scroll and resizing agree on entry positions", f
         for i = 1, 30 do assert(FS.createFile(FS.join(project.rootPath, string.format("Assets/File%02d.txt", i)), "data")) end
         local browser = AssetBrowser.new(project)
         browser:setBounds(0, 400, 700, 220)
-        local x, y = browser:treeWidth() + 20, browser.y + 54
+        local x, y = browser:treeWidth() + 20, browser.fileSlot.widget.y + 16
         Assert.equal("Assets/Levels", browser:getEntryAtPosition(x, y).reference)
         Assert.equal("Assets/File01.txt", browser:getEntryAtPosition(x + 112, y).reference)
         browser:wheelmoved(x, y, -1)
@@ -510,6 +510,174 @@ add("editor shared borders resize panels with pointer capture and preserve cente
         local x, y = app.sceneView:worldToScreen(0, 0)
         Assert.equal(app.sceneView.viewportX + app.sceneView.viewportWidth / 2, x)
         Assert.equal(app.sceneView.viewportHeight / 2, y)
+    end)
+end)
+
+add("browser separates Assets and Sources and breadcrumb navigates without Up button", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "Navigation"))
+        assert(FS.mkdir(FS.join(project.rootPath, "Sources/Levels/Extra")))
+        local app = EditorApp.new(nil, project)
+        local browser = app.assetBrowser
+        local found = {}
+        for _, node in ipairs(browser.tree) do found[node.reference] = true end
+        Assert.truthy(found.Assets and found.Sources and found["Sources/Levels"])
+        Assert.equal(nil, browser:buttons().up)
+        Assert.equal(browser.x + browser.width - 218, browser.viewDropdown.x)
+        Assert.truthy(browser.viewDropdown.x + browser.viewDropdown.width < browser:buttons().refresh.x)
+        assert(browser:openFolder("Sources/Levels/Extra"))
+        Assert.equal("Sources/Levels/Extra", browser.breadcrumb.path)
+        local items = browser.breadcrumb:items()
+        app:mousepressed(items[2].x + 4, items[2].y + 4, 1)
+        Assert.equal("Sources/Levels", browser.folder)
+        items = browser.breadcrumb:items()
+        app:mousepressed(items[1].x + 4, items[1].y + 4, 1)
+        Assert.equal("Sources", browser.folder)
+        Assert.equal(false, browser:goUp())
+        assert(browser:openFolder("Sources/Levels"))
+        Assert.equal(Project.DEFAULT_SCRIPT_REFERENCE, browser.entries[2].reference)
+        for _, reference in ipairs({ "Sources/../Assets", "Sources//Levels", "Other", "Sources/Levels/../../Other" }) do
+            Assert.equal(nil, project:listDirectory(reference))
+        end
+    end)
+end)
+
+add("legacy projects keep working without Sources or script metadata", function()
+    fixture(function(parent)
+        assert(FS.mkdir(FS.join(parent, "Assets")))
+        assert(FS.createFile(FS.join(parent, Project.FILE_NAME), '{"version":1,"name":"Legacy"}'))
+        local project = assert(Project.open(parent))
+        local app = EditorApp.new(nil, project)
+        assert(app.assetBrowser:openFolder("Sources"))
+        Assert.equal(0, #app.assetBrowser.entries)
+        Assert.equal(nil, FS.info(FS.join(parent, "Sources")))
+        Assert.equal(nil, app.level.scriptReference)
+        Assert.equal(nil, app.document.path)
+        assert(app:startPlay())
+        assert(app:update(0.5))
+        assert(app:stopPlay())
+    end)
+end)
+
+add("default level links source script and runs only on independent runtime world", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "스크립트 테스트"))
+        local app = EditorApp.new(nil, project)
+        Assert.equal(Project.DEFAULT_LEVEL_REFERENCE, app.documentReference)
+        Assert.equal(Project.DEFAULT_SCRIPT_REFERENCE, app.level.scriptReference)
+        Assert.equal(false, app.document:isDirty())
+        local sourcePath = assert(project:resolveSourceFile(Project.DEFAULT_SCRIPT_REFERENCE))
+        assert(FS.removeFile(sourcePath))
+        assert(FS.createFile(sourcePath, [[local Level = {}
+local calls = 0
+function Level.load(world)
+    world:addLObject({transform = {x = 10, y = 20}})
+end
+function Level.update(world, dt)
+    calls = calls + 1
+    world.calls = calls
+    world.lobjects[1].transform.x = world.lobjects[1].transform.x + dt * 10
+end
+return Level
+]]))
+        assert(app:startPlay())
+        Assert.equal(1, #app.runtimeWorld.lobjects)
+        assert(app:update(0.5))
+        Assert.equal(15, app.runtimeWorld.lobjects[1].transform.x)
+        Assert.equal(0, #app.level.lobjects)
+        Assert.equal(false, app.document:isDirty())
+        Assert.equal(1, app.runtimeWorld.calls)
+        assert(app:stopPlay())
+        assert(app:startPlay())
+        assert(app:update(0.1))
+        Assert.equal(1, app.runtimeWorld.calls)
+        assert(app:stopPlay())
+        app.level:addLObject(30, 40)
+        assert(app:saveCurrentDocument())
+        local loaded = assert(require("editor.level_file").load(app.document.path))
+        Assert.equal(Project.DEFAULT_SCRIPT_REFERENCE, loaded.scriptReference)
+        Assert.equal(1, #loaded.lobjects)
+        assert(app:saveCurrentDocument())
+        Assert.equal(nil, FS.info(app.document.path .. ".tmp"))
+        Assert.equal(nil, FS.info(app.document.path .. ".bak"))
+    end)
+end)
+
+add("script load update and path failures are contained in the editor", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "Failures"))
+        local app = EditorApp.new(nil, project)
+        local sourcePath = assert(project:resolveSourceFile(Project.DEFAULT_SCRIPT_REFERENCE))
+        for _, source in ipairs({ "not valid Lua", "error('chunk failure')", "return 42", "return {load = 42}",
+            "return {load = function() error('load failure') end}",
+            "return setmetatable({}, {__index = function() error('property failure') end})" }) do
+            assert(FS.removeFile(sourcePath))
+            assert(FS.createFile(sourcePath, source))
+            local playing, err = app:startPlay()
+            Assert.equal(false, playing)
+            Assert.truthy(err)
+            Assert.equal(nil, app.runtimeWorld)
+            Assert.truthy(app.runtimeError)
+        end
+        assert(FS.removeFile(sourcePath))
+        assert(FS.createFile(sourcePath, "return {update = function() error('update failure') end}"))
+        assert(app:startPlay())
+        Assert.equal(false, app:update(0.1))
+        Assert.equal(nil, app.runtimeWorld)
+        Assert.truthy(app.runtimeError:find("update failure", 1, true))
+        assert(FS.removeFile(sourcePath))
+        Assert.equal(false, app:startPlay())
+        for _, reference in ipairs({ "Assets/x.lua", "Sources/../outside.lua", "Sources//x.lua", "Sources/x.txt", "C:/x.lua" }) do
+            Assert.equal(false, app.level:setScriptReference(reference))
+            Assert.equal(nil, project:resolveSourceFile(reference))
+        end
+        local original = FS.info
+        FS.info = function(path)
+            if path == FS.join(project.rootPath, "Sources") then return { type = "directory", isLink = true } end
+            return original(path)
+        end
+        local ok, path = pcall(project.resolveSourceFile, project, Project.DEFAULT_SCRIPT_REFERENCE)
+        FS.info = original
+        Assert.truthy(ok)
+        Assert.equal(nil, path)
+    end)
+end)
+
+add("level JSON preserves script references and rejects invalid references", function()
+    local LevelFile = require("editor.level_file")
+    local Level = require("editor.level")
+    local level = Level.new()
+    assert(level:setScriptReference(Project.DEFAULT_SCRIPT_REFERENCE))
+    local loaded = assert(LevelFile.decode(assert(LevelFile.encode(level))))
+    Assert.equal(Project.DEFAULT_SCRIPT_REFERENCE, loaded.scriptReference)
+    Assert.equal(nil, LevelFile.decode('{"formatVersion":1,"lobjects":[],"scriptReference":"Sources/../bad.lua"}'))
+    level.scriptReference = "Sources//bad.lua"
+    Assert.equal(nil, LevelFile.encode(level))
+    local legacy = assert(LevelFile.decode('{"formatVersion":1,"lobjects":[]}'))
+    Assert.equal(nil, legacy.scriptReference)
+end)
+
+add("failed Unicode level replacement restores existing file", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "저장 복구"))
+        local LevelFile = require("editor.level_file")
+        local path = assert(project:resolveAssetFile(Project.DEFAULT_LEVEL_REFERENCE))
+        local before = assert(FS.read(path))
+        local level = assert(LevelFile.load(path))
+        level:addLObject(10, 20)
+        local original = FS.rename
+        FS.rename = function(source, target)
+            if source == path .. ".tmp" then return false, "simulated replacement failure" end
+            return original(source, target)
+        end
+        local ok, saved, err = pcall(LevelFile.save, path, level)
+        FS.rename = original
+        Assert.truthy(ok)
+        Assert.equal(false, saved)
+        Assert.truthy(err)
+        Assert.equal(before, assert(FS.read(path)))
+        Assert.equal(nil, FS.info(path .. ".tmp"))
+        Assert.equal(nil, FS.info(path .. ".bak"))
     end)
 end)
 
