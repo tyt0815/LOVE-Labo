@@ -47,7 +47,7 @@ function UI.contains(x, y, rect)
     return x >= rect.x and y >= rect.y and x < rect.x + rect.w and y < rect.y + rect.h
 end
 
-function UI.text(text, x, y, width, color, bold)
+function UI.text(text, x, y, width, color, bold, alignment)
     local previousFont = love.graphics.getFont()
     if bold then love.graphics.setFont(Fonts.boldFor(previousFont)) end
     love.graphics.setColor(unpack(color or Theme.color("text")))
@@ -61,6 +61,9 @@ function UI.text(text, x, y, width, color, bold)
             end
             text = table.concat(chars) .. "..."
         end
+    end
+    if width and alignment == "center" then
+        x = x + (width - love.graphics.getFont():getWidth(text)) / 2
     end
     love.graphics.print(text, x, y)
     if bold then love.graphics.setFont(previousFont) end
@@ -86,7 +89,8 @@ function UI.button(label, rect, active, hint, flat)
         love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 4, 4)
     end
     local padding = math.min(10, math.max(4, math.floor(rect.w * 0.2)))
-    UI.text(label, rect.x + padding, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, rect.w - padding * 2)
+    UI.text(label, rect.x + padding, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2,
+        math.max(0, rect.w - padding * 2), nil, false, "center")
 end
 
 function UI.field(text, rect, focused)
