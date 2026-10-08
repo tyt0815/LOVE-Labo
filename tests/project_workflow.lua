@@ -168,7 +168,7 @@ add("project start native Browse applies selection and preserves path on cancel 
     fixture(function(parent)
         local chosen = FS.join(parent, "한글 폴더")
         assert(FS.mkdir(chosen))
-        local nextPath, nextError, receivedPath, receivedTitle = chosen
+        local nextPath, nextError, receivedPath, receivedTitle = (chosen:gsub("/", "\\"))
         local projectStart = ProjectStart.new(function() return true end, function(path, title)
             receivedPath, receivedTitle = path, title
             return nextPath, nextError
@@ -200,6 +200,19 @@ add("project start native Browse applies selection and preserves path on cancel 
         Assert.equal("테스", projectStart.name)
         projectStart:textinput("트")
         Assert.equal("테스트", projectStart.name)
+        projectStart.activeField, projectStart.replace = "path", true
+        projectStart:textinput("C:\\Projects\\테스트")
+        Assert.equal("C:/Projects/테스트", projectStart.path)
+        projectStart:textinput("\\Assets")
+        Assert.equal("C:/Projects/테스트/Assets", projectStart.path)
+        local originalIsDown, originalClipboard = love.keyboard.isDown, love.system.getClipboardText
+        love.keyboard.isDown = function() return true end
+        love.system.getClipboardText = function() return "D:\\붙여넣기\\Project" end
+        projectStart.replace = true
+        local ok, err = pcall(projectStart.keypressed, projectStart, "v")
+        love.keyboard.isDown, love.system.getClipboardText = originalIsDown, originalClipboard
+        if not ok then error(err, 0) end
+        Assert.equal("D:/붙여넣기/Project", projectStart.path)
     end)
 end)
 
@@ -287,6 +300,7 @@ add("startup without project option keeps project start screen", function()
     local startup = require("editor.startup")
     local projectStart = ProjectStart.new(function() error("unexpected open") end)
     local path = projectStart.path
+    Assert.equal(nil, path:find("\\", 1, true))
     Assert.equal(false, startup.openRequestedProject({}, projectStart, "C:/Workspace"))
     Assert.equal("create", projectStart.mode)
     Assert.equal(path, projectStart.path)

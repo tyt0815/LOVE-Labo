@@ -9,11 +9,18 @@ ProjectStart.__index = ProjectStart
 local function rect(x, y, w, h) return { x = x, y = y, w = w, h = h } end
 
 function ProjectStart.new(onOpen, selectFolder)
-    return setmetatable({
+    local self = setmetatable({
         onOpen = onOpen, mode = "create", name = "New Project",
-        path = love.filesystem.getUserDirectory(), activeField = "name",
+        path = "", activeField = "name",
         replace = true, error = nil, selectFolder = selectFolder or FolderDialog.selectFolder
     }, ProjectStart)
+    self:setPath(love.filesystem.getUserDirectory())
+    return self
+end
+
+function ProjectStart:setPath(path)
+    -- 입력 출처와 OS에 관계없이 시작 화면의 경로 표기는 '/'로 통일한다.
+    self.path = path:gsub("\\", "/")
 end
 
 function ProjectStart:layout()
@@ -33,6 +40,7 @@ function ProjectStart:layout()
 end
 
 function ProjectStart:submit()
+    self:setPath(self.path)
     -- 경로/파일 오류는 프로젝트 시작 화면에 남겨, 실패 시 반쯤 열린 에디터를 만들지 않는다.
     local ok, project, err = pcall(function()
         if self.mode == "create" then return Project.create(self.path, self.name) end
@@ -51,7 +59,7 @@ function ProjectStart:browse()
     local ok, path, err = pcall(self.selectFolder, self.path, title)
     if not ok then self.error = tostring(path); return end
     if err then self.error = err; return end
-    if path then self.path = path; self.error = nil end
+    if path then self:setPath(path); self.error = nil end
     self.activeField, self.replace = "path", true
 end
 
@@ -101,6 +109,7 @@ end
 function ProjectStart:textinput(text)
     if not self.activeField then return end
     self[self.activeField] = (self.replace and "" or self[self.activeField]) .. text
+    if self.activeField == "path" then self:setPath(self.path) end
     self.replace = false
 end
 
@@ -116,6 +125,7 @@ function ProjectStart:keypressed(key)
     end
     if self.activeField then
         self[self.activeField], self.replace = UI.editKey(self[self.activeField], key, self.replace)
+        if self.activeField == "path" then self:setPath(self.path) end
     end
 end
 

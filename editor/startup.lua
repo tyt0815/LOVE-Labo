@@ -24,7 +24,8 @@ function Startup.openRequestedProject(args, projectStart, workingDirectory)
     if path:sub(1, 1) ~= "/" and not path:match("^%a:/") then
         path = require("editor.host_filesystem").join(workingDirectory, path)
     end
-    projectStart.mode, projectStart.path = "open", path
+    projectStart.mode = "open"
+    projectStart:setPath(path)
     projectStart.activeField, projectStart.replace = "path", true
     -- 시작 화면의 검증과 오류 처리를 재사용해 수동 열기와 같은 동작을 보장한다.
     return projectStart:submit()

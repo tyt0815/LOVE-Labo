@@ -79,7 +79,7 @@ end
 function love.directorydropped(path)
     if app and app.mode then
         app.mode = "open"
-        app.path = path
+        app:setPath(path)
         app.activeField = "path"
         app.replace = true
         app.error = nil
