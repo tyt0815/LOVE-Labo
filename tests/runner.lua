@@ -3,6 +3,48 @@ local Assert = require("tests.assert")
 local tests = {}
 
 tests[#tests + 1] = {
+    name = "viewport origin stays centered after resize",
+
+    fn = function()
+        local SceneView = require("editor.scene_view")
+        local GameView = require("editor.game_view")
+        local sceneView = SceneView.new(32)
+        local gameView = GameView.new()
+
+        for _, view in ipairs({ sceneView, gameView }) do
+            local width, height = love.graphics.getDimensions()
+            local x, y = view:worldToScreen(0, 0)
+            Assert.equal(width / 2, x)
+            Assert.equal(height / 2, y)
+
+            view:setViewport(220, 30, 540, 600)
+            x, y = view:worldToScreen(0, 0)
+            Assert.equal(490, x)
+            Assert.equal(330, y)
+
+            view:setViewport(180, 50, 800, 400)
+            x, y = view:worldToScreen(0, 0)
+            Assert.equal(580, x)
+            Assert.equal(250, y)
+        end
+
+        local x, y = sceneView:screenToWorld(180, 50)
+        Assert.equal(-400, x)
+        Assert.equal(-200, y)
+        sceneView.level = require("editor.level").new()
+        sceneView:keypressed("a", false, 580, 250)
+        Assert.equal(0, sceneView.selectedLObject.transform.x)
+        Assert.equal(0, sceneView.selectedLObject.transform.y)
+        sceneView.cameraX = 25
+        sceneView.cameraY = -40
+        sceneView:setViewport(100, 20, 640, 480)
+        x, y = sceneView:worldToScreen(0, 0)
+        Assert.equal(445, x)
+        Assert.equal(220, y)
+    end
+}
+
+tests[#tests + 1] = {
     name = "editor app module loads",
 
     fn = function()
@@ -19,19 +61,19 @@ tests[#tests + 1] = {
     fn = function()
         local SceneView = require("editor.scene_view")
         local sceneView = SceneView.new(32)
+        sceneView:setViewport(0, 0, 100, 70)
 
         local vertical, horizontal = sceneView:getGridLines(100, 70)
 
-        Assert.equal(4, #vertical)
-        Assert.equal(0, vertical[1])
-        Assert.equal(32, vertical[2])
-        Assert.equal(64, vertical[3])
-        Assert.equal(96, vertical[4])
+        Assert.equal(3, #vertical)
+        Assert.equal(18, vertical[1])
+        Assert.equal(50, vertical[2])
+        Assert.equal(82, vertical[3])
 
         Assert.equal(3, #horizontal)
-        Assert.equal(0, horizontal[1])
-        Assert.equal(32, horizontal[2])
-        Assert.equal(64, horizontal[3])
+        Assert.equal(3, horizontal[1])
+        Assert.equal(35, horizontal[2])
+        Assert.equal(67, horizontal[3])
     end
 }
 
@@ -41,8 +83,9 @@ tests[#tests + 1] = {
     fn = function()
         local SceneView = require("editor.scene_view")
         local sceneView = SceneView.new(32)
+        sceneView:setViewport(0, 0, 100, 70)
 
-        sceneView:mousepressed(100, 100, 3)
+        sceneView:mousepressed(50, 35, 3)
         sceneView:mousemoved(110, 105, 10, 5)
 
         Assert.equal(10, sceneView.cameraX)
@@ -51,14 +94,13 @@ tests[#tests + 1] = {
         local vertical, horizontal = sceneView:getGridLines(100, 70)
 
         Assert.equal(3, #vertical)
-        Assert.equal(10, vertical[1])
-        Assert.equal(42, vertical[2])
-        Assert.equal(74, vertical[3])
+        Assert.equal(28, vertical[1])
+        Assert.equal(60, vertical[2])
+        Assert.equal(92, vertical[3])
 
-        Assert.equal(3, #horizontal)
-        Assert.equal(5, horizontal[1])
-        Assert.equal(37, horizontal[2])
-        Assert.equal(69, horizontal[3])
+        Assert.equal(2, #horizontal)
+        Assert.equal(8, horizontal[1])
+        Assert.equal(40, horizontal[2])
 
         sceneView:mousereleased(110, 105, 3)
         sceneView:mousemoved(120, 115, 10, 10)
@@ -74,21 +116,21 @@ tests[#tests + 1] = {
     fn = function()
         local SceneView = require("editor.scene_view")
         local sceneView = SceneView.new(32)
+        sceneView:setViewport(0, 0, 100, 70)
 
-        sceneView:zoomAtScreenPosition(0, 0, 1)
+        sceneView:zoomAtScreenPosition(50, 35, 1)
 
         Assert.equal(1.25, sceneView.zoom)
 
         local vertical, horizontal = sceneView:getGridLines(100, 70)
 
         Assert.equal(3, #vertical)
-        Assert.equal(0, vertical[1])
-        Assert.equal(40, vertical[2])
-        Assert.equal(80, vertical[3])
+        Assert.equal(10, vertical[1])
+        Assert.equal(50, vertical[2])
+        Assert.equal(90, vertical[3])
 
-        Assert.equal(2, #horizontal)
-        Assert.equal(0, horizontal[1])
-        Assert.equal(40, horizontal[2])
+        Assert.equal(1, #horizontal)
+        Assert.equal(35, horizontal[1])
     end
 }
 
@@ -114,12 +156,13 @@ tests[#tests + 1] = {
         local SceneView = require("editor.scene_view")
         local sceneView = SceneView.new(32)
 
+        sceneView:setViewport(20, 30, 200, 160)
         sceneView.cameraX = 10
         sceneView.cameraY = 20
         sceneView.zoom = 1
 
-        local cursorX = 110
-        local cursorY = 70
+        local cursorX = 230
+        local cursorY = 180
 
         local worldXBefore, worldYBefore =
             sceneView:screenToWorld(cursorX, cursorY)
@@ -145,6 +188,7 @@ tests[#tests + 1] = {
     fn = function()
         local SceneView = require("editor.scene_view")
         local sceneView = SceneView.new(32)
+        local width, height = love.graphics.getDimensions()
 
         sceneView.cameraX = 10
         sceneView.cameraY = 20
@@ -152,8 +196,8 @@ tests[#tests + 1] = {
 
         local screenX, screenY = sceneView:worldToScreen(15, 25)
 
-        Assert.equal(40, screenX)
-        Assert.equal(70, screenY)
+        Assert.equal(width / 2 + 40, screenX)
+        Assert.equal(height / 2 + 70, screenY)
 
         local worldX, worldY = sceneView:screenToWorld(screenX, screenY)
 
@@ -168,6 +212,7 @@ tests[#tests + 1] = {
     fn = function()
         local SceneView = require("editor.scene_view")
         local sceneView = SceneView.new(32)
+        local width, height = love.graphics.getDimensions()
 
         sceneView.cameraX = 50
         sceneView.cameraY = 30
@@ -175,8 +220,8 @@ tests[#tests + 1] = {
 
         local originX, originY = sceneView:worldToScreen(0, 0)
 
-        Assert.equal(50, originX)
-        Assert.equal(30, originY)
+        Assert.equal(width / 2 + 50, originX)
+        Assert.equal(height / 2 + 30, originY)
     end
 }
 
@@ -209,9 +254,8 @@ tests[#tests + 1] = {
         sceneView.cameraY = 20
         sceneView.zoom = 2
 
-        -- Screen (50, 80)은 현재 camera/zoom 기준으로
-        -- World (20, 30)에 해당한다.
-        sceneView:keypressed("a", false, 50, 80)
+        local x, y = sceneView:worldToScreen(20, 30)
+        sceneView:keypressed("a", false, x, y)
 
         Assert.equal(1, #level.lobjects)
         Assert.equal(20, level.lobjects[1].transform.x)
@@ -270,9 +314,8 @@ tests[#tests + 1] = {
 
         local sceneView = SceneView.new(32, level)
 
-        -- 현재 zoom/camera 기본값에서는
-        -- World (20, 30) == Screen (20, 30)이다.
-        sceneView:mousepressed(20, 30, 1)
+        local x, y = sceneView:worldToScreen(20, 30)
+        sceneView:mousepressed(x, y, 1)
 
         Assert.equal(1, #level.lobjects)
         Assert.equal(existingLObject, sceneView.selectedLObject)
@@ -291,8 +334,8 @@ tests[#tests + 1] = {
 
         local sceneView = SceneView.new(32, level)
 
-        -- LObject를 눌러 선택 + drag 시작.
-        sceneView:mousepressed(20, 30, 1)
+        local x, y = sceneView:worldToScreen(20, 30)
+        sceneView:mousepressed(x, y, 1)
 
         -- Screen 기준으로 (10, 5)만큼 이동.
         sceneView:mousemoved(30, 35, 10, 5)
@@ -317,8 +360,8 @@ tests[#tests + 1] = {
         local sceneView = SceneView.new(32, level)
         sceneView.zoom = 2
 
-        -- World (20, 30)은 zoom 2 기준으로 Screen (40, 60).
-        sceneView:mousepressed(40, 60, 1)
+        local x, y = sceneView:worldToScreen(20, 30)
+        sceneView:mousepressed(x, y, 1)
 
         -- Screen에서 10px 이동하면 World에서는 5만 이동해야 한다.
         sceneView:mousemoved(50, 70, 10, 10)
@@ -417,10 +460,8 @@ tests[#tests + 1] = {
         sceneView.cameraY = 20
         sceneView.zoom = 2
 
-        -- Screen (110, 70)
-        -- → World ((110 - 10) / 2, (70 - 20) / 2)
-        -- → World (50, 25)
-        sceneView:keypressed("d", true, 110, 70)
+        local x, y = sceneView:worldToScreen(50, 25)
+        sceneView:keypressed("d", true, x, y)
 
         Assert.equal(2, #level.lobjects)
 
@@ -632,11 +673,11 @@ tests[#tests + 1] = {
 
         local screenX, screenY = sceneView:worldToScreen(15, 25)
 
-        -- 220 + 10 + 15 * 2 = 260
-        Assert.equal(260, screenX)
+        -- 220 + 540 / 2 + 10 + 15 * 2 = 530
+        Assert.equal(530, screenX)
 
-        -- 0 + 20 + 25 * 2 = 70
-        Assert.equal(70, screenY)
+        -- 600 / 2 + 20 + 25 * 2 = 370
+        Assert.equal(370, screenY)
 
         local worldX, worldY = sceneView:screenToWorld(screenX, screenY)
 
@@ -2199,8 +2240,8 @@ tests[#tests + 1] = {
                 75
             )
 
-        Assert.equal(250, screenX)
-        Assert.equal(105, screenY)
+        Assert.equal(570, screenX)
+        Assert.equal(345, screenY)
     end
 }
 

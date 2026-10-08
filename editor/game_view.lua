@@ -39,10 +39,11 @@ end
 
 function GameView:worldToScreen(x, y)
     -- 아직 Runtime Camera가 없으므로 world origin을
-    -- Game View viewport의 좌상단에 1:1로 대응시킨다.
+    -- Game View viewport의 중앙에 1:1로 대응시킨다.
     -- Scene View의 editor camera/zoom은 Runtime에 공유하지 않는다.
-    return self.viewportX + x,
-        self.viewportY + y
+    local viewportX, viewportY, width, height = self:getViewport()
+    return viewportX + width * 0.5 + x,
+        viewportY + height * 0.5 + y
 end
 
 function GameView:drawRuntimeLObjects(world)

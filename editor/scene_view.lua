@@ -31,7 +31,7 @@ function SceneView.new(gridSize, level)
     self.gridSize = gridSize or DEFAULT_GRID_SIZE
     self.level = level
 
-    -- camera offset은 Scene View viewport 내부 screen-space 기준이다.
+    -- camera offset은 Scene View viewport 중앙 기준의 screen-space 이동량이다.
     -- Editor panel의 위치와 camera를 섞지 않기 위해 viewport 위치는 별도로 관리한다.
     self.cameraX = 0
     self.cameraY = 0
@@ -83,15 +83,17 @@ function SceneView:containsPoint(x, y)
 end
 
 function SceneView:worldToScreen(x, y)
-    local screenX = self.viewportX + self.cameraX + x * self.zoom
-    local screenY = self.viewportY + self.cameraY + y * self.zoom
+    local viewportX, viewportY, width, height = self:getViewport()
+    local screenX = viewportX + width * 0.5 + self.cameraX + x * self.zoom
+    local screenY = viewportY + height * 0.5 + self.cameraY + y * self.zoom
 
     return screenX, screenY
 end
 
 function SceneView:screenToWorld(x, y)
-    local worldX = (x - self.viewportX - self.cameraX) / self.zoom
-    local worldY = (y - self.viewportY - self.cameraY) / self.zoom
+    local originX, originY = self:worldToScreen(0, 0)
+    local worldX = (x - originX) / self.zoom
+    local worldY = (y - originY) / self.zoom
 
     return worldX, worldY
 end
@@ -105,11 +107,11 @@ function SceneView:getGridLines(width, height)
     local horizontal = {}
 
     local spacing = self.gridSize * self.zoom
-    local startX = self.viewportX
-    local startY = self.viewportY
+    local startX, startY = self:getViewport()
+    local originX, originY = self:worldToScreen(0, 0)
 
-    local firstX = startX + getFirstGridLine(self.cameraX, spacing)
-    local firstY = startY + getFirstGridLine(self.cameraY, spacing)
+    local firstX = startX + getFirstGridLine(originX - startX, spacing)
+    local firstY = startY + getFirstGridLine(originY - startY, spacing)
 
     local endX = startX + width
     local endY = startY + height
@@ -214,13 +216,12 @@ function SceneView:frameSelected()
         return false
     end
 
-    local _, _, width, height = self:getViewport()
     local transform = self.selectedLObject.transform
 
     -- 선택된 LObject의 world 위치가 현재 Scene View 정중앙에 오도록
     -- viewport 위치와 독립적인 camera offset만 조정한다.
-    self.cameraX = width * 0.5 - transform.x * self.zoom
-    self.cameraY = height * 0.5 - transform.y * self.zoom
+    self.cameraX = -transform.x * self.zoom
+    self.cameraY = -transform.y * self.zoom
 
     return true
 end
@@ -300,9 +301,10 @@ function SceneView:zoomAtScreenPosition(screenX, screenY, wheelY)
 
     self.zoom = newZoom
 
-    -- viewport 위치는 camera offset과 별도이므로 다시 빼준다.
-    self.cameraX = screenX - self.viewportX - worldX * self.zoom
-    self.cameraY = screenY - self.viewportY - worldY * self.zoom
+    -- 확대 전후 커서 아래의 world 좌표가 같도록 중앙 기준 이동량을 보정한다.
+    local viewportX, viewportY, width, height = self:getViewport()
+    self.cameraX = screenX - viewportX - width * 0.5 - worldX * self.zoom
+    self.cameraY = screenY - viewportY - height * 0.5 - worldY * self.zoom
 end
 
 function SceneView:wheelmoved(x, y)
