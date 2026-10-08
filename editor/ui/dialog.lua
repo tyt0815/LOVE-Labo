@@ -13,8 +13,8 @@ function Dialog.new(root, options)
     self.box = { x = math.max(0, (width - 460) / 2), y = math.max(0, (height - dialogHeight) / 2), w = 460, h = dialogHeight }
     local box = self.box
     self.field = { x = box.x + 16, y = box.y + 76, w = box.w - 32, h = 32 }
-    self.cancel = { x = box.x + box.w - 206, y = box.y + box.h - 46, w = 90, h = 30 }
-    self.confirm = { x = box.x + box.w - 106, y = box.y + box.h - 46, w = 90, h = 30 }
+    self.cancel = { x = box.x + box.w - 106, y = box.y + box.h - 46, w = 90, h = 30 }
+    self.confirm = { x = box.x + box.w - 206, y = box.y + box.h - 46, w = 90, h = 30 }
     self.choicesRect = { x = box.x + 16, y = box.y + 140, w = box.w - 32, h = 150 }
     self.selected, self.choiceScroll = options.choices and #options.choices > 0 and 1 or nil, 0
     root:setPopup(self)
