@@ -60,4 +60,10 @@ function Panel:draw()
     love.graphics.pop()
 end
 
+function Panel:update(dt)
+    if not self.visible then return end
+    Widget.update(self, dt)
+    for _, slot in ipairs(self.slots) do slot.widget:update(dt) end
+end
+
 return Panel

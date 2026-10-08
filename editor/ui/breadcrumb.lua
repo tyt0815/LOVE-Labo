@@ -6,7 +6,22 @@ Breadcrumb.__index = Breadcrumb
 function Breadcrumb.new(onSelect)
     local self = setmetatable(Widget.new(), Breadcrumb)
     self.path, self.onSelect = "Assets", onSelect
+    self.hover = {}
     return self
+end
+
+function Breadcrumb:update(dt)
+    local x, y = love.mouse.getPosition()
+    local inside = self.visible and self.enabled and self:containsPoint(x, y)
+    local hover = {}
+    for _, item in ipairs(self:items()) do
+        local target = inside and UI.contains(x, y, item) and 1 or 0
+        local amount = self.hover[item.reference] or 0
+        -- 프레임 수가 아닌 경과 시간으로 보간해 배경이 부드럽게 나타나고 사라지게 한다.
+        local rate = 1 - math.exp(-(target == 1 and 18 or 14) * dt)
+        hover[item.reference] = amount + (target - amount) * rate
+    end
+    self.hover = hover
 end
 
 function Breadcrumb:items()
@@ -29,7 +44,14 @@ function Breadcrumb:draw()
     love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
     for i, item in ipairs(self:items()) do
         if i > 1 then UI.text("/", item.x - 12, self.y + 7) end
-        UI.button(item.label, item, item.reference == self.path)
+        local amount = self.hover[item.reference] or 0
+        if amount > 0.005 then
+            love.graphics.setColor(0.24, 0.30, 0.39, amount * 0.85)
+            love.graphics.rectangle("fill", item.x, item.y, item.w, item.h, 4, 4)
+        end
+        local font = love.graphics.getFont()
+        UI.text(item.label, item.x + 10, item.y + (item.h - font:getHeight()) / 2,
+            item.w - 20, { 0.78 + amount * 0.15, 0.82 + amount * 0.13, 0.88 + amount * 0.1, 1 })
     end
     love.graphics.pop()
 end

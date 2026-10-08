@@ -292,22 +292,27 @@ function AssetBrowser:drawIcon(entry, x, y)
         love.graphics.rectangle("fill", x + 13, y + 19, 28, 13, 3, 3)
         love.graphics.setColor(0.90, 0.72, 0.34, 1)
         love.graphics.rectangle("fill", x + 13, y + 29, 62, 42, 4, 4)
-    elseif not entry.isLink and entry.name:lower():match("%.level$") then
+    else
         love.graphics.push("all")
         love.graphics.setColor(0.24, 0.35, 0.55, 1)
         love.graphics.rectangle("fill", x + 12, y + 12, 64, 64, 6, 6)
         love.graphics.setColor(0.45, 0.61, 0.82, 1)
         love.graphics.rectangle("line", x + 12.5, y + 12.5, 63, 63, 6, 6)
-        self.levelIconFont = self.levelIconFont or love.graphics.newFont(26)
-        love.graphics.setFont(self.levelIconFont)
+        self.fileIconFont = self.fileIconFont or love.graphics.newFont(26)
+        local extension = (entry.name:match("%.([^%.]+)$") or "File"):lower()
+        local label = entry.isLink and "Link" or extension == "level" and "Lv"
+            or extension == "lua" and "Lua" or extension == "file" and "File" or extension:upper()
+        love.graphics.setFont(self.fileIconFont)
         love.graphics.setColor(0.94, 0.97, 1, 1)
-        love.graphics.printf("Lv", x + 12, y + 44 - self.levelIconFont:getHeight() / 2, 64, "center")
+        local font = self.fileIconFont
+        if font:getWidth(label) > 52 then
+            self.smallFileIconFont = self.smallFileIconFont or love.graphics.newFont(16)
+            font = self.smallFileIconFont
+            love.graphics.setFont(font)
+        end
+        UI.text(label, x + 44 - math.min(font:getWidth(label), 52) / 2,
+            y + 44 - font:getHeight() / 2, 52, { 0.94, 0.97, 1, 1 })
         love.graphics.pop()
-    else
-        love.graphics.setColor(0.46, 0.56, 0.69, 1)
-        love.graphics.rectangle("fill", x + 23, y + 12, 42, 62, 4, 4)
-        local extension = entry.isLink and "LINK" or (entry.name:match("%.([^%.]+)$") or "FILE"):upper()
-        UI.text(extension, x + 27, y + 37, 34)
     end
 end
 

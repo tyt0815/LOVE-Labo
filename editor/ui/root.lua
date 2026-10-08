@@ -27,6 +27,12 @@ function Root:draw()
     end
 end
 
+function Root:update(dt)
+    if type(dt) ~= "number" or dt < 0 or dt ~= dt or dt == math.huge then return end
+    self.canvas:update(dt)
+    if self.popup then self.popup:update(dt) end
+end
+
 function Root:dispatchTo(target, event, ...)
     while target do
         local handled, capture = target:dispatch(event, ...)

@@ -386,6 +386,7 @@ function EditorApp:updateSceneViewport()
 end
 
 function EditorApp:update(dt)
+    self.uiRoot:update(dt)
     if self.runtimeWorld then
         local ok, updated, err = pcall(self.runtimeWorld.update, self.runtimeWorld, dt)
         if not ok then err, updated = tostring(updated), false end

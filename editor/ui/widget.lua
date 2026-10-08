@@ -25,6 +25,10 @@ function Widget:draw()
     if self.visible and self.handlers.draw then self.handlers.draw(self) end
 end
 
+function Widget:update(dt)
+    if self.visible and self.handlers.update then self.handlers.update(self, dt) end
+end
+
 function Widget:dispatch(event, ...)
     if not self.visible or not self.enabled then return false end
     local handler = self.handlers[event]
