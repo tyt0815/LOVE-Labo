@@ -67,8 +67,6 @@ local function validateReference(reference)
 end
 
 Project.FILE_NAME = "project.labo"
-Project.DEFAULT_LEVEL_REFERENCE = "Assets/Levels/StartLevel.level"
-Project.DEFAULT_SCRIPT_REFERENCE = "Sources/Levels/StartLevel.lua"
 
 local function filesystem()
     return require("editor.host_filesystem")
@@ -103,15 +101,7 @@ function Project.create(parentPath, name)
     if existing then return nil, "Project folder already exists" end
     if existingError then return nil, existingError end
     local Json = require("editor.json")
-    local Registry = require("editor.asset_registry")
-    local scriptMeta, scriptId = Registry.metaText("level")
-    local levelMeta, levelId = Registry.metaText()
-    local text = assert(Json.encode({ version = 2, name = name,
-        defaultLevelReference = levelId }, true)) .. "\n"
-    local level = require("editor.level").new()
-    assert(level:setScriptReference(scriptId))
-    local levelText, encodeError = require("editor.level_file").encode(level)
-    if not levelText then return nil, encodeError end
+    local text = assert(Json.encode({ version = 2, name = name }, true)) .. "\n"
     local createdDirectories, createdFiles = {}, {}
     local function rollback(err)
         -- 이번 생성에서 성공한 파일·빈 폴더만 역순으로 정리한다.
@@ -120,17 +110,12 @@ function Project.create(parentPath, name)
         for i = #createdDirectories, 1, -1 do fs.removeDirectory(createdDirectories[i]) end
         return nil, err
     end
-    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Assets/Levels"),
-        fs.join(root, "Sources"), fs.join(root, "Sources/Levels") }) do
+    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Sources") }) do
         local created, err = fs.mkdir(directory)
         if not created then return rollback(err) end
         createdDirectories[#createdDirectories + 1] = directory
     end
     for _, file in ipairs({
-        { path = fs.join(root, Project.DEFAULT_SCRIPT_REFERENCE), text = require("editor.level_script_template") },
-        { path = fs.join(root, Project.DEFAULT_SCRIPT_REFERENCE .. ".meta"), text = scriptMeta },
-        { path = fs.join(root, Project.DEFAULT_LEVEL_REFERENCE), text = levelText },
-        { path = fs.join(root, Project.DEFAULT_LEVEL_REFERENCE .. ".meta"), text = levelMeta },
         { path = fs.join(root, Project.FILE_NAME), text = text }
     }) do
         local created, err = fs.createFile(file.path, file.text)
@@ -373,7 +358,7 @@ function Project:createEntry(folder, kind, name, options)
     if kind == "lua" and options.scriptKind ~= "level" and options.scriptKind ~= "lobject" then
         return false, "Choose Level Script or LObject Script"
     end
-    if kind == "level" or kind == "prefab" then
+    if (kind == "level" or kind == "prefab") and options.scriptReference ~= nil then
         local rebuilt, rebuildError = self:rebuildAssetIndex()
         if not rebuilt then return false, rebuildError end
         local required = kind == "level" and "level" or "lobject"
@@ -438,7 +423,7 @@ function Project:createEntry(folder, kind, name, options)
         ok, createError = writeNew(reference, require(options.scriptKind == "level"
             and "editor.level_script_template" or "editor.lobject_script_template"))
     elseif kind == "level" then
-        local level = require("editor.level").new()
+        local level = options.level or require("editor.level").new()
         assert(level:setScriptReference(self:getAssetId(options.scriptReference) or options.scriptReference))
         local text, encodeError = require("editor.level_file").encode(level)
         if not text then return rollback(encodeError) end

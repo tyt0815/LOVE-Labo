@@ -76,7 +76,7 @@ function Inspector:getFieldAtPosition(x, y, windowWidth)
 end
 
 function Inspector:isEditing()
-    return self.activeField ~= nil
+    return self.activeField ~= nil or self.classInspector and self.classInspector:isEditing() or false
 end
 
 function Inspector:beginEdit(field, selectedLObject)
@@ -112,6 +112,7 @@ function Inspector:clearEditState()
 end
 
 function Inspector:commitEdit()
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:commitEdit() end
     if not self:isEditing() then
         return false
     end
@@ -132,6 +133,7 @@ function Inspector:commitEdit()
 end
 
 function Inspector:cancelEdit()
+    if self.classInspector then self.classInspector:cancelEdit() end
     if not self:isEditing() then
         return false
     end
@@ -143,6 +145,10 @@ end
 function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if not self:containsPoint(x, y, windowWidth) then
         return false
+    end
+
+    if self.classInspector and self.classInspector.target and not selectedLObject then
+        return self.classInspector:mousepressed(x, y, button)
     end
 
     -- Inspector 영역의 mouse press는 button 종류와 관계없이 소비한다.
@@ -168,6 +174,7 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
 end
 
 function Inspector:textinput(text)
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:textinput(text) end
     if not self:isEditing() then
         return false
     end
@@ -183,6 +190,7 @@ function Inspector:textinput(text)
 end
 
 function Inspector:keypressed(key)
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:keypressed(key) end
     if not self:isEditing() then
         return false
     end
@@ -260,6 +268,12 @@ function Inspector:draw(selectedLObject)
     love.graphics.print("Inspector", left + 12, 10)
 
     if not selectedLObject then
+        if self.classInspector and self.classInspector.target then
+            self.classInspector:layout(left, self.width, windowHeight)
+            self.classInspector:draw()
+            love.graphics.pop()
+            return
+        end
         Theme.setColor("textMuted")
         love.graphics.print("No selection", left + 12, 44)
         love.graphics.pop()

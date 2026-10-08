@@ -180,6 +180,7 @@ function AssetBrowser:refresh(keepPopup)
         end
     end
     if opened and self.project.assetIndexError then self.error = self.project.assetIndexError end
+    if opened and not keepPopup and self.onRefresh then self.onRefresh() end
     return opened, err
 end
 
@@ -264,6 +265,10 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
         else self:openFolder(node.reference) end
     else
         local entry = self:getEntryAtPosition(x, y)
+        if self.onSelect then
+            local ok, err = self.onSelect(entry and entry.reference)
+            if ok == false then self.error = err; return end
+        end
         self.selectedReference = entry and entry.reference or nil
         if entry and entry.type == "directory" and not entry.isLink and (presses or 1) >= 2 then
             self:openFolder(entry.reference)
@@ -288,7 +293,7 @@ function AssetBrowser:showContextMenu(x, y)
         self.selectedReference = entry and entry.reference or nil
     end
     local newItems = {}
-    for _, option in ipairs({ {"Folder", "folder"}, {"Level", "level"}, {"Prefab", "prefab"}, {"Lua Script", "lua"} }) do
+    for _, option in ipairs({ {"Folder", "folder"}, {"Level", "level"}, {"Prefab", "prefab"}, {"Lua Class", "lua"} }) do
         local label, kind = option[1], option[2]
         local root = folder:match("^[^/]+")
         if kind == "folder" or (kind == "level" or kind == "prefab") and root == "Assets" or kind == "lua" and root == "Sources" then
@@ -298,8 +303,10 @@ function AssetBrowser:showContextMenu(x, y)
     end
     local items = { { label = "New", children = newItems } }
     if entry and entry.reference ~= "Assets" and entry.reference ~= "Sources" then
-        items[#items + 1] = { label = "Move / Rename", enabled = not entry.isLink,
+        items[#items + 1] = { label = "Move", enabled = not entry.isLink,
             action = function() self:showMoveDialog(entry) end }
+        items[#items + 1] = { label = "Rename", enabled = not entry.isLink,
+            action = function() self:showRenameDialog(entry) end }
         items[#items + 1] = { label = "Delete", enabled = not entry.isLink,
             action = function() self:showDeleteDialog(entry) end }
     end
@@ -307,39 +314,67 @@ function AssetBrowser:showContextMenu(x, y)
 end
 
 function AssetBrowser:showMoveDialog(entry)
-    Dialog.new(self.uiRoot, {title = "Move / Rename", message = entry.reference,
-        input = true, value = entry.reference, confirmLabel = "Move", onConfirm = function(destination)
-            if self.onBeforeMove then self.onBeforeMove() end
-            local moved, err = self.project:moveEntry(entry.reference, destination)
-            if not moved then return false, err end
-            if self.onMove then self.onMove(entry.reference, destination) end
-            if self.folder == entry.reference or self.folder:sub(1, #entry.reference + 1) == entry.reference .. "/" then
-                self.folder = destination .. self.folder:sub(#entry.reference + 1)
+    local folder = entry.reference:match("^(.*)/[^/]+$")
+    local name = entry.reference:match("[^/]+$")
+    local dialog
+    local tree = require("editor.ui.folder_tree").new(self.project, entry.reference:match("^[^/]+"),
+        entry.type == "directory" and entry.reference or nil, folder, function(selected)
+            dialog.text, dialog.replace, dialog.error = selected, true, nil
+        end)
+    dialog = Dialog.new(self.uiRoot, {title = "Move", message = entry.reference,
+        input = true, value = folder, content = tree, confirmLabel = "Move", onConfirm = function(destination)
+            destination = destination:gsub("\\", "/"):gsub("/+$", "")
+            return self:moveEntry(entry, destination .. "/" .. name)
+        end})
+    dialog.error = tree.error
+end
+
+function AssetBrowser:showRenameDialog(entry)
+    local folder, name = entry.reference:match("^(.*)/([^/]+)$")
+    local extension = entry.type == "file" and (name:match("%.[^%.]+$") or "") or ""
+    local stem = extension ~= "" and name:sub(1, -#extension - 1) or name
+    Dialog.new(self.uiRoot, {title = "Rename", message = entry.reference, input = true,
+        value = stem, confirmLabel = "Rename", onConfirm = function(newName)
+            if extension ~= "" and newName:sub(-#extension):lower() == extension:lower() then
+                newName = newName:sub(1, -#extension - 1)
             end
-            self:refresh(true)
-            self.selectedReference = destination
-            return true
+            local valid, err = self.project.isValidName(newName)
+            if not valid then return false, err end
+            return self:moveEntry(entry, folder .. "/" .. newName .. extension)
         end})
 end
 
+function AssetBrowser:moveEntry(entry, destination)
+    if self.onBeforeMove then self.onBeforeMove() end
+    local moved, err = self.project:moveEntry(entry.reference, destination)
+    if not moved then return false, err end
+    if self.onMove then self.onMove(entry.reference, destination) end
+    if self.folder == entry.reference or self.folder:sub(1, #entry.reference + 1) == entry.reference .. "/" then
+        self.folder = destination .. self.folder:sub(#entry.reference + 1)
+    end
+    self:refresh(true)
+    self.selectedReference = destination
+    return true
+end
+
 function AssetBrowser:showCreateDialog(folder, kind)
-    local defaults = { folder = "NewFolder", level = "NewLevel", prefab = "NewPrefab", lua = "NewScript" }
+    local defaults = { folder = "NewFolder", level = "NewLevel", prefab = "NewPrefab", lua = "NewClass" }
     local choices, listError
     if kind == "lua" then
-        choices = { {label = "Level Script", value = "level"}, {label = "LObject Script", value = "lobject"} }
+        choices = { {label = "Level Class", value = "level"}, {label = "LObject Class", value = "lobject"} }
     elseif kind == "level" or kind == "prefab" then
-        choices = {}
+        choices = {{label = "None", value = false}}
         local scripts
         scripts, listError = self.project:listScripts(kind == "level" and "level" or "lobject")
         for _, reference in ipairs(scripts or {}) do choices[#choices + 1] = {label = reference, value = reference} end
     end
-    local titles = {folder = "Folder", level = "Level", prefab = "Prefab", lua = "Lua Script"}
+    local titles = {folder = "Folder", level = "Level", prefab = "Prefab", lua = "Lua Class"}
     local dialog = Dialog.new(self.uiRoot, { title = "New " .. titles[kind],
         message = folder, input = true, value = defaults[kind], choices = choices,
-        choiceLabel = kind == "lua" and "Script type" or kind == "prefab" and "LObject Script" or "Level Script",
+        choiceLabel = kind == "lua" and "Class type" or "Parent Class",
         onConfirm = function(name, choice)
             if listError then return false, listError end
-            local options = kind == "lua" and {scriptKind = choice} or {scriptReference = choice}
+            local options = kind == "lua" and {scriptKind = choice} or {scriptReference = choice or nil}
             local ok, reference = self.project:createEntry(folder, kind, name, options)
             if not ok then return false, reference end
             self:refresh(true)

@@ -59,7 +59,7 @@ LObject Definition
 + Component composition
 ```
 
-Lua에는 언어 차원의 class 문법이 없으며, LÖVE Labo도 깊은 class inheritance hierarchy를 기본 모델로 삼지 않는다.
+Lua에는 언어 차원의 class 문법이 없으므로 테이블로 Lua Class를 정의한다. 같은 종류의 Lua Class 사이에서 단일 상속과 함수·기본 타입 프로퍼티 재정의를 지원한다. Level·Prefab은 부모 클래스와 프로퍼티 변경값을 선택적으로 갖는다. 깊은 상속 계층을 필수로 삼지는 않으며 Component composition 방향은 유지한다. 구체적 계약은 [ADR 0012](adr/0012-lua-classes-properties-and-unsaved-levels.md)를 따른다.
 
 LObject Definition의 정확한 module/API 형태는 실제 객체 모델을 구현할 때 결정한다.
 
@@ -203,7 +203,7 @@ Prefab inheritance나 복잡한 composition 기능은 실제 필요가 확인되
 
 Level은 visual placement와 instance override의 Source of Truth다.
 
-Level 전체의 동작은 프로젝트 Lua에 둘 수 있다. `.level`은 `Sources/` 아래 코드의 프로젝트 상대 참조를 저장하며, 배치 데이터와 실행 동작의 책임을 분리한다. 현재 기본 레벨·소스 생성 및 callback 계약은 [ADR 0007](adr/0007-sources-and-level-scripts.md)을 따른다.
+Level 전체의 동작은 프로젝트 Lua Class에 둘 수 있다. `.level`은 부모 클래스의 에셋 ID와 기본값에서 변경한 프로퍼티를 저장하며, 배치 데이터와 실행 동작의 책임을 분리한다. 부모 없이도 기본 Level로 동작한다. 새 프로젝트는 초기 레벨·소스를 생성하지 않고 빈 문서로 시작하며 첫 저장에 파일을 만든다. 현재 상속·프로퍼티·저장 계약은 [ADR 0012](adr/0012-lua-classes-properties-and-unsaved-levels.md)를 따른다.
 
 Level LObject Instance는 개념적으로 다음을 가진다.
 

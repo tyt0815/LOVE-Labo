@@ -89,6 +89,7 @@ function Level.new()
 
     -- Level이 배치된 LObject Instance의 authoring data를 소유한다.
     self.lobjects = {}
+    self.propertyOverrides = {}
 
     -- authoringId는 현재 Level 안에서만 유일한 증가 숫자로 시작한다.
     -- 삭제된 ID는 재사용하지 않는다.
@@ -184,6 +185,7 @@ function Level:toData()
     return {
         formatVersion = FORMAT_VERSION,
         scriptReference = self.scriptReference,
+        propertyOverrides = require("editor.property_data").copy(self.propertyOverrides),
         lobjects = lobjects
     }
 end
@@ -199,6 +201,8 @@ function Level.fromData(data)
 
     local validScript, scriptError = Level.isValidScriptReference(data.scriptReference)
     if not validScript then return nil, scriptError end
+    local overrides, overrideError = require("editor.property_data").validate(data.propertyOverrides)
+    if not overrides then return nil, overrideError end
 
     if type(data.lobjects) ~= "table" then
         return nil, "level lobjects must be a table"
@@ -236,6 +240,7 @@ function Level.fromData(data)
     local level = Level.new()
     level.lobjects = validatedLObjects
     level.scriptReference = data.scriptReference
+    level.propertyOverrides = overrides
 
     -- 저장 시 nextAuthoringId 자체를 직렬화하지 않고,
     -- 가장 큰 stable ID 다음 값으로 복원한다.

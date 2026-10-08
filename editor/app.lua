@@ -30,11 +30,13 @@ function EditorApp.new(document, project)
 
     if not document then
         if project and project.defaultLevelReference then
-            local path, pathError = project:resolveAssetFile(project.defaultLevelReference)
-            if not path then error(pathError) end
-            local loaded, loadError = LevelDocument.load(path)
-            if not loaded then error(loadError) end
-            document = loaded
+            local path = project:resolveAssetFile(project.defaultLevelReference)
+            -- 기본 레벨 파일이 없으면 저장 경로가 없는 빈 문서로 시작한다.
+            if path then
+                local loaded, loadError = LevelDocument.load(path)
+                if not loaded then error(loadError) end
+                document = loaded
+            end
         end
     end
 
@@ -81,6 +83,10 @@ function EditorApp:setDocument(document)
     self.sceneView.isDraggingLObject = false
     self.sceneView.isPanning = false
     self.inspector:cancelEdit()
+    self.levelInspectorTarget = {data = self.level, kind = "level", referenceField = "scriptReference", label = "Level",
+        getOverrides = function(target) return target.data.propertyOverrides end,
+        isDirty = function() return not self.document.path or self.document:isDirty() end,
+        setOverrides = function(target, values) target.data.propertyOverrides = values end}
     self.runtimeError = nil
     if self.uiRoot then
         self.uiRoot:dismissPopup()
@@ -122,6 +128,7 @@ function EditorApp:startPlay()
         return false, worldError
     end
 
+    local levelClass
     if self.level.scriptReference then
         if not self.project then
             self.runtimeError = "Level script requires a project"
@@ -130,11 +137,26 @@ function EditorApp:startPlay()
         local ok, script, scriptError = pcall(require("editor.project_script").load, self.project, self.level.scriptReference)
         if not ok then self.runtimeError = tostring(script); return false, self.runtimeError end
         if not script then self.runtimeError = scriptError; return false, scriptError end
-        local attached, loaded, loadError = pcall(world.setLevelScript, world, script)
+        local properties, propertyError = require("editor.lua_class").values(script, self.level.propertyOverrides)
+        if not properties then self.runtimeError = propertyError; return false, propertyError end
+        world.properties = properties
+        levelClass = script
+    end
+
+    if not levelClass then
+        local properties, propertyError = require("editor.lua_class").values(nil, self.level.propertyOverrides)
+        if not properties then self.runtimeError = propertyError; return false, propertyError end
+        world.properties = properties
+    end
+    if self.project then
+        local bound, bindError = self:bindRuntimeObjects(world)
+        if not bound then self.runtimeError = bindError; return false, bindError end
+    end
+    if levelClass then
+        local attached, loaded, loadError = pcall(world.setLevelScript, world, levelClass)
         if not attached then self.runtimeError = tostring(loaded); return false, self.runtimeError end
         if not loaded then self.runtimeError = loadError; return false, loadError end
     end
-
     self.runtimeError = nil
     self.runtimeWorld = world
 
@@ -165,7 +187,84 @@ function EditorApp:resolveDocumentReferences()
     end
 end
 
+function EditorApp:bindRuntimeObjects(world)
+    local LuaClass = require("editor.lua_class")
+    local loadClass = LuaClass.loader(self.project)
+    local initialObjects = {}
+    for i, object in ipairs(world.lobjects) do initialObjects[i] = object end
+    -- 초기 레벨의 배치 객체만 바인딩한다. Lua가 직접 생성한 객체는 자신의 초기화 경로를 사용한다.
+    for i, data in ipairs(self.level.lobjects) do
+        local object = initialObjects[i]
+        local reference, overrides = data.definitionReference, {}
+        if reference then
+            local pathReference, referenceError = self.project:getAssetReference(reference)
+            if not pathReference then return false, referenceError end
+            if pathReference:match("^Assets/.+%.prefab$") then
+                local path, pathError = self.project:resolveAssetFile(reference)
+                if not path then return false, pathError end
+                local bytes, readError = require("editor.host_filesystem").read(path)
+                if not bytes then return false, readError end
+                local prefab, prefabError = require("editor.prefab").decode(bytes)
+                if not prefab then return false, prefabError end
+                reference, overrides = prefab.definitionReference, prefab.overrides.properties or {}
+            end
+            local class, classError
+            if reference then class, classError = loadClass(reference, "lobject") end
+            if reference and not class then return false, classError end
+            local properties, propertyError = LuaClass.values(class, overrides)
+            if not properties then return false, propertyError end
+            local bound, bindError = object:setClass(class, properties, world)
+            if not bound then return false, bindError end
+        end
+    end
+    return true
+end
+
+function EditorApp:inspectAsset(reference)
+    if not reference or not reference:match("^Assets/.+%.prefab$") then return true end
+    local id = self.project:getAssetId(reference)
+    if self.prefabDocument and self.prefabDocument.assetId == id then return true end
+    self.inspector:commitEdit()
+    if self.prefabDocument and self.prefabDocument:isDirty() then return false, "Save the edited Prefab first (Ctrl+S)" end
+    local document, err = require("editor.prefab_document").load(self.project, reference)
+    if not document then return false, err end
+    self.prefabDocument = document
+    self.prefabInspectorTarget = {data = document.data, kind = "lobject", referenceField = "definitionReference", label = "Prefab",
+        isDirty = function() return document:isDirty() end,
+        getOverrides = function(target) return target.data.overrides.properties or {} end,
+        setOverrides = function(target, values) target.data.overrides.properties = next(values) and values or nil end}
+    return true
+end
+
+function EditorApp:updateInspectorTarget()
+    if not self.inspector.classInspector then return self.sceneView.selectedLObject end
+    local selected = self.assetBrowser.selectedReference
+    local prefab = (self.activePanel == "assets" or self.activePanel == "inspector") and self.prefabDocument
+        and selected and self.project:getAssetId(selected) == self.prefabDocument.assetId
+    local object = not prefab and self.sceneView.selectedLObject or nil
+    self.inspector.classInspector:setTarget(not object and (prefab and self.prefabInspectorTarget or self.levelInspectorTarget) or nil)
+    self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
+        self.inspector.width, love.graphics.getHeight())
+    return object
+end
+
+function EditorApp:saveInspectedDocument()
+    self.inspector:commitEdit()
+    if self.prefabDocument and self.inspector.classInspector and self.inspector.classInspector.target == self.prefabInspectorTarget then
+        local saved, err = self.prefabDocument:save(self.project)
+        if not saved then self.inspector.classInspector.error = err end
+        return saved, err
+    end
+    local saved, err = self:saveCurrentDocument()
+    if not saved then self.runtimeError = err end
+    return saved, err
+end
+
 function EditorApp:saveCurrentDocument(path)
+    if not path and not self.document.path and self.project then
+        self:showSaveLevelDialog()
+        return true
+    end
     if not path and self.project and self.documentAssetId then
         local currentPath, err = self.project:resolveAssetFile(self.documentAssetId)
         if not currentPath then return false, err end
@@ -189,6 +288,36 @@ function EditorApp:saveCurrentDocument(path)
     end
 
     return saved, err
+end
+
+function EditorApp:saveNewLevel(reference)
+    if not self.project then return false, "editor has no project" end
+    if type(reference) ~= "string" or not reference:match("^Assets/.+%.level$") then
+        return false, "Choose an Assets/*.level path"
+    end
+    local path, err = self.project:resolvePath(reference)
+    if not path then return false, err end
+    local folder, name = reference:match("^(.*)/([^/]+)$")
+    self.inspector:commitEdit()
+    self:resolveDocumentReferences()
+    local saved, saveError = self.project:createEntry(folder, "level", name,
+        {level = self.level, scriptReference = self.level.scriptReference})
+    if not saved then return false, saveError end
+    self.document.path = path
+    self.document.savedSnapshot = assert(require("editor.level_file").encode(self.level))
+    self.documentAssetId = self.project:getAssetId(reference)
+    self.documentReference = self.documentAssetId
+    if self.assetBrowser then self.assetBrowser:refresh(true) end
+    return true
+end
+
+function EditorApp:showSaveLevelDialog()
+    local folder = self.assetBrowser and self.assetBrowser.folder or "Assets"
+    if folder ~= "Assets" and folder:sub(1, 7) ~= "Assets/" then folder = "Assets" end
+    require("editor.ui.dialog").new(self.uiRoot, {title = "Save Level", input = true,
+        message = "Path inside Assets (existing files are not replaced)",
+        value = folder .. "/NewLevel.level", confirmLabel = "Save",
+        onConfirm = function(reference) return self:saveNewLevel(reference) end})
 end
 
 function EditorApp:saveCurrentDocumentAs(reference)
@@ -367,15 +496,21 @@ function EditorApp:initializeUI()
         keypressed = function(_, key) return self:handleSceneKey(key) end
     })
     local inspector, inspectorWidget = panel("inspector", {
-        draw = function() self.inspector:draw(self.sceneView.selectedLObject) end,
+        draw = function() self.inspector:draw(self:updateInspectorTarget()) end,
         mousepressed = function(_, x, y, button)
             if not self:isPlaying() then
-                self.inspector:mousepressed(x, y, button, love.graphics.getWidth(), self.sceneView.selectedLObject)
+                self.inspector:mousepressed(x, y, button, love.graphics.getWidth(), self:updateInspectorTarget())
             end
             return true
         end,
         keypressed = function(_, key) return self.inspector:keypressed(key) end,
-        textinput = function(_, text) return self.inspector:textinput(text) end
+        textinput = function(_, text) return self.inspector:textinput(text) end,
+        wheelmoved = function(_, _, _, amount)
+            if not self:isPlaying() and self.inspector.classInspector and self.inspector.classInspector.target then
+                self.inspector.classInspector:wheelmoved(amount)
+            end
+            return true
+        end
     })
     self.inspectorWidget = inspectorWidget
     local slots = {
@@ -384,6 +519,13 @@ function EditorApp:initializeUI()
         inspector = self.canvas:addChild(inspector)
     }
     if self.assetBrowser then
+        self.inspector.classInspector = require("editor.class_inspector").new(self.project, self.uiRoot)
+        self:updateInspectorTarget()
+        self.assetBrowser.onSelect = function(reference) return self:inspectAsset(reference) end
+        self.assetBrowser.onRefresh = function()
+            self.inspector:commitEdit()
+            self.inspector.classInspector:reload()
+        end
         self.assetBrowser:setUIRoot(self.uiRoot)
         self.assetBrowser.onOpenFile = function(reference)
             if reference:match("^Assets/.+%.level$") then return self:openProjectDocument(reference) end
@@ -509,7 +651,7 @@ function EditorApp:keypressed(key)
     if self.uiRoot.popup then return self.uiRoot:keypressed(key) end
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
     local shiftDown = love.keyboard.isDown("lshift", "rshift")
-    if key == "s" and controlDown and not shiftDown then return self:saveCurrentDocument() end
+    if key == "s" and controlDown and not shiftDown then return self:saveInspectedDocument() end
     if key == "f5" then
         if self:isPlaying() then return self:stopPlay() end
         return self:startPlay()

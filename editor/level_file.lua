@@ -90,6 +90,8 @@ function LevelFile.encode(level)
         return nil, "level must provide toData()"
     end
 
+    local properties, propertyError = require("editor.property_data").validate(level.propertyOverrides)
+    if not properties then return nil, propertyError end
     local data = level:toData()
     local validScript, scriptError = Level.isValidScriptReference(data.scriptReference)
     if not validScript then return nil, scriptError end

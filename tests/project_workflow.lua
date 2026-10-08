@@ -5,6 +5,23 @@ local AssetBrowser = require("editor.asset_browser")
 local ProjectStart = require("editor.project_start")
 local EditorApp = require("editor.app")
 local tests = {}
+local DEFAULT_LEVEL_REFERENCE = "Assets/Levels/StartLevel.level"
+local DEFAULT_SCRIPT_REFERENCE = "Sources/Levels/StartLevel.lua"
+
+-- 기본 레벨이 지정된 기존 프로젝트 흐름의 테스트 데이터를 명시적으로 구성한다.
+local function createSampleProject(parent, name)
+    local project = assert(Project.create(parent, name))
+    assert(project:createEntry("Sources", "folder", "Levels"))
+    assert(project:createEntry("Sources/Levels", "lua", "StartLevel", {scriptKind = "level"}))
+    assert(project:createEntry("Assets", "folder", "Levels"))
+    assert(project:createEntry("Assets/Levels", "level", "StartLevel", {scriptReference = DEFAULT_SCRIPT_REFERENCE}))
+    local marker = FS.join(project.rootPath, Project.FILE_NAME)
+    local Json = require("editor.json")
+    local data = assert(Json.decode(assert(FS.read(marker))))
+    data.defaultLevelReference = project:getAssetId(DEFAULT_LEVEL_REFERENCE)
+    assert(FS.writeAtomic(marker, assert(Json.encode(data))))
+    return assert(Project.open(project.rootPath))
+end
 
 local function add(name, fn) tests[#tests + 1] = { name = name, fn = fn } end
 
@@ -37,10 +54,10 @@ add("project creation persists metadata and unicode Assets paths", function()
         assert(FS.createFile(FS.join(project.rootPath, "hidden.txt"), "outside assets"))
         local reopened = assert(Project.open(project.rootPath))
         local entries = assert(reopened:listAssets())
-        Assert.equal(3, #entries)
+        Assert.equal(2, #entries)
         Assert.equal("directory", entries[1].type)
-        Assert.equal("Assets/이미지.png", entries[3].reference)
-        Assert.equal("image data", assert(FS.read(assert(reopened:resolvePath(entries[3].reference)))))
+        Assert.equal("Assets/이미지.png", entries[2].reference)
+        Assert.equal("image data", assert(FS.read(assert(reopened:resolvePath(entries[2].reference)))))
     end)
 end)
 
@@ -60,10 +77,10 @@ add("project creation rejects existing folders without overwriting", function()
     end)
 end)
 
-add("project creation cleans its level and directories on file creation failure", function()
+add("project creation cleans its empty directories on marker creation failure", function()
     fixture(function(parent)
         local original = FS.createFile
-        for _, target in ipairs({ Project.DEFAULT_SCRIPT_REFERENCE, Project.DEFAULT_LEVEL_REFERENCE, Project.FILE_NAME }) do
+        for _, target in ipairs({ Project.FILE_NAME }) do
             FS.createFile = function(path, text)
                 if path == FS.join(parent, "Failed/" .. target) then return false, "simulated write failure" end
                 return original(path, text)
@@ -97,7 +114,7 @@ end)
 
 add("asset listing stays within Assets and does not traverse links", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Test"))
+        local project = assert(createSampleProject(parent, "Test"))
         for _, reference in ipairs({ "project.labo", "Assets/../", "Assets/../outside", "Assets2", "Assets//folder", "Assets/C:/", "Assets/folder.", "Assets/folder:stream" }) do
             Assert.equal(nil, project:listAssets(reference))
         end
@@ -116,7 +133,7 @@ end)
 
 add("asset browser navigates folders refreshes changes and preserves state on failure", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Test"))
+        local project = assert(createSampleProject(parent, "Test"))
         local assets = FS.join(project.rootPath, "Assets")
         assert(FS.mkdir(FS.join(assets, "Sprites")))
         assert(FS.createFile(FS.join(assets, "Sprites/a.png"), "a"))
@@ -225,7 +242,7 @@ end)
 
 add("asset browser scrolls long lists and keeps fractional wheel input clickable", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Scroll"))
+        local project = assert(createSampleProject(parent, "Scroll"))
         for i = 1, 24 do
             assert(FS.mkdir(FS.join(project.rootPath, string.format("Assets/Folder%02d", i))))
         end
@@ -248,7 +265,7 @@ end)
 
 add("editor bottom Assets layout routes inputs without changing lobject selection", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Layout"))
+        local project = assert(createSampleProject(parent, "Layout"))
         assert(FS.mkdir(FS.join(project.rootPath, "Assets/Folder")))
         local app = EditorApp.new(nil, project)
         local object = app.level:addLObject(0, 0)
@@ -283,7 +300,7 @@ end)
 
 add("project start and editor UI render with isolated graphics state", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Render"))
+        local project = assert(createSampleProject(parent, "Render"))
         local app = EditorApp.new(nil, project)
         local projectStart = ProjectStart.new(function() return true end)
         local width, height = love.graphics.getDimensions()
@@ -315,29 +332,73 @@ add("startup without project option keeps project start screen", function()
     Assert.equal(nil, projectStart.error)
 end)
 
-add("project creation writes an empty default level using the existing JSON format", function()
+add("new projects open unsaved empty levels and create files only on first save", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "기본 레벨"))
-        local path = assert(project:resolvePath(Project.DEFAULT_LEVEL_REFERENCE))
-        local text = assert(FS.read(path))
-        local data = assert(require("editor.json").decode(text))
-        Assert.equal(2, data.formatVersion)
-        Assert.truthy(text:find('"lobjects": []', 1, true))
-        local level = assert(require("editor.level_file").decode(text))
-        Assert.equal(0, #level.lobjects)
-        Assert.equal(1, level.nextAuthoringId)
-        local browser = AssetBrowser.new(project)
-        assert(browser:openFolder("Assets/Levels"))
-        Assert.equal("StartLevel.level", browser.entries[1].name)
-        Assert.equal(Project.DEFAULT_LEVEL_REFERENCE, browser.entries[1].reference)
-        assert(Project.open(project.rootPath))
-        Assert.equal(text, assert(FS.read(path)))
+        local project = assert(Project.create(parent, "빈 프로젝트"))
+        Assert.equal(nil, project.defaultLevelReference)
+        Assert.equal(0, #assert(project:listDirectory("Assets")))
+        Assert.equal(0, #assert(project:listDirectory("Sources")))
+        local app = EditorApp.new(nil, project)
+        Assert.equal(nil, app.document.path)
+        Assert.equal(nil, app.level.scriptReference)
+        assert(app:startPlay())
+        assert(app:stopPlay())
+        app.level:addLObject(12, 34)
+        assert(app:saveCurrentDocument())
+        app:textinput("Assets/First.level")
+        app:keypressed("return")
+        Assert.equal(nil, app.uiRoot.popup)
+        Assert.equal(project:getAssetId("Assets/First.level"), app.documentAssetId)
+        Assert.equal(false, app.document:isDirty())
+        Assert.equal(1, #app.assetBrowser.entries)
+        local saved = assert(require("editor.level_file").load(app.document.path))
+        Assert.equal(12, saved.lobjects[1].transform.x)
+        Assert.equal(nil, saved.scriptReference)
+        app.level.lobjects[1].transform.x = 56
+        assert(app:saveCurrentDocument())
+        Assert.equal(56, assert(require("editor.level_file").load(app.document.path)).lobjects[1].transform.x)
+        local reopened = assert(Project.open(project.rootPath))
+        Assert.equal(nil, EditorApp.new(nil, reopened).document.path)
+        assert(app:openProjectDocument("Assets/First.level"))
+        Assert.equal(56, app.level.lobjects[1].transform.x)
+    end)
+end)
+
+add("first save cancellation conflicts and failures preserve the unsaved level", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "SaveErrors"))
+        local app = EditorApp.new(nil, project)
+        app.level:addLObject(1, 2)
+        assert(app:saveCurrentDocument())
+        app:keypressed("escape")
+        Assert.equal(nil, app.document.path)
+        Assert.truthy(app.document:isDirty())
+        assert(project:createEntry("Assets", "level", "Existing"))
+        local before = assert(FS.read(assert(project:resolvePath("Assets/Existing.level"))))
+        Assert.equal(false, app:saveNewLevel("Assets/Existing.level"))
+        Assert.equal(before, assert(FS.read(assert(project:resolvePath("Assets/Existing.level")))))
+        for _, reference in ipairs({"Sources/Bad.level", "Assets/../Bad.level", "Assets/Missing/Bad.level", "Assets/Bad.lua"}) do
+            Assert.equal(false, app:saveNewLevel(reference))
+        end
+        local original = FS.createFile
+        FS.createFile = function(path, text)
+            if path:match("First.level.meta$") then return false, "metadata failed" end
+            return original(path, text)
+        end
+        local called, saved = pcall(app.saveNewLevel, app, "Assets/First.level")
+        FS.createFile = original
+        Assert.truthy(called)
+        Assert.equal(false, saved)
+        Assert.equal(nil, FS.info(assert(project:resolvePath("Assets/First.level"))))
+        Assert.equal(nil, app.document.path)
+        Assert.equal(1, #app.level.lobjects)
+        Assert.truthy(app.document:isDirty())
     end)
 end)
 
 add("startup opens absolute and relative project paths with spaces and unicode", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "테스트 프로젝트"))
+        local project = assert(createSampleProject(parent, "테스트 프로젝트"))
         local opened
         local projectStart = ProjectStart.new(function(value)
             opened = EditorApp.new(nil, value)
@@ -371,7 +432,7 @@ add("startup rejects missing duplicate and invalid project paths without opening
             Assert.equal(err, projectStart.error)
         end
         Assert.equal(nil, FS.info(FS.join(parent, "Missing")))
-        local project = assert(Project.create(parent, "Retry"))
+        local project = assert(createSampleProject(parent, "Retry"))
         local opened
         local projectStart = ProjectStart.new(function(value) opened = value; return true end)
         startup.openRequestedProject({ "--project", "Missing" }, projectStart, parent)
@@ -384,7 +445,7 @@ end)
 
 add("asset view dropdown switches modes and protects scene input", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Views"))
+        local project = assert(createSampleProject(parent, "Views"))
         local app = EditorApp.new(nil, project)
         local browser = app.assetBrowser
         local object = app.level:addLObject(0, 0)
@@ -414,7 +475,7 @@ end)
 
 add("thumbnail grid hit testing scroll and resizing agree on entry positions", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Grid"))
+        local project = assert(createSampleProject(parent, "Grid"))
         for i = 1, 30 do assert(FS.createFile(FS.join(project.rootPath, string.format("Assets/File%02d.txt", i)), "data")) end
         local browser = AssetBrowser.new(project)
         browser:setBounds(0, 400, 700, 220)
@@ -438,7 +499,7 @@ end)
 
 add("thumbnail previews load unicode images restore graphics and tolerate corrupt files", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "한글 이미지"))
+        local project = assert(createSampleProject(parent, "한글 이미지"))
         local data = love.image.newImageData(12, 6)
         for y = 0, 5 do for x = 0, 11 do data:setPixel(x, y, 0, 1, 0, 1) end end
         assert(FS.createFile(FS.join(project.rootPath, "Assets/미리보기.png"), data:encode("png"):getString()))
@@ -489,7 +550,7 @@ end)
 
 add("editor shared borders resize panels with pointer capture and preserve centered viewport", function()
     fixture(function(parent)
-        local app = EditorApp.new(nil, assert(Project.create(parent, "Resize")))
+        local app = EditorApp.new(nil, assert(createSampleProject(parent, "Resize")))
         local width, height = love.graphics.getDimensions()
         app:mousepressed(app.hierarchy.width, 150, 1)
         Assert.equal(app.sceneWidget, app.uiRoot.focused)
@@ -517,7 +578,7 @@ end)
 
 add("browser separates Assets and Sources and breadcrumb navigates without Up button", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Navigation"))
+        local project = assert(createSampleProject(parent, "Navigation"))
         assert(FS.mkdir(FS.join(project.rootPath, "Sources/Levels/Extra")))
         local app = EditorApp.new(nil, project)
         local browser = app.assetBrowser
@@ -537,7 +598,7 @@ add("browser separates Assets and Sources and breadcrumb navigates without Up bu
         Assert.equal("Sources", browser.folder)
         Assert.equal(false, browser:goUp())
         assert(browser:openFolder("Sources/Levels"))
-        Assert.equal(Project.DEFAULT_SCRIPT_REFERENCE, browser.entries[2].reference)
+        Assert.equal(DEFAULT_SCRIPT_REFERENCE, browser.entries[2].reference)
         for _, reference in ipairs({ "Sources/../Assets", "Sources//Levels", "Other", "Sources/Levels/../../Other" }) do
             Assert.equal(nil, project:listDirectory(reference))
         end
@@ -563,12 +624,12 @@ end)
 
 add("default level links source script and runs only on independent runtime world", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "스크립트 테스트"))
+        local project = assert(createSampleProject(parent, "스크립트 테스트"))
         local app = EditorApp.new(nil, project)
-        Assert.equal(project:getAssetId(Project.DEFAULT_LEVEL_REFERENCE), app.documentReference)
-        Assert.equal(project:getAssetId(Project.DEFAULT_SCRIPT_REFERENCE), app.level.scriptReference)
+        Assert.equal(project:getAssetId(DEFAULT_LEVEL_REFERENCE), app.documentReference)
+        Assert.equal(project:getAssetId(DEFAULT_SCRIPT_REFERENCE), app.level.scriptReference)
         Assert.equal(false, app.document:isDirty())
-        local sourcePath = assert(project:resolveSourceFile(Project.DEFAULT_SCRIPT_REFERENCE))
+        local sourcePath = assert(project:resolveSourceFile(DEFAULT_SCRIPT_REFERENCE))
         assert(FS.removeFile(sourcePath))
         assert(FS.createFile(sourcePath, [[local Level = {}
 local calls = 0
@@ -597,7 +658,7 @@ return Level
         app.level:addLObject(30, 40)
         assert(app:saveCurrentDocument())
         local loaded = assert(require("editor.level_file").load(app.document.path))
-        Assert.equal(project:getAssetId(Project.DEFAULT_SCRIPT_REFERENCE), loaded.scriptReference)
+        Assert.equal(project:getAssetId(DEFAULT_SCRIPT_REFERENCE), loaded.scriptReference)
         Assert.equal(1, #loaded.lobjects)
         assert(app:saveCurrentDocument())
         Assert.equal(nil, FS.info(app.document.path .. ".tmp"))
@@ -607,9 +668,9 @@ end)
 
 add("script load update and path failures are contained in the editor", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Failures"))
+        local project = assert(createSampleProject(parent, "Failures"))
         local app = EditorApp.new(nil, project)
-        local sourcePath = assert(project:resolveSourceFile(Project.DEFAULT_SCRIPT_REFERENCE))
+        local sourcePath = assert(project:resolveSourceFile(DEFAULT_SCRIPT_REFERENCE))
         for _, source in ipairs({ "not valid Lua", "error('chunk failure')", "return 42", "return {load = 42}",
             "return {load = function() error('load failure') end}",
             "return setmetatable({}, {__index = function() error('property failure') end})" }) do
@@ -638,7 +699,7 @@ add("script load update and path failures are contained in the editor", function
             if path == FS.join(project.rootPath, "Sources") then return { type = "directory", isLink = true } end
             return original(path)
         end
-        local ok, path = pcall(project.resolveSourceFile, project, Project.DEFAULT_SCRIPT_REFERENCE)
+        local ok, path = pcall(project.resolveSourceFile, project, DEFAULT_SCRIPT_REFERENCE)
         FS.info = original
         Assert.truthy(ok)
         Assert.equal(nil, path)
@@ -649,9 +710,9 @@ add("level JSON preserves script references and rejects invalid references", fun
     local LevelFile = require("editor.level_file")
     local Level = require("editor.level")
     local level = Level.new()
-    assert(level:setScriptReference(Project.DEFAULT_SCRIPT_REFERENCE))
+    assert(level:setScriptReference(DEFAULT_SCRIPT_REFERENCE))
     local loaded = assert(LevelFile.decode(assert(LevelFile.encode(level))))
-    Assert.equal(Project.DEFAULT_SCRIPT_REFERENCE, loaded.scriptReference)
+    Assert.equal(DEFAULT_SCRIPT_REFERENCE, loaded.scriptReference)
     Assert.equal(nil, LevelFile.decode('{"formatVersion":1,"lobjects":[],"scriptReference":"Sources/../bad.lua"}'))
     level.scriptReference = "Sources//bad.lua"
     Assert.equal(nil, LevelFile.encode(level))
@@ -661,9 +722,9 @@ end)
 
 add("failed Unicode level replacement restores existing file", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "저장 복구"))
+        local project = assert(createSampleProject(parent, "저장 복구"))
         local LevelFile = require("editor.level_file")
-        local path = assert(project:resolveAssetFile(Project.DEFAULT_LEVEL_REFERENCE))
+        local path = assert(project:resolveAssetFile(DEFAULT_LEVEL_REFERENCE))
         local before = assert(FS.read(path))
         local level = assert(LevelFile.load(path))
         level:addLObject(10, 20)
@@ -685,14 +746,14 @@ end)
 
 add("new browser entries select existing scripts and never overwrite files", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Entries"))
+        local project = assert(createSampleProject(parent, "Entries"))
         assert(project:createEntry("Assets", "folder", "한글"))
-        local options = {scriptReference = Project.DEFAULT_SCRIPT_REFERENCE}
+        local options = {scriptReference = DEFAULT_SCRIPT_REFERENCE}
         local ok, reference = project:createEntry("Assets/한글", "level", "Stage.LEVEL", options)
         Assert.truthy(ok)
         Assert.equal("Assets/한글/Stage.level", reference)
         local level = assert(require("editor.level_file").load(assert(project:resolveAssetFile(reference))))
-        Assert.equal(project:getAssetId(Project.DEFAULT_SCRIPT_REFERENCE), level.scriptReference)
+        Assert.equal(project:getAssetId(DEFAULT_SCRIPT_REFERENCE), level.scriptReference)
         local source = assert(FS.read(assert(project:resolveSourceFile(level.scriptReference))))
         Assert.equal(require("editor.level_script_template"), source)
         Assert.equal(false, project:createEntry("Assets/한글", "level", "Stage", options))
@@ -709,29 +770,29 @@ end)
 
 add("new level write failure leaves its selected script untouched", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Rollback"))
+        local project = assert(createSampleProject(parent, "Rollback"))
         assert(project:createEntry("Assets", "folder", "Nested"))
         local original = FS.createFile
         FS.createFile = function(path, text)
             if path == FS.join(project.rootPath, "Assets/Nested/Fail.level") then return false, "write failed" end
             return original(path, text)
         end
-        local originalScript = assert(FS.read(assert(project:resolveSourceFile(Project.DEFAULT_SCRIPT_REFERENCE))))
+        local originalScript = assert(FS.read(assert(project:resolveSourceFile(DEFAULT_SCRIPT_REFERENCE))))
         local called, ok, err = pcall(project.createEntry, project, "Assets/Nested", "level", "Fail",
-            {scriptReference = Project.DEFAULT_SCRIPT_REFERENCE})
+            {scriptReference = DEFAULT_SCRIPT_REFERENCE})
         FS.createFile = original
         Assert.truthy(called)
         Assert.equal(false, ok)
         Assert.equal("write failed", err)
         Assert.equal(nil, FS.info(FS.join(project.rootPath, "Sources/Nested")))
         Assert.truthy(FS.info(FS.join(project.rootPath, "Assets/Nested")))
-        Assert.equal(originalScript, assert(FS.read(assert(project:resolveSourceFile(Project.DEFAULT_SCRIPT_REFERENCE)))))
+        Assert.equal(originalScript, assert(FS.read(assert(project:resolveSourceFile(DEFAULT_SCRIPT_REFERENCE)))))
     end)
 end)
 
 add("entry deletion removes nested contents but protects roots default level and links", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Delete"))
+        local project = assert(createSampleProject(parent, "Delete"))
         assert(project:createEntry("Sources", "folder", "Temporary"))
         assert(project:createEntry("Sources/Temporary", "lua", "A", {scriptKind = "level"}))
         assert(project:createEntry("Sources/Temporary", "folder", "Nested"))
@@ -759,13 +820,13 @@ end)
 
 add("browser context menus create entries and delete only after confirmation", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Menus"))
+        local project = assert(createSampleProject(parent, "Menus"))
         local app = EditorApp.new(nil, project)
         local browser, root = app.assetBrowser, app.uiRoot
         local x, y = browser.fileSlot.widget.x + 20, browser.fileSlot.widget.y + 20
         app:mousepressed(x, y, 2)
         Assert.equal("Assets/Levels", browser.selectedReference)
-        Assert.equal(3, #root.popup.panels[1].items)
+        Assert.equal(4, #root.popup.panels[1].items)
         root:keypressed("escape")
         local gapX = browser.fileSlot.widget.x + 8 + 108
         app:mousepressed(gapX, y, 2)
@@ -787,7 +848,7 @@ add("browser context menus create entries and delete only after confirmation", f
         browser:showDeleteDialog({reference = "Assets/Temporary", type = "directory"})
         root:keypressed("return")
         Assert.equal(nil, FS.info(FS.join(project.rootPath, "Assets/Temporary")))
-        assert(project:createEntry("Assets", "level", "Open", {scriptReference = Project.DEFAULT_SCRIPT_REFERENCE}))
+        assert(project:createEntry("Assets", "level", "Open", {scriptReference = DEFAULT_SCRIPT_REFERENCE}))
         assert(app:openProjectDocument("Assets/Open.level"))
         browser:showDeleteDialog({reference = "Assets/Open.level", type = "file"})
         root:keypressed("return")
@@ -798,12 +859,12 @@ end)
 
 add("browser replaces context menu on right click and hides unavailable creation types", function()
     fixture(function(parent)
-        local app = EditorApp.new(nil, assert(Project.create(parent, "RetargetMenu")))
+        local app = EditorApp.new(nil, assert(createSampleProject(parent, "RetargetMenu")))
         local browser, root = app.assetBrowser, app.uiRoot
         local x, y = browser.fileSlot.widget.x + 20, browser.fileSlot.widget.y + 20
         app:mousepressed(x, y, 2)
         local first = root.popup
-        Assert.equal(3, #first.panels[1].items)
+        Assert.equal(4, #first.panels[1].items)
         local emptyX = browser.x + browser.width - 20
         app:mousepressed(emptyX, y, 2)
         Assert.truthy(root.popup ~= first)
@@ -823,7 +884,7 @@ add("browser replaces context menu on right click and hides unavailable creation
         local sourcesItems = root.popup.panels[2].items
         Assert.equal(2, #sourcesItems)
         Assert.equal("Folder", sourcesItems[1].label)
-        Assert.equal("Lua Script", sourcesItems[2].label)
+        Assert.equal("Lua Class", sourcesItems[2].label)
         root:keypressed("down")
         root:keypressed("return")
         local dialog = root.popup
@@ -842,13 +903,13 @@ end)
 
 add("typed scripts are discovered without execution and legacy scripts remain levels", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "ScriptTypes"))
+        local project = assert(createSampleProject(parent, "ScriptTypes"))
         assert(project:createEntry("Sources", "folder", "한글"))
         assert(project:createEntry("Sources/한글", "lua", "Actor", {scriptKind = "lobject"}))
         assert(project:createEntry("Sources/한글", "lua", "Stage", {scriptKind = "level"}))
         assert(FS.createFile(assert(project:resolvePath("Sources/Legacy.lua")), 'error("must not execute")'))
         assert(FS.createFile(assert(project:resolvePath("Sources/Unexecuted.lua")), '-- labo-script: lobject\nerror("must not execute")'))
-        Assert.equal("level", project:getScriptKind(Project.DEFAULT_SCRIPT_REFERENCE))
+        Assert.equal("level", project:getScriptKind(DEFAULT_SCRIPT_REFERENCE))
         Assert.equal("level", project:getScriptKind("Sources/Legacy.lua"))
         local levels = assert(project:listScripts("level"))
         local objects = assert(project:listScripts("lobject"))
@@ -861,14 +922,16 @@ add("typed scripts are discovered without execution and legacy scripts remain le
     end)
 end)
 
-add("Level and Prefab creation require matching existing scripts and persist references", function()
+add("Level and Prefab allow no class but reject wrong kinds and persist IDs", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "TypedAssets"))
+        local project = assert(createSampleProject(parent, "TypedAssets"))
         assert(project:createEntry("Sources", "lua", "Enemy", {scriptKind = "lobject"}))
         local objectOptions = {scriptReference = "Sources/Enemy.lua"}
-        local levelOptions = {scriptReference = Project.DEFAULT_SCRIPT_REFERENCE}
-        Assert.equal(false, project:createEntry("Assets", "level", "Missing"))
-        Assert.equal(false, project:createEntry("Assets", "prefab", "Missing"))
+        local levelOptions = {scriptReference = DEFAULT_SCRIPT_REFERENCE}
+        assert(project:createEntry("Assets", "level", "Unbound"))
+        assert(project:createEntry("Assets", "prefab", "Unbound"))
+        Assert.equal(nil, assert(require("editor.level_file").load(assert(project:resolveAssetFile("Assets/Unbound.level")))).scriptReference)
+        Assert.equal(nil, assert(require("editor.prefab").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/Unbound.prefab")))))).definitionReference)
         Assert.equal(false, project:createEntry("Assets", "level", "Wrong", objectOptions))
         Assert.equal(false, project:createEntry("Assets", "prefab", "Wrong", levelOptions))
         Assert.equal(false, project:createEntry("Assets", "prefab", "Outside", {scriptReference = "Sources/../Outside.lua"}))
@@ -884,7 +947,7 @@ add("Level and Prefab creation require matching existing scripts and persist ref
         assert(project:createEntry("Assets", "level", "Stage", levelOptions))
         Assert.equal(nil, FS.info(assert(project:resolvePath("Sources/Stage.lua"))))
         local level = assert(require("editor.level_file").load(assert(project:resolveAssetFile("Assets/Stage.level"))))
-        Assert.equal(project:getAssetId(Project.DEFAULT_SCRIPT_REFERENCE), level.scriptReference)
+        Assert.equal(project:getAssetId(DEFAULT_SCRIPT_REFERENCE), level.scriptReference)
         assert(level:setScriptReference("Sources/Enemy.lua"))
         local app = EditorApp.new(assert(require("editor.level_document").new(level)), project)
         Assert.equal(false, app:startPlay())
@@ -894,7 +957,7 @@ end)
 
 add("creation dialogs choose script type and filter scrollable Level and Prefab sources", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Pickers"))
+        local project = assert(createSampleProject(parent, "Pickers"))
         local app = EditorApp.new(nil, project)
         local browser, root = app.assetBrowser, app.uiRoot
         browser:showCreateDialog("Sources", "lua")
@@ -906,8 +969,9 @@ add("creation dialogs choose script type and filter scrollable Level and Prefab 
         for i = 1, 8 do assert(project:createEntry("Sources", "lua", "Stage" .. i, {scriptKind = "level"})) end
         browser:showCreateDialog("Assets", "level")
         local dialog = root.popup
-        Assert.equal(9, #dialog.options.choices)
-        for _, choice in ipairs(dialog.options.choices) do Assert.equal("level", project:getScriptKind(choice.value)) end
+        Assert.equal(10, #dialog.options.choices)
+        Assert.equal(false, dialog.options.choices[1].value)
+        for i = 2, #dialog.options.choices do Assert.equal("level", project:getScriptKind(dialog.options.choices[i].value)) end
         root:wheelmoved(dialog.choicesRect.x + 5, dialog.choicesRect.y + 5, -2)
         Assert.truthy(dialog.choiceScroll > 0)
         local selectedIndex = dialog.choiceScroll + 2
@@ -920,18 +984,20 @@ add("creation dialogs choose script type and filter scrollable Level and Prefab 
         local level = assert(require("editor.level_file").load(assert(project:resolveAssetFile("Assets/SelectedStage.level"))))
         Assert.equal(project:getAssetId(reference), level.scriptReference)
         browser:showCreateDialog("Assets", "prefab")
-        Assert.equal(1, #root.popup.options.choices)
-        Assert.equal("Sources/Enemy.lua", root.popup.options.choices[1].value)
+        Assert.equal(2, #root.popup.options.choices)
+        Assert.equal("Sources/Enemy.lua", root.popup.options.choices[2].value)
         app:textinput("EnemyPrefab")
+        app:keypressed("down")
         app:keypressed("return")
         Assert.equal(nil, root.popup)
         local data = assert(require("editor.json").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/EnemyPrefab.prefab"))))))
         Assert.equal(project:getAssetId("Sources/Enemy.lua"), data.definitionReference)
         assert(project:deleteEntry("Sources/Enemy.lua"))
         browser:showCreateDialog("Assets", "prefab")
-        Assert.equal(0, #root.popup.options.choices)
+        Assert.equal(1, #root.popup.options.choices)
         app:keypressed("return")
-        Assert.truthy(root.popup.error)
+        Assert.equal(nil, root.popup)
+        Assert.equal(nil, assert(require("editor.prefab").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/NewPrefab.prefab")))))).definitionReference)
     end)
 end)
 
@@ -975,8 +1041,8 @@ end)
 
 add("duplicate and malformed sidecar IDs stop import without rewriting originals", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "BadMeta"))
-        local originalMeta = assert(FS.read(assert(project:resolvePath(Project.DEFAULT_SCRIPT_REFERENCE)) .. ".meta"))
+        local project = assert(createSampleProject(parent, "BadMeta"))
+        local originalMeta = assert(FS.read(assert(project:resolvePath(DEFAULT_SCRIPT_REFERENCE)) .. ".meta"))
         local path = assert(project:resolvePath("Sources/Copy.lua"))
         assert(FS.createFile(path, require("editor.level_script_template")))
         assert(FS.createFile(path .. ".meta", originalMeta))
@@ -992,7 +1058,7 @@ end)
 
 add("moves preserve IDs and dependent asset bytes across rename folder move and reopen", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "Moves"))
+        local project = assert(createSampleProject(parent, "Moves"))
         assert(project:createEntry("Sources", "lua", "Enemy", {scriptKind = "lobject"}))
         assert(project:createEntry("Assets", "prefab", "Enemy", {scriptReference = "Sources/Enemy.lua"}))
         local sourceId = project:getAssetId("Sources/Enemy.lua")
@@ -1010,8 +1076,8 @@ add("moves preserve IDs and dependent asset bytes across rename folder move and 
         Assert.equal(false, project:moveEntry("Sources/Units/Renamed.lua", "Assets/Renamed.lua"))
         local app = EditorApp.new(nil, project)
         local levelId, scriptId = project.defaultLevelReference, app.level.scriptReference
-        app.assetBrowser:showMoveDialog({reference = "Assets/Levels", type = "directory"})
-        app:textinput("Assets/Stages")
+        app.assetBrowser:showRenameDialog({reference = "Assets/Levels", type = "directory"})
+        app:textinput("Stages")
         app:keypressed("return")
         Assert.equal(nil, app.uiRoot.popup)
         Assert.equal(false, app.document:isDirty())
@@ -1031,8 +1097,8 @@ end)
 
 add("failed metadata rename rolls back and interrupted file moves recover from journal", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "MoveRecovery"))
-        local reference = Project.DEFAULT_SCRIPT_REFERENCE
+        local project = assert(createSampleProject(parent, "MoveRecovery"))
+        local reference = DEFAULT_SCRIPT_REFERENCE
         local target = "Sources/Levels/Renamed.lua"
         local sourcePath, targetPath = assert(project:resolvePath(reference)), assert(project:resolvePath(target))
         local id = project:getAssetId(reference)
@@ -1064,8 +1130,8 @@ end)
 
 add("live index refresh recovers pending moves before assigning new identities", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "LiveRecovery"))
-        local source = Project.DEFAULT_SCRIPT_REFERENCE
+        local project = assert(createSampleProject(parent, "LiveRecovery"))
+        local source = DEFAULT_SCRIPT_REFERENCE
         local target = "Sources/Levels/Moved.lua"
         local id = project:getAssetId(source)
         assert(FS.createFile(FS.join(project.rootPath, "asset-move.json"), assert(require("editor.json").encode({version = 1, id = id, source = source, destination = target}))))
@@ -1078,7 +1144,7 @@ end)
 
 add("metadata import failure preserves assets and cache write failure keeps IDs usable", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "ImportErrors"))
+        local project = assert(createSampleProject(parent, "ImportErrors"))
         local image = assert(project:resolvePath("Assets/Image.png"))
         assert(FS.createFile(image, "original bytes"))
         local originalCreate = FS.createFile
@@ -1115,7 +1181,7 @@ end)
 
 add("failed file deletion keeps its original metadata and identity", function()
     fixture(function(parent)
-        local project = assert(Project.create(parent, "DeleteLocked"))
+        local project = assert(createSampleProject(parent, "DeleteLocked"))
         assert(project:createEntry("Sources", "lua", "Locked", {scriptKind = "lobject"}))
         local path = assert(project:resolvePath("Sources/Locked.lua"))
         local id = project:getAssetId("Sources/Locked.lua")
@@ -1133,6 +1199,215 @@ add("failed file deletion keeps its original metadata and identity", function()
         Assert.equal(meta, assert(FS.read(path .. ".meta")))
         assert(project:rebuildAssetIndex())
         Assert.equal(id, project:getAssetId("Sources/Locked.lua"))
+    end)
+end)
+
+add("Lua Classes inherit properties callbacks and super across source moves", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "Inheritance"))
+        assert(project:createEntry("Sources", "lua", "Base", {scriptKind = "level"}))
+        assert(project:createEntry("Sources", "lua", "Child", {scriptKind = "level"}))
+        local baseId, childId = project:getAssetId("Sources/Base.lua"), project:getAssetId("Sources/Child.lua")
+        assert(FS.writeAtomic(assert(project:resolveSourceFile(baseId)), [[return {
+properties = {speed = {type = "number", default = 100}, title = {type = "string", default = "Base"}, enabled = {type = "boolean", default = true}},
+load = function(world) world.loaded = true end,
+update = function(world, dt) world.moved = (world.moved or 0) + world.properties.speed * dt end
+}]]))
+        assert(FS.writeAtomic(assert(project:resolveSourceFile(childId)), 'local Child = {extends = "' .. baseId .. [[", properties = {speed = {type = "number", default = 200}}}
+function Child.load(world) Child.super.load(world); world.childLoaded = true end
+return Child]]))
+        local app = EditorApp.new(nil, project)
+        assert(app.level:setScriptReference(childId))
+        app.level.propertyOverrides.speed = 300
+        assert(app:saveNewLevel("Assets/Stage.level"))
+        assert(project:createEntry("Sources", "folder", "Classes"))
+        assert(project:moveEntry("Sources/Base.lua", "Sources/Classes/Renamed.lua"))
+        local reopened = assert(Project.open(project.rootPath))
+        local editor = EditorApp.new(nil, reopened)
+        assert(editor:openProjectDocument("Assets/Stage.level"))
+        assert(editor:startPlay())
+        Assert.truthy(editor.runtimeWorld.loaded and editor.runtimeWorld.childLoaded)
+        Assert.equal("Base", editor.runtimeWorld.properties.title)
+        assert(editor:update(0.5))
+        Assert.equal(150, editor.runtimeWorld.moved)
+        editor.runtimeWorld.properties.speed = 1
+        Assert.equal(300, editor.level.propertyOverrides.speed)
+        assert(editor:stopPlay())
+        assert(editor:startPlay())
+        Assert.equal(300, editor.runtimeWorld.properties.speed)
+    end)
+end)
+
+add("invalid inheritance declarations and overrides fail without entering Play", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "BadClasses"))
+        assert(project:createEntry("Sources", "lua", "A", {scriptKind = "level"}))
+        assert(project:createEntry("Sources", "lua", "B", {scriptKind = "level"}))
+        assert(project:createEntry("Sources", "lua", "Object", {scriptKind = "lobject"}))
+        local a, b = project:getAssetId("Sources/A.lua"), project:getAssetId("Sources/B.lua")
+        local path = assert(project:resolveSourceFile(a))
+        local app = EditorApp.new(nil, project)
+        assert(app.level:setScriptReference(a))
+        assert(FS.writeAtomic(path, 'return {extends="' .. b .. '"}'))
+        assert(FS.writeAtomic(assert(project:resolveSourceFile(b)), 'return {extends="' .. a .. '"}'))
+        local ok, err = app:startPlay()
+        Assert.equal(false, ok)
+        Assert.truthy(err:find("cycle", 1, true))
+        for _, text in ipairs({
+            'return {extends="' .. project:getAssetId("Sources/Object.lua") .. '"}',
+            'return {extends="Sources/B.lua"}',
+            'return {properties={x={type="table",default={}}}}',
+            'return {properties={x={type="number",default="bad"}}}',
+            'return {load=42}', 'error("broken class")',
+        }) do
+            assert(FS.writeAtomic(path, text))
+            Assert.equal(false, app:startPlay())
+            Assert.equal(nil, app.runtimeWorld)
+        end
+        assert(FS.writeAtomic(path, 'return {properties={x={type="number",default=1}}}'))
+        app.level.propertyOverrides.x = "wrong"
+        Assert.equal(false, app:startPlay())
+        app.level.propertyOverrides = {missing = true}
+        Assert.equal(false, app:startPlay())
+    end)
+end)
+
+add("Level inspector edits basic properties resets defaults and clears parent", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "InspectorProperties"))
+        assert(project:createEntry("Sources", "lua", "Stage", {scriptKind = "level"}))
+        local id = project:getAssetId("Sources/Stage.lua")
+        assert(FS.writeAtomic(assert(project:resolveSourceFile(id)), [[return {properties = {
+enabled = {type="boolean",default=true}, name = {type="string",default="Stage"}, speed = {type="number",default=10}}}]]))
+        local app = EditorApp.new(nil, project)
+        local inspector = app.inspector.classInspector
+        local x, y = inspector.dropdown.x + 5, inspector.dropdown.y + 5
+        app:mousepressed(x, y, 1)
+        app:keypressed("down")
+        app:keypressed("return")
+        Assert.equal(id, app.level.scriptReference)
+        app:draw()
+        local fieldX = love.graphics.getWidth() - app.inspector.width + 20
+        app:mousepressed(fieldX, 195, 1)
+        Assert.equal(false, app.level.propertyOverrides.enabled)
+        app:mousepressed(fieldX, 251, 1)
+        app:textinput("한글 이름")
+        app:keypressed("return")
+        Assert.equal("한글 이름", app.level.propertyOverrides.name)
+        app:mousepressed(fieldX, 307, 1)
+        app:textinput("25.5")
+        app:keypressed("return")
+        Assert.equal(25.5, app.level.propertyOverrides.speed)
+        assert(app:saveNewLevel("Assets/Stage.level"))
+        assert(app:startPlay())
+        Assert.equal(false, app.runtimeWorld.properties.enabled)
+        Assert.equal("한글 이름", app.runtimeWorld.properties.name)
+        Assert.equal(25.5, app.runtimeWorld.properties.speed)
+        assert(app:stopPlay())
+        app:mousepressed(fieldX, 307, 1)
+        app:textinput("bad number")
+        app:keypressed("return")
+        Assert.equal(25.5, app.level.propertyOverrides.speed)
+        app:mousepressed(love.graphics.getWidth() - 25, 307, 1)
+        Assert.equal(nil, app.level.propertyOverrides.speed)
+        app:mousepressed(x, y, 1)
+        app:keypressed("up")
+        app:keypressed("return")
+        Assert.equal(nil, app.level.scriptReference)
+        Assert.equal(nil, next(app.level.propertyOverrides))
+        app.level:addLObject(0, 0)
+        app.sceneView.selectedLObject = app.level.lobjects[1]
+        app.activePanel = "scene"
+        app:draw()
+        assert(app:saveInspectedDocument())
+        Assert.equal(nil, app.inspector.classInspector.target)
+    end)
+end)
+
+add("Prefab inspector saves inherited values and Play creates independent objects", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "PrefabProperties"))
+        assert(project:createEntry("Sources", "lua", "Actor", {scriptKind = "lobject"}))
+        local id = project:getAssetId("Sources/Actor.lua")
+        assert(FS.writeAtomic(assert(project:resolveSourceFile(id)), [[return {
+properties={speed={type="number",default=10}},
+load=function(self, world) self.loaded=true end,
+update=function(self,dt) self.transform.x=self.transform.x+self.properties.speed*dt end}]]))
+        assert(project:createEntry("Assets", "prefab", "Actor"))
+        assert(project:createEntry("Assets", "prefab", "Other"))
+        local app = EditorApp.new(nil, project)
+        local browser = app.assetBrowser
+        app:mousepressed(browser.fileSlot.widget.x + 20, browser.fileSlot.widget.y + 20, 1)
+        app:draw()
+        local inspector = app.inspector.classInspector
+        Assert.equal("Prefab", inspector.target.label)
+        assert(inspector:selectParent(id))
+        assert(inspector:setProperty("speed", 30))
+        Assert.equal(false, app:inspectAsset("Assets/Other.prefab"))
+        assert(app:saveInspectedDocument())
+        local prefabId = project:getAssetId("Assets/Actor.prefab")
+        assert(project:moveEntry("Assets/Actor.prefab", "Assets/Renamed.prefab"))
+        assert(inspector:setProperty("speed", 40))
+        assert(app:saveInspectedDocument())
+        local data = assert(require("editor.prefab").decode(assert(FS.read(assert(project:resolveAssetFile(prefabId))))))
+        Assert.equal(id, data.definitionReference)
+        Assert.equal(40, data.overrides.properties.speed)
+        app.level:addLObject(0, 0, prefabId)
+        app.level:addLObject(0, 0, prefabId)
+        assert(app:startPlay())
+        Assert.truthy(app.runtimeWorld.lobjects[1].loaded)
+        assert(app:update(0.5))
+        Assert.equal(20, app.runtimeWorld.lobjects[1].transform.x)
+        app.runtimeWorld.lobjects[1].properties.speed = 5
+        Assert.equal(40, app.runtimeWorld.lobjects[2].properties.speed)
+        Assert.equal(40, app.prefabDocument.data.overrides.properties.speed)
+        assert(app:stopPlay())
+        assert(inspector:selectParent(false))
+        assert(app:saveInspectedDocument())
+        assert(app:startPlay())
+        assert(app:update(1))
+        Assert.equal(0, app.runtimeWorld.lobjects[1].transform.x)
+    end)
+end)
+
+add("Move selects destination folders while Rename changes only the name", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "SeparateMoveRename"))
+        assert(project:createEntry("Sources", "lua", "Actor", {scriptKind = "lobject"}))
+        assert(project:createEntry("Sources", "folder", "Classes"))
+        assert(project:createEntry("Sources/Classes", "folder", "Nested"))
+        assert(project:createEntry("Assets", "prefab", "Actor", {scriptReference="Sources/Actor.lua"}))
+        local id = project:getAssetId("Sources/Actor.lua")
+        local app = EditorApp.new(nil, project)
+        local browser, root = app.assetBrowser, app.uiRoot
+        browser:showMoveDialog({reference="Sources/Actor.lua",type="file"})
+        local dialog, tree = root.popup, root.popup.options.content
+        Assert.equal("Sources", tree.root)
+        root:mousepressed(tree.x + 50, tree.y + 28 + 10, 1)
+        Assert.equal("Sources/Classes", dialog.text)
+        app:keypressed("return")
+        Assert.equal(nil, root.popup)
+        Assert.equal(id, project:getAssetId("Sources/Classes/Actor.lua"))
+        browser:showRenameDialog({reference="Sources/Classes/Actor.lua",type="file"})
+        app:textinput("Renamed")
+        app:keypressed("return")
+        Assert.equal(id, project:getAssetId("Sources/Classes/Renamed.lua"))
+        browser:showRenameDialog({reference="Sources/Classes/Renamed.lua",type="file"})
+        app:textinput("../escape")
+        app:keypressed("return")
+        Assert.truthy(root.popup.error)
+        app:keypressed("escape")
+        browser:showMoveDialog({reference="Sources/Classes",type="directory"})
+        for _, node in ipairs(root.popup.options.content.nodes) do
+            Assert.equal(nil, node.reference:find("Sources/Classes", 1, true))
+        end
+        app:keypressed("escape")
+        browser:showMoveDialog({reference="Sources/Classes/Renamed.lua",type="file"})
+        app:textinput("Sources")
+        app:keypressed("return")
+        Assert.equal(id, project:getAssetId("Sources/Renamed.lua"))
+        local prefab = assert(require("editor.prefab").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/Actor.prefab"))))))
+        Assert.equal(id, prefab.definitionReference)
     end)
 end)
 

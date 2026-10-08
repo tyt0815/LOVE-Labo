@@ -11,26 +11,34 @@ function Dropdown.new(root, options, value, onChange)
         draw = function(widget)
             Theme.setColor("surface")
             love.graphics.rectangle("fill", widget.x, widget.y, widget.width, widget.height)
-            for i, option in ipairs(self.options) do
-                UI.button(option.label, {x = widget.x + 3, y = widget.y + (i - 1) * 30 + 3,
-                    w = widget.width - 6, h = 28}, i == self.highlight)
+            for row = 1, self.visibleRows do
+                local index = row + self.scroll
+                local option = self.options[index]
+                if option then UI.button(option.label, {x = widget.x + 3, y = widget.y + (row - 1) * 30 + 3,
+                    w = widget.width - 6, h = 28}, index == self.highlight) end
             end
         end,
         mousepressed = function(widget, x, y, button)
             if button ~= 1 then return true end
-            local index = math.floor((y - widget.y) / 30) + 1
+            local index = math.floor((y - widget.y - 3) / 30) + 1 + self.scroll
             local option = self.options[index]
             if option then self:setValue(option.value) end
             self.root:dismissPopup()
             return true
         end,
         keypressed = function(_, key)
+            if #self.options == 0 then return true end
             if key == "down" then self.highlight = self.highlight % #self.options + 1
             elseif key == "up" then self.highlight = (self.highlight - 2) % #self.options + 1
             elseif key == "return" or key == "kpenter" then
                 self:setValue(self.options[self.highlight].value)
                 self.root:dismissPopup()
             end
+            self.scroll = math.max(math.min(self.scroll, self.highlight - 1), self.highlight - self.visibleRows)
+            return true
+        end,
+        wheelmoved = function(_, _, _, amount)
+            self.scroll = math.floor(math.max(0, math.min(#self.options - self.visibleRows, self.scroll - amount * 3)))
             return true
         end
     })
@@ -40,8 +48,8 @@ end
 function Dropdown:setValue(value)
     for _, option in ipairs(self.options) do
         if option.value == value then
+            if self.onChange and self.onChange(value) == false then return false end
             self.value = value
-            if self.onChange then self.onChange(value) end
             return true
         end
     end
@@ -59,10 +67,14 @@ function Dropdown:dispatch(event, ...)
     local _, _, button = ...
     if button ~= 1 then return true end
     local windowHeight = love.graphics.getHeight()
+    if #self.options == 0 then return true end
+    self.highlight = 1
     for i, option in ipairs(self.options) do if option.value == self.value then self.highlight = i end end
-    local height = #self.options * 30 + 6
+    self.visibleRows = math.max(1, math.min(#self.options, 10, math.floor((windowHeight - 16) / 30)))
+    self.scroll = math.max(0, self.highlight - self.visibleRows)
+    local height = self.visibleRows * 30 + 6
     local top = self.y + self.height + 2
-    if top + height > windowHeight then top = self.y - height - 2 end
+    if top + height > windowHeight then top = math.max(0, math.min(windowHeight - height, self.y - height - 2)) end
     self.menu:setBounds(self.x, top, self.width, height)
     self.root:setPopup(self.menu)
     return true

@@ -20,7 +20,7 @@ love . --project "C:\Projects\TestProject"
 
 프로젝트 열기에 실패하거나 경로를 빠뜨리면 시작 화면에서 오류를 표시한다. `--test`를 함께 지정하면 자동화 테스트만 실행한다.
 
-- **New project**: 프로젝트 이름과 부모 폴더를 지정한 뒤 **Create project**를 누른다. 새 프로젝트에는 기본 레벨 `Assets/Levels/StartLevel.level`과 연결된 코드 `Sources/Levels/StartLevel.lua`를 만든다. 기존 폴더는 덮어쓰지 않는다. `.level` 파일의 내용은 JSON이다.
+- **New project**: 프로젝트 이름과 부모 폴더를 지정한 뒤 **Create project**를 누른다. 새 프로젝트에는 빈 `Assets/`·`Sources/`만 만들고, 파일 경로가 없는 빈 레벨 문서를 연다. 초기 Level·Lua 파일은 생성하지 않으며 기존 폴더는 덮어쓰지 않는다.
 - **Open project**: `project.labo`가 있는 프로젝트 폴더를 지정하고 **Open project**를 누른다. 프로젝트 폴더를 시작 화면으로 드래그해서 경로를 입력할 수도 있다.
 - **Browse**: Windows 기본 폴더 선택 창을 연다. 생성 모드에서는 부모 폴더를, 열기 모드에서는 프로젝트 폴더를 선택한다. 취소하면 기존 경로를 유지한다. 경로 입력 및 `Ctrl+V` 붙여넣기도 가능하다. 시작 화면의 경로는 입력 방식과 관계없이 `/`로 표시한다.
 
@@ -29,13 +29,7 @@ MyProject/
   project.labo
   asset-index.json          # 재생성 가능한 ID → 경로 캐시
   Assets/
-    Levels/
-      StartLevel.level
-      StartLevel.level.meta
   Sources/
-    Levels/
-      StartLevel.lua
-      StartLevel.lua.meta
 ```
 
 프로젝트가 열리면 좌측 계층, 중앙 뷰포트, 우측 인스펙터와 하단 프로젝트 브라우저가 표시된다. 왼쪽 폴더 트리에 `Assets/`와 `Sources/`를 별도 루트로 보여준다.
@@ -44,9 +38,10 @@ MyProject/
 - 기본 파일 보기는 **Thumbnails**다. 이미지 파일은 실제 미리보기, 폴더는 폴더 아이콘을 표시한다. 파일의 기본 아이콘은 정사각형에 종류 텍스트를 넣는 형태로 통일한다(`Lv`, `Lua`, `TXT` 등). 우측 Refresh 왼쪽의 드롭다운에서 **List**로 전환할 수 있다. 드롭다운은 방향키·Enter·Escape도 지원한다.
 - 오른쪽 목록의 폴더는 더블클릭 또는 선택 후 `Enter`로 연다. 파일 영역 위의 경로에서 상위 폴더 이름을 클릭하거나 `Backspace`로 이동한다. Assets·Sources 루트 밖으로 이동하지 않는다.
 - 경로는 평소 일반 텍스트로 표시하고, 폴더 이름에 마우스를 올리면 클릭 영역의 배경이 부드럽게 나타난다.
-- 빈 공간을 우클릭하면 **New**, 파일·폴더를 우클릭하면 **New / Move / Rename / Delete** 메뉴를 연다(`Move / Rename`은 한 항목). **New**에는 Assets에서 **Folder / Level / Prefab**, Sources에서 **Folder / Lua Script**만 표시한다. 메뉴가 열린 상태에서 다른 위치를 우클릭하면 해당 위치의 메뉴로 바로 바뀐다. 이름 입력 후 Enter 또는 Create로 생성하며 기존 파일은 덮어쓰지 않는다.
-- **Move / Rename**에서 프로젝트 기준 새 경로를 입력한다(예: `Sources/Enemies/Enemy.lua`). 대상 부모 폴더는 먼저 만들어 두며 Assets·Sources의 원래 루트와 확장자는 유지한다. 원본과 메타를 함께 옮기고 ID는 유지한다. 현재 열린 레벨도 새 위치에 저장된다.
-- **Lua Script** 생성 시 **Level Script / LObject Script**를 고른다. **Level** 생성은 기존 Level Script를, **Prefab** 생성은 기존 LObject Script를 선택한다. Sources의 하위 폴더까지 종류에 맞는 소스만 표시하며 선택 목록은 클릭·방향키·휠을 지원한다. Tab으로 이름과 목록 사이를 전환한다. 해당 종류의 소스가 없으면 먼저 Sources에서 만든다. 선택한 소스는 수정하지 않으며 여러 에셋이 같은 코드를 참조할 수 있다.
+- 빈 공간을 우클릭하면 **New**, 파일·폴더를 우클릭하면 각각 별개인 **New / Move / Rename / Delete** 메뉴를 연다. **New**에는 Assets에서 **Folder / Level / Prefab**, Sources에서 **Folder / Lua Class**만 표시한다. 메뉴가 열린 상태에서 다른 위치를 우클릭하면 해당 위치의 메뉴로 바로 바뀐다. 이름 입력 후 Enter 또는 Create로 생성하며 기존 파일은 덮어쓰지 않는다.
+- **Move**는 경로 입력란 아래의 폴더 트리에서 목적지 폴더를 선택한다. 폴더 경로를 직접 입력해도 된다(예: `Sources/Enemies`). 이름은 유지하고 원본과 메타를 함께 옮긴다. 트리는 같은 Assets·Sources 루트만 표시하며 링크와 이동할 폴더 자신·하위 폴더는 제외한다. 화살표로 펼치고 이름을 클릭해서 선택한다. Tab으로 경로·트리 입력을 전환하고 방향키·휠로 탐색할 수 있다.
+- **Rename**은 현재 폴더에서 이름만 변경하고 파일 확장자는 유지한다. 이동·이름 변경 모두 기존 파일을 덮어쓰지 않고 ID를 유지한다. 현재 열린 레벨과 Prefab도 ID로 새 저장 위치를 찾는다.
+- **Lua Class** 생성 시 **Level Class / LObject Class**를 고른다. **Level / Prefab**의 부모 클래스 선택에는 **None**도 있어 Lua 파일 없이 생성할 수 있다. Level은 Level Class, Prefab은 LObject Class를 사용하며 생성 후 인스펙터에서도 선택·변경·해제할 수 있다. 소스 목록은 코드를 실행하지 않고 메타데이터에서 종류를 읽는다.
 - **Delete**는 확인 후 파일이나 폴더의 전체 내용을 영구 삭제한다. 프로젝트 루트·기본 레벨·현재 열린 레벨을 포함하는 경로와 파일시스템 링크는 삭제하지 않는다. 레벨에 연결된 Lua나 다른 파일의 참조를 자동으로 정리하지 않는다. 메뉴는 방향키·Enter·Escape로도 조작한다.
 - `.level` 파일을 더블클릭하면 해당 레벨을 연다. 현재 레벨에 저장하지 않은 변경이 있으면 유지하고 오류를 표시한다. Lua 코드는 외부 편집기로 수정한다.
 - **Refresh** 또는 브라우저에 포커스가 있을 때 `Ctrl+R`로 외부에서 추가·삭제한 파일을 반영한다. 트리와 목록은 각각 마우스 휠로 스크롤한다.
@@ -54,7 +49,9 @@ MyProject/
 
 썸네일은 현재 화면에 보이는 이미지부터 생성하며, 폴더 이동·Refresh에서 캐시를 비운다. 손상된 이미지, 지원하지 않는 형식, 16 MiB를 넘는 파일은 아이콘으로 표시한다. 연결점·심볼릭 링크를 따라 프로젝트 밖 파일을 읽지 않는다.
 
-파일 선택은 인스펙터를 변경하지 않는다. 새 프로젝트는 저장된 기본 레벨을 자동으로 연다. 기본 레벨 지정이 없는 기존 프로젝트는 빈 메모리 Level로 시작하며, Sources가 없어도 열 수 있다.
+계층·뷰포트에서 LObject를 선택하면 인스펙터에 Transform을 표시하고, 선택을 해제하면 현재 Level의 부모 클래스·프로퍼티를 표시한다. 브라우저에서 Prefab을 클릭하면 해당 Prefab의 부모 클래스·프로퍼티를 표시한다. 저장하지 않은 Prefab을 다른 Prefab으로 교체하는 선택은 막고 저장 안내를 표시한다.
+
+`Ctrl+S`는 편집 중인 인스펙터 값을 확정하고 해당 문서를 저장한다. 빈 레벨의 첫 저장은 **Save Level** 창에서 `Assets/NewLevel.level` 같은 경로를 입력해 새 파일을 만든다. 부모 폴더는 먼저 생성해야 하며 기존 파일은 덮어쓰지 않는다. 취소·실패 시 편집 내용과 저장 전 상태를 유지한다. 기본 레벨 지정이 없거나 파일이 없으면 빈 문서로 시작한다. 첫 저장을 기본 레벨 지정으로 자동 전환하지는 않는다. `project.labo`에 기본 레벨 ID가 지정된 기존 프로젝트는 해당 레벨을 연다.
 
 ## 레벨 코드 연결
 
@@ -85,9 +82,9 @@ end
 return Level
 ```
 
-Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최초 가져오기 때 종류를 결정하는 힌트다. 표식 없는 기존 Lua는 Level Script로 분류한다. 가져온 뒤에는 `.lua.meta`의 `scriptKind`를 사용한다. 목록을 만들 때 코드를 실행하지 않는다. LObject Script 템플릿은 `load(self, world)`·`update(self, dt)` 함수를 제공한다.
+Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최초 가져오기 때 종류를 결정하는 힌트다. 표식 없는 기존 Lua는 Level Class로 분류한다. 가져온 뒤에는 `.lua.meta`의 `scriptKind`를 사용한다. 호환성을 위해 기존 저장 필드명과 헤더는 유지한다. LObject Class 템플릿은 `load(self, world)`·`update(self, dt)` 함수를 제공한다.
 
-생성되는 Prefab은 다음 형태다. `definitionReference`는 선택한 LObject Script를 가리키며 빈 `overrides`는 원본 기본값을 유지한다. 현재는 에셋 생성과 참조 저장을 지원한다. Prefab 편집·배치와 LObject Definition의 Runtime 연결은 후속 구현 범위다.
+생성되는 Prefab은 다음 형태다. `definitionReference`는 선택한 LObject Class를 가리키며 부모가 없으면 생략한다. 빈 `overrides`는 원본 기본값을 유지한다. 레벨 배치 데이터의 `definitionReference`가 Prefab ID를 가리키면 Play에서 부모 클래스·프로퍼티를 적용한다. Prefab의 시각적 배치 도구는 아직 제공하지 않는다.
 
 ```json
 {
@@ -98,6 +95,33 @@ Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최�
 ```
 
 **F5**는 Play/Stop이다. Play마다 코드 파일을 새로 읽고 Runtime World를 만든다. `load`는 한 번, `update`는 매 프레임 LObject 업데이트 전에 호출한다. Stop은 Runtime 변경을 버리며 배치 데이터에 반영하지 않는다. 코드 오류는 에디터에 표시하고 Play를 시작하지 않거나 중지한다. 자동화 테스트 모드에서는 프로젝트 코드를 실행하지 않는다.
+
+## Lua Class 상속과 프로퍼티
+
+클래스는 일반 Lua 테이블을 반환한다. `extends`에는 같은 종류의 부모 `.lua.meta`의 `id`를 기록한다. ID를 사용하므로 부모 파일 이동·이름 변경에도 상속이 유지된다. 생략한 함수와 프로퍼티는 부모에게서 물려받으며, 자식 함수에서 `Child.super.load(world)`처럼 부모 함수를 명시적으로 호출할 수 있다. 순환 상속·다른 종류의 부모·잘못된 선언은 오류다.
+
+```lua
+-- labo-script: level
+local Child = {
+    extends = "12345678-1234-4234-8234-123456789abc",
+    properties = {
+        speed = { type = "number", default = 100 },
+        title = { type = "string", default = "Stage" },
+        enabled = { type = "boolean", default = true },
+    },
+}
+
+function Child.load(world)
+    if Child.super.load then Child.super.load(world) end
+    print(world.properties.title)
+end
+
+return Child
+```
+
+인스펙터에서 `number`·`string`은 입력칸, `boolean`은 토글로 편집한다. `R`은 클래스 기본값으로 되돌린다. 상속받은 프로퍼티도 편집할 수 있고 자식에서 기본값을 재정의할 수 있으나 타입은 유지해야 한다. Level은 `propertyOverrides`, Prefab은 `overrides.properties`에 기본값과 다른 값만 저장한다. 부모 변경 시 새 클래스와 호환되는 값만 유지하고 **None**으로 해제하면 변경값을 비운다. Play에서는 Level의 `world.properties`, LObject의 `self.properties`로 최종 값을 읽는다. Runtime 변경은 에셋에 반영하지 않는다.
+
+클래스 목록은 메타데이터만 읽지만, 프로퍼티 선언을 표시할 때는 선택한 클래스와 부모의 Lua 모듈을 로드한다. 모듈 최상위에는 선언만 두고 실제 게임 동작은 `load`·`update`에 작성한다. 인스펙터 로드는 lifecycle 함수를 호출하지 않는다. 외부에서 클래스를 수정한 뒤에는 **Refresh** 또는 대상 문서 다시 열기로 선언을 갱신한다.
 
 ## 에셋 ID와 메타데이터
 

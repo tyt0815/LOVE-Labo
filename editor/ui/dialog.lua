@@ -9,7 +9,7 @@ function Dialog.new(root, options)
     self.root, self.options, self.text, self.replace = root, options, options.value or "", true
     local width, height = love.graphics.getDimensions()
     self:setBounds(0, 0, width, height)
-    local dialogHeight = options.choices and 386 or 210
+    local dialogHeight = options.content and 430 or options.choices and 386 or 210
     self.box = { x = math.max(0, (width - 460) / 2), y = math.max(0, (height - dialogHeight) / 2), w = 460, h = dialogHeight }
     local box = self.box
     self.field = { x = box.x + 16, y = box.y + 76, w = box.w - 32, h = 32 }
@@ -17,6 +17,17 @@ function Dialog.new(root, options)
     self.confirm = { x = box.x + box.w - 206, y = box.y + box.h - 46, w = 90, h = 30 }
     self.choicesRect = { x = box.x + 16, y = box.y + 140, w = box.w - 32, h = 150 }
     self.selected, self.choiceScroll = options.choices and #options.choices > 0 and 1 or nil, 0
+    if options.content then
+        options.content:setBounds(box.x + 16, box.y + 140, box.w - 32, 190)
+        options.content:clampScroll()
+        for i, node in ipairs(options.content.nodes) do
+            if node.reference == options.content.selected then
+                options.content.scroll = math.max(0, i - options.content.rows)
+                break
+            end
+        end
+        self.contentFocused = true
+    end
     root:setPopup(self)
     return self
 end
@@ -33,11 +44,14 @@ end
 
 function Dialog:dispatch(event, ...)
     if event == "textinput" and self.options.input and not self.choiceFocused then
+        self.contentFocused = false
         self.text = (self.replace and "" or self.text) .. (...)
         self.replace, self.error = false, nil
     elseif event == "keypressed" then
         local key = ...
         if key == "return" or key == "kpenter" then self:submit()
+        elseif key == "tab" and self.options.content then self.contentFocused = not self.contentFocused
+        elseif self.contentFocused and self.options.content then self.options.content:dispatch(event, key)
         elseif key == "tab" and self.options.choices then self.choiceFocused = not self.choiceFocused
         elseif (key == "up" or key == "down") and self.options.choices and #self.options.choices > 0 then
             self.selected = math.max(1, math.min(#self.options.choices, (self.selected or 1) + (key == "up" and -1 or 1)))
@@ -49,12 +63,18 @@ function Dialog:dispatch(event, ...)
         if button == 1 then
             if UI.contains(x, y, self.cancel) then self.root:dismissPopup()
             elseif UI.contains(x, y, self.confirm) then self:submit()
-            elseif UI.contains(x, y, self.field) then self.choiceFocused = false
+            elseif UI.contains(x, y, self.field) then self.choiceFocused, self.contentFocused = false, false
+            elseif self.options.content and self.options.content:containsPoint(x, y) then
+                self.contentFocused = true
+                self.options.content:dispatch(event, x, y, button)
             elseif self.options.choices and UI.contains(x, y, self.choicesRect) then
                 local index = math.floor((y - self.choicesRect.y) / 30) + 1 + self.choiceScroll
                 if self.options.choices[index] then self.selected, self.choiceFocused = index, true end
             end
         end
+    elseif event == "wheelmoved" and self.options.content then
+        local x, y = ...
+        if self.options.content:containsPoint(x, y) then self.options.content:dispatch(event, ...) end
     elseif event == "wheelmoved" and self.options.choices then
         local x, y, amount = ...
         if UI.contains(x, y, self.choicesRect) then
@@ -72,10 +92,10 @@ function Dialog:draw()
     love.graphics.rectangle("fill", box.x, box.y, box.w, box.h, 6, 6)
     UI.text(self.options.title, box.x + 16, box.y + 16, box.w - 32)
     UI.text(self.options.message or "", box.x + 16, box.y + 46, box.w - 32)
-    if self.options.input then UI.field(self.text, self.field, not self.choiceFocused)
+    if self.options.input then UI.field(self.text, self.field, not self.choiceFocused and not self.contentFocused)
     else UI.text(self.options.detail or "", box.x + 16, box.y + 82, box.w - 32) end
     if self.options.choices then
-        UI.text(self.options.choiceLabel or "Script", box.x + 16, box.y + 118, box.w - 32)
+        UI.text(self.options.choiceLabel or "Class", box.x + 16, box.y + 118, box.w - 32)
         local rect = self.choicesRect
         Theme.setColor("input")
         love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
@@ -91,8 +111,13 @@ function Dialog:draw()
                 UI.text(choice.label, rect.x + 8, y + 7, rect.w - 16)
             end
         end
-        if #self.options.choices == 0 then UI.text("No matching scripts. Create one in Sources.", rect.x + 8, rect.y + 8, rect.w - 16) end
-        UI.text("Tab: name/script    Up/Down or wheel: select script", box.x + 16, box.y + 294, box.w - 32, Theme.color("textMuted"))
+        if #self.options.choices == 0 then UI.text("No matching classes. Create one in Sources.", rect.x + 8, rect.y + 8, rect.w - 16) end
+        UI.text("Tab: name/class    Up/Down or wheel: select class", box.x + 16, box.y + 294, box.w - 32, Theme.color("textMuted"))
+    end
+    if self.options.content then
+        UI.text("Destination folder", box.x + 16, box.y + 118, box.w - 32)
+        self.options.content:draw()
+        UI.text("Tab: path/tree    Arrows: navigate folders", box.x + 16, box.y + 338, box.w - 32, Theme.color("textMuted"))
     end
     if self.error then UI.text(self.error, box.x + 16, box.y + box.h - 74, box.w - 32, Theme.color("error")) end
     UI.button("Cancel", self.cancel)

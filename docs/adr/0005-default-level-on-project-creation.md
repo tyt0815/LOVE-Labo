@@ -1,6 +1,6 @@
 # 0005. 프로젝트 생성 시 JSON 기본 레벨 저장
 
-- 상태: 채택
+- 상태: [ADR 0012](0012-lua-classes-properties-and-unsaved-levels.md)로 대체
 - 날짜: 2026-10-08
 - 확장: [ADR 0002](0002-project-launcher-and-assets.md)의 프로젝트 초기 파일 구성
 - 기본 레벨 소스 연결은 [ADR 0007](0007-sources-and-level-scripts.md)로 확장

@@ -87,8 +87,19 @@ function LObject.new(runtimeId, initialState)
 end
 
 function LObject:update(dt)
-    -- 현재는 Runtime LObject 자체 behavior가 아직 없다.
-    -- 이후 LObject Definition / Project Lua behavior가 연결될 lifecycle 경계다.
+    if self.luaClass and self.luaClass.update then
+        local ok, result, err = pcall(self.luaClass.update, self, dt)
+        if not ok or result == false then return false, tostring(ok and err or result) end
+    end
+end
+
+function LObject:setClass(class, properties, world)
+    self.luaClass, self.properties = class, properties or {}
+    if class and class.load then
+        local ok, result, err = pcall(class.load, self, world)
+        if not ok or result == false then return false, tostring(ok and err or result) end
+    end
+    return true
 end
 
 return LObject

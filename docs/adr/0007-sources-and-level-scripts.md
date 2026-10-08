@@ -1,5 +1,7 @@
 # 0007. Sources 탐색과 레벨 Lua 스크립트 연결
 
+- 초기 소스 생성과 클래스·프로퍼티 계약은 [ADR 0012](0012-lua-classes-properties-and-unsaved-levels.md)로 부분 대체
+
 - 상태: 채택
 - 날짜: 2026-10-08
 - 부분 대체: [ADR 0002](0002-project-launcher-and-assets.md)의 Assets 전용 탐색·빈 메모리 레벨 시작
