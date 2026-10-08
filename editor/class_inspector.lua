@@ -7,7 +7,7 @@ local ClassInspector = {}
 ClassInspector.__index = ClassInspector
 
 function ClassInspector.new(project, root)
-    return setmetatable({project = project, root = root, scroll = 0}, ClassInspector)
+    return setmetatable({project = project, root = root, scroll = 0, expanded = {}}, ClassInspector)
 end
 
 function ClassInspector:setTarget(target)
@@ -33,6 +33,7 @@ function ClassInspector:reload()
     self.names = {}
     for name in pairs(self.class and self.class.properties or {}) do self.names[#self.names + 1] = name end
     table.sort(self.names)
+    self:rebuildRows()
     self.dropdown = Dropdown.new(self.root, {}, reference or false, function(value) return self:selectParent(value) end)
     self.dropdown.hint = "Choose a Parent Class. None: use the built-in Level or LObject."
     self:updateOptions()
@@ -131,13 +132,52 @@ function ClassInspector:choices(name, value)
     return Dropdown.new(self.root, options, value, function(selected) return self:setProperty(name, selected) end)
 end
 
+-- 컴포넌트 헤더와 프로퍼티의 높이가 달라 스크롤을 픽셀 단위로 관리한다.
+function ClassInspector:rebuildRows()
+    local groups, groupNames, rows = {}, {}, {}
+    for component in pairs(self.class and self.class.componentTypes or {}) do
+        groups[component] = {}; groupNames[#groupNames + 1] = component
+    end
+    for _, name in ipairs(self.names or {}) do
+        local component = self.class.properties[name].component
+        if component then
+            if not groups[component] then groups[component] = {}; groupNames[#groupNames + 1] = component end
+            groups[component][#groups[component] + 1] = name
+        else rows[#rows + 1] = {name = name, height = 56} end
+    end
+    table.sort(groupNames)
+    for _, component in ipairs(groupNames) do
+        rows[#rows + 1] = {component = component, height = 28}
+        if self.expanded[component] then
+            for _, name in ipairs(groups[component]) do rows[#rows + 1] = {name = name, height = 56} end
+        end
+    end
+    local offset = 0
+    for _, row in ipairs(rows) do row.offset = offset; offset = offset + row.height end
+    self.rows, self.totalHeight = rows, offset
+    self.maxScroll = math.max(0, offset - (self.propertyHeight or 0))
+    self.scroll = math.min(self.scroll, self.maxScroll)
+end
+
+function ClassInspector:ensurePropertyVisible(name)
+    local declaration = assert(self.class.properties[name], "Missing property " .. name)
+    if declaration.component then self.expanded[declaration.component] = true end
+    self:rebuildRows()
+    for _, row in ipairs(self.rows) do
+        if row.name == name then
+            self.scroll = math.max(0, math.min(self.maxScroll, math.max(row.offset + row.height - self.propertyHeight, math.min(self.scroll, row.offset))))
+            return self:propertyRect(name, self.propertyTop + row.offset - self.scroll + 20)
+        end
+    end
+end
+
 function ClassInspector:layout(left, width, height)
     self.left, self.width = left, width
     if not self.dropdown then return end
     self.dropdown:setBounds(left + UI.metrics.contentPaddingX, 100 + UI.metrics.contentPaddingY, math.max(0, width - 2 * UI.metrics.contentPaddingX), 28)
-    self.propertyTop = (self.target.instance and 270 or 170) + UI.metrics.contentPaddingY
-    self.visibleRows = math.max(0, math.floor((height - self.propertyTop - 10) / 56))
-    self.scroll = math.min(self.scroll, math.max(0, #self.names - self.visibleRows))
+    self.propertyTop = (self.target.instance and 334 or 170) + UI.metrics.contentPaddingY
+    self.propertyHeight = math.max(0, height - self.propertyTop - 10)
+    self:rebuildRows()
 end
 
 function ClassInspector:draw()
@@ -152,26 +192,33 @@ function ClassInspector:draw()
         end
     end
     if self.error then UI.text(self.error, self.left + UI.metrics.contentPaddingX, 138 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("error")) end
-    for row = 1, self.visibleRows do
-        local name = self.names[row + self.scroll]
-        if not name then break end
-        local declaration = self.class.properties[name]
-        local value = self.target:getOverrides()[name]
-        if value == nil then value = declaration.default end
-        local y = self.propertyTop + (row - 1) * 56
-        UI.label(name .. " (" .. declaration.type .. ")", self.left + UI.metrics.contentPaddingX, y, self.width - 2 * UI.metrics.contentPaddingX)
-        UI.hint({x = self.left + UI.metrics.contentPaddingX, y = y, w = self.width - 2 * UI.metrics.contentPaddingX, h = 20}, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
-        local rect = self:propertyRect(name, y + 20)
-        if declaration.type == "object" or declaration.type == "image" then
-            local choice = self:choices(name, value)
-            choice:setBounds(rect.x, rect.y, rect.w, rect.h)
-            choice:draw()
-        elseif declaration.type == "boolean" then UI.button(value and "True" or "False", rect, false, "Toggle " .. name .. ". Ctrl+S: save.")
-        else UI.field(self.editing == name and IME.display(self, self.text, self.replace) or tostring(value),
-            rect, self.editing == name, self.editing == name and self.composition) end
-        local resetWidth = UI.buttonWidth("R")
-        UI.button("R", {x = self.left + self.width - UI.metrics.contentPaddingX - resetWidth, y = y + 20, w = resetWidth, h = 26})
+    love.graphics.push("all")
+    love.graphics.intersectScissor(self.left, self.propertyTop, self.width, self.propertyHeight)
+    for _, row in ipairs(self.rows) do
+        local name = row.name
+        local y = self.propertyTop + row.offset - self.scroll
+        if row.component and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
+            local label = (self.expanded[row.component] and "v " or "> ") .. row.component .. " (" .. self.class.componentTypes[row.component] .. ")"
+            UI.button(label, {x = self.left + UI.metrics.contentPaddingX, y = y, w = self.width - 2 * UI.metrics.contentPaddingX, h = 26}, false, "Click to expand or collapse component properties.")
+        elseif y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
+            local declaration = self.class.properties[name]
+            local value = self.target:getOverrides()[name]
+            if value == nil then value = declaration.default end
+            UI.label((declaration.field or name) .. " (" .. declaration.type .. ")", self.left + UI.metrics.contentPaddingX, y, self.width - 2 * UI.metrics.contentPaddingX)
+            UI.hint({x = self.left + UI.metrics.contentPaddingX, y = y, w = self.width - 2 * UI.metrics.contentPaddingX, h = 20}, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
+            local rect = self:propertyRect(name, y + 20)
+            if declaration.type == "object" or declaration.type == "image" then
+                local choice = self:choices(name, value)
+                choice:setBounds(rect.x, rect.y, rect.w, rect.h)
+                choice:draw()
+            elseif declaration.type == "boolean" then UI.button(value and "True" or "False", rect, false, "Toggle " .. name .. ". Ctrl+S: save.")
+            else UI.field(self.editing == name and IME.display(self, self.text, self.replace) or tostring(value),
+                rect, self.editing == name, self.editing == name and self.composition) end
+            local resetWidth = UI.buttonWidth("R")
+            UI.button("R", {x = self.left + self.width - UI.metrics.contentPaddingX - resetWidth, y = y + 20, w = resetWidth, h = 26})
+            end
     end
+    love.graphics.pop()
 end
 
 function ClassInspector:mousepressed(x, y, button)
@@ -182,11 +229,18 @@ function ClassInspector:mousepressed(x, y, button)
         self:updateOptions()
         return dropdown:dispatch("mousepressed", x, y, button)
     end
-    for row = 1, self.visibleRows do
-        local name = self.names[row + self.scroll]
-        if not name then break end
-        local top = self.propertyTop + 20 + (row - 1) * 56
-        if y >= top and y < top + 26 then
+    if y < self.propertyTop or y >= self.propertyTop + self.propertyHeight then self:commitEdit(); return true end
+    for _, row in ipairs(self.rows) do
+        local name = row.name
+        local top = self.propertyTop + row.offset - self.scroll
+        if row.component and y >= top and y < top + row.height then
+            self:commitEdit()
+            self.expanded[row.component] = not self.expanded[row.component]
+            self:rebuildRows()
+            return true
+        end
+        top = top + 20
+        if name and y >= top and y < top + 26 then
             local declaration = self.class.properties[name]
             if x >= self.left + self.width - UI.metrics.contentPaddingX - UI.buttonWidth("R") then
                 self:commitEdit()
@@ -234,6 +288,6 @@ function ClassInspector:textedited(text)
 end
 function ClassInspector:wheelmoved(amount)
     self:commitEdit()
-    self.scroll = math.floor(math.max(0, math.min(math.max(0, #self.names - self.visibleRows), self.scroll - amount * 3)))
+    self.scroll = math.floor(math.max(0, math.min(self.maxScroll or 0, self.scroll - amount * 56)))
 end
 return ClassInspector

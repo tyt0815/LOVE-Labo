@@ -117,12 +117,13 @@ function UI.button(label, rect, active, hint, flat)
 end
 
 function UI.field(text, rect, focused, composition)
+    love.graphics.push("all")
     UI.hint(rect, "Edit the value. Enter: apply. Esc: cancel.")
     Theme.setColor("input")
     love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
     Theme.setColor(focused and "focus" or "border")
     love.graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, 3, 3)
-    love.graphics.setScissor(rect.x + 8, rect.y, math.max(0, rect.w - 16), rect.h)
+    love.graphics.intersectScissor(rect.x + 8, rect.y, math.max(0, rect.w - 16), rect.h)
     local font = love.graphics.getFont()
     local left = rect.x + 8
     if focused then left = math.min(left, rect.x + rect.w - 12 - font:getWidth(text)) end
@@ -138,7 +139,7 @@ function UI.field(text, rect, focused, composition)
         Theme.setColor("focus")
         love.graphics.line(cursor, rect.y + 8, cursor, rect.y + rect.h - 8)
     end
-    love.graphics.setScissor()
+    love.graphics.pop()
 end
 
 function UI.editKey(text, key, replace)

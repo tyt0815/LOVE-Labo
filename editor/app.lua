@@ -231,7 +231,7 @@ function EditorApp:bindRuntimeObjects(world)
         end
     end
     for _, object in ipairs(initialObjects) do
-        local ok, err = object:load(world)
+        local ok, err = object:BeginPlay(world)
         if not ok then return false, err end
     end
     return true
@@ -590,7 +590,7 @@ function EditorApp:initializeUI()
     self.viewportControls = require("editor.ui.viewport_controls").new(self.sceneView)
     local snapSlot = center:addChild(self.viewportControls, {z = 1})
     center.handlers.bounds = function(_, _, _, width, height)
-        snapSlot.width = math.max(0, math.min(432, width - 12))
+        snapSlot.width = math.max(0, math.min(self.viewportControls:preferredWidth(), width - 12))
         snapSlot.x, snapSlot.y = math.max(6, width - snapSlot.width - 12), 6
         snapSlot.height = math.min(self.viewportControls:preferredHeight(snapSlot.width), math.max(0, height - 12))
     end

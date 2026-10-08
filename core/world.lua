@@ -86,11 +86,12 @@ end
 
 function World:setLevelScript(script)
     if type(script) ~= "table" then return false, "level script must be a table" end
-    for _, name in ipairs({ "load", "update" }) do
+    for _, name in ipairs({ "BeginPlay", "load", "update" }) do
         if script[name] ~= nil and type(script[name]) ~= "function" then return false, "invalid level script callback: " .. name end
     end
-    if script.load then
-        local ok, result, err = pcall(script.load, self)
+    local callback = script.BeginPlay or script.load
+    if callback then
+        local ok, result, err = pcall(callback, self)
         if not ok or result == false then return false, "level script load failed: " .. tostring(ok and err or result) end
     end
     self.levelScript = script

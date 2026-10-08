@@ -1,6 +1,7 @@
 # 0019. 2D 변환 모드와 시작점 기준 스냅
 
 - 상태: 채택
+- 후속 부분 대체: [ADR 0021](0021-begin-play-and-orthographic-rotation.md)의 X/Y 직교 투영 회전·100 단위 그리드
 - 후속 부분 대체: [ADR 0020](0020-independent-snaps-and-inspector-selection.md)의 모드별 스냅 저장·회전 정규화
 - 날짜: 2026-10-09
 - 부분 대체: [ADR 0018](0018-translation-gizmo-and-snap-controls.md)의 자유 이동 사각형·원점 정렬 스냅·이동 전용 도구

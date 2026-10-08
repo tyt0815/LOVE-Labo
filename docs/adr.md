@@ -20,3 +20,4 @@
 - [0018. 이동 기즈모와 뷰포트 스냅 컨트롤](adr/0018-translation-gizmo-and-snap-controls.md)
 - [0019. 2D 변환 모드와 시작점 기준 스냅](adr/0019-transform-modes-and-relative-snap.md)
 - [0020. 독립 스냅 설정·회전 정규화와 Inspector 선택 유지](adr/0020-independent-snaps-and-inspector-selection.md)
+- [0021. BeginPlay 초기화와 X/Y 직교 투영 회전](adr/0021-begin-play-and-orthographic-rotation.md)

@@ -4,7 +4,7 @@ local Gizmo = require("editor.transform_gizmo")
 local SceneView = {}
 SceneView.__index = SceneView
 
-local DEFAULT_GRID_SIZE = 32
+local DEFAULT_GRID_SIZE = 100
 
 local LEFT_MOUSE_BUTTON = 1
 local PAN_MOUSE_BUTTON = 3
@@ -467,10 +467,12 @@ function SceneView:draw()
     )
     self:drawMouseWorldPosition()
     love.graphics.print(
-        "Ctrl+D: Duplicate  F: Frame  Delete: Delete",
+        "W: Move  E: Rotate Z  R: Scale  Space: Cycle",
         viewportX + UI.metrics.contentPaddingX,
         viewportY + 56 + UI.metrics.contentPaddingY
     )
+    love.graphics.print("Ctrl+D: Duplicate  F: Frame  Delete: Delete",
+        viewportX + UI.metrics.contentPaddingX, viewportY + 76 + UI.metrics.contentPaddingY)
 
     love.graphics.pop()
 end

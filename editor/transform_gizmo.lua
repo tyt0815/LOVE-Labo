@@ -11,7 +11,14 @@ function Gizmo.handles(view)
     local x, y = view:worldToScreen(transform.x, transform.y)
     local angle = view.gizmoMode == "scale" and math.rad(transform.rotation or 0) or 0
     local cosine, sine = math.cos(angle), math.sin(angle)
-    return {x = x, y = y, ux = cosine, uy = sine, vx = sine, vy = -cosine,
+    local ux, uy, vx, vy = cosine, sine, sine, -cosine
+    if view.gizmoMode == "scale" then
+        local a, b, c, d = Transform.basis(transform)
+        local lx, ly = math.sqrt(a * a + b * b), math.sqrt(c * c + d * d)
+        if lx > 1e-8 then ux, uy = a / lx, b / lx end
+        if ly > 1e-8 then vx, vy = -c / ly, -d / ly end
+    end
+    return {x = x, y = y, ux = ux, uy = uy, vx = vx, vy = vy,
         free = {x = x - 8, y = y - 8, w = 16, h = 16}, radius = RADIUS}
 end
 

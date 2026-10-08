@@ -105,27 +105,29 @@ function LObject:addComponent(name, class, overrides)
     component.owner, component.name = self, name
     self.components[name] = component
     self.componentOrder[#self.componentOrder + 1] = name
-    if self.loaded then
-        local result, err = component:Load(self.world)
+    if self.hasBegunPlay then
+        local result, err = require("core.lobject_component").beginPlayCallback(component)(component, self.world)
         assert(result ~= false, err)
     end
     return component
 end
 
-function LObject:load(world)
+function LObject:BeginPlay(world)
     self.world = world
     for _, name in ipairs(self.componentOrder) do
         local component = self.components[name]
-        local ok, result, err = pcall(component.Load, component, world)
+        local ok, result, err = pcall(require("core.lobject_component").beginPlayCallback(component), component, world)
         if not ok or result == false then return false, tostring(ok and err or result) end
     end
-    self.loaded = true
-    if self.luaClass and self.luaClass.load then
-        local ok, result, err = pcall(self.luaClass.load, self, world)
+    self.hasBegunPlay = true
+    local callback = self.luaClass and (self.luaClass.BeginPlay or self.luaClass.load)
+    if callback then
+        local ok, result, err = pcall(callback, self, world)
         if not ok or result == false then return false, tostring(ok and err or result) end
     end
     return true
 end
+LObject.load = LObject.BeginPlay
 
 function LObject:setClass(class, properties, world)
     self.luaClass, self.properties = class, properties or {}
@@ -133,7 +135,7 @@ function LObject:setClass(class, properties, world)
         local ok, result, err = pcall(class.build, self)
         if not ok or result == false then return false, tostring(ok and err or result) end
     end
-    return self:load(world)
+    return self:BeginPlay(world)
 end
 
 return LObject

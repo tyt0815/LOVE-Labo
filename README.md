@@ -56,13 +56,13 @@ MyProject/
 
 선택한 LObject의 오른쪽·위쪽 화살표는 각각 X·Y축 이동 기즈모다. 기즈모 원점의 하얀 원을 드래그하면 자유롭게 이동한다. 객체 본체 클릭은 선택만 하며 Escape는 진행 중인 변환을 취소한다. A 키의 빈 객체 생성은 제거했으며 Prefab을 드롭해 배치한다.
 
-뷰포트 우상단의 제목 없는 패널에서 W / E / R 버튼으로 Move / Rotate / Scale 모드를 선택한다. 같은 **W / E / R** 단축키와 **Space** 순환을 지원한다. 입력칸 편집 중에는 모드 단축키가 동작하지 않는다. 가로 X축·X 핸들, 세로 Y축·Y 핸들은 같은 테마 색을 사용하며 선은 원점부터 이어진다.
+**W / E / R** 단축키로 Move / Rotate / Scale 모드를 선택하고 **Space**로 순환한다. 모드 버튼은 없으며 좌상단에 단축키 힌트를 표시한다. 입력칸 편집 중에는 모드 단축키가 동작하지 않는다. 가로 X축·X 핸들, 세로 Y축·Y 핸들은 같은 테마 색을 사용하며 선은 원점부터 이어진다. 그리드 한 칸은 100 월드 단위이며 줌에 따라 화면 간격만 바뀐다.
 
-그 아래에는 **Move [값] Rot [값] Scale [값]**을 가로로 표시한다. 각 이름 버튼은 해당 스냅만 On/Off하고 선택 모드는 바꾸지 않는다. 초기값은 모두 꺼짐이며 Move=32 월드 단위, Rot=15도, Scale=0.1 배율 단위다. 양수 값만 입력하고 Enter·다른 입력칸 클릭·앱 종료 시 확정한다. 각 토글과 값은 LÖVE 사용자 저장 폴더의 `viewport-settings.json`에 저장해 재시작 후 복원한다. 레벨과 테마 설정은 수정하지 않는다.
+뷰포트 우상단의 제목 없는 패널에는 **Move [값] Rot [값] Scale [값]**만 가로로 표시한다. 숫자 입력칸은 세 자리 숫자와 여백에 맞는 폭이다. 각 이름 버튼은 해당 스냅만 On/Off하고 선택 모드는 바꾸지 않는다. 초기값은 모두 꺼짐이며 Move=32 월드 단위, Rot=15도, Scale=0.1 배율 단위다. 양수 값만 입력하고 Enter·다른 입력칸 클릭·앱 종료 시 확정한다. 각 토글과 값은 LÖVE 사용자 저장 폴더의 `viewport-settings.json`에 저장해 재시작 후 복원한다. 레벨과 테마 설정은 수정하지 않는다.
 
 각 스냅은 시작 Transform에서의 변화량에 적용한다. X=20, Move=100이면 120/-80으로 이동하고 반대 축은 유지한다. 회전 350도, Rot=30에서 30도 이동하면 20도로 감싼다. Scale=0.1은 해당 축의 배율 변화량을 0.1 단위로 조절하며 중앙 균등 스케일은 X 변화량을 기준으로 스냅하고 Y 비율을 유지한다. 복제는 원본 위치 기준이며 새 Prefab 드롭은 커서 위치를 사용한다.
 
-회전은 화면에 수직인 Z축만 지원한다. 파란 링을 드래그하며 Inspector의 **Rot Z°**에서 각도를 입력한다. 양수 각도는 화면에서 시계 방향이고 편집·저장·로드 각도는 0 이상 360 미만으로 정규화한다. 스케일 기즈모의 축 끝 사각형은 해당 로컬 축만, 중앙 하얀 사각형은 X/Y 비율을 유지하며 확대·축소한다. 중앙을 오른쪽/위로 끌면 확대, 왼쪽/아래로 끌면 축소한다. 기즈모 최소 스케일은 0.01이며 Inspector의 **Scale X/Y**는 양수만 받는다. 회전·스케일은 레벨 저장·복제·Play와 Sprite 렌더링·선택에 반영된다.
+회전 기즈모는 Z축 파란 링을 유지하고 Inspector에서 **Rot X° / Y° / Z°**를 입력한다. X/Y 회전은 스프라이트 평면을 기울여 XY에 직교 투영하며 원근·깊이 정렬은 없다. 스케일 → X → Y → Z 회전 순서다. Z의 양수 각도는 화면에서 시계 방향이고 모든 각도는 편집·저장·로드에서 0 이상 360 미만으로 정규화한다. 정확히 옆면을 향한 평면은 면적이 없어 이미지 클릭으로 선택할 수 있으므로 Hierarchy를 사용한다. 스케일 기즈모의 축 끝 사각형은 투영된 해당 로컬 축만, 중앙 하얀 사각형은 X/Y 비율을 유지하며 확대·축소한다. 중앙을 오른쪽/위로 끌면 확대, 왼쪽/아래로 끌면 축소한다. 기즈모 최소 스케일은 0.01이며 Inspector의 **Scale X/Y**는 양수만 받는다. 회전·스케일은 레벨 저장·복제·Play와 Sprite 렌더링·선택에 반영된다.
 
 인스턴스를 선택하면 그 인스턴스의 각 Sprite 이미지 크기에 맞는 사각형 외곽선을 표시한다. 외곽선은 컴포넌트 상대 위치와 LObject 회전·스케일·뷰포트 줌을 따른다. 투명 픽셀의 윤곽을 추적하지 않고 전체 이미지 범위를 보여준다. Inspector 포커스로 이동해도 선택한 인스턴스가 유지되며 이전 브라우저 프리팹 선택으로 돌아가지 않는다.
 
@@ -82,24 +82,24 @@ MyProject/
 }
 ```
 
-`.level`은 배치 데이터, Lua는 레벨의 동작을 담당한다. 생성되는 Lua 파일은 다음 형태의 테이블을 반환한다.
+`.level`은 배치 데이터, Lua는 레벨의 동작을 담당한다. 새 Level/LObject Lua는 파일명과 같은 지역 클래스 이름을 사용한다. 예를 들어 StartLevel.lua는 다음 테이블을 반환한다. Lua 식별자로 쓸 수 없는 문자는 밑줄로 보정하며 숫자 시작·예약어에는 Class_를 붙이고 한글만 있는 이름은 Level/LObject로 대체한다.
 
 ```lua
 -- labo-script: level
-local Level = {}
+local StartLevel = {}
 
-function Level.load(world)
+function StartLevel.BeginPlay(world)
     -- Play 시작 시 Runtime World를 초기화한다.
 end
 
-function Level.update(world, dt)
+function StartLevel.update(world, dt)
     -- 매 프레임 호출되며 dt는 초 단위다.
 end
 
-return Level
+return StartLevel
 ```
 
-Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최초 가져오기 때 종류를 결정하는 힌트다. 표식 없는 기존 Lua는 Level Class로 분류한다. 가져온 뒤에는 `.lua.meta`의 `scriptKind`를 사용한다. 호환성을 위해 기존 저장 필드명과 헤더는 유지한다. LObject Class 템플릿은 `load(self, world)`·`update(self, dt)` 함수를 제공한다.
+Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최초 가져오기 때 종류를 결정하는 힌트다. 표식 없는 기존 Lua는 Level Class로 분류한다. 가져온 뒤에는 `.lua.meta`의 `scriptKind`를 사용한다. 호환성을 위해 기존 저장 필드명과 헤더는 유지한다. 기존 클래스의 load·컴포넌트의 Load도 실행되며 새 BeginPlay와 함께 선언하면 BeginPlay만 호출한다. LObject Class 템플릿은 `BeginPlay(self, world)`·`update(self, dt)` 함수를 제공한다.
 
 생성되는 Prefab은 다음 형태다. `definitionReference`는 선택한 LObject Class를 가리키며 부모가 없으면 생략한다. 빈 `overrides`는 원본 기본값을 유지한다. Asset Browser의 Prefab을 Scene View에 드래그해서 배치하면 새 인스턴스가 선택된다. Inspector에서 클래스·컴포넌트 값을 편집하고 Ctrl+S로 레벨을 저장한다. Prefab 자체를 선택하면 Prefab 기본값을 편집한다.
 
@@ -111,13 +111,13 @@ Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최�
 }
 ```
 
-**F5**는 Play/Stop이다. Play마다 코드 파일을 새로 읽고 Runtime World를 만든다. `load`는 한 번, `update`는 매 프레임 LObject 업데이트 전에 호출한다. Stop은 Runtime 변경을 버리며 배치 데이터에 반영하지 않는다. 코드 오류는 에디터에 표시하고 Play를 시작하지 않거나 중지한다. 자동화 테스트 모드에서는 프로젝트 코드를 실행하지 않는다.
+**F5**는 Play/Stop이다. Play마다 코드 파일을 새로 읽고 Runtime World를 만든다. `BeginPlay`는 한 번, `update`는 매 프레임 LObject 업데이트 전에 호출한다. Stop은 Runtime 변경을 버리며 배치 데이터에 반영하지 않는다. 코드 오류는 에디터에 표시하고 Play를 시작하지 않거나 중지한다. 자동화 테스트 모드에서는 프로젝트 코드를 실행하지 않는다.
 
 ## Lua Class 상속과 프로퍼티
 
 컴포넌트와 이미지·객체 참조의 선언 및 편집 예시는 [컴포넌트 사용법](components.md)을 참고한다.
 
-클래스는 일반 Lua 테이블을 반환한다. `extends`에는 같은 종류의 부모 `.lua.meta`의 `id`를 기록한다. ID를 사용하므로 부모 파일 이동·이름 변경에도 상속이 유지된다. 생략한 함수와 프로퍼티는 부모에게서 물려받으며, 자식 함수에서 `Child.super.load(world)`처럼 부모 함수를 명시적으로 호출할 수 있다. 순환 상속·다른 종류의 부모·잘못된 선언은 오류다.
+클래스는 일반 Lua 테이블을 반환한다. `extends`에는 같은 종류의 부모 `.lua.meta`의 `id`를 기록한다. ID를 사용하므로 부모 파일 이동·이름 변경에도 상속이 유지된다. 생략한 함수와 프로퍼티는 부모에게서 물려받으며, 자식 함수에서 `Child.super.BeginPlay(world)`처럼 부모 함수를 명시적으로 호출할 수 있다. 순환 상속·다른 종류의 부모·잘못된 선언은 오류다.
 
 ```lua
 -- labo-script: level
@@ -130,8 +130,8 @@ local Child = {
     },
 }
 
-function Child.load(world)
-    if Child.super.load then Child.super.load(world) end
+function Child.BeginPlay(world)
+    if Child.super.BeginPlay then Child.super.BeginPlay(world) end
     print(world.properties.title)
 end
 
@@ -140,7 +140,7 @@ return Child
 
 인스펙터에서 `number`·`string`은 입력칸, `boolean`은 토글로 편집한다. `R`은 클래스 기본값으로 되돌린다. 상속받은 프로퍼티도 편집할 수 있고 자식에서 기본값을 재정의할 수 있으나 타입은 유지해야 한다. Level은 `propertyOverrides`, Prefab은 `overrides.properties`에 기본값과 다른 값만 저장한다. 부모 변경 시 새 클래스와 호환되는 값만 유지하고 **None**으로 해제하면 변경값을 비운다. Play에서는 Level의 `world.properties`, LObject의 `self.properties`로 최종 값을 읽는다. Runtime 변경은 에셋에 반영하지 않는다.
 
-클래스 목록은 메타데이터만 읽지만, 프로퍼티 선언을 표시할 때는 선택한 클래스와 부모의 Lua 모듈을 로드한다. 모듈 최상위에는 선언만 두고 실제 게임 동작은 `load`·`update`에 작성한다. 인스펙터 로드는 lifecycle 함수를 호출하지 않는다. 외부에서 클래스를 수정한 뒤에는 **Refresh** 또는 대상 문서 다시 열기로 선언을 갱신한다.
+클래스 목록은 메타데이터만 읽지만, 프로퍼티 선언을 표시할 때는 선택한 클래스와 부모의 Lua 모듈을 로드한다. 모듈 최상위에는 선언만 두고 실제 게임 동작은 `BeginPlay`·`update`에 작성한다. 인스펙터 로드는 lifecycle 함수를 호출하지 않는다. 외부에서 클래스를 수정한 뒤에는 **Refresh** 또는 대상 문서 다시 열기로 선언을 갱신한다.
 
 ## 에셋 ID와 메타데이터
 

@@ -421,7 +421,7 @@ function Project:createEntry(folder, kind, name, options)
         end
     elseif kind == "lua" then
         ok, createError = writeNew(reference, require(options.scriptKind == "level"
-            and "editor.level_script_template" or "editor.lobject_script_template"))
+            and "editor.level_script_template" or "editor.lobject_script_template")(name))
     elseif kind == "level" then
         local level = options.level or require("editor.level").new()
         assert(level:setScriptReference(self:getAssetId(options.scriptReference) or options.scriptReference))

@@ -49,9 +49,12 @@ function LuaClass.loader(project)
             if schema[name] and schema[name].type ~= declaration.type then return fail("Inherited property type cannot change: " .. name) end
             schema[name] = {type = declaration.type, default = declaration.default}
         end
-        for _, name in ipairs({"build", "load", "update"}) do
+        for _, name in ipairs({"build", "BeginPlay", "load", "update"}) do
             if class[name] ~= nil and type(class[name]) ~= "function" then return fail(name .. " must be a function") end
         end
+        -- 기존 load 선언도 자신의 BeginPlay로 승격하여 새 부모와의 상속을 유지한다.
+        if class.BeginPlay == nil and class.load ~= nil then class.BeginPlay = class.load end
+        if class.load == nil and class.BeginPlay ~= nil then class.load = class.BeginPlay end
         class.properties, class.super = schema, parent
         if parent then setmetatable(class, {__index = parent}) end
         loaded[key], visiting[key] = class, nil

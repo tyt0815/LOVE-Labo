@@ -5,7 +5,6 @@ local Controls = setmetatable({}, {__index = Widget})
 Controls.__index = Controls
 local modes = {"translate", "rotate", "scale"}
 local labels = {translate = "Move", rotate = "Rot", scale = "Scale"}
-local keys = {translate = "W", rotate = "E", scale = "R"}
 local units = {translate = "world units", rotate = "degrees", scale = "scale units"}
 
 function Controls.new(view)
@@ -26,24 +25,18 @@ function Controls.new(view)
     return self
 end
 
-function Controls:preferredHeight(width) return width >= 432 and 94 or 158 end
-
-function Controls:modeRects()
-    return {
-        translate = {x = self.x + 16, y = self.y + 14, w = 36, h = 28},
-        rotate = {x = self.x + 56, y = self.y + 14, w = 36, h = 28},
-        scale = {x = self.x + 96, y = self.y + 14, w = 36, h = 28},
-    }
-end
+function Controls:fieldWidth() return love.graphics.getFont():getWidth("000") + 20 end
+function Controls:preferredWidth() return 244 + 3 * self:fieldWidth() end
+function Controls:preferredHeight(width) return width >= self:preferredWidth() and 56 or 120 end
 
 function Controls:snapRects()
     local result, left = {}, self.x + 16
-    local wrapped = self.width < 432
+    local wrapped = self.width < self:preferredWidth()
     for index, mode in ipairs(modes) do
         local buttonWidth = mode == "rotate" and 48 or 58
-        local top = self.y + 52 + (wrapped and (index - 1) * 32 or 0)
+        local top = self.y + 14 + (wrapped and (index - 1) * 32 or 0)
         if wrapped then left = self.x + 16 end
-        local fieldWidth = wrapped and math.max(0, self.width - 40 - buttonWidth) or 64
+        local fieldWidth = math.min(self:fieldWidth(), math.max(0, self.width - 40 - buttonWidth))
         result[mode] = {button = {x = left, y = top, w = buttonWidth, h = 28},
             field = {x = left + buttonWidth + 8, y = top, w = fieldWidth, h = 28}}
         left = left + buttonWidth + 8 + fieldWidth + 12
@@ -83,9 +76,6 @@ function Controls:press(x, y, button)
         end
     end
     self:commit()
-    for mode, rect in pairs(self:modeRects()) do
-        if UI.contains(x, y, rect) then self.view:setGizmoMode(mode); return true end
-    end
     for _, mode in ipairs(modes) do
         if UI.contains(x, y, rects[mode].button) then
             local setting = self.view.snapSettings[mode]
@@ -111,10 +101,8 @@ function Controls:drawControls()
     love.graphics.push("all")
     love.graphics.setScissor(self.x, self.y, self.width, self.height)
     UI.panel(self.x, self.y, self.width, self.height, "background")
-    local modeRects, snapRects = self:modeRects(), self:snapRects()
+    local snapRects = self:snapRects()
     for _, mode in ipairs(modes) do
-        UI.button(keys[mode], modeRects[mode], self.view.gizmoMode == mode,
-            keys[mode] .. ": " .. labels[mode] .. " mode. Space: cycle modes.", true)
         local setting, rects = self.view.snapSettings[mode], snapRects[mode]
         UI.button(labels[mode], rects.button, setting.enabled,
             labels[mode] .. " snapping: " .. (setting.enabled and "On" or "Off") .. ". Click to toggle.")

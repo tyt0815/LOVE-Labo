@@ -782,7 +782,7 @@ add("new browser entries select existing scripts and never overwrite files", fun
         local level = assert(require("editor.level_file").load(assert(project:resolveAssetFile(reference))))
         Assert.equal(project:getAssetId(DEFAULT_SCRIPT_REFERENCE), level.scriptReference)
         local source = assert(FS.read(assert(project:resolveSourceFile(level.scriptReference))))
-        Assert.equal(require("editor.level_script_template"), source)
+        Assert.equal(require("editor.level_script_template")("StartLevel"), source)
         Assert.equal(false, project:createEntry("Assets/한글", "level", "Stage", options))
         Assert.equal(source, assert(FS.read(assert(project:resolveSourceFile(level.scriptReference)))))
         assert(project:createEntry("Sources", "lua", "Extra", {scriptKind = "level"}))
@@ -1032,8 +1032,8 @@ add("legacy paths migrate to sidecar IDs and cache rebuild never changes identit
     fixture(function(parent)
         assert(FS.mkdir(FS.join(parent, "Assets")))
         assert(FS.mkdir(FS.join(parent, "Sources")))
-        assert(FS.createFile(FS.join(parent, "Sources/Stage.lua"), require("editor.level_script_template")))
-        assert(FS.createFile(FS.join(parent, "Sources/Enemy.lua"), require("editor.lobject_script_template")))
+        assert(FS.createFile(FS.join(parent, "Sources/Stage.lua"), require("editor.level_script_template")("Stage")))
+        assert(FS.createFile(FS.join(parent, "Sources/Enemy.lua"), require("editor.lobject_script_template")("Enemy")))
         assert(FS.createFile(FS.join(parent, "Assets/Enemy.prefab"), '{"formatVersion":1,"definitionReference":"Sources/Enemy.lua","overrides":{}}'))
         assert(FS.createFile(FS.join(parent, "Assets/Stage.level"), '{"formatVersion":1,"scriptReference":"Sources/stage.lua","lobjects":[{"authoringId":1,"definitionReference":"Assets/Enemy.prefab","transform":{"x":0,"y":0}}]}'))
         assert(FS.createFile(FS.join(parent, "project.labo"), '{"version":1,"name":"LegacyIds","defaultLevelReference":"Assets/Stage.level"}'))
@@ -1071,7 +1071,7 @@ add("duplicate and malformed sidecar IDs stop import without rewriting originals
         local project = assert(createSampleProject(parent, "BadMeta"))
         local originalMeta = assert(FS.read(assert(project:resolvePath(DEFAULT_SCRIPT_REFERENCE)) .. ".meta"))
         local path = assert(project:resolvePath("Sources/Copy.lua"))
-        assert(FS.createFile(path, require("editor.level_script_template")))
+        assert(FS.createFile(path, require("editor.level_script_template")("Copy")))
         assert(FS.createFile(path .. ".meta", originalMeta))
         local reopened, err = Project.open(project.rootPath)
         Assert.equal(nil, reopened)
@@ -1892,14 +1892,8 @@ add("Instance Inspector routes text and reference dropdown input through the UI"
         app:draw()
         local inspector = app.inspector.classInspector
         local function field(name)
-            for index, key in ipairs(inspector.names) do
-                if key == name then
-                    inspector.scroll = math.max(0, index - inspector.visibleRows)
-                    local y = inspector.propertyTop + 20 + (index - inspector.scroll - 1) * 56
-                    return inspector.left + 20, y + 3
-                end
-            end
-            error("Missing field " .. name)
+            local rect = inspector:ensurePropertyVisible(name)
+            return rect.x + 5, rect.y + 3
         end
         local x, y = field("title")
         app:mousepressed(x, y, 1)
@@ -1940,11 +1934,8 @@ add("Prefab asset selection cannot replace the instance Inspector when editing a
             app:draw()
             local inspector = app.inspector.classInspector
             Assert.equal(object, inspector.target.data)
-            local index
-            for i, name in ipairs(inspector.names) do if name == "speed" then index = i end end
-            inspector.scroll = math.max(0, index - inspector.visibleRows)
-            local y = inspector.propertyTop + 23 + (index - inspector.scroll - 1) * 56
-            app:mousepressed(inspector.left + 20, y, 1)
+            local rect = inspector:ensurePropertyVisible("speed")
+            app:mousepressed(rect.x + 5, rect.y + 3, 1)
             Assert.equal(object, inspector.target.data)
             app:textinput(tostring(value)); app:keypressed("return")
             Assert.equal(value, object.propertyOverrides.speed)
@@ -2003,4 +1994,88 @@ return {build = function(self) self:addComponent("bad", Bad) end}
     end)
 end)
 
+add("Generated classes use module names and BeginPlay while legacy callbacks inherit", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "NamedClasses"))
+        assert(project:createEntry("Sources", "lua", "NewClass", {scriptKind = "lobject"}))
+        local reference = "Sources/NewClass.lua"
+        local source = assert(FS.read(assert(project:resolveSourceFile(reference))))
+        Assert.truthy(source:find("local NewClass = {}", 1, true))
+        Assert.truthy(source:find("function NewClass.BeginPlay(self, world)", 1, true))
+        for _, name in ipairs({"NewClass", "new-class", "123", "end", "한글"}) do
+            assert(loadstring(require("editor.lobject_script_template")(name)))
+            assert(loadstring(require("editor.level_script_template")(name)))
+        end
+        local id = project:getAssetId(reference)
+        assert(FS.writeAtomic(assert(project:resolveSourceFile(reference)), [[-- labo-script: lobject
+local E = require("engine")
+local Counter = E.LObjectComponent:extend({BeginPlay = function(self) self.owner.componentCalls = (self.owner.componentCalls or 0) + 1 end})
+local NewClass = {}
+function NewClass.build(self) self:addComponent("counter", Counter) end
+function NewClass.BeginPlay(self, world)
+    self.calls = (self.calls or 0) + 1
+    self:addComponent("late", Counter)
+end
+function NewClass.load(self) error("legacy callback must not run twice") end
+return NewClass
+]]))
+        assert(project:createEntry("Sources", "lua", "Child", {scriptKind = "lobject"}))
+        local childSource = '-- labo-script: lobject\nlocal Child = {extends = "' .. id .. '"}\nfunction Child.load(self, world) Child.super.BeginPlay(self, world); self.childBegun = true end\nreturn Child\n'
+        assert(FS.writeAtomic(assert(project:resolveSourceFile("Sources/Child.lua")), childSource))
+        local app = EditorApp.new(nil, project)
+        app.level:addLObject(0, 0, project:getAssetId("Sources/Child.lua"))
+        assert(app:startPlay())
+        local runtime = app.runtimeWorld.lobjects[1]
+        Assert.equal(1, runtime.calls); Assert.equal(2, runtime.componentCalls); Assert.truthy(runtime.childBegun)
+        assert(app:stopPlay())
+        assert(FS.writeAtomic(assert(project:resolveSourceFile(DEFAULT_SCRIPT_REFERENCE)), [[-- labo-script: level
+return {BeginPlay = function(world) world.calls = (world.calls or 0) + 1 end, load = function() error("duplicate startup") end}
+]]))
+        assert(app:startPlay()); Assert.equal(1, app.runtimeWorld.calls)
+    end)
+end)
+
+add("Component Inspector groups collapse without changing overrides for instances and Prefabs", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local object = app.level:addLObject(0, 0, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = object, "scene"; app:draw()
+        local inspector = app.inspector.classInspector
+        inspector:layout(inspector.left, inspector.width, 1000)
+        Assert.equal(nil, inspector.expanded.sprite)
+        local header
+        for _, row in ipairs(inspector.rows) do
+            Assert.truthy(row.name ~= "sprite.x")
+            if row.component == "sprite" then header = row end
+        end
+        Assert.truthy(header)
+        inspector:mousepressed(inspector.left + 20, inspector.propertyTop + header.offset + 10, 1)
+        Assert.truthy(inspector.expanded.sprite)
+        local rect = inspector:ensurePropertyVisible("sprite.x")
+        inspector:mousepressed(rect.x + 5, rect.y + 5, 1); inspector:textinput("19"); inspector:keypressed("return")
+        Assert.equal(19, object.componentOverrides.sprite.x)
+        if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
+            app:draw()
+            inspector:ensurePropertyVisible("sprite.x")
+            local canvas = love.graphics.newCanvas(love.graphics.getDimensions())
+            love.graphics.push("all"); love.graphics.setCanvas(canvas); app:draw(); love.graphics.setCanvas()
+            local pixels = canvas:newImageData(); pixels:encode("png", "component-inspector-preview.png")
+            pixels:release(); canvas:release(); love.graphics.pop()
+            inspector:layout(inspector.left, inspector.width, 1000)
+        end
+        inspector.scroll = 0
+        for _, row in ipairs(inspector.rows) do if row.component == "sprite" then header = row end end
+        inspector:mousepressed(inspector.left + 20, inspector.propertyTop + header.offset + 10, 1)
+        Assert.equal(false, inspector.expanded.sprite)
+        Assert.equal(19, object.componentOverrides.sprite.x)
+        assert(app:inspectAsset("Assets/Actor.prefab"))
+        app.inspector.classInspector:setTarget(app.prefabInspectorTarget)
+        inspector = app.inspector.classInspector
+        inspector:layout(inspector.left or 0, inspector.width or 300, 1000)
+        Assert.equal("sprite", inspector.class.properties["sprite.image"].component)
+        inspector:ensurePropertyVisible("sprite.image")
+        Assert.truthy(inspector.expanded.sprite)
+    end)
+end)
 return tests

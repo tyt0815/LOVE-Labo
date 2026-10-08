@@ -4,7 +4,7 @@ Component.__index = Component
 
 function Component:extend(definition)
     definition = definition or {}
-    for _, callback in ipairs({"Load", "Update"}) do
+    for _, callback in ipairs({"BeginPlay", "Load", "Update"}) do
         assert(definition[callback] == nil or type(definition[callback]) == "function", callback .. " must be a function")
     end
     local schema = {}
@@ -23,7 +23,17 @@ function Component:new(overrides)
     assert(values, err)
     return setmetatable({properties = values}, self)
 end
-function Component:Load(world) end
+function Component:BeginPlay(world) end
+Component.Load = Component.BeginPlay
+function Component.beginPlayCallback(component)
+    -- 자식이 기존 Load만 재정의했다면 부모의 BeginPlay보다 그 선언을 우선한다.
+    local current = component
+    while current do
+        local callback = rawget(current, "BeginPlay") or rawget(current, "Load")
+        if callback then return callback end
+        current = current == component and getmetatable(component) or rawget(current, "super")
+    end
+end
 function Component:Update(dt) end
 function Component:isA(class)
     local current = getmetatable(self)

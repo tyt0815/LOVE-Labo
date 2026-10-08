@@ -1,6 +1,7 @@
 # 0020. 독립 스냅 설정·회전 정규화와 Inspector 선택 유지
 
 - 상태: 채택
+- 후속 부분 대체: [ADR 0021](0021-begin-play-and-orthographic-rotation.md)의 단축키 전용 모드 선택·작은 스냅 패널
 - 날짜: 2026-10-09
 - 부분 대체: [ADR 0019](0019-transform-modes-and-relative-snap.md)의 이동 전용·세션 전용 스냅과 무제한 회전값
 - 확장: [ADR 0012](0012-lua-classes-properties-and-unsaved-levels.md)의 Inspector 대상 선택

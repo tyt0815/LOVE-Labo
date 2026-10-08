@@ -71,18 +71,19 @@ function Definition.inspectorTarget(project, data, definition, level, label)
     local object = assert(require("core.lobject").new(1, {transform = {x = 0, y = 0}}))
     local ok, err = Definition.configure(object, definition)
     if not ok then return nil, err end
-    local schema = {}
+    local schema, componentTypes = {}, {}
     for name, field in pairs(definition.class and definition.class.properties or {}) do
         schema[name] = {type = field.type, default = object.properties[name]}
     end
     for _, name in ipairs(object.componentOrder) do
         local component = object.components[name]
+        componentTypes[name] = component.componentType
         for field, declaration in pairs(getmetatable(component).properties) do
-            schema[name .. "." .. field] = {type = declaration.type, default = component.properties[field]}
+            schema[name .. "." .. field] = {type = declaration.type, default = component.properties[field], component = name, field = field}
         end
     end
     return {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,
-        class = {properties = schema}, preview = object,
+        class = {properties = schema, componentTypes = componentTypes}, preview = object,
         getOverrides = function(target)
             local result = require("editor.property_data").copy(target.data.propertyOverrides)
             for name, fields in pairs(target.data.componentOverrides or {}) do

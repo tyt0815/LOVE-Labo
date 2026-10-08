@@ -7,12 +7,16 @@ function Renderer.draw(object, imageFor, toScreen, zoom)
         if component:isA(Sprite) and component.properties.image ~= false then
             local image = imageFor(component.properties.image)
             if image then
-                local wx, wy = component:getWorldPosition()
+                local transform = object.transform
+                local Transform = require("core.transform")
+                local wx, wy = Transform.point(transform, component.properties.x - image:getWidth() / 2, component.properties.y - image:getHeight() / 2)
                 local x, y = toScreen(wx, wy)
                 love.graphics.setColor(1, 1, 1, 1)
-                local transform = object.transform
-                love.graphics.draw(image, x, y, math.rad(transform.rotation or 0),
-                    (zoom or 1) * (transform.scaleX or 1), (zoom or 1) * (transform.scaleY or 1), image:getWidth() / 2, image:getHeight() / 2)
+                local a, b, c, d = Transform.basis(transform)
+                local affine, z = love.math.newTransform(), zoom or 1
+                affine:setMatrix(a * z, c * z, 0, x, b * z, d * z, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
+                love.graphics.draw(image, affine)
+                affine:release()
                 drawn = true
             end
         end
@@ -21,6 +25,7 @@ function Renderer.draw(object, imageFor, toScreen, zoom)
 end
 function Renderer.hit(object, imageFor, worldX, worldY)
     local x, y = require("core.transform").inversePoint(object.transform, worldX, worldY)
+    if x == nil then return false end
     for _, name in ipairs(object.componentOrder or {}) do
         local component = object.components[name]
         if component:isA(Sprite) and component.properties.image ~= false then

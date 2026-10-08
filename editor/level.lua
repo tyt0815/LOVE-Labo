@@ -118,7 +118,7 @@ function Level:addLObject(x, y, definitionReference)
         transform = {
             x = x,
             y = y,
-            rotation = 0, scaleX = 1, scaleY = 1
+            rotation = 0, rotationX = 0, rotationY = 0, scaleX = 1, scaleY = 1
         }
     }
 
@@ -156,6 +156,7 @@ function Level:duplicateLObject(target, x, y)
             duplicate.componentOverrides = require("editor.property_data").copyComponents(lobject.componentOverrides)
             duplicate.transform.rotation = lobject.transform.rotation or 0
             duplicate.transform.scaleX, duplicate.transform.scaleY = lobject.transform.scaleX or 1, lobject.transform.scaleY or 1
+            duplicate.transform.rotationX, duplicate.transform.rotationY = lobject.transform.rotationX or 0, lobject.transform.rotationY or 0
             return duplicate
         end
     end

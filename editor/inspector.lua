@@ -11,8 +11,9 @@ local FIELD_HEIGHT = 24
 local X_FIELD_Y = 100 + UI.metrics.contentPaddingY
 local Y_FIELD_Y = 132 + UI.metrics.contentPaddingY
 local TRANSFORM_FIELDS = {x = X_FIELD_Y, y = Y_FIELD_Y,
-    rotation = 164 + UI.metrics.contentPaddingY,
-    scaleX = 196 + UI.metrics.contentPaddingY, scaleY = 228 + UI.metrics.contentPaddingY}
+    rotationX = 164 + UI.metrics.contentPaddingY, rotationY = 196 + UI.metrics.contentPaddingY,
+    rotation = 228 + UI.metrics.contentPaddingY,
+    scaleX = 260 + UI.metrics.contentPaddingY, scaleY = 292 + UI.metrics.contentPaddingY}
 local function fieldOffset(field) return (field == "x" or field == "y") and FIELD_LEFT_OFFSET or 72 end
 
 local function pointInRect(x, y, left, top, width, height)
@@ -124,7 +125,7 @@ function Inspector:commitEdit()
 
     if require("core.transform").finite(value) and lobject and lobject.transform
         and ((field ~= "scaleX" and field ~= "scaleY") or value > 0) then
-        lobject.transform[field] = field == "rotation" and require("core.transform").normalizeRotation(value) or value
+        lobject.transform[field] = field:match("^rotation") and require("core.transform").normalizeRotation(value) or value
         self:clearEditState()
         return true
     end
@@ -152,7 +153,7 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if self.classInspector and self.classInspector.target and not selectedLObject then
         return self.classInspector:mousepressed(x, y, button)
     end
-    if selectedLObject and self.classInspector and self.classInspector.target and y >= 270 then
+    if selectedLObject and self.classInspector and self.classInspector.target and y >= 334 then
         self:commitEdit()
         return self.classInspector:mousepressed(x, y, button)
     end
@@ -311,6 +312,8 @@ function Inspector:draw(selectedLObject)
     require("editor.ui").label("Transform", left + UI.metrics.contentPaddingX, 78 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
 
     if selectedLObject.transform then
+        self:drawField("Rot X°", "rotationX", TRANSFORM_FIELDS.rotationX, selectedLObject, left)
+        self:drawField("Rot Y°", "rotationY", TRANSFORM_FIELDS.rotationY, selectedLObject, left)
         self:drawField("X", "x", X_FIELD_Y, selectedLObject, left)
         self:drawField("Y", "y", Y_FIELD_Y, selectedLObject, left)
         self:drawField("Rot Z°", "rotation", TRANSFORM_FIELDS.rotation, selectedLObject, left)

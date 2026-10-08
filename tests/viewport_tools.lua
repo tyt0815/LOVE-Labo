@@ -140,6 +140,7 @@ add("Snap panel consumes pointer and text input and rejects invalid units", func
         for _, mode in ipairs({"translate", "rotate", "scale"}) do
             view:setGizmoMode(mode)
             object.transform.rotation, object.transform.scaleX, object.transform.scaleY = 30, 1.5, 0.8
+            object.transform.rotationX, object.transform.rotationY = 30, 45
             local canvas = love.graphics.newCanvas(love.graphics.getDimensions())
             love.graphics.push("all")
             love.graphics.setCanvas(canvas)
@@ -265,7 +266,7 @@ add("Scale center changes both axes proportionally and local axis handles isolat
     view:keypressed("escape")
 end)
 
-add("UE mode shortcuts and toolbar buttons respect numeric input focus", function()
+add("UE mode shortcuts respect numeric input focus without mode buttons", function()
     local app = require("editor.app").new()
     app.level:addLObject(0, 0)
     app.sceneView.selectedLObject = app.level.lobjects[1]
@@ -274,8 +275,8 @@ add("UE mode shortcuts and toolbar buttons respect numeric input focus", functio
     app:keypressed("w"); Assert.equal("translate", app.sceneView.gizmoMode)
     app:keypressed("space"); Assert.equal("rotate", app.sceneView.gizmoMode)
     local controls = app.viewportControls
-    local rect = controls:modeRects().scale
-    app:mousepressed(rect.x + 5, rect.y + 5, 1)
+    Assert.equal(nil, controls.modeRects)
+    app:keypressed("r")
     Assert.equal("scale", app.sceneView.gizmoMode)
     local _, field = controls:rects()
     app:mousepressed(field.x + 5, field.y + 5, 1)
@@ -284,15 +285,15 @@ add("UE mode shortcuts and toolbar buttons respect numeric input focus", functio
     app:textinput("1e2"); app:keypressed("return")
     Assert.equal(100, app.sceneView.snapSettings.translate.unit)
     local left = love.graphics.getWidth() - app.inspector.width
-    app:mousepressed(left + 110, 175, 1)
+    app:mousepressed(left + 110, 239, 1)
     app:keypressed("w")
     Assert.equal("scale", app.sceneView.gizmoMode)
     app:textinput("45"); app:keypressed("return")
     Assert.equal(45, app.level.lobjects[1].transform.rotation)
-    app:mousepressed(left + 110, 205, 1)
+    app:mousepressed(left + 110, 269, 1)
     app:textinput("2"); app:keypressed("return")
     Assert.equal(2, app.level.lobjects[1].transform.scaleX)
-    app:mousepressed(left + 110, 237, 1)
+    app:mousepressed(left + 110, 301, 1)
     app:textinput("0"); app:keypressed("return")
     Assert.equal(1, app.level.lobjects[1].transform.scaleY)
     local handles = Gizmo.handles(app.sceneView)
@@ -495,5 +496,81 @@ add("Selected rendering bounds include every transformed Sprite and hide missing
     Assert.equal(1, g2); Assert.equal(1, a2)
     Assert.equal(0, center)
     pixels:release(); canvas:release(); image:release(); love.graphics.pop()
+end)
+add("Default grid uses 100 world units and snap fields fit three digits", function()
+    Assert.equal(100, Scene.new().gridSize)
+    local controls = require("editor.ui.viewport_controls").new(Scene.new())
+    controls:setBounds(0, 0, controls:preferredWidth(), 56)
+    local rects = controls:snapRects()
+    for _, mode in ipairs({"translate", "rotate", "scale"}) do
+        Assert.equal(love.graphics.getFont():getWidth("000") + 20, rects[mode].field.w)
+        Assert.equal(rects.translate.field.y, rects[mode].field.y)
+        Assert.truthy(rects[mode].field.x + rects[mode].field.w <= controls.width)
+    end
+    Assert.equal(56, controls:preferredHeight(controls.width))
+    controls:setBounds(0, 0, 180, 120)
+    Assert.truthy(controls:snapRects().scale.field.y > controls:snapRects().translate.field.y)
+end)
+
+add("XY rotations project Sprite geometry and share render picking and outline matrices", function()
+    local T, Renderer = require("core.transform"), require("core.sprite_renderer")
+    local object = assert(require("core.lobject").new(1, {transform = {x = 80, y = 80, rotationX = 60, rotationY = 60}}))
+    object:addComponent("sprite", require("engine").SpriteComponent, {image = "example"})
+    local x, y = T.point(object.transform, 8, 4)
+    near(87, x); near(82, y)
+    local lx, ly = T.inversePoint(object.transform, x, y)
+    near(8, lx); near(4, ly)
+    local data = love.image.newImageData(40, 40)
+    data:mapPixel(function() return 1, 0, 0, 1 end)
+    local image = love.graphics.newImage(data); data:release()
+    local resolve = function() return image end
+    Assert.truthy(Renderer.hit(object, resolve, 87, 82))
+    Assert.equal(false, Renderer.hit(object, resolve, 110, 82))
+    local canvas = love.graphics.newCanvas(160, 160)
+    love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.clear(0, 0, 0, 0)
+    Renderer.draw(object, resolve, function(wx, wy) return wx, wy end, 1)
+    love.graphics.setCanvas()
+    local pixels = canvas:newImageData()
+    local _, _, _, inside = pixels:getPixel(87, 82)
+    local _, _, _, outside = pixels:getPixel(110, 82)
+    Assert.equal(1, inside); Assert.equal(0, outside); pixels:release()
+    love.graphics.setCanvas(canvas); love.graphics.clear(0, 0, 0, 0); love.graphics.setColor(0, 1, 0, 1); love.graphics.setLineWidth(2)
+    Renderer.outline(object, resolve, function(wx, wy) return wx, wy end)
+    love.graphics.setCanvas()
+    pixels = canvas:newImageData()
+    local _, green, _, edge = pixels:getPixel(95, 90)
+    Assert.equal(1, green); Assert.equal(1, edge); pixels:release()
+    love.graphics.setCanvas(); love.graphics.pop(); canvas:release(); image:release()
+    object.transform.rotationX = 90
+    Assert.equal(nil, T.inversePoint(object.transform, 80, 80))
+    Assert.equal(false, Renderer.hit(object, resolve, 80, 80))
+end)
+
+add("XY rotations normalize serialize duplicate and stay independent in Runtime", function()
+    local level = Level.new()
+    local object = level:addLObject(0, 0)
+    local inspector = require("editor.inspector").new(level)
+    assert(inspector:beginEdit("rotationX", object)); inspector.editText = "-30"; assert(inspector:commitEdit())
+    assert(inspector:beginEdit("rotationY", object)); inspector.editText = "420"; assert(inspector:commitEdit())
+    Assert.equal(330, object.transform.rotationX); Assert.equal(60, object.transform.rotationY)
+    local loaded = assert(Level.fromData(level:toData()))
+    local duplicate = loaded:duplicateLObject(loaded.lobjects[1])
+    Assert.equal(330, duplicate.transform.rotationX); Assert.equal(60, duplicate.transform.rotationY)
+    local world = assert(require("core.world").fromLevelData(loaded:toData()))
+    world.lobjects[1].transform.rotationX = 10
+    Assert.equal(330, loaded.lobjects[1].transform.rotationX)
+    for _, invalid in ipairs({false, math.huge, "30"}) do
+        local data = level:toData(); data.lobjects[1].transform.rotationY = invalid
+        Assert.equal(nil, Level.fromData(data))
+        object.transform.rotationY = invalid
+        Assert.equal(nil, Level.fromData(level:toData()))
+        object.transform.rotationY = 60
+    end
+    local view = scene(); view.selectedLObject.transform.rotationX = 30; view.selectedLObject.transform.rotationY = 45
+    view:setGizmoMode("rotate")
+    local handles = Gizmo.handles(view)
+    view:mousepressed(handles.x + 60, handles.y, 1); view:mousemoved(0, 0, -60, 60)
+    near(90, view.selectedLObject.transform.rotation)
+    Assert.equal(30, view.selectedLObject.transform.rotationX); Assert.equal(45, view.selectedLObject.transform.rotationY)
 end)
 return tests
