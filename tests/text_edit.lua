@@ -144,4 +144,84 @@ add("Text highlight and caret use theme colors and scroll follows the caret", fu
     end
     canvas:release()
 end)
+add("Numeric drag updates live with precision cancels and preserves active text selection", function()
+    local app = require("editor.app").new()
+    local object = app.level:addLObject(20, 0)
+    app.sceneView.selectedLObject = object
+    local rect = app.inspector:fieldRect("x", love.graphics.getWidth())
+    local x, y = rect.x + 5, rect.y + 5
+    app:mousepressed(x, y, 1)
+    app:mousemoved(x + 2, y, 2, 0); Assert.equal(20, object.transform.x)
+    app:mousemoved(x + 12, y, 10, 0); Assert.equal(32, object.transform.x)
+    modifiers = {lshift = true}; app:keypressed("lshift")
+    app:mousemoved(x + 22, y, 10, 0); Assert.equal(33, object.transform.x)
+    modifiers = {}
+    app:keypressed("escape"); Assert.equal(20, object.transform.x)
+    app:mousereleased(x + 22, y, 1)
+    app:mousepressed(x, y, 1); app:mousemoved(x - 7, y, -7, 0)
+    app:mousereleased(x - 7, y, 1); Assert.equal(13, object.transform.x)
+    Assert.equal(false, app.inspector:isEditing())
+    app:mousepressed(x, y, 1); app:mousereleased(x, y, 1)
+    app:mousepressed(x, y, 1); app:mousemoved(x + 35, y, 35, 0); app:mousereleased(x + 35, y, 1)
+    Assert.equal(13, object.transform.x)
+    local first, last = Edit.range(app.inspector.editState)
+    Assert.truthy(first < last)
+    app.inspector:cancelEdit()
+    object.transform.rotation = 350
+    rect = app.inspector:fieldRect("rotation", love.graphics.getWidth()); x, y = rect.x + 5, rect.y + 5
+    app:mousepressed(x, y, 1); app:mousemoved(x + 20, y, 20, 0)
+    Assert.equal(10, object.transform.rotation)
+    app:keypressed("escape"); Assert.equal(350, object.transform.rotation)
+    app:mousereleased(x + 20, y, 1)
+    rect = app.inspector:fieldRect("scaleX", love.graphics.getWidth()); x, y = rect.x + 5, rect.y + 5
+    app:mousepressed(x, y, 1); app:mousemoved(x - 500, y, -500, 0)
+    Assert.equal(0.01, object.transform.scaleX)
+    app.uiRoot:setPopup(require("editor.ui.widget").new())
+    Assert.equal(1, object.transform.scaleX); Assert.equal(false, app.inspector:isEditing())
+    app.uiRoot:dismissPopup()
+end)
+
+add("Snap drag previews values saves only on release and reverts on Escape", function()
+    local saved = {}
+    local app = require("editor.app").new(nil, nil, {saveSnapSettings = function(settings)
+        saved[#saved + 1] = require("editor.snap_settings").copy(settings); return true
+    end})
+    local _, rect = app.viewportControls:rects("scale")
+    local x, y = rect.x + 5, rect.y + 5
+    app:mousepressed(x, y, 1); app:mousemoved(x + 10, y, 10, 0)
+    Assert.truthy(math.abs(app.sceneView.snapSettings.scale.unit - 0.2) < 1e-8)
+    Assert.equal(0, #saved)
+    app:mousereleased(x + 10, y, 1)
+    Assert.equal(1, #saved); Assert.truthy(math.abs(saved[1].scale.unit - 0.2) < 1e-8)
+    app:mousepressed(x, y, 1); app:mousemoved(x + 20, y, 20, 0)
+    app:keypressed("escape"); app:mousereleased(x + 20, y, 1)
+    Assert.truthy(math.abs(app.sceneView.snapSettings.scale.unit - 0.2) < 1e-8)
+    Assert.equal(1, #saved)
+end)
+add("Numeric dragging uses relative motion hides the caret and restores mouse on focus loss", function()
+    local app = require("editor.app").new()
+    local object = app.level:addLObject(20, 0)
+    app.sceneView.selectedLObject = object
+    local relative, visible, grabbed = love.mouse.getRelativeMode(), love.mouse.isVisible(), love.mouse.isGrabbed()
+    local rect = app.inspector:fieldRect("x", love.graphics.getWidth())
+    local x, y = rect.x + 5, rect.y + 5
+    app:mousepressed(x, y, 1); app:mousemoved(x + 10, y, 10, 0)
+    Assert.equal(true, love.mouse.getRelativeMode()); Assert.equal(false, love.mouse.isVisible())
+    -- 상대 모드에서는 절대 좌표가 고정되어 있어도 dx 이벤트로 계속 조절한다.
+    app:mousemoved(x + 10, y, 25, 0); Assert.equal(55, object.transform.x)
+    app:mousemoved(x + 10, y, -40, 0); Assert.equal(15, object.transform.x)
+    local original, lines = love.graphics.line, 0
+    love.graphics.line = function(...) lines = lines + 1; return original(...) end
+    local ok, err = pcall(UI.field, IME.display(app.inspector, app.inspector.editText, false), rect, true, nil, app.inspector)
+    love.graphics.line = original
+    if not ok then error(err, 0) end
+    Assert.equal(0, lines)
+    app:focus(false)
+    Assert.equal(20, object.transform.x); Assert.equal(false, app.inspector:isEditing())
+    Assert.equal(relative, love.mouse.getRelativeMode()); Assert.equal(visible, love.mouse.isVisible()); Assert.equal(grabbed, love.mouse.isGrabbed())
+    Assert.equal(nil, app.uiRoot.captured)
+    app:mousepressed(x, y, 1); app:mousemoved(x + 10, y, 10, 0); app:mousereleased(x + 10, y, 1)
+    Assert.equal(30, object.transform.x)
+    Assert.equal(relative, love.mouse.getRelativeMode()); Assert.equal(visible, love.mouse.isVisible())
+end)
 return tests

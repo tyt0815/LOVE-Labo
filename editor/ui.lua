@@ -156,10 +156,11 @@ function UI.field(text, rect, focused, composition, owner)
     local font = love.graphics.getFont()
     local left = rect.x + 8
     local Edit, state = require("editor.ui.text_edit"), owner and owner.editState
+    local scrubbing = owner and owner.numberDrag and owner.numberDrag.active
     local caretWidth
     if focused and state then
         left, caretWidth = Edit.geometry(owner, text, rect)
-        if not composition then
+        if not composition and not scrubbing then
             local first, last = Edit.range(state)
             Theme.setColor("textSelection")
             love.graphics.rectangle("fill", left + font:getWidth(Edit.prefix(text, first)), rect.y + 3,
@@ -173,7 +174,7 @@ function UI.field(text, rect, focused, composition, owner)
         love.graphics.line(right - font:getWidth(composition), rect.y + (rect.h + font:getHeight()) / 2,
             right, rect.y + (rect.h + font:getHeight()) / 2)
     end
-    if focused and (composition or not state or state.cursor == state.anchor) then
+    if focused and not scrubbing and (composition or not state or state.cursor == state.anchor) then
         local cursor = left + (caretWidth or font:getWidth(text)) + 1
         Theme.setColor("focus")
         love.graphics.line(cursor, rect.y + 4, cursor, rect.y + rect.h - 4)

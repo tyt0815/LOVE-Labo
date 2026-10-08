@@ -3,6 +3,7 @@ local UI = require("editor.ui")
 local IME = require("editor.ui.ime")
 local Edit = require("editor.ui.text_edit")
 local PropertyLayout = require("editor.ui.property_layout")
+local NumberDrag = require("editor.ui.number_drag")
 local Inspector = {}
 Inspector.__index = Inspector
 
@@ -12,7 +13,7 @@ local TRANSFORM_ORDER = {"x", "y", "rotationX", "rotationY", "rotation", "scaleX
 local TRANSFORM_FIELDS = {}
 for i, field in ipairs(TRANSFORM_ORDER) do TRANSFORM_FIELDS[field] = i end
 local TRANSFORM_LABELS = {x = "X", y = "Y", rotationX = "Rot X°", rotationY = "Rot Y°", rotation = "Rot Z°", scaleX = "Scale X", scaleY = "Scale Y"}
-local TRANSFORM_TOP = 78 + UI.metrics.contentPaddingY
+local TRANSFORM_TOP = 90 + UI.metrics.contentPaddingY
 
 function Inspector.new(level, width)
     local self = setmetatable({}, Inspector)
@@ -97,6 +98,7 @@ function Inspector:beginEdit(field, selectedLObject)
 end
 
 function Inspector:clearEditState()
+    NumberDrag.finish(self)
     IME.cancel(self)
     self.activeField = nil
     self.editingLObject = nil
@@ -128,6 +130,7 @@ function Inspector:commitEdit()
 end
 
 function Inspector:cancelEdit()
+    NumberDrag.cancel(self)
     if self.classInspector then self.classInspector:cancelEdit() end
     if not self:isEditing() then
         return false
@@ -145,7 +148,7 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if self.classInspector and self.classInspector.target and not selectedLObject then
         return self.classInspector:mousepressed(x, y, button)
     end
-    if selectedLObject and UI.contains(x, y, {x = windowWidth - self.width + UI.metrics.contentPaddingX, y = TRANSFORM_TOP, w = self.width - 2 * UI.metrics.contentPaddingX, h = PropertyLayout.headerHeight}) and button == 1 then
+    if selectedLObject and UI.contains(x, y, {x = windowWidth - self.width + UI.metrics.contentPaddingX, y = TRANSFORM_TOP, w = self.width - 2 * UI.metrics.contentPaddingX, h = self.transformExpanded and 32 or PropertyLayout.headerHeight}) and button == 1 then
         self:commitEdit()
         self.transformExpanded = not self.transformExpanded
         if self.classInspector and self.classInspector.target then self.classInspector:layout(windowWidth - self.width, self.width, self.height or love.graphics.getHeight(), self:getPropertyTop()) end
@@ -189,6 +192,10 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     self:commitEdit()
     self:beginEdit(field, selectedLObject)
     Edit.press(self, self.editText, self:fieldRect(field, windowWidth), x, true)
+    local scale = field:match("^scale")
+    NumberDrag.begin(self, self.editText, x, {pointerY = y, step = scale and 0.01 or 1, minimum = scale and 0.01 or nil,
+        normalize = field:match("^rotation") and require("core.transform").normalizeRotation or nil,
+        onChange = function(value) selectedLObject.transform[field] = value end})
     return true, true
 end
 
@@ -199,11 +206,27 @@ end
 function Inspector:getPropertyTop()
     return TRANSFORM_TOP + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.rowHeight or PropertyLayout.headerHeight) + 8
 end
-function Inspector:mousemoved(x)
-    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:mousemoved(x) end
+function Inspector:mousemoved(x, y, dx)
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:mousemoved(x, y, dx) end
+    local handled, text = NumberDrag.move(self, x, dx)
+    if handled then
+        if text then self.editText, self.replaceOnTextInput = text, false; Edit.begin(self, text, false) end
+        return true
+    end
     return Edit.move(self, x)
 end
-function Inspector:mousereleased() Edit.release(self); if self.classInspector then self.classInspector:mousereleased() end; return true end
+function Inspector:mousereleased()
+    if NumberDrag.finish(self) then self:commitEdit() end
+    Edit.release(self)
+    if self.classInspector then self.classInspector:mousereleased() end
+    return true
+end
+function Inspector:cancelPointer()
+    if self.numberDrag then self:cancelEdit() end
+    Edit.release(self)
+    if self.classInspector then self.classInspector:cancelPointer() end
+    return true
+end
 
 function Inspector:textinput(text)
     if self.classInspector and self.classInspector:isEditing() then return self.classInspector:textinput(text) end
@@ -228,6 +251,7 @@ function Inspector:keypressed(key)
     if not self:isEditing() then
         return false
     end
+    if NumberDrag.modifier(self, key) then return true end
     if IME.handlesKey(self, key) then return true end
     if IME.endsComposition(key) then
         self.editText, self.replaceOnTextInput = IME.finish(self, self.editText, self.replaceOnTextInput)
@@ -269,6 +293,12 @@ function Inspector:drawField(label, field, y, selectedLObject, left)
     UI.resetButton(reset)
 end
 
+function Inspector:instanceKind(object)
+    local project = self.classInspector and self.classInspector.project
+    local reference = project and object.definitionReference and project:getAssetReference(object.definitionReference)
+    local name = reference and reference:match("([^/]+)%.[^.]+$") or "LObject"
+    return name .. " Instance"
+end
 function Inspector:draw(selectedLObject)
     local windowWidth, windowHeight = love.graphics.getDimensions()
     windowHeight = self.height or windowHeight
@@ -313,7 +343,7 @@ function Inspector:draw(selectedLObject)
     local name = type(selectedLObject.name) == "string" and selectedLObject.name ~= "" and selectedLObject.name
         or displayId and "LObject " .. displayId or "LObject"
     UI.label(name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
-    UI.text("LObject Instance", left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+    UI.text(self:instanceKind(selectedLObject), left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
 
     if selectedLObject.transform then
         PropertyLayout.group(left, self.width, TRANSFORM_TOP, self:getPropertyTop() - TRANSFORM_TOP - 8, "Transform", self.transformExpanded)

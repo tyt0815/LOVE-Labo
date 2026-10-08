@@ -621,9 +621,9 @@ function EditorApp:initializeUI()
             return true
         end,
         keypressed = function(_, key) return self.inspector:keypressed(key) end,
-        mousemoved = function(_, x) return self.inspector:mousemoved(x) end,
+        mousemoved = function(_, x, y, dx) return self.inspector:mousemoved(x, y, dx) end,
         mousereleased = function() return self.inspector:mousereleased() end,
-        cancel = function() return self.inspector:mousereleased() end,
+        cancel = function() return self.inspector:cancelPointer() end,
         textinput = function(_, text) return self.inspector:textinput(text) end,
         textedited = function(_, text) return self.inspector:textedited(text) end,
         wheelmoved = function(_, _, _, amount)
@@ -802,6 +802,14 @@ function EditorApp:mousemoved(x, y, dx, dy)
     self.uiRoot:mousemoved(x, y, dx, dy)
 end
 
+function EditorApp:focus(focused)
+    if focused then return end
+    self.inspector:cancelPointer()
+    if self.viewportControls.numberDrag then self.viewportControls:dispatch("cancel") end
+    if self.uiRoot.captured == self.inspectorWidget or self.uiRoot.captured == self.viewportControls then
+        self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
+    end
+end
 function EditorApp:wheelmoved(_, amount)
     self:updateSceneViewport()
     local x, y = love.mouse.getPosition()

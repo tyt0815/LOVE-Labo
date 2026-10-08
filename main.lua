@@ -111,6 +111,11 @@ function love.keypressed(key)
     end
 end
 
+function love.focus(focused)
+    if app and app.focus then app:focus(focused) end
+end
+
 function love.quit()
     if app and app.viewportControls then app.viewportControls:commit() end
+    if app and app.focus then app:focus(false) end
 end

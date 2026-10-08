@@ -16,8 +16,12 @@ function Layout.separators(left, width, top)
     love.graphics.line(split, top + 0.5, split, top + Layout.rowHeight - 0.5)
     love.graphics.pop()
 end
+function Layout.groupHeaderHeight(expanded, height)
+    return expanded and height > Layout.headerHeight and Layout.rowHeight or Layout.headerHeight
+end
 function Layout.group(left, width, top, height, label, expanded)
     local x, w = left + UI.metrics.contentPaddingX, width - 2 * UI.metrics.contentPaddingX
+    local headerHeight = Layout.groupHeaderHeight(expanded, height)
     if expanded then
         Theme.setColor("surface")
         love.graphics.rectangle("fill", x, top, w, height, 4, 4)
@@ -25,8 +29,8 @@ function Layout.group(left, width, top, height, label, expanded)
         love.graphics.setLineWidth(1)
         love.graphics.rectangle("line", x + 0.5, top + 0.5, w - 1, height - 1, 4, 4)
     end
-    UI.button("", {x = x, y = top, w = w, h = Layout.headerHeight}, false, "Click to expand or collapse properties.")
-    UI.chevron(x + 10, top + 13, expanded)
-    UI.text(label, x + 26, top + (26 - love.graphics.getFont():getHeight()) / 2, w - 36)
+    UI.button("", {x = x, y = top, w = w, h = headerHeight}, false, "Click to expand or collapse properties.")
+    UI.chevron(x + 10, top + headerHeight / 2, expanded)
+    UI.text(label, x + 26, top + (headerHeight - love.graphics.getFont():getHeight()) / 2, w - 36)
 end
 return Layout

@@ -2,6 +2,7 @@ local Widget = require("editor.ui.widget")
 local UI = require("editor.ui")
 local IME = require("editor.ui.ime")
 local Edit = require("editor.ui.text_edit")
+local NumberDrag = require("editor.ui.number_drag")
 local Controls = setmetatable({}, {__index = Widget})
 Controls.__index = Controls
 local modes = {"translate", "rotate", "scale"}
@@ -14,9 +15,9 @@ function Controls.new(view)
     self.handlers = {
         draw = function() self:drawControls() end,
         mousepressed = function(_, x, y, button) return self:press(x, y, button) end,
-        mousemoved = function(_, x) return Edit.move(self, x) end,
-        mousereleased = function() Edit.release(self); return true end,
-        cancel = function() Edit.release(self); return true end,
+        mousemoved = function(_, x, y, dx) return self:move(x, dx) end,
+        mousereleased = function() return self:release() end,
+        cancel = function() NumberDrag.cancel(self); IME.cancel(self); self.editing = nil; return true end,
         wheelmoved = function() return true end,
         keypressed = function(_, key) return self:editKey(key) end,
         textinput = function(_, text)
@@ -61,6 +62,7 @@ end
 
 function Controls:commit()
     if not self.editing then return end
+    NumberDrag.finish(self)
     self.text, self.replace = IME.finish(self, self.text, self.replace)
     local mode, value = self.editing, tonumber(self.text)
     self.editing = nil
@@ -82,6 +84,10 @@ function Controls:press(x, y, button)
                 self.replace = false
             end
             Edit.press(self, self.text, rects[mode].field, x, fresh)
+            if fresh then
+                NumberDrag.begin(self, self.text, x, {pointerY = y, step = mode == "scale" and 0.01 or 1, minimum = 0.001,
+                    onChange = function(value) self.view.snapSettings[mode].unit = value end})
+            end
             return true, true
         end
     end
@@ -96,12 +102,25 @@ function Controls:press(x, y, button)
     return true
 end
 
+function Controls:move(x, dx)
+    local handled, text = NumberDrag.move(self, x, dx)
+    if handled then
+        if text then self.text, self.replace = text, false; Edit.begin(self, text, false) end
+        return true
+    end
+    return Edit.move(self, x)
+end
+function Controls:release()
+    if NumberDrag.finish(self) then self:commit() end
+    Edit.release(self); return true
+end
 function Controls:editKey(key)
     if not self.editing then return true end
+    if NumberDrag.modifier(self, key) then return true end
     if IME.handlesKey(self, key) then return true end
     if IME.endsComposition(key) then self.text, self.replace = IME.finish(self, self.text, self.replace) end
     if key == "return" or key == "kpenter" then self:commit()
-    elseif key == "escape" then IME.cancel(self); self.editing, self.error = nil, nil
+    elseif key == "escape" then NumberDrag.cancel(self); IME.cancel(self); self.editing, self.error = nil, nil
     else self.text, self.replace = UI.editKey(self.text, key, self.replace, self) end
     return true
 end

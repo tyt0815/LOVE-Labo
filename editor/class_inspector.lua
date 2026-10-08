@@ -5,6 +5,7 @@ local Dropdown = require("editor.ui.dropdown")
 local IME = require("editor.ui.ime")
 local Edit = require("editor.ui.text_edit")
 local PropertyLayout = require("editor.ui.property_layout")
+local NumberDrag = require("editor.ui.number_drag")
 local ClassInspector = {}
 ClassInspector.__index = ClassInspector
 
@@ -87,6 +88,7 @@ end
 
 function ClassInspector:commitEdit()
     if not self.editing then return false end
+    NumberDrag.finish(self)
     self.text, self.replace = IME.finish(self, self.text, self.replace)
     local name, text = self.editing, self.text
     self.editing = nil
@@ -95,7 +97,7 @@ function ClassInspector:commitEdit()
     return self:setProperty(name, value)
 end
 
-function ClassInspector:cancelEdit() IME.cancel(self); self.editing = nil end
+function ClassInspector:cancelEdit() NumberDrag.cancel(self); IME.cancel(self); self.editing = nil end
 function ClassInspector:isEditing() return self.editing ~= nil end
 
 function ClassInspector:propertyRect(name, top)
@@ -189,12 +191,19 @@ function ClassInspector:layout(left, width, height, propertyTop)
     self:rebuildRows()
 end
 
+function ClassInspector:targetKind()
+    if self.target.kind == "lobject" then
+        local name = self.class and (self.class.className or LuaClass.name(self.class)) or "LObject"
+        return (name or "LObject") .. " Prefab"
+    end
+    return self.target.label
+end
 function ClassInspector:draw()
     if not self.target.instance then
         local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
         if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
         UI.label(label, self.left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
-        UI.text(self.target.label .. "  |  Ctrl+S: Save", self.left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+        UI.text(self:targetKind() .. "  |  Ctrl+S: Save", self.left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
         if not self.target.hideParent then
             UI.label("Parent Class", self.left + UI.metrics.contentPaddingX + 12, 106 + UI.metrics.contentPaddingY, self.width / 2 - UI.metrics.contentPaddingX - 20)
             self.dropdown:draw()
@@ -276,6 +285,9 @@ function ClassInspector:mousepressed(x, y, button)
             self.editing, self.text, self.replace = name, tostring(value), true
             Edit.begin(self, self.text, true)
             Edit.press(self, self.text, self:propertyRect(name, top), x, true)
+            if declaration.type == "number" then
+                NumberDrag.begin(self, self.text, x, {pointerY = y, onChange = function(value) self:setProperty(name, value) end})
+            end
             return true, true
         end
     end
@@ -283,10 +295,25 @@ function ClassInspector:mousepressed(x, y, button)
     return true
 end
 
-function ClassInspector:mousemoved(x) return Edit.move(self, x) end
-function ClassInspector:mousereleased() Edit.release(self); return true end
+function ClassInspector:mousemoved(x, y, dx)
+    local handled, text = NumberDrag.move(self, x, dx)
+    if handled then
+        if text then self.text, self.replace = text, false; Edit.begin(self, text, false) end
+        return true
+    end
+    return Edit.move(self, x)
+end
+function ClassInspector:mousereleased()
+    if NumberDrag.finish(self) then self:commitEdit() end
+    Edit.release(self); return true
+end
+function ClassInspector:cancelPointer()
+    if self.numberDrag then self:cancelEdit() end
+    Edit.release(self); return true
+end
 function ClassInspector:keypressed(key)
     if not self.editing then return false end
+    if NumberDrag.modifier(self, key) then return true end
     if IME.handlesKey(self, key) then return true end
     if IME.endsComposition(key) then self.text, self.replace = IME.finish(self, self.text, self.replace) end
     if key == "return" or key == "kpenter" then self:commitEdit()
