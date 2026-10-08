@@ -45,6 +45,12 @@ add("Shift selection replaces only its range and clipboard uses selected text", 
         text = key(owner, text, "home")
         for _ = 1, 3 do text = key(owner, text, "right", false, true) end
         text = key(owner, text, "c", true); Assert.equal("abc", clipboard)
+        text = key(owner, text, "left")
+        Assert.equal(0, owner.editState.cursor); Assert.equal(0, owner.editState.anchor)
+        for _ = 1, 3 do text = key(owner, text, "right", false, true) end
+        text = key(owner, text, "right")
+        Assert.equal(3, owner.editState.cursor); Assert.equal(3, owner.editState.anchor)
+        text = key(owner, text, "home", false, true)
         text = IME.input(owner, text, "한", false); Assert.equal("한DEF", text)
         text = key(owner, text, "end"); text = key(owner, text, "left", false, true)
         text = key(owner, text, "x", true); Assert.equal("F", clipboard); Assert.equal("한DE", text)
@@ -128,6 +134,14 @@ add("Text highlight and caret use theme colors and scroll follows the caret", fu
     Assert.truthy(math.abs(r - (color[1] * color[4] + 1 - color[4])) < 0.01)
     Assert.truthy(math.abs(g - (color[2] * color[4] + 1 - color[4])) < 0.01)
     Assert.truthy(math.abs(b - (color[3] * color[4] + 1 - color[4])) < 0.01)
-    pixels:release(); canvas:release()
+    pixels:release()
+    if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
+        text = key(owner, text, "right")
+        love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.clear(0, 0, 0, 0)
+        UI.field(IME.display(owner, text, false), rect, true, nil, owner)
+        love.graphics.setCanvas(); love.graphics.pop()
+        pixels = canvas:newImageData(); pixels:encode("png", "text-caret-preview.png"); pixels:release()
+    end
+    canvas:release()
 end)
 return tests

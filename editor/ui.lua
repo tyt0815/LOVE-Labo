@@ -145,10 +145,10 @@ function UI.field(text, rect, focused, composition, owner)
         love.graphics.line(right - font:getWidth(composition), rect.y + (rect.h + font:getHeight()) / 2,
             right, rect.y + (rect.h + font:getHeight()) / 2)
     end
-    if focused then
+    if focused and (composition or not state or state.cursor == state.anchor) then
         local cursor = left + (caretWidth or font:getWidth(text)) + 1
         Theme.setColor("focus")
-        love.graphics.line(cursor, rect.y + 8, cursor, rect.y + rect.h - 8)
+        love.graphics.line(cursor, rect.y + 4, cursor, rect.y + rect.h - 4)
     end
     love.graphics.pop()
 end
