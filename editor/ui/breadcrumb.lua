@@ -1,6 +1,8 @@
 local Theme = require("editor.theme")
 local Widget = require("editor.ui.widget")
 local UI = require("editor.ui")
+local Fonts = require("editor.fonts")
+local SEPARATOR = " > "
 local Breadcrumb = setmetatable({}, { __index = Widget })
 Breadcrumb.__index = Breadcrumb
 
@@ -31,10 +33,10 @@ function Breadcrumb:items()
     for name in self.path:gmatch("[^/]+") do
         reference = reference == "" and name or reference .. "/" .. name
         local current = reference == self.path
-        local width = font:getWidth(name) + (current and 12 or 0)
+        local width = (current and Fonts.boldFor(font) or font):getWidth(name)
         result[#result + 1] = { label = name, reference = reference, current = current, x = left,
             y = self.y + 2, w = width, h = self.height - 4 }
-        left = left + width + font:getWidth("/")
+        left = left + width + font:getWidth(SEPARATOR)
     end
     return result
 end
@@ -43,19 +45,15 @@ function Breadcrumb:draw()
     love.graphics.push("all")
     love.graphics.intersectScissor(self.x, self.y, self.width, self.height)
     for i, item in ipairs(self:items()) do
-        if i > 1 then UI.text("/", item.x - love.graphics.getFont():getWidth("/"), self.y + 7) end
+        if i > 1 then UI.text(SEPARATOR, item.x - love.graphics.getFont():getWidth(SEPARATOR), self.y + 7) end
         local amount = not item.current and self.hover[item.reference] or 0
-        if item.current then
-            Theme.setColor("selection")
-            love.graphics.rectangle("fill", item.x, item.y, item.w, item.h, 4, 4)
-        elseif amount > 0.005 then
+        if amount > 0.005 then
             Theme.setColor(love.mouse.isDown(1) and amount > 0.5 and "selection" or "hover", amount * 0.85)
             love.graphics.rectangle("fill", item.x, item.y, item.w, item.h, 4, 4)
         end
         local font = love.graphics.getFont()
-        local padding = item.current and 6 or 0
-        UI.text(item.label, item.x + padding, item.y + (item.h - font:getHeight()) / 2,
-            item.w - 2 * padding, Theme.mix("textMuted", "text", amount))
+        UI.text(item.label, item.x, item.y + (item.h - font:getHeight()) / 2,
+            item.w, item.current and Theme.color("text") or Theme.mix("textMuted", "text", amount), item.current)
         UI.hint(item, item.current and "Current folder: " .. item.reference or "Open folder " .. item.reference .. ".")
     end
     love.graphics.pop()
