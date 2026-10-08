@@ -16,7 +16,7 @@ function Breadcrumb:update(dt)
     local inside = self.visible and self.enabled and self:containsPoint(x, y)
     local hover = {}
     for _, item in ipairs(self:items()) do
-        local target = inside and UI.contains(x, y, item) and 1 or 0
+        local target = not item.current and inside and UI.contains(x, y, item) and 1 or 0
         local amount = self.hover[item.reference] or 0
         -- 프레임 수가 아닌 경과 시간으로 보간해 배경이 부드럽게 나타나고 사라지게 한다.
         local rate = 1 - math.exp(-(target == 1 and 18 or 14) * dt)
@@ -30,8 +30,9 @@ function Breadcrumb:items()
     local font = love.graphics.getFont()
     for name in self.path:gmatch("[^/]+") do
         reference = reference == "" and name or reference .. "/" .. name
-        local width = font:getWidth(name)
-        result[#result + 1] = { label = name, reference = reference, x = left,
+        local current = reference == self.path
+        local width = font:getWidth(name) + (current and 12 or 0)
+        result[#result + 1] = { label = name, reference = reference, current = current, x = left,
             y = self.y + 2, w = width, h = self.height - 4 }
         left = left + width + font:getWidth("/")
     end
@@ -43,15 +44,19 @@ function Breadcrumb:draw()
     love.graphics.intersectScissor(self.x, self.y, self.width, self.height)
     for i, item in ipairs(self:items()) do
         if i > 1 then UI.text("/", item.x - love.graphics.getFont():getWidth("/"), self.y + 7) end
-        local amount = self.hover[item.reference] or 0
-        if amount > 0.005 then
+        local amount = not item.current and self.hover[item.reference] or 0
+        if item.current then
+            Theme.setColor("selection")
+            love.graphics.rectangle("fill", item.x, item.y, item.w, item.h, 4, 4)
+        elseif amount > 0.005 then
             Theme.setColor(love.mouse.isDown(1) and amount > 0.5 and "selection" or "hover", amount * 0.85)
             love.graphics.rectangle("fill", item.x, item.y, item.w, item.h, 4, 4)
         end
         local font = love.graphics.getFont()
-        UI.text(item.label, item.x, item.y + (item.h - font:getHeight()) / 2,
-            item.w, Theme.mix("textMuted", "text", amount))
-        UI.hint(item, "Open folder " .. item.reference .. ".")
+        local padding = item.current and 6 or 0
+        UI.text(item.label, item.x + padding, item.y + (item.h - font:getHeight()) / 2,
+            item.w - 2 * padding, Theme.mix("textMuted", "text", amount))
+        UI.hint(item, item.current and "Current folder: " .. item.reference or "Open folder " .. item.reference .. ".")
     end
     love.graphics.pop()
 end
@@ -60,7 +65,10 @@ function Breadcrumb:dispatch(event, x, y, button)
     if event ~= "mousepressed" then return false end
     if button == 1 then
         for _, item in ipairs(self:items()) do
-            if UI.contains(x, y, item) then self.onSelect(item.reference); break end
+            if UI.contains(x, y, item) then
+                if not item.current then self.onSelect(item.reference) end
+                break
+            end
         end
     end
     return true

@@ -592,6 +592,10 @@ add("browser separates Assets and Sources and breadcrumb navigates without Up bu
         assert(browser:openFolder("Sources/Levels/Extra"))
         Assert.equal("Sources/Levels/Extra", browser.breadcrumb.path)
         local items = browser.breadcrumb:items()
+        local onSelect = browser.breadcrumb.onSelect
+        browser.breadcrumb.onSelect = function() error("Current folder must not navigate") end
+        app:mousepressed(items[#items].x + 4, items[#items].y + 4, 1)
+        browser.breadcrumb.onSelect = onSelect
         app:mousepressed(items[2].x + 4, items[2].y + 4, 1)
         Assert.equal("Sources/Levels", browser.folder)
         items = browser.breadcrumb:items()

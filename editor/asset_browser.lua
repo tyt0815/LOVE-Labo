@@ -686,9 +686,11 @@ function AssetBrowser:drawFiles()
             local column, row = (i - 1) % columns, math.floor((i - 1) / columns) - self.fileScroll
             local x, y = view.x + UI.metrics.contentPaddingX + column * CARD_WIDTH, view.y + 8 + row * CARD_HEIGHT
             if y + CARD_HEIGHT > view.y and y < view.y + view.height then
-                Theme.setColor("surface")
-                love.graphics.rectangle("fill", x, y, CARD_WIDTH - 6, CARD_HEIGHT - 6, 4, 4)
-                if entry.reference == self.selectedReference then UI.selection(x, y, CARD_WIDTH - 6, CARD_HEIGHT - 6) end
+                if entry.reference == self.selectedReference then
+                    Theme.setColor("selection")
+                    love.graphics.rectangle("fill", x, y, CARD_WIDTH - 6, CARD_HEIGHT - 6,
+                        UI.metrics.selectionRadius, UI.metrics.selectionRadius)
+                end
                 Theme.setColor("thumbnailBackground")
                 love.graphics.rectangle("fill", x + 9, y + 6, 88, 88)
                 local thumbnail = self.thumbnails:get(entry)
