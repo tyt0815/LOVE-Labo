@@ -261,8 +261,6 @@ function Inspector:draw(selectedLObject)
     local UI = require("editor.ui")
     UI.panel(left, 0, self.width, windowHeight)
     UI.panelHeading("Inspector", left, 0, self.width)
-    Theme.setColor("border")
-    love.graphics.line(left + UI.metrics.contentPaddingX, 35, windowWidth - UI.metrics.contentPaddingX, 35)
 
     if self.assetSummary then
         UI.label(self.assetSummary.name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)

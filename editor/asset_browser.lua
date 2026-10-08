@@ -80,20 +80,21 @@ function AssetBrowser.new(project)
         return true
     end
     self.handlers.update = function(_, dt) self:updateDrag(dt) end
-    self.hint = "Project Browser: browse Assets and Sources. Right-click: create or manage files."
+    self.hint = "Asset Browser: browse Assets and Sources. Right-click: create or manage files."
     self:refresh()
     return self
 end
 
 function AssetBrowser:setBounds(x, y, width, height)
     Canvas.setBounds(self, x, y, width, height)
-    local contentHeight = self.collapsed and 0 or math.max(0, height - HEADER - 6)
-    self:setSlotBounds(self.treeSlot, 0, HEADER, self:treeWidth(), contentHeight)
-    self:setSlotBounds(self.fileSlot, self:treeWidth(), HEADER + BREADCRUMB,
-        self.width - self:treeWidth(), math.max(0, contentHeight - BREADCRUMB))
+    local contentHeight = self.collapsed and 0 or math.max(0, height - HEADER - 24)
+    local split = self:treeWidth()
+    self:setSlotBounds(self.treeSlot, 6, HEADER + 12, math.max(0, split - 12), contentHeight)
+    self:setSlotBounds(self.fileSlot, split + 6, HEADER + 6 + BREADCRUMB,
+        math.max(0, self.width - split - 18), math.max(0, contentHeight + 6 - BREADCRUMB))
     self.breadcrumb.visible = not self.collapsed
-    self:setSlotBounds(self.breadcrumbSlot, self:treeWidth(), HEADER,
-        self.width - self:treeWidth(), self.collapsed and 0 or BREADCRUMB)
+    self:setSlotBounds(self.breadcrumbSlot, split + 6, HEADER + 6,
+        math.max(0, self.width - split - 18), self.collapsed and 0 or BREADCRUMB)
     self:setSlotBounds(self.dropdownSlot, self.width - 194, 8, 52, 26)
     self:clampScroll()
 end
@@ -110,13 +111,13 @@ function AssetBrowser:setViewMode(mode)
 end
 
 function AssetBrowser:columns()
-    return math.max(1, math.floor((self.width - self:treeWidth() - 2 * UI.metrics.contentPaddingX) / CARD_WIDTH))
+    return math.max(1, math.floor((self.fileSlot.widget.width - 2 * UI.metrics.contentPaddingX) / CARD_WIDTH))
 end
 
 function AssetBrowser:getEntryAtPosition(x, y)
-    local split = self.x + self:treeWidth()
-    local top = self.y + HEADER + BREADCRUMB
-    if x < split or x >= self.x + self.width - 6 or y < top or y >= self.y + self.height - 6 then return nil end
+    local view = self.fileSlot.widget
+    local split, top = view.x, view.y
+    if not view:containsPoint(x, y) then return nil end
     if self.viewMode == "list" then
         return self.entries[math.floor((y - top) / ROW) + 1 + self.fileScroll]
     end
@@ -207,12 +208,12 @@ function AssetBrowser:goUp()
 end
 
 function AssetBrowser:clampScroll()
-    local visible = math.max(1, math.floor((self.height - HEADER - 6) / ROW))
+    local visible = math.max(1, math.floor(self.treeSlot.widget.height / ROW))
     self.treeScroll = math.floor(math.max(0, math.min(self.treeScroll, math.max(0, #self.tree - visible))))
     local fileRows = #self.entries
-    visible = math.max(1, math.floor((self.height - HEADER - BREADCRUMB - 6) / ROW))
+    visible = math.max(1, math.floor(self.fileSlot.widget.height / ROW))
     if self.viewMode == "thumbnails" then
-        visible = math.max(1, math.floor((self.height - HEADER - BREADCRUMB - 14) / CARD_HEIGHT))
+        visible = math.max(1, math.floor((self.fileSlot.widget.height - 8) / CARD_HEIGHT))
         fileRows = math.ceil(#self.entries / self:columns())
     end
     self.fileScroll = math.floor(math.max(0, math.min(self.fileScroll, math.max(0, fileRows - visible))))
@@ -232,15 +233,14 @@ function AssetBrowser:draw()
     love.graphics.setScissor(self.x, self.y, self.width, self.height)
     UI.panel(self.x, self.y, self.width, self.height)
     local buttons = self:buttons()
-    UI.button(self.collapsed and "+" or "-", buttons.fold, self.collapsed, "Collapse or expand the Project Browser.", true)
-    UI.panelHeading("Project Browser", self.x, self.y, math.max(0, self.width - 202))
+    UI.button(self.collapsed and "+" or "-", buttons.fold, self.collapsed, "Collapse or expand the Asset Browser.", true)
+    UI.panelHeading("Asset Browser", self.x, self.y, math.max(0, self.width - 202))
     UI.button("Refresh", buttons.refresh, false, "Rescan project files and reload class declarations. Ctrl+R: refresh.", true)
     if not self.collapsed then
-        local split = self.x + self:treeWidth()
-        local top = self.y + HEADER
-        Theme.setColor("border")
-        love.graphics.line(split, top, split, self.y + self.height - 6)
-        love.graphics.line(self.x + 12, top, self.x + self.width - 12, top)
+        local split = self:treeWidth()
+        UI.panel(self.x + 6, self.y + HEADER, split - 6, self.height - HEADER - 6)
+        UI.panel(self.x + split, self.y + HEADER, self.width - split - 6,
+            self.height - HEADER - 6, "viewportBackground")
     end
     love.graphics.intersectScissor(self.x + 6, self.y + 6, math.max(0, self.width - 12), math.max(0, self.height - 12))
     Canvas.draw(self)
@@ -270,11 +270,11 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
     self:cancelDrag()
     if button == 2 then self:showContextMenu(x, y); return true end
     if button ~= 1 then return true end
-    local index = math.floor((y - self.y - HEADER) / ROW) + 1
-    if x < self.x + self:treeWidth() then
+    local index = math.floor((y - self.treeSlot.widget.y) / ROW) + 1
+    if self.treeSlot.widget:containsPoint(x, y) then
         local node = self.tree[index + self.treeScroll]
         if not node then return true end
-        if x < self.x + UI.metrics.contentPaddingX + 18 + node.depth * 14 then
+        if x < self.treeSlot.widget.x + UI.metrics.contentPaddingX + 18 + node.depth * 14 then
             self.expanded[node.reference] = not self.expanded[node.reference]
             self:rebuildTree()
         elseif node.reference == "Assets" or node.reference == "Sources" then self:openFolder(node.reference)
@@ -308,7 +308,7 @@ function AssetBrowser:contentHint(x, y)
     if self.treeSlot.widget:containsPoint(x, y) then
         local node = self.tree[math.floor((y - self.treeSlot.widget.y) / ROW) + 1 + self.treeScroll]
         if node then
-            if x < self.x + UI.metrics.contentPaddingX + 18 + node.depth * 14 then return "Expand or collapse " .. node.reference .. "." end
+            if x < self.treeSlot.widget.x + UI.metrics.contentPaddingX + 18 + node.depth * 14 then return "Expand or collapse " .. node.reference .. "." end
             return "Open " .. node.reference .. ". Drag the folder to move it. Right-click: menu."
         end
     else
@@ -455,8 +455,8 @@ end
 
 function AssetBrowser:showContextMenu(x, y)
     local entry, folder = nil, self.folder
-    if x < self.x + self:treeWidth() then
-        local index = math.floor((y - self.y - HEADER) / ROW) + 1 + self.treeScroll
+    if self.treeSlot.widget:containsPoint(x, y) then
+        local index = math.floor((y - self.treeSlot.widget.y) / ROW) + 1 + self.treeScroll
         local node = self.tree[index]
         if node then
             entry = { reference = node.reference, name = node.name, type = "directory" }
@@ -699,8 +699,8 @@ end
 
 function AssetBrowser:wheelmoved(x, y, amount)
     if self.collapsed then return end
-    if x < self.x + self:treeWidth() then self.treeScroll = self.treeScroll - amount * 3
-    else self.fileScroll = self.fileScroll - amount * (self.viewMode == "list" and 3 or 1) end
+    if self.treeSlot.widget:containsPoint(x, y) then self.treeScroll = self.treeScroll - amount * 3
+    elseif self.fileSlot.widget:containsPoint(x, y) then self.fileScroll = self.fileScroll - amount * (self.viewMode == "list" and 3 or 1) end
     self:clampScroll()
     if self.drag and self.drag.active then self:dragMoved(self.drag.x, self.drag.y) end
 end

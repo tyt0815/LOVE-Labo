@@ -44,8 +44,6 @@ function Hierarchy:draw(selectedLObject)
     local UI = require("editor.ui")
     UI.panel(0, 0, self.width, height)
     UI.panelHeading("Hierarchy", 0, 0, self.width)
-    Theme.setColor("border")
-    love.graphics.line(12, 35, self.width - 12, 35)
     love.graphics.intersectScissor(6, 6, self.width - 12, math.max(0, height - 12))
 
     if self.level then

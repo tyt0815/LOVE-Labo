@@ -249,17 +249,17 @@ add("asset browser scrolls long lists and keeps fractional wheel input clickable
         local browser = AssetBrowser.new(project)
         browser:setBounds(0, 400, 900, 220)
         browser:setViewMode("list")
-        browser:wheelmoved(400, 450, -1.5)
+        browser:wheelmoved(400, browser.fileSlot.widget.y + 5, -1.5)
         Assert.equal(4, browser.fileScroll)
         browser:mousepressed(400, browser.fileSlot.widget.y + 5, 1, 1)
         Assert.equal("Assets/Folder05", browser.selectedReference)
-        browser:wheelmoved(20, 450, -100)
+        browser:wheelmoved(20, browser.treeSlot.widget.y + 5, -100)
         Assert.truthy(browser.treeScroll > 0)
         Assert.equal(4, browser.fileScroll)
-        browser:mousepressed(70, 445, 1)
-        browser.localRoot:mousereleased(70, 445, 1)
+        browser:mousepressed(70, browser.treeSlot.widget.y + 5, 1)
+        browser.localRoot:mousereleased(70, browser.treeSlot.widget.y + 5, 1)
         Assert.truthy(browser.folder ~= "Assets")
-        browser:wheelmoved(400, 450, -100)
+        browser:wheelmoved(400, browser.fileSlot.widget.y + 5, -100)
         Assert.equal(0, browser.fileScroll)
     end)
 end)
@@ -278,7 +278,7 @@ add("editor bottom Assets layout routes inputs without changing lobject selectio
         Assert.equal(height - app.statusHeight - browser.height, app.sceneView.viewportHeight)
         Assert.equal(false, app.hierarchy:containsPoint(10, browser.y + 40))
         Assert.equal(false, app.sceneView:containsPoint(400, browser.y + 40))
-        local fileX, fileY = browser:treeWidth() + 20, browser.fileSlot.widget.y + 16
+        local fileX, fileY = browser.fileSlot.widget.x + require("editor.ui").metrics.contentPaddingX + 4, browser.fileSlot.widget.y + 16
         app:mousepressed(fileX, fileY, 1, 1)
         Assert.equal("Assets/Folder", browser.selectedReference)
         Assert.equal(object, app.sceneView.selectedLObject)
@@ -480,7 +480,7 @@ add("thumbnail grid hit testing scroll and resizing agree on entry positions", f
         for i = 1, 30 do assert(FS.createFile(FS.join(project.rootPath, string.format("Assets/File%02d.txt", i)), "data")) end
         local browser = AssetBrowser.new(project)
         browser:setBounds(0, 400, 700, 220)
-        local x, y = browser:treeWidth() + 20, browser.fileSlot.widget.y + 16
+        local x, y = browser.fileSlot.widget.x + require("editor.ui").metrics.contentPaddingX + 4, browser.fileSlot.widget.y + 16
         Assert.equal("Assets/Levels", browser:getEntryAtPosition(x, y).reference)
         Assert.equal("Assets/File01.txt", browser:getEntryAtPosition(x + 112, y).reference)
         browser:wheelmoved(x, y, -1)
@@ -488,7 +488,7 @@ add("thumbnail grid hit testing scroll and resizing agree on entry positions", f
         Assert.equal(browser.entries[index], browser:getEntryAtPosition(x, y))
         browser:setBounds(0, 400, 460, 220)
         index = browser.fileScroll * browser:columns() + 1
-        Assert.equal(browser.entries[index], browser:getEntryAtPosition(browser:treeWidth() + 20, y))
+        Assert.equal(browser.entries[index], browser:getEntryAtPosition(browser.fileSlot.widget.x + require("editor.ui").metrics.contentPaddingX + 4, y))
         Assert.equal(nil, browser:getEntryAtPosition(browser.width - 1, y))
         local selected = browser.entries[index].reference
         browser.selectedReference = selected

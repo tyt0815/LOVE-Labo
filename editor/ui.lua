@@ -4,7 +4,7 @@ local Fonts = require("editor.fonts")
 local UI = {}
 -- 패널의 공통 여백과 글자 크기. 제목 좌표는 패널 바깥쪽 경계를 기준으로 한다.
 UI.metrics = {
-    titlePaddingX = 16, titlePaddingY = 12, titleFontSize = 15,
+    titlePaddingX = 16, titlePaddingY = 14, titleFontSize = 15,
     contentPaddingX = 16, contentPaddingY = 4,
     selectionPaddingX = 8, selectionPaddingY = 2, selectionRadius = 4,
 }
