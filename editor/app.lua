@@ -85,6 +85,10 @@ function EditorApp:setDocument(document)
     self.sceneView.isPanning = false
     self.inspector:cancelEdit()
     self.levelInspectorTarget = {data = self.level, kind = "level", referenceField = "scriptReference", label = "Level",
+        getDisplayName = function()
+            local path = self.documentAssetId and self.project:getAssetReference(self.documentAssetId) or self.document.path
+            return path and path:gsub("\\", "/"):match("([^/]+)%.level$") or "Untitled Level"
+        end,
         getOverrides = function(target) return target.data.propertyOverrides end,
         isDirty = function() return not self.document.path or self.document:isDirty() end,
         setOverrides = function(target, values) target.data.propertyOverrides = values end}
@@ -231,6 +235,10 @@ function EditorApp:inspectAsset(reference)
     if not document then return false, err end
     self.prefabDocument = document
     self.prefabInspectorTarget = {data = document.data, kind = "lobject", referenceField = "definitionReference", label = "Prefab",
+        getDisplayName = function()
+            local path = self.project:getAssetReference(document.assetId)
+            return path and path:match("([^/]+)%.prefab$") or "Missing Prefab"
+        end,
         isDirty = function() return document:isDirty() end,
         getOverrides = function(target) return target.data.overrides.properties or {} end,
         setOverrides = function(target, values) target.data.overrides.properties = next(values) and values or nil end}
@@ -240,10 +248,32 @@ end
 function EditorApp:updateInspectorTarget()
     if not self.inspector.classInspector then return self.sceneView.selectedLObject end
     local selected = self.assetBrowser.selectedReference
-    local prefab = (self.activePanel == "assets" or self.activePanel == "inspector") and self.prefabDocument
+    local assetSelected = (self.activePanel == "assets" or self.activePanel == "inspector") and selected
+    local prefab = assetSelected and self.prefabDocument
         and selected and self.project:getAssetId(selected) == self.prefabDocument.assetId
-    local object = not prefab and self.sceneView.selectedLObject or nil
-    self.inspector.classInspector:setTarget(not object and (prefab and self.prefabInspectorTarget or self.levelInspectorTarget) or nil)
+    local currentLevelAsset = assetSelected and self.documentAssetId
+        and self.project:getAssetId(selected) == self.documentAssetId
+    local object = not assetSelected and self.sceneView.selectedLObject or nil
+    self.inspector.assetSummary = nil
+    if assetSelected and not prefab and not currentLevelAsset then
+        local name = selected:match("([^/]+)$")
+        local extension = name:match("%.([^%.]+)$")
+        local _, info = self.project:checkedEntry(selected)
+        local kind = type(info) == "table" and info.type == "directory" and "Folder" or "File"
+        if kind ~= "Folder" and extension then
+            name = name:sub(1, -#extension - 2)
+            local kinds = {level = "Level", prefab = "Prefab", lua = "Lua Class"}
+            kind = kinds[extension] or extension:upper() .. " File"
+            if extension == "lua" then
+                local meta = self.project.assetMetadata and self.project.assetMetadata[selected]
+                local classes = {level = "Level Class", lobject = "LObject Class", component = "Component Class"}
+                kind = meta and classes[meta.scriptKind] or kind
+            end
+        end
+        self.inspector.assetSummary = {name = name, kind = kind, reference = selected}
+    end
+    self.inspector.classInspector:setTarget(not object and not self.inspector.assetSummary
+        and (prefab and self.prefabInspectorTarget or self.levelInspectorTarget) or nil)
     self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
         self.inspector.width, love.graphics.getHeight() - self.statusHeight)
     return object

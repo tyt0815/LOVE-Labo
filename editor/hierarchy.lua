@@ -2,7 +2,7 @@ local Theme = require("editor.theme")
 local Hierarchy = {}
 Hierarchy.__index = Hierarchy
 
-local DEFAULT_WIDTH = 220
+local DEFAULT_WIDTH = 300
 local HEADER_HEIGHT = 36
 local ROW_HEIGHT = 24
 
@@ -42,7 +42,7 @@ function Hierarchy:draw(selectedLObject)
 
     local UI = require("editor.ui")
     UI.panel(0, 0, self.width, height)
-    UI.panelTitle("Hierarchy", 18, 12, self.width - 36)
+    UI.panelTitle("Hierarchy", 12, 12, self.width - 24)
     Theme.setColor("border")
     love.graphics.line(12, 35, self.width - 12, 35)
     love.graphics.intersectScissor(6, 6, self.width - 12, math.max(0, height - 12))

@@ -93,7 +93,7 @@ function AssetBrowser:setBounds(x, y, width, height)
     self.breadcrumb.visible = not self.collapsed
     self:setSlotBounds(self.breadcrumbSlot, self:treeWidth(), HEADER,
         self.width - self:treeWidth(), self.collapsed and 0 or BREADCRUMB)
-    self:setSlotBounds(self.dropdownSlot, self.width - 244, 8, 142, 26)
+    self:setSlotBounds(self.dropdownSlot, self.width - 284, 8, 142, 26)
     self:clampScroll()
 end
 
@@ -220,8 +220,8 @@ end
 function AssetBrowser:buttons()
     local function button(x, w) return { x = x, y = self.y + 8, w = w, h = 26 } end
     return {
-        fold = button(self.x + 8, 32),
-        refresh = button(self.x + self.width - 94, 86)
+        fold = button(self.x + self.width - 40, 32),
+        refresh = button(self.x + self.width - 134, 86)
     }
 end
 
@@ -232,7 +232,7 @@ function AssetBrowser:draw()
     UI.panel(self.x, self.y, self.width, self.height)
     local buttons = self:buttons()
     UI.button(self.collapsed and "+" or "-", buttons.fold, false, "Collapse or expand the Project Browser.")
-    UI.panelTitle("Project Browser", self.x + 52, self.y + 11, math.max(0, self.width - 306))
+    UI.panelTitle("Project Browser", self.x + 26, self.y + 11, math.max(0, self.width - 322))
     UI.button("Refresh", buttons.refresh, false, "Rescan project files and reload class declarations. Ctrl+R: refresh.")
     if not self.collapsed then
         local split = self.x + self:treeWidth()

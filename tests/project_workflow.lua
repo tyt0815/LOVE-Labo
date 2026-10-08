@@ -1273,6 +1273,34 @@ add("invalid inheritance declarations and overrides fail without entering Play",
     end)
 end)
 
+add("Inspector identifies assets and keeps the opened level editable", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "InspectorNames"))
+        local app = EditorApp.new(nil, project)
+        Assert.equal("Untitled Level", app.levelInspectorTarget:getDisplayName())
+        assert(app:saveNewLevel("Assets/Stage.level"))
+        Assert.equal("Stage", app.levelInspectorTarget:getDisplayName())
+        app.activePanel = "assets"
+        app.assetBrowser.selectedReference = "Assets/Stage.level"
+        app:updateInspectorTarget()
+        Assert.equal(nil, app.inspector.assetSummary)
+        Assert.equal(app.levelInspectorTarget, app.inspector.classInspector.target)
+        assert(project:moveEntry("Assets/Stage.level", "Assets/Renamed.level"))
+        Assert.equal("Renamed", app.levelInspectorTarget:getDisplayName())
+        assert(project:createEntry("Sources", "lua", "Actor", {scriptKind = "lobject"}))
+        app.assetBrowser.selectedReference = "Sources/Actor.lua"
+        app:updateInspectorTarget()
+        Assert.equal("Actor", app.inspector.assetSummary.name)
+        Assert.equal("LObject Class", app.inspector.assetSummary.kind)
+        Assert.equal(nil, app.inspector.classInspector.target)
+        app.level:addLObject(0, 0)
+        app.sceneView.selectedLObject = app.level.lobjects[1]
+        app.activePanel = "scene"
+        Assert.equal(app.sceneView.selectedLObject, app:updateInspectorTarget())
+        Assert.equal(nil, app.inspector.assetSummary)
+    end)
+end)
+
 add("Level inspector edits basic properties resets defaults and clears parent", function()
     fixture(function(parent)
         local project = assert(Project.create(parent, "InspectorProperties"))

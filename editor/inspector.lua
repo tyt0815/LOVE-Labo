@@ -2,7 +2,7 @@ local Theme = require("editor.theme")
 local Inspector = {}
 Inspector.__index = Inspector
 
-local DEFAULT_WIDTH = 240
+local DEFAULT_WIDTH = 300
 
 local FIELD_LEFT_OFFSET = 44
 local FIELD_RIGHT_MARGIN = 12
@@ -230,7 +230,7 @@ function Inspector:drawField(label, field, y, selectedLObject, left)
         and self.editingLObject == selectedLObject
 
     Theme.setColor("textMuted")
-    require("editor.ui").label(label, left + 20, y + 4)
+    require("editor.ui").label(label, left + 12, y + 4)
 
     Theme.setColor("input")
 
@@ -260,9 +260,20 @@ function Inspector:draw(selectedLObject)
 
     local UI = require("editor.ui")
     UI.panel(left, 0, self.width, windowHeight)
-    UI.panelTitle("Inspector", left + 18, 12, self.width - 36)
+    UI.panelTitle("Inspector", left + 12, 12, self.width - 24)
     Theme.setColor("border")
     love.graphics.line(left + 12, 35, windowWidth - 12, 35)
+
+    if self.assetSummary then
+        UI.label(self.assetSummary.name, left + 12, 44, self.width - 24)
+        UI.text(self.assetSummary.kind, left + 12, 60, self.width - 24, Theme.color("textMuted"))
+        UI.text(self.assetSummary.reference, left + 12, 86, self.width - 24, Theme.color("textMuted"))
+        local hint = self.assetSummary.kind == "Level" and "Double-click to edit level"
+            or self.assetSummary.kind == "Folder" and "Double-click to browse" or "Read-only asset information"
+        UI.text(hint, left + 12, 110, self.width - 24, Theme.color("textMuted"))
+        love.graphics.pop()
+        return
+    end
 
     if not selectedLObject then
         if self.classInspector and self.classInspector.target then
@@ -282,11 +293,10 @@ function Inspector:draw(selectedLObject)
 
     Theme.setColor("text")
 
-    if displayId then
-        love.graphics.print("LObject " .. displayId, left + 12, 44)
-    else
-        love.graphics.print("LObject", left + 12, 44)
-    end
+    local name = type(selectedLObject.name) == "string" and selectedLObject.name ~= "" and selectedLObject.name
+        or displayId and "LObject " .. displayId or "LObject"
+    UI.label(name, left + 12, 44, self.width - 24)
+    UI.text("LObject Instance", left + 12, 60, self.width - 24, Theme.color("textMuted"))
 
     Theme.setColor("textMuted")
     require("editor.ui").label("Transform", left + 12, 78, self.width - 24)

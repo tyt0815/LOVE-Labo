@@ -89,10 +89,10 @@ function ClassInspector:layout(left, width, height)
 end
 
 function ClassInspector:draw()
-    local label = self.target.label
+    local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
     if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
-    UI.text(label, self.left + 12, 44, self.width - 24)
-    UI.text("Ctrl+S: Save", self.left + 12, 60, self.width - 24, Theme.color("textMuted"))
+    UI.label(label, self.left + 12, 44, self.width - 24)
+    UI.text(self.target.label .. "  |  Ctrl+S: Save", self.left + 12, 60, self.width - 24, Theme.color("textMuted"))
     UI.label("Parent Class", self.left + 12, 78, self.width - 24)
     self.dropdown:draw()
     if self.error then UI.text(self.error, self.left + 12, 138, self.width - 24, Theme.color("error")) end

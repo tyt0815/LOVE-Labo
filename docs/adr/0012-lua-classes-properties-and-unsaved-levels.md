@@ -25,6 +25,7 @@
 3. Lua Class는 일반 테이블을 반환하고 `extends`에 같은 종류의 부모 클래스 ID를 지정한다. 로더는 순환·깊이·종류·함수 선언을 검증하고 부모를 `super`로 제공한다. 부모의 함수를 자식이 재정의하며, 재정의하지 않은 함수는 상속한다. 부모 함수 호출은 명시적이다. 다중 상속은 제공하지 않는다.
 4. `properties`에 이름별 `{type, default}`를 선언한다. 타입은 number·string·boolean이며 숫자는 유한해야 한다. 부모의 프로퍼티 기본값을 같은 타입으로 재정의할 수 있다. Level의 `propertyOverrides`, Prefab의 `overrides.properties`에는 기본값과 다른 값만 저장한다. 부모를 바꿀 때 호환 값만 유지하고 해제 시 비운다.
 5. 인스펙터는 LObject 선택이 없으면 현재 Level, 브라우저에서 Prefab을 선택하면 해당 에셋의 부모·프로퍼티를 편집한다. Ctrl+S로 저장하며 Prefab 저장도 ID로 현재 위치를 찾는다. 저장 전 Prefab을 다른 Prefab으로 바꾸는 선택은 막아 변경을 보존한다. 알 수 없는 필드·기존 override는 Prefab 저장에서 보존한다.
+   - 대상 표시 확장: 고정 Inspector 제목 아래에 이름·종류를 표시한다. 레벨·Prefab 이름은 현재 파일 경로에서 얻고 ID 이동 후에도 갱신한다. 저장 전 레벨은 Untitled Level이다. 일반 에셋 선택은 이름·종류·경로의 읽기 전용 표시이며 다른 레벨을 클릭하는 것만으로 현재 문서를 교체하지 않는다. 현재 열린 레벨 선택은 기존 클래스 편집을 유지한다. 인스턴스 이름이 없는 경우 LObject와 authoringId를 사용하며 새 이름 저장 필드는 추가하지 않는다.
 6. Play에서 클래스 기본값과 에셋 변경값을 합쳐 Runtime이 소유하는 properties 테이블을 만든다. Level은 world.properties, LObject는 self.properties로 읽는다. 배치 객체의 Prefab·LObject Class 참조는 Editor 로더가 해석하고 Core에는 클래스 테이블과 값만 전달한다. lifecycle 오류는 Play 시작·업데이트 경계에서 처리한다. Runtime 변경은 문서에 반영하지 않는다.
 7. Move·Rename을 독립 메뉴로 분리한다. Move는 목적지 폴더 트리 선택을 기본 입력으로 하며 경로 직접 입력도 제공하고 이름은 유지한다. Rename은 현재 폴더에서 이름만 변경하고 확장자는 유지한다. 동일 루트·기존 폴더·링크 금지·덮어쓰기 금지·원본과 메타 동시 이동은 기존 Project.moveEntry가 재검증한다.
 
