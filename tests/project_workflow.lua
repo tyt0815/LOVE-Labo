@@ -283,4 +283,61 @@ add("project start and editor UI render with isolated graphics state", function(
     end)
 end)
 
+add("startup without project option keeps project start screen", function()
+    local startup = require("editor.startup")
+    local projectStart = ProjectStart.new(function() error("unexpected open") end)
+    local path = projectStart.path
+    Assert.equal(false, startup.openRequestedProject({}, projectStart, "C:/Workspace"))
+    Assert.equal("create", projectStart.mode)
+    Assert.equal(path, projectStart.path)
+    Assert.equal(nil, projectStart.error)
+end)
+
+add("startup opens absolute and relative project paths with spaces and unicode", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "테스트 프로젝트"))
+        local opened
+        local projectStart = ProjectStart.new(function(value)
+            opened = EditorApp.new(nil, value)
+            return true
+        end)
+        local startup = require("editor.startup")
+        assert(startup.openRequestedProject({ "--project", project.rootPath:gsub("/", "\\") }, projectStart, "C:/Other"))
+        Assert.equal(project.rootPath, opened.project.rootPath)
+        Assert.truthy(opened.assetBrowser)
+        opened = nil
+        assert(startup.openRequestedProject({ "--project", "테스트 프로젝트" }, projectStart, parent))
+        Assert.equal(project.rootPath, opened.project.rootPath)
+        Assert.equal("open", projectStart.mode)
+        Assert.equal(project.rootPath, projectStart.path)
+        Assert.equal(nil, projectStart.error)
+    end)
+end)
+
+add("startup rejects missing duplicate and invalid project paths without opening", function()
+    fixture(function(parent)
+        local startup = require("editor.startup")
+        for _, args in ipairs({
+            { "--project" }, { "--project", "" }, { "--project", "--other" },
+            { "--project", "one", "--project", "two" }, { "--project", "Missing" }
+        }) do
+            local projectStart = ProjectStart.new(function() error("unexpected open") end)
+            local opened, err = startup.openRequestedProject(args, projectStart, parent)
+            Assert.equal(false, opened)
+            Assert.truthy(err)
+            Assert.equal("open", projectStart.mode)
+            Assert.equal(err, projectStart.error)
+        end
+        Assert.equal(nil, FS.info(FS.join(parent, "Missing")))
+        local project = assert(Project.create(parent, "Retry"))
+        local opened
+        local projectStart = ProjectStart.new(function(value) opened = value; return true end)
+        startup.openRequestedProject({ "--project", "Missing" }, projectStart, parent)
+        projectStart.path = project.rootPath
+        assert(projectStart:submit())
+        Assert.equal(project.rootPath, opened.rootPath)
+        Assert.equal(nil, projectStart.error)
+    end)
+end)
+
 return tests

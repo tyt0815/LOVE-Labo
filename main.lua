@@ -40,6 +40,7 @@ function love.load(args)
         love.window.setTitle("LOVE Labo - " .. project.name)
         return true
     end)
+    require("editor.startup").openRequestedProject(args, app, love.filesystem.getWorkingDirectory())
 end
 
 -- love.update는 LÖVE Runtime이 매 프레임 호출한다.
