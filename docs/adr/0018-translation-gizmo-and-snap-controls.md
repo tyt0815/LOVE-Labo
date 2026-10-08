@@ -1,6 +1,7 @@
 # 0018. 이동 기즈모와 뷰포트 스냅 컨트롤
 
 - 상태: 채택
+- 후속 부분 대체: [ADR 0019](0019-transform-modes-and-relative-snap.md)의 중앙 원·변환 모드·시작점 기준 스냅
 - 날짜: 2026-10-09
 - 확장: [ADR 0001](0001-centered-viewport-origin.md)의 좌표 변환, [ADR 0014](0014-love-theme-panels-and-status-hints.md)의 패널 표현, [ADR 0017](0017-components-instance-properties-and-prefab-placement.md)의 Prefab 배치
 

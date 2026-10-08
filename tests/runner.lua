@@ -337,7 +337,7 @@ tests[#tests + 1] = {
         local sceneView = SceneView.new(32, level)
         sceneView.selectedLObject = lobject
         local x, y = sceneView:worldToScreen(20, 30)
-        sceneView:mousepressed(x + 12, y - 12, 1)
+        sceneView:mousepressed(x, y, 1)
 
         -- Screen 기준으로 (10, 5)만큼 이동.
         sceneView:mousemoved(30, 35, 10, 5)
@@ -363,7 +363,7 @@ tests[#tests + 1] = {
         sceneView.zoom = 2
         sceneView.selectedLObject = lobject
         local x, y = sceneView:worldToScreen(20, 30)
-        sceneView:mousepressed(x + 12, y - 12, 1)
+        sceneView:mousepressed(x, y, 1)
 
         -- Screen에서 10px 이동하면 World에서는 5만 이동해야 한다.
         sceneView:mousemoved(50, 70, 10, 10)

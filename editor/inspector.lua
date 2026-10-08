@@ -10,6 +10,10 @@ local FIELD_LEFT_OFFSET = 32
 local FIELD_HEIGHT = 24
 local X_FIELD_Y = 100 + UI.metrics.contentPaddingY
 local Y_FIELD_Y = 132 + UI.metrics.contentPaddingY
+local TRANSFORM_FIELDS = {x = X_FIELD_Y, y = Y_FIELD_Y,
+    rotation = 164 + UI.metrics.contentPaddingY,
+    scaleX = 196 + UI.metrics.contentPaddingY, scaleY = 228 + UI.metrics.contentPaddingY}
+local function fieldOffset(field) return (field == "x" or field == "y") and FIELD_LEFT_OFFSET or 72 end
 
 local function pointInRect(x, y, left, top, width, height)
     return x >= left
@@ -62,15 +66,9 @@ function Inspector:getFieldAtPosition(x, y, windowWidth)
     end
 
     local left = windowWidth - self.width
-    local fieldLeft = left + UI.metrics.contentPaddingX + FIELD_LEFT_OFFSET
-    local fieldWidth = self.width - FIELD_LEFT_OFFSET - 2 * UI.metrics.contentPaddingX
-
-    if pointInRect(x, y, fieldLeft, X_FIELD_Y, fieldWidth, FIELD_HEIGHT) then
-        return "x"
-    end
-
-    if pointInRect(x, y, fieldLeft, Y_FIELD_Y, fieldWidth, FIELD_HEIGHT) then
-        return "y"
+    for field, top in pairs(TRANSFORM_FIELDS) do
+        local offset = fieldOffset(field)
+        if pointInRect(x, y, left + UI.metrics.contentPaddingX + offset, top, self.width - offset - 2 * UI.metrics.contentPaddingX, FIELD_HEIGHT) then return field end
     end
 
     return nil
@@ -81,7 +79,7 @@ function Inspector:isEditing()
 end
 
 function Inspector:beginEdit(field, selectedLObject)
-    if (field ~= "x" and field ~= "y")
+    if not TRANSFORM_FIELDS[field]
         or not selectedLObject
         or not selectedLObject.transform
     then
@@ -124,7 +122,8 @@ function Inspector:commitEdit()
     self.editText, self.replaceOnTextInput = IME.finish(self, self.editText, self.replaceOnTextInput)
     local value = tonumber(self.editText)
 
-    if value ~= nil and lobject and lobject.transform then
+    if require("core.transform").finite(value) and lobject and lobject.transform
+        and ((field ~= "scaleX" and field ~= "scaleY") or value > 0) then
         lobject.transform[field] = value
         self:clearEditState()
         return true
@@ -153,7 +152,7 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if self.classInspector and self.classInspector.target and not selectedLObject then
         return self.classInspector:mousepressed(x, y, button)
     end
-    if selectedLObject and self.classInspector and self.classInspector.target and y >= 170 then
+    if selectedLObject and self.classInspector and self.classInspector.target and y >= 270 then
         self:commitEdit()
         return self.classInspector:mousepressed(x, y, button)
     end
@@ -234,8 +233,9 @@ function Inspector:keypressed(key)
 end
 
 function Inspector:drawField(label, field, y, selectedLObject, left)
-    local fieldLeft = left + UI.metrics.contentPaddingX + FIELD_LEFT_OFFSET
-    local fieldWidth = self.width - FIELD_LEFT_OFFSET - 2 * UI.metrics.contentPaddingX
+    local offset = fieldOffset(field)
+    local fieldLeft = left + UI.metrics.contentPaddingX + offset
+    local fieldWidth = self.width - offset - 2 * UI.metrics.contentPaddingX
     local isActive =
         self.activeField == field
         and self.editingLObject == selectedLObject
@@ -313,6 +313,9 @@ function Inspector:draw(selectedLObject)
     if selectedLObject.transform then
         self:drawField("X", "x", X_FIELD_Y, selectedLObject, left)
         self:drawField("Y", "y", Y_FIELD_Y, selectedLObject, left)
+        self:drawField("Rot Z°", "rotation", TRANSFORM_FIELDS.rotation, selectedLObject, left)
+        self:drawField("Scale X", "scaleX", TRANSFORM_FIELDS.scaleX, selectedLObject, left)
+        self:drawField("Scale Y", "scaleY", TRANSFORM_FIELDS.scaleY, selectedLObject, left)
     end
     if self.classInspector and self.classInspector.target then
         self.classInspector:layout(left, self.width, windowHeight)

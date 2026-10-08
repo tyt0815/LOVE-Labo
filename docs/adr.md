@@ -18,3 +18,4 @@
 - [0016. IME 조합 표시와 입력칸 확정](adr/0016-ime-composition-and-field-confirmation.md)
 - [0017. 컴포넌트 구성·인스턴스 프로퍼티와 Prefab 배치](adr/0017-components-instance-properties-and-prefab-placement.md)
 - [0018. 이동 기즈모와 뷰포트 스냅 컨트롤](adr/0018-translation-gizmo-and-snap-controls.md)
+- [0019. 2D 변환 모드와 시작점 기준 스냅](adr/0019-transform-modes-and-relative-snap.md)

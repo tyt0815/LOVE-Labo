@@ -1762,8 +1762,8 @@ add("Prefab drag places at zoomed viewport coordinates without moving the source
         Assert.equal(nil, app.uiRoot.captured)
         app.sceneView.snapEnabled, app.sceneView.snapUnit = true, 10
         assert(app:placePrefab(prefabId, dx, dy))
-        Assert.equal(20, app.level.lobjects[2].transform.x)
-        Assert.equal(-10, app.level.lobjects[2].transform.y)
+        Assert.equal(24, app.level.lobjects[2].transform.x)
+        Assert.equal(-12, app.level.lobjects[2].transform.y)
         assert(app:startPlay())
         Assert.equal(false, app:placePrefab(prefabId, dx, dy))
         Assert.equal(2, #app.level.lobjects)
@@ -1895,7 +1895,7 @@ add("Instance Inspector routes text and reference dropdown input through the UI"
             for index, key in ipairs(inspector.names) do
                 if key == name then
                     inspector.scroll = math.max(0, index - inspector.visibleRows)
-                    local y = 190 + require("editor.ui").metrics.contentPaddingY + (index - inspector.scroll - 1) * 56
+                    local y = inspector.propertyTop + 20 + (index - inspector.scroll - 1) * 56
                     return inspector.left + 20, y + 3
                 end
             end

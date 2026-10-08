@@ -78,10 +78,9 @@ function LObject.new(runtimeId, initialState)
 
     -- Runtime mutable state는 authoring/serialized data와 table reference를
     -- 공유하지 않도록 Runtime LObject가 자기 Transform을 소유한다.
-    self.transform = {
-        x = initialState.transform.x,
-        y = initialState.transform.y
-    }
+    local transform, transformError = require("core.transform").copy(initialState.transform)
+    if not transform then return nil, transformError end
+    self.transform = transform
 
     return self
 end

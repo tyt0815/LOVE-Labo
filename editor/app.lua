@@ -128,7 +128,7 @@ function EditorApp:startPlay()
     -- Inspector의 transient edit을 authoring Level에 먼저 확정한 뒤
     -- 그 시점의 Level snapshot으로 Runtime World를 만든다.
     self.inspector:commitEdit()
-    if self.snapControls then self.snapControls:commit() end
+    if self.viewportControls then self.viewportControls:commit() end
 
     local world, worldError =
         World.fromLevelData(
@@ -176,7 +176,7 @@ function EditorApp:startPlay()
     -- Play 중 hidden Scene View drag/pan 상태가 남아 있지 않게 정리한다.
     self.sceneView:cancelDrag(false)
     self.sceneView.isPanning = false
-    if self.uiRoot.focused == self.snapControls then self.uiRoot.focused = self.sceneWidget end
+    if self.uiRoot.focused == self.viewportControls then self.uiRoot.focused = self.sceneWidget end
 
     return true
 end
@@ -271,7 +271,7 @@ end
 function EditorApp:placePrefab(reference, x, y)
     if self:isPlaying() then return false, "Stop Play before placing a Prefab" end
     if not self.sceneView:containsPoint(x, y) then return false, "Drop inside the Scene View" end
-    if self.snapControls:containsPoint(x, y) then return false, "Drop outside the Snap controls" end
+    if self.viewportControls:containsPoint(x, y) then return false, "Drop outside the viewport controls" end
     local source, sourceError = self.project:getAssetReference(reference)
     if not source then return false, sourceError end
     if not source:match("^Assets/.+%.prefab$") then return false, "Expected a Prefab asset" end
@@ -284,7 +284,7 @@ function EditorApp:placePrefab(reference, x, y)
     local target, targetError = Definition.inspectorTarget(self.project, {}, definition, self.level, "LObject")
     if not target then return false, targetError end
     self.inspector:commitEdit()
-    local wx, wy = self.sceneView:snapPosition(self.sceneView:screenToWorld(x, y))
+    local wx, wy = self.sceneView:screenToWorld(x, y)
     local object = assert(self.level:addLObject(wx, wy, self.project:getAssetId(reference) or reference))
     self.sceneView.selectedLObject, self.activePanel = object, "scene"
     self.assetBrowser.selectedReference = nil
@@ -582,11 +582,11 @@ function EditorApp:initializeUI()
         cancel = function() self.sceneView:cancelDrag(true); self.sceneView.isPanning = false end,
     })
     self.sceneWidget = sceneWidget
-    self.snapControls = require("editor.ui.snap_controls").new(self.sceneView)
-    local snapSlot = center:addChild(self.snapControls, {z = 1})
+    self.viewportControls = require("editor.ui.viewport_controls").new(self.sceneView)
+    local snapSlot = center:addChild(self.viewportControls, {z = 1})
     center.handlers.bounds = function(_, _, _, width)
-        snapSlot.x, snapSlot.y = math.max(6, width - 230), 10
-        snapSlot.width, snapSlot.height = math.max(0, math.min(218, width - 12)), 56
+        snapSlot.x, snapSlot.y = math.max(6, width - 250), 10
+        snapSlot.width, snapSlot.height = math.max(0, math.min(238, width - 12)), 94
     end
     local hierarchy = panel("hierarchy", {
         hint = function(_, x, y)
@@ -642,7 +642,7 @@ function EditorApp:initializeUI()
         self.assetBrowser.externalDropTarget = function(entry, x, y)
             if not self.sceneView:containsPoint(x, y) then return end
             if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
-            if self.snapControls:containsPoint(x, y) then return false, nil, "Drop outside the Snap controls" end
+            if self.viewportControls:containsPoint(x, y) then return false, nil, "Drop outside the viewport controls" end
             if entry.type ~= "file" or not entry.reference:match("^Assets/.+%.prefab$") then return false, nil, "Drop a Prefab into the Scene View" end
             local vx, vy, width, height = self.sceneView:getViewport()
             return "scene", {x = vx, y = vy, w = width, h = height}
@@ -702,7 +702,11 @@ function EditorApp:initializeUI()
     end
     self.uiRoot.focused = sceneWidget
     self.uiRoot.beforeMousepressed = function(target)
-        if target ~= self.snapControls then self.snapControls:commit() end
+        if target == self.viewportControls and self.sceneView.isDraggingLObject then
+            self.sceneView:cancelDrag(true)
+            self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
+        end
+        if target ~= self.viewportControls then self.viewportControls:commit() end
         local ancestor = target
         while ancestor and not ancestor.panelName do ancestor = ancestor.parent end
         local name = ancestor and ancestor.panelName
@@ -718,7 +722,7 @@ function EditorApp:initializeUI()
 end
 
 function EditorApp:updateSceneViewport()
-    self.snapControls.visible = not self:isPlaying()
+    self.viewportControls.visible = not self:isPlaying()
     self.uiLayout:arrange(love.graphics.getDimensions())
 end
 
@@ -813,9 +817,9 @@ function EditorApp:handleSceneKey(key)
     local x, y = love.mouse.getPosition()
     local usesMousePosition = key == "d" and controlDown
     if usesMousePosition and not self.sceneView:containsPoint(x, y) then return true end
-    if usesMousePosition and self.snapControls:containsPoint(x, y) then return true end
+    if usesMousePosition and self.viewportControls:containsPoint(x, y) then return true end
     self.sceneView:keypressed(key, controlDown, x, y)
-    if key == "escape" and self.uiRoot.captured == self.sceneWidget then self.uiRoot.captured, self.uiRoot.captureButton = nil, nil end
+    if not self.sceneView.isDraggingLObject and not self.sceneView.isPanning and self.uiRoot.captured == self.sceneWidget then self.uiRoot.captured, self.uiRoot.captureButton = nil, nil end
     return true
 end
 
@@ -831,6 +835,8 @@ function EditorApp:keypressed(key)
     end
     if self:isPlaying() then return end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
+    if not controlDown and not self.inspector:isEditing() and not self.viewportControls.editing
+        and (key == "w" or key == "e" or key == "r" or key == "space") then return self:handleSceneKey(key) end
     return self.uiRoot:keypressed(key)
 end
 

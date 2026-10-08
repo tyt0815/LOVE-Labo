@@ -135,7 +135,8 @@ function ClassInspector:layout(left, width, height)
     self.left, self.width = left, width
     if not self.dropdown then return end
     self.dropdown:setBounds(left + UI.metrics.contentPaddingX, 100 + UI.metrics.contentPaddingY, math.max(0, width - 2 * UI.metrics.contentPaddingX), 28)
-    self.visibleRows = math.max(0, math.floor((height - 180 - UI.metrics.contentPaddingY) / 56))
+    self.propertyTop = (self.target.instance and 270 or 170) + UI.metrics.contentPaddingY
+    self.visibleRows = math.max(0, math.floor((height - self.propertyTop - 10) / 56))
     self.scroll = math.min(self.scroll, math.max(0, #self.names - self.visibleRows))
 end
 
@@ -157,7 +158,7 @@ function ClassInspector:draw()
         local declaration = self.class.properties[name]
         local value = self.target:getOverrides()[name]
         if value == nil then value = declaration.default end
-        local y = 170 + UI.metrics.contentPaddingY + (row - 1) * 56
+        local y = self.propertyTop + (row - 1) * 56
         UI.label(name .. " (" .. declaration.type .. ")", self.left + UI.metrics.contentPaddingX, y, self.width - 2 * UI.metrics.contentPaddingX)
         UI.hint({x = self.left + UI.metrics.contentPaddingX, y = y, w = self.width - 2 * UI.metrics.contentPaddingX, h = 20}, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
         local rect = self:propertyRect(name, y + 20)
@@ -184,7 +185,7 @@ function ClassInspector:mousepressed(x, y, button)
     for row = 1, self.visibleRows do
         local name = self.names[row + self.scroll]
         if not name then break end
-        local top = 190 + UI.metrics.contentPaddingY + (row - 1) * 56
+        local top = self.propertyTop + 20 + (row - 1) * 56
         if y >= top and y < top + 26 then
             local declaration = self.class.properties[name]
             if x >= self.left + self.width - UI.metrics.contentPaddingX - UI.buttonWidth("R") then

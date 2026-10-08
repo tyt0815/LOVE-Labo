@@ -1,6 +1,6 @@
 local Theme = require("editor.theme")
 local UI = require("editor.ui")
-local Gizmo = require("editor.translation_gizmo")
+local Gizmo = require("editor.transform_gizmo")
 local SceneView = {}
 SceneView.__index = SceneView
 
@@ -53,6 +53,7 @@ function SceneView.new(gridSize, level)
     self.selectedLObject = nil
     self.isDraggingLObject = false
     self.snapEnabled, self.snapUnit = false, DEFAULT_GRID_SIZE
+    self.gizmoMode = "translate"
 
     return self
 end
@@ -143,16 +144,7 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
         local transform = lobject.transform
         if self.spriteAssets then
             local preview = self.spriteAssets:preview(lobject)
-            for _, name in ipairs(preview and preview.componentOrder or {}) do
-                local component = preview.components[name]
-                if component:isA(require("core.sprite_component")) then
-                    local image = self.spriteAssets:image(component.properties.image)
-                    if image then
-                        local x, y = component:getWorldPosition()
-                        if math.abs(worldX - x) <= image:getWidth() / 2 and math.abs(worldY - y) <= image:getHeight() / 2 then return lobject end
-                    end
-                end
-            end
+            if preview and require("core.sprite_renderer").hit(preview, function(reference) return self.spriteAssets:image(reference) end, worldX, worldY) then return lobject end
         end
 
         local insideX =
@@ -183,8 +175,7 @@ function SceneView:mousepressed(x, y, button)
 
         local axis = Gizmo.hit(self, x, y)
         if axis then
-            local transform = self.selectedLObject.transform
-            self.drag = {axis = axis, object = self.selectedLObject, x = transform.x, y = transform.y, dx = 0, dy = 0, zoom = self.zoom}
+            self.drag = Gizmo.begin(self, axis, x, y)
             self.isDraggingLObject = true
             return
         end
@@ -220,9 +211,15 @@ end
 
 function SceneView:cancelDrag(restore)
     if restore and self.drag then
-        self.drag.object.transform.x, self.drag.object.transform.y = self.drag.x, self.drag.y
+        for field, value in pairs(self.drag.initial) do self.drag.object.transform[field] = value end
     end
     self.drag, self.isDraggingLObject = nil, false
+end
+
+function SceneView:setGizmoMode(mode)
+    if mode ~= "translate" and mode ~= "rotate" and mode ~= "scale" then return false end
+    if self.gizmoMode ~= mode then self:cancelDrag(true); self.gizmoMode = mode end
+    return true
 end
 
 function SceneView:snapValue(value)
@@ -232,17 +229,13 @@ function SceneView:snapValue(value)
 end
 
 function SceneView:snapPosition(x, y)
-    return self:snapValue(x), self:snapValue(y)
+    local transform = self.selectedLObject and self.selectedLObject.transform or {x = x, y = y}
+    return transform.x + self:snapValue(x - transform.x), transform.y + self:snapValue(y - transform.y)
 end
 
 function SceneView:mousemoved(x, y, dx, dy)
     if self.isDraggingLObject and self.drag then
-        local drag = self.drag
-        drag.dx, drag.dy = drag.dx + dx, drag.dy + dy
-        local transform = drag.object.transform
-        -- 스냅된 값에 다음 delta를 더하지 않고 시작점 기준 누적 이동량을 사용한다.
-        if drag.axis ~= "y" then transform.x = self:snapValue(drag.x + drag.dx / drag.zoom) end
-        if drag.axis ~= "x" then transform.y = self:snapValue(drag.y + drag.dy / drag.zoom) end
+        Gizmo.update(self, self.drag, dx, dy)
         return
     end
 
@@ -269,6 +262,11 @@ end
 
 function SceneView:keypressed(key, controlDown, mouseX, mouseY)
     if key == "escape" then self:cancelDrag(true); return end
+    if not controlDown then
+        local modes = {w = "translate", e = "rotate", r = "scale"}
+        if modes[key] then self:setGizmoMode(modes[key]); return end
+        if key == "space" then self:setGizmoMode(({translate = "rotate", rotate = "scale", scale = "translate"})[self.gizmoMode]); return end
+    end
     if key == "f" and not controlDown then
         self:frameSelected()
         return
@@ -357,12 +355,12 @@ function SceneView:drawWorldAxes()
     love.graphics.setLineWidth(2)
 
     if originX >= viewportX and originX <= right then
-        Theme.setColor("axisX")
+        Theme.setColor("axisY")
         love.graphics.line(originX, viewportY, originX, bottom)
     end
 
     if originY >= viewportY and originY <= bottom then
-        Theme.setColor("axisY")
+        Theme.setColor("axisX")
         love.graphics.line(viewportX, originY, right, originY)
     end
 

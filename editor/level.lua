@@ -1,4 +1,5 @@
 local Level = {}
+local Transform = require("core.transform")
 Level.__index = Level
 
 local FORMAT_VERSION = 2
@@ -70,6 +71,8 @@ local function validateLObjectData(data, usedAuthoringIds)
     end
 
     usedAuthoringIds[data.authoringId] = true
+    local transform, transformError = Transform.copy(data.transform)
+    if not transform then return nil, transformError end
     local properties, propertyError = require("editor.property_data").validate(data.propertyOverrides)
     if not properties then return nil, propertyError end
     local components, componentError = require("editor.property_data").validateComponents(data.componentOverrides)
@@ -83,10 +86,7 @@ local function validateLObjectData(data, usedAuthoringIds)
         definitionReference = data.definitionReference,
         propertyOverrides = properties,
         componentOverrides = components,
-        transform = {
-            x = data.transform.x,
-            y = data.transform.y
-        }
+        transform = transform
     }
 end
 
@@ -117,7 +117,8 @@ function Level:addLObject(x, y, definitionReference)
         definitionReference = definitionReference,
         transform = {
             x = x,
-            y = y
+            y = y,
+            rotation = 0, scaleX = 1, scaleY = 1
         }
     }
 
@@ -153,6 +154,8 @@ function Level:duplicateLObject(target, x, y)
             )
             duplicate.propertyOverrides = require("editor.property_data").copy(lobject.propertyOverrides)
             duplicate.componentOverrides = require("editor.property_data").copyComponents(lobject.componentOverrides)
+            duplicate.transform.rotation = lobject.transform.rotation or 0
+            duplicate.transform.scaleX, duplicate.transform.scaleY = lobject.transform.scaleX or 1, lobject.transform.scaleY or 1
             return duplicate
         end
     end
@@ -186,10 +189,7 @@ function Level:toData()
                 lobject.definitionReference,
             propertyOverrides = next(lobject.propertyOverrides or {}) and require("editor.property_data").copy(lobject.propertyOverrides) or nil,
             componentOverrides = next(lobject.componentOverrides or {}) and require("editor.property_data").copyComponents(lobject.componentOverrides) or nil,
-            transform = {
-                x = lobject.transform.x,
-                y = lobject.transform.y
-            }
+            transform = Transform.toData(lobject.transform)
         }
     end
 

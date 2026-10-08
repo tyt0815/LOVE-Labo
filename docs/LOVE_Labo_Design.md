@@ -151,6 +151,8 @@ Runtime LObject의 mutable data가 Definition, Prefab, Level 원본과 의도치
 
 현재 컴포넌트 구성·위치·이미지 및 인스턴스 프로퍼티 계약은 [ADR 0017](adr/0017-components-instance-properties-and-prefab-placement.md)을 따른다. 프로젝트 코드는 `require("engine")`의 공개 컴포넌트 클래스를 `build(self)`에서 이름을 지정해 부착한다. Inspector는 구성 변경 없이 선언한 값과 참조를 편집한다.
 
+LObject의 2D Transform은 위치, Z축 회전(도), 양수 X/Y 스케일을 가지며 편집 기즈모·Inspector·저장·Runtime·Sprite 렌더링이 같은 값을 사용한다. 현재 변환과 스냅 계약은 [ADR 0019](adr/0019-transform-modes-and-relative-snap.md)를 따른다.
+
 Component는 LObject의 구조화된 state/capability data다.
 
 초기 구현에서는 실제 authoring에 필요한 최소 Component부터 시작한다. Transform과 기본적인 2D rendering data가 우선 후보지만 정확한 schema는 구현 중 결정한다.

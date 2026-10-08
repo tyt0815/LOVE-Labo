@@ -18,15 +18,23 @@ function Controls.new(view)
             return true
         end,
         textedited = function(_, text) if self.editing then IME.edited(self, text) end; return true end,
-        hint = function() return self.error or "Snap: align movement to world units. Enter: apply. Esc: cancel." end,
+        hint = function() return self.error or "W: Move. E: Rotate. R: Scale. Space: cycle. Snap: steps from the drag start." end,
     }
     return self
 end
 
 function Controls:rects()
-    local check = {x = self.x + 16, y = self.y + 18, w = 20, h = 20}
-    local field = {x = self.x + 94, y = self.y + 14, w = math.max(0, self.width - 110), h = 28}
+    local check = {x = self.x + 16, y = self.y + 56, w = 20, h = 20}
+    local field = {x = self.x + 94, y = self.y + 52, w = math.max(0, self.width - 110), h = 28}
     return check, field
+end
+
+function Controls:modeRects()
+    return {
+        translate = {x = self.x + 16, y = self.y + 14, w = 64, h = 28},
+        rotate = {x = self.x + 84, y = self.y + 14, w = 68, h = 28},
+        scale = {x = self.x + 156, y = self.y + 14, w = 64, h = 28},
+    }
 end
 
 function Controls:commit()
@@ -40,6 +48,9 @@ end
 
 function Controls:press(x, y, button)
     if button ~= 1 then return true end
+    for mode, rect in pairs(self:modeRects()) do
+        if UI.contains(x, y, rect) then self:commit(); self.view:setGizmoMode(mode); return true end
+    end
     local check, field = self:rects()
     if UI.contains(x, y, field) then
         if not self.editing then self.editing, self.text, self.replace = true, tostring(self.view.snapUnit), true end
@@ -65,6 +76,12 @@ function Controls:drawControls()
     love.graphics.push("all")
     love.graphics.setScissor(self.x, self.y, self.width, self.height)
     UI.panel(self.x, self.y, self.width, self.height, "background")
+    local rects = self:modeRects()
+    for _, mode in ipairs({"translate", "rotate", "scale"}) do
+        local labels = {translate = "Move", rotate = "Rotate", scale = "Scale"}
+        local keys = {translate = "W", rotate = "E", scale = "R"}
+        UI.button(labels[mode], rects[mode], self.view.gizmoMode == mode, keys[mode] .. ": " .. labels[mode] .. ". Space: cycle modes.", true)
+    end
     local check, field = self:rects()
     Theme.setColor("input")
     love.graphics.rectangle("fill", check.x, check.y, check.w, check.h, 3, 3)
@@ -76,7 +93,7 @@ function Controls:drawControls()
         love.graphics.line(check.x + 4, check.y + 10, check.x + 8, check.y + 15, check.x + 16, check.y + 5)
     end
     UI.text("Snap", check.x + 28, check.y + 2)
-    UI.hint(check, "Enable snapping to world units.")
+    UI.hint(check, "Move in fixed steps relative to the drag start. Rotation / scale remain continuous.")
     UI.field(self.editing and IME.display(self, self.text, self.replace) or tostring(self.view.snapUnit), field, self.editing, self.composition)
     UI.hint(field, self.error or "Snap unit in world coordinates. Enter: apply. Esc: cancel.")
     love.graphics.pop()

@@ -15,7 +15,7 @@ local defaults = {
     assetLevel = "#25AAE1", assetPrefab = "#EA316E",
     classLevel = "#1B4D68", classLObject = "#00A651", classComponent = "#4C90B1",
     folderTab = "#4C90B1", folderBody = "#25AAE1",
-    grid = "#B1E3FA", axisX = "#EA316E", axisY = "#00A651", origin = "#1B4D68",
+    grid = "#B1E3FA", axisX = "#EA316E", axisY = "#00A651", axisZ = "#25AAE1", origin = "#1B4D68",
     object = "#EA316E", objectSelected = "#00A651", gameBackground = "#E0F4FC"
 }
 
