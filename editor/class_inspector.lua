@@ -80,6 +80,18 @@ end
 function ClassInspector:cancelEdit() self.editing = nil end
 function ClassInspector:isEditing() return self.editing ~= nil end
 
+function ClassInspector:propertyRect(name, top)
+    local declaration = self.class.properties[name]
+    local resetWidth = UI.buttonWidth("R")
+    local width = self.width - 2 * UI.metrics.contentPaddingX - UI.metrics.buttonGap - resetWidth
+    if declaration.type == "boolean" then
+        local value = self.target:getOverrides()[name]
+        if value == nil then value = declaration.default end
+        width = math.min(width, UI.buttonWidth(value and "True" or "False"))
+    end
+    return {x = self.left + UI.metrics.contentPaddingX, y = top, w = math.max(0, width), h = 26}
+end
+
 function ClassInspector:layout(left, width, height)
     self.left, self.width = left, width
     if not self.dropdown then return end
@@ -105,10 +117,11 @@ function ClassInspector:draw()
         local y = 170 + UI.metrics.contentPaddingY + (row - 1) * 56
         UI.label(name .. " (" .. declaration.type .. ")", self.left + UI.metrics.contentPaddingX, y, self.width - 2 * UI.metrics.contentPaddingX)
         UI.hint({x = self.left + UI.metrics.contentPaddingX, y = y, w = self.width - 2 * UI.metrics.contentPaddingX, h = 20}, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
-        local rect = {x = self.left + UI.metrics.contentPaddingX, y = y + 20, w = self.width - 34 - 2 * UI.metrics.contentPaddingX, h = 26}
+        local rect = self:propertyRect(name, y + 20)
         if declaration.type == "boolean" then UI.button(value and "True" or "False", rect, false, "Toggle " .. name .. ". Ctrl+S: save.")
         else UI.field(self.editing == name and self.text or tostring(value), rect, self.editing == name) end
-        UI.button("R", {x = self.left + self.width - UI.metrics.contentPaddingX - 28, y = y + 20, w = 28, h = 26})
+        local resetWidth = UI.buttonWidth("R")
+        UI.button("R", {x = self.left + self.width - UI.metrics.contentPaddingX - resetWidth, y = y + 20, w = resetWidth, h = 26})
     end
 end
 
@@ -126,10 +139,11 @@ function ClassInspector:mousepressed(x, y, button)
         local top = 190 + UI.metrics.contentPaddingY + (row - 1) * 56
         if y >= top and y < top + 26 then
             local declaration = self.class.properties[name]
-            if x >= self.left + self.width - UI.metrics.contentPaddingX - 28 then
+            if x >= self.left + self.width - UI.metrics.contentPaddingX - UI.buttonWidth("R") then
                 self:commitEdit()
                 return self:setProperty(name, declaration.default)
             end
+            if not UI.contains(x, y, self:propertyRect(name, top)) then return true end
             if self.editing == name then return true end
             self:commitEdit()
             local value = self.target:getOverrides()[name]

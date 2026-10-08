@@ -6,8 +6,13 @@ local UI = {}
 UI.metrics = {
     titlePaddingX = 16, titlePaddingY = 14, titleFontSize = 15,
     contentPaddingX = 16, contentPaddingY = 4,
+    buttonPaddingX = 10, buttonGap = 8,
     selectionPaddingX = 8, selectionPaddingY = 2, selectionRadius = 4,
 }
+
+function UI.buttonWidth(label)
+    return math.ceil(love.graphics.getFont():getWidth(label)) + 2 * UI.metrics.buttonPaddingX
+end
 
 function UI.selection(x, y, width, height)
     local m = UI.metrics
@@ -88,7 +93,7 @@ function UI.button(label, rect, active, hint, flat)
         if flat and hovered and love.mouse.isDown(1) then Theme.setColor("selection") end
         love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 4, 4)
     end
-    local padding = math.min(10, math.max(4, math.floor(rect.w * 0.2)))
+    local padding = UI.metrics.buttonPaddingX
     UI.text(label, rect.x + padding, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2,
         math.max(0, rect.w - padding * 2), nil, false, "center")
 end

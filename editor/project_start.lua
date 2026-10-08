@@ -28,14 +28,16 @@ function ProjectStart:layout()
     local w, h = love.graphics.getDimensions()
     local left, top = math.max(16, (w - 680) / 2), math.max(16, (h - 460) / 2)
     local width = math.min(680, w - 32)
+    local createWidth = UI.buttonWidth("New project")
+    local browseWidth = UI.buttonWidth("Browse")
     local form = {
         panel = rect(left, top, width, 460),
-        create = rect(left + 24, top + 80, 150, 36),
-        open = rect(left + 184, top + 80, 150, 36),
+        create = rect(left + 24, top + 80, createWidth, 36),
+        open = rect(left + 24 + createWidth + UI.metrics.buttonGap, top + 80, UI.buttonWidth("Open project"), 36),
         name = rect(left + 24, top + 158, width - 48, 38),
-        path = rect(left + 24, top + 234, width - 148, 38),
-        browse = rect(left + width - 114, top + 234, 90, 38),
-        submit = rect(left + 24, top + 352, width - 48, 42)
+        path = rect(left + 24, top + 234, width - 48 - browseWidth - UI.metrics.buttonGap, 38),
+        browse = rect(left + width - 24 - browseWidth, top + 234, browseWidth, 38),
+        submit = rect(left + 24, top + 352, UI.buttonWidth(self.mode == "create" and "Create project" or "Open project"), 42)
     }
     return form
 end

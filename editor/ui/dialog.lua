@@ -13,8 +13,10 @@ function Dialog.new(root, options)
     self.box = { x = math.max(0, (width - 460) / 2), y = math.max(0, (height - dialogHeight) / 2), w = 460, h = dialogHeight }
     local box = self.box
     self.field = { x = box.x + 16, y = box.y + 76, w = box.w - 32, h = 32 }
-    self.cancel = { x = box.x + box.w - 106, y = box.y + box.h - 46, w = 90, h = 30 }
-    self.confirm = { x = box.x + box.w - 206, y = box.y + box.h - 46, w = 90, h = 30 }
+    local cancelWidth = UI.buttonWidth("Cancel")
+    local confirmWidth = UI.buttonWidth(options.confirmLabel or "Create")
+    self.cancel = { x = box.x + box.w - 16 - cancelWidth, y = box.y + box.h - 46, w = cancelWidth, h = 30 }
+    self.confirm = { x = self.cancel.x - UI.metrics.buttonGap - confirmWidth, y = self.cancel.y, w = confirmWidth, h = 30 }
     self.choicesRect = { x = box.x + 16, y = box.y + 140, w = box.w - 32, h = 150 }
     self.selected, self.choiceScroll = options.choices and #options.choices > 0 and 1 or nil, 0
     if options.content then
