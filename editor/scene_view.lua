@@ -407,8 +407,9 @@ function SceneView:draw()
     -- Scene View는 이제 자신의 실제 viewport 밖으로 그리지 않는다.
     love.graphics.setScissor(viewportX, viewportY, width, height)
 
-    Theme.setColor("background")
-    love.graphics.rectangle("fill", viewportX, viewportY, width, height)
+    require("editor.ui").panel(viewportX, viewportY, width, height, "viewportBackground")
+    -- 좌표 변환의 기준 사각형은 유지하고 콘텐츠만 테두리 안쪽으로 제한한다.
+    love.graphics.intersectScissor(viewportX + 12, viewportY + 12, math.max(0, width - 24), math.max(0, height - 24))
 
     Theme.setColor("grid")
     love.graphics.setLineWidth(1)

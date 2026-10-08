@@ -5,7 +5,7 @@ local Theme = {}
 -- 공통 역할을 공유하되 독립적인 조절이 필요한 UI에는 용도별 색을 제공한다.
 local defaults = {
     -- love2d.org/style/style.css와 box.svg의 배경·텍스트·강조색을 사용한다.
-    background = "#E0F4FC", panel = "#B1E3FA", surface = "#E0F4FC",
+    background = "#B1E3FA", panel = "#B1E3FA", viewportBackground = "#E0F4FC", surface = "#E0F4FC",
     button = "#E0F4FC", hover = "#FFFFFF", selection = "#25AAE14D",
     border = "#4C90B166", panelBorder = "#4C90B166", panelTitle = "#1B4D68",
     focus = "#EA316E", input = "#FFFFFF",

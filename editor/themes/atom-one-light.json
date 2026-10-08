@@ -1,8 +1,9 @@
 {
   "version": 1,
   "colors": {
-    "background": "#FAFAFA",
+    "background": "#EAEAEB",
     "panel": "#EAEAEB",
+    "viewportBackground": "#FAFAFA",
     "surface": "#F0F0F0",
     "button": "#E0E0E1",
     "hover": "#D8E2F4",

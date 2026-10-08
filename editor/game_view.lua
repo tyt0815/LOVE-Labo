@@ -95,15 +95,8 @@ function GameView:draw(world)
         height
     )
 
-    Theme.setColor("gameBackground")
-
-    love.graphics.rectangle(
-        "fill",
-        viewportX,
-        viewportY,
-        width,
-        height
-    )
+    require("editor.ui").panel(viewportX, viewportY, width, height, "gameBackground")
+    love.graphics.intersectScissor(viewportX + 12, viewportY + 12, math.max(0, width - 24), math.max(0, height - 24))
 
     if world then
         self:drawRuntimeLObjects(world)

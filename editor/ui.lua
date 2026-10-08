@@ -10,8 +10,8 @@ function UI.hint(rect, text)
 end
 function UI.resetHints() UI.hoverHint = nil end
 
-function UI.panel(x, y, width, height)
-    Theme.setColor("panel")
+function UI.panel(x, y, width, height, backgroundRole)
+    Theme.setColor(backgroundRole or "panel")
     love.graphics.rectangle("fill", x + 6, y + 6, math.max(0, width - 12), math.max(0, height - 12), 6, 6)
     Theme.setColor("panelBorder")
     love.graphics.rectangle("line", x + 6.5, y + 6.5, math.max(0, width - 13), math.max(0, height - 13), 6, 6)

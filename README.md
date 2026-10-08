@@ -157,7 +157,7 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 }
 ```
 
-- `default`: [LÖVE 공식 홈페이지](https://love2d.org/)의 [CSS](https://love2d.org/style/style.css?b)·[박스 SVG](https://love2d.org/style/box.svg)를 참고한 하늘색 배경 `#E0F4FC`, 패널 `#B1E3FA`, 짙은 제목 `#1B4D68`, 분홍 `#EA316E`·파랑 `#25AAE1` 강조색이다. `editor/theme.lua`에 내장되어 JSON 파일 없이도 동작하며 현재 설정도 default를 선택한다.
+- `default`: [LÖVE 공식 홈페이지](https://love2d.org/)의 [CSS](https://love2d.org/style/style.css?b)·[박스 SVG](https://love2d.org/style/box.svg)를 참고한 전체 배경·패널 `#B1E3FA`, 뷰포트 배경 `#E0F4FC`, 짙은 제목 `#1B4D68`, 분홍 `#EA316E`·파랑 `#25AAE1` 강조색이다. `editor/theme.lua`에 내장되어 JSON 파일 없이도 동작한다.
 - `atom-one-light`: [VS Code Atom One Light](https://github.com/akamud/vscode-theme-onelight/blob/master/themes/OneLight.json) 스타일의 밝은 회색 배경, 짙은 글자와 파란 강조색.
 
 색을 직접 바꾸려면 아래처럼 `editor/themes/my-theme.json`을 만들고 설정에서 `"theme": "my-theme"`을 선택한다. 파일의 `colors`는 `#RRGGBB` 또는 알파를 포함한 `#RRGGBBAA` 색을 받는다. 일부 색만 지정해도 나머지는 코드에 내장된 기본 테마를 사용한다. 모든 색 항목은 `atom-one-light.json`을 참고한다.
@@ -178,6 +178,7 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 | 역할 | 용도 |
 |---|---|
 | `background` | 화면 바탕 |
+| `viewportBackground` | 편집 뷰포트 패널 내부 바탕 |
 | `panel`, `surface`, `button`, `input` | 패널·팝업 표면·버튼·입력칸 |
 | `panelBorder`, `panelTitle` | 독립 패널의 외곽선·제목 |
 | `text`, `textMuted`, `textDisabled` | 일반·보조·비활성 글자 |
