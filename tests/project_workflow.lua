@@ -229,6 +229,7 @@ add("asset browser scrolls long lists and keeps fractional wheel input clickable
         end
         local browser = AssetBrowser.new(project)
         browser:setBounds(0, 400, 900, 220)
+        browser:setViewMode("list")
         browser:wheelmoved(400, 450, -1.5)
         Assert.equal(4, browser.fileScroll)
         browser:mousepressed(400, 445, 1, 1)
@@ -257,7 +258,7 @@ add("editor bottom Assets layout routes inputs without changing lobject selectio
         Assert.equal(height - browser.height, app.sceneView.viewportHeight)
         Assert.equal(false, app.hierarchy:containsPoint(10, browser.y + 40))
         Assert.equal(false, app.sceneView:containsPoint(400, browser.y + 40))
-        local fileX, fileY = browser:treeWidth() + 20, browser.y + 45
+        local fileX, fileY = browser:treeWidth() + 20, browser.y + 54
         app:mousepressed(fileX, fileY, 1, 1)
         Assert.equal("Assets/Folder", browser.selectedReference)
         Assert.equal(object, app.sceneView.selectedLObject)
@@ -376,6 +377,139 @@ add("startup rejects missing duplicate and invalid project paths without opening
         assert(projectStart:submit())
         Assert.equal(project.rootPath, opened.rootPath)
         Assert.equal(nil, projectStart.error)
+    end)
+end)
+
+add("asset view dropdown switches modes and protects scene input", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "Views"))
+        local app = EditorApp.new(nil, project)
+        local browser = app.assetBrowser
+        local object = app.level:addLObject(0, 0)
+        app.sceneView.selectedLObject = object
+        Assert.equal("thumbnails", browser.viewMode)
+        local dropdown = browser.viewDropdown
+        app:mousepressed(dropdown.x + 10, dropdown.y + 10, 1)
+        Assert.truthy(app.uiRoot.popup)
+        app:keypressed("delete")
+        Assert.equal(1, #app.level.lobjects)
+        app:keypressed("down")
+        app:keypressed("return")
+        Assert.equal("list", browser.viewMode)
+        Assert.equal(nil, app.uiRoot.popup)
+        Assert.equal(object, app.sceneView.selectedLObject)
+        app:mousepressed(dropdown.x + 10, dropdown.y + 10, 1)
+        local menu = app.uiRoot.popup
+        app:mousepressed(menu.x + 10, menu.y + 10, 1)
+        Assert.equal("thumbnails", browser.viewMode)
+        app:mousepressed(dropdown.x + 10, dropdown.y + 10, 1)
+        local x, y = app.sceneView:worldToScreen(0, 0)
+        app:mousepressed(x + 70, y, 1)
+        Assert.equal(object, app.sceneView.selectedLObject)
+        Assert.equal(nil, app.uiRoot.popup)
+    end)
+end)
+
+add("thumbnail grid hit testing scroll and resizing agree on entry positions", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "Grid"))
+        for i = 1, 30 do assert(FS.createFile(FS.join(project.rootPath, string.format("Assets/File%02d.txt", i)), "data")) end
+        local browser = AssetBrowser.new(project)
+        browser:setBounds(0, 400, 700, 220)
+        local x, y = browser:treeWidth() + 20, browser.y + 54
+        Assert.equal("Assets/Levels", browser:getEntryAtPosition(x, y).reference)
+        Assert.equal("Assets/File01.txt", browser:getEntryAtPosition(x + 112, y).reference)
+        browser:wheelmoved(x, y, -1)
+        local index = browser.fileScroll * browser:columns() + 1
+        Assert.equal(browser.entries[index], browser:getEntryAtPosition(x, y))
+        browser:setBounds(0, 400, 460, 220)
+        index = browser.fileScroll * browser:columns() + 1
+        Assert.equal(browser.entries[index], browser:getEntryAtPosition(browser:treeWidth() + 20, y))
+        Assert.equal(nil, browser:getEntryAtPosition(browser.width - 1, y))
+        local selected = browser.entries[index].reference
+        browser.selectedReference = selected
+        assert(browser:setViewMode("list"))
+        Assert.equal(selected, browser.selectedReference)
+        Assert.equal(0, browser.fileScroll)
+    end)
+end)
+
+add("thumbnail previews load unicode images restore graphics and tolerate corrupt files", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "한글 이미지"))
+        local data = love.image.newImageData(12, 6)
+        for y = 0, 5 do for x = 0, 11 do data:setPixel(x, y, 0, 1, 0, 1) end end
+        assert(FS.createFile(FS.join(project.rootPath, "Assets/미리보기.png"), data:encode("png"):getString()))
+        data:release()
+        assert(FS.createFile(FS.join(project.rootPath, "Assets/Broken.png"), "not an image"))
+        local browser = AssetBrowser.new(project)
+        local good, broken
+        for _, entry in ipairs(browser.entries) do
+            if entry.name == "미리보기.png" then good = entry end
+            if entry.name == "Broken.png" then broken = entry end
+        end
+        local cache = browser.thumbnails
+        local canvas = love.graphics.newCanvas(100, 100)
+        love.graphics.setCanvas(canvas)
+        love.graphics.setScissor(1, 2, 30, 40)
+        cache:beginFrame()
+        local image = cache:get(good)
+        Assert.truthy(image)
+        Assert.equal(88, image:getWidth())
+        Assert.equal(canvas, love.graphics.getCanvas())
+        Assert.equal(1, love.graphics.getScissor())
+        Assert.equal(image, cache:get(good))
+        Assert.equal(nil, cache:get(broken))
+        love.graphics.setScissor()
+        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(image)
+        love.graphics.setCanvas()
+        local rendered = canvas:newImageData()
+        local r, g, b = rendered:getPixel(44, 44)
+        Assert.truthy(g > 0.9 and r < 0.1 and b < 0.1)
+        rendered:release(); canvas:release()
+        browser:refresh()
+        Assert.equal(nil, next(cache.entries))
+        local original = FS.info
+        FS.info = function(path)
+            if path == FS.join(project.rootPath, good.reference) then return { type = "file", isLink = true } end
+            return original(path)
+        end
+        cache:beginFrame()
+        local ok, value = pcall(cache.get, cache, good)
+        FS.info = original
+        Assert.truthy(ok)
+        Assert.equal(nil, value)
+        cache:clear()
+    end)
+end)
+
+add("editor shared borders resize panels with pointer capture and preserve centered viewport", function()
+    fixture(function(parent)
+        local app = EditorApp.new(nil, assert(Project.create(parent, "Resize")))
+        local width, height = love.graphics.getDimensions()
+        app:mousepressed(app.hierarchy.width, 150, 1)
+        Assert.equal(app.sceneWidget, app.uiRoot.focused)
+        app:mousemoved(300, 150, 80, 0)
+        app:mousereleased(300, 150, 1)
+        Assert.equal(300, app.hierarchy.width)
+        Assert.equal(300, app.sceneView.viewportX)
+        local edge = width - app.inspector.width
+        app:mousepressed(edge, 150, 1)
+        app:mousemoved(width - 280, 150, -40, 0)
+        app:mousereleased(width - 280, 150, 1)
+        Assert.equal(280, app.inspector.width)
+        local top = app.assetBrowser.y
+        app:mousepressed(300, top, 1)
+        app:mousemoved(340, height - 300, 40, -80)
+        app:mousereleased(-100, -100, 1)
+        Assert.equal(340, app.hierarchy.width)
+        Assert.equal(300, app.assetBrowser.height)
+        Assert.equal(nil, app.uiRoot.captured)
+        local x, y = app.sceneView:worldToScreen(0, 0)
+        Assert.equal(app.sceneView.viewportX + app.sceneView.viewportWidth / 2, x)
+        Assert.equal(app.sceneView.viewportHeight / 2, y)
     end)
 end)
 

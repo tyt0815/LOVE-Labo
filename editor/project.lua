@@ -178,6 +178,23 @@ function Project:listAssets(reference)
     return entries
 end
 
+function Project:resolveAssetFile(reference)
+    if type(reference) ~= "string" or reference:sub(1, 7) ~= "Assets/" then
+        return nil, "Asset file must be inside Assets"
+    end
+    local path, err = self:resolvePath(reference)
+    if not path then return nil, err end
+    local fs, current = filesystem(), self.rootPath
+    for segment in reference:gmatch("[^/]+") do
+        current = fs.join(current, segment)
+        local info, infoError = fs.info(current)
+        if not info or info.isLink then return nil, infoError or "Asset is missing or is a filesystem link" end
+        if current ~= path and info.type ~= "directory" then return nil, "Asset parent is not a folder" end
+        if current == path and info.type ~= "file" then return nil, "Asset is not a file" end
+    end
+    return path
+end
+
 function Project.new(rootPath)
     if type(rootPath) ~= "string" or rootPath == "" then
         return nil, "project root path must be a non-empty string"

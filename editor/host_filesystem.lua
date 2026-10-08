@@ -86,6 +86,7 @@ function FileSystem.list(path)
         if name ~= "." and name ~= ".." then
             entries[#entries + 1] = {
                 name = name,
+                size = tonumber(data[0].sizeHigh) * 4294967296 + tonumber(data[0].sizeLow),
                 type = bit.band(data[0].attributes, 16) ~= 0 and "directory" or "file",
                 isLink = bit.band(data[0].attributes, 1024) ~= 0
             }

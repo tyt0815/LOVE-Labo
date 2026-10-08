@@ -39,6 +39,7 @@ function EditorApp.new(document, project)
     end
 
     self:setDocument(document)
+    self:initializeUI()
 
     return self
 end
@@ -64,6 +65,11 @@ function EditorApp:setDocument(document)
     self.sceneView.isDraggingLObject = false
     self.sceneView.isPanning = false
     self.inspector:cancelEdit()
+    if self.uiRoot then
+        self.uiRoot:dismissPopup()
+        self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
+        self.uiRoot.focused = self.sceneWidget
+    end
 
     return true
 end
@@ -249,315 +255,160 @@ function EditorApp:openProjectDocument(
     return true
 end
 
-function EditorApp:updateSceneViewport()
-    local windowWidth,
-        windowHeight =
-        love.graphics.getDimensions()
-
-    local viewportX =
-        self.hierarchy.width
-
-    local viewportWidth =
-        windowWidth
-        - self.hierarchy.width
-        - self.inspector.width
-
-    local width =
-        math.max(0, viewportWidth)
-
-    local editorHeight = windowHeight
-    if self.assetBrowser then
-        local browserHeight = self.assetBrowser.collapsed and 38
-            or math.max(100, math.min(self.assetBrowserHeight, windowHeight - 160))
-        editorHeight = math.max(0, windowHeight - browserHeight)
-        self.assetBrowser:setBounds(0, editorHeight,
-            math.max(0, windowWidth - self.inspector.width), browserHeight)
+function EditorApp:initializeUI()
+    local Widget = require("editor.ui.widget")
+    local Canvas = require("editor.ui.canvas")
+    local Root = require("editor.ui.root")
+    self.canvas = Canvas.new()
+    self.uiRoot = Root.new(self.canvas)
+    local function panel(name, handlers)
+        local canvas = Canvas.new()
+        canvas.panelName = name
+        local content = Widget.new(handlers)
+        canvas:addChild(content, { fill = true })
+        return canvas, content
     end
-    self.hierarchy.height = editorHeight
+    local center, sceneWidget = panel("scene", {
+        bounds = function(_, x, y, width, height)
+            self.sceneView:setViewport(x, y, width, height)
+            self.gameView:setViewport(x, y, width, height)
+        end,
+        draw = function()
+            if self:isPlaying() then self.gameView:draw(self.runtimeWorld)
+            else self.sceneView:draw() end
+        end,
+        mousepressed = function(_, x, y, button)
+            if self:isPlaying() then return true end
+            self.sceneView:mousepressed(x, y, button)
+            return true, self.sceneView.isPanning or self.sceneView.isDraggingLObject
+        end,
+        mousemoved = function(_, ...)
+            if not self:isPlaying() then self.sceneView:mousemoved(...) end
+            return true
+        end,
+        mousereleased = function(_, ...)
+            if not self:isPlaying() then self.sceneView:mousereleased(...) end
+            return true
+        end,
+        wheelmoved = function(_, _, _, amount)
+            if not self:isPlaying() then self.sceneView:wheelmoved(0, amount) end
+            return true
+        end,
+        keypressed = function(_, key) return self:handleSceneKey(key) end
+    })
+    self.sceneWidget = sceneWidget
+    local hierarchy = panel("hierarchy", {
+        bounds = function(_, _, _, _, height) self.hierarchy.height = height end,
+        draw = function() self.hierarchy:draw(self.sceneView.selectedLObject) end,
+        mousepressed = function(_, x, y, button)
+            if not self:isPlaying() and button == 1 then
+                self.sceneView.selectedLObject = self.hierarchy:getLObjectAtPosition(x, y)
+            end
+            return true
+        end,
+        keypressed = function(_, key) return self:handleSceneKey(key) end
+    })
+    local inspector, inspectorWidget = panel("inspector", {
+        draw = function() self.inspector:draw(self.sceneView.selectedLObject) end,
+        mousepressed = function(_, x, y, button)
+            if not self:isPlaying() then
+                self.inspector:mousepressed(x, y, button, love.graphics.getWidth(), self.sceneView.selectedLObject)
+            end
+            return true
+        end,
+        keypressed = function(_, key) return self.inspector:keypressed(key) end,
+        textinput = function(_, text) return self.inspector:textinput(text) end
+    })
+    self.inspectorWidget = inspectorWidget
+    local slots = {
+        center = self.canvas:addChild(center),
+        hierarchy = self.canvas:addChild(hierarchy),
+        inspector = self.canvas:addChild(inspector)
+    }
+    if self.assetBrowser then
+        self.assetBrowser:setUIRoot(self.uiRoot)
+        slots.assets = self.canvas:addChild(self.assetBrowser)
+    end
+    self.uiRoot.focused = sceneWidget
+    self.uiRoot.beforeMousepressed = function(target)
+        local ancestor = target
+        while ancestor and not ancestor.panelName do ancestor = ancestor.parent end
+        local name = ancestor and ancestor.panelName
+        if name then self.activePanel = name end
+        if not self:isPlaying() and name ~= "inspector" then self.inspector:commitEdit() end
+        if name ~= "scene" then
+            self.sceneView.isDraggingLObject, self.sceneView.isPanning = false, false
+        end
+    end
+    self.uiLayout = require("editor.ui.editor_layout").new(self, self.canvas, slots)
+    self:updateSceneViewport()
+end
 
-    -- Scene View와 Game View는 같은 중앙 editor 영역을 번갈아 사용한다.
-    self.sceneView:setViewport(
-        viewportX,
-        0,
-        width,
-        editorHeight
-    )
-
-    self.gameView:setViewport(
-        viewportX,
-        0,
-        width,
-        editorHeight
-    )
+function EditorApp:updateSceneViewport()
+    self.uiLayout:arrange(love.graphics.getDimensions())
 end
 
 function EditorApp:update(dt)
-    if not self.runtimeWorld then
-        return
-    end
-
-    return self.runtimeWorld:update(dt)
+    if self.runtimeWorld then return self.runtimeWorld:update(dt) end
 end
 
 function EditorApp:draw()
     self:updateSceneViewport()
-
-    love.graphics.clear(
-        0.08,
-        0.09,
-        0.11,
-        1.0
-    )
-
-    if self:isPlaying() then
-        self.gameView:draw(
-            self.runtimeWorld
-        )
-    else
-        self.sceneView:draw()
-    end
-
-    self.hierarchy:draw(
-        self.sceneView.selectedLObject
-    )
-
-    self.inspector:draw(
-        self.sceneView.selectedLObject
-    )
-    if self.assetBrowser then self.assetBrowser:draw() end
+    love.graphics.clear(0.08, 0.09, 0.11, 1)
+    self.uiRoot:draw()
 end
 
-function EditorApp:mousepressed(
-    x,
-    y,
-    button,
-    presses
-)
+function EditorApp:mousepressed(x, y, button, presses)
     self:updateSceneViewport()
-
-    if self.assetBrowser and self.assetBrowser:containsPoint(x, y) then
-        self.inspector:commitEdit()
-        self.sceneView.isDraggingLObject = false
-        self.sceneView.isPanning = false
-        self.activePanel = "assets"
-        if button == 1 and not self.assetBrowser.collapsed and y < self.assetBrowser.y + 5 then
-            self.isResizingAssets = true
-        else
-            self.assetBrowser:mousepressed(x, y, button, presses)
-        end
-        self:updateSceneViewport()
-        return
-    end
-
-    -- 아직 Runtime input forwarding이 없으므로 Play 중에는
-    -- Editor authoring mouse input을 전부 막는다.
-    if self:isPlaying() then
-        return
-    end
-
-    local windowWidth =
-        love.graphics.getWidth()
-
-    if self.inspector:containsPoint(
-        x,
-        y,
-        windowWidth
-    ) then
-        self.activePanel = "inspector"
-        self.sceneView.isDraggingLObject =
-            false
-
-        self.inspector:mousepressed(
-            x,
-            y,
-            button,
-            windowWidth,
-            self.sceneView.selectedLObject
-        )
-
-        return
-    end
-
-    self.inspector:commitEdit()
-
-    if self.hierarchy:containsPoint(x, y) then
-        self.activePanel = "hierarchy"
-        if button == 1 then
-            self.sceneView.selectedLObject =
-                self.hierarchy:getLObjectAtPosition(
-                    x,
-                    y
-                )
-
-            self.sceneView.isDraggingLObject =
-                false
-        end
-
-        return
-    end
-
-    if self.sceneView:containsPoint(x, y) then
-        self.activePanel = "scene"
-        self.sceneView:mousepressed(
-            x,
-            y,
-            button
-        )
-    end
-end
-
-function EditorApp:mousereleased(
-    x,
-    y,
-    button
-)
-    if button == 1 then self.isResizingAssets = false end
-    if self:isPlaying() then
-        return
-    end
-
-    self.sceneView:mousereleased(
-        x,
-        y,
-        button
-    )
-end
-
-function EditorApp:mousemoved(
-    x,
-    y,
-    dx,
-    dy
-)
-    if self.isResizingAssets then
-        local height = love.graphics.getHeight()
-        self.assetBrowserHeight = math.max(100, math.min(height - 160, height - y))
-        self:updateSceneViewport()
-        return
-    end
-    if self:isPlaying() then
-        return
-    end
-
-    self.sceneView:mousemoved(
-        x,
-        y,
-        dx,
-        dy
-    )
-end
-
-function EditorApp:wheelmoved(x, y)
+    self.uiRoot:mousepressed(x, y, button, presses)
     self:updateSceneViewport()
-    local browserMouseX, browserMouseY = love.mouse.getPosition()
-    if self.assetBrowser and self.assetBrowser:containsPoint(browserMouseX, browserMouseY) then
-        self.assetBrowser:wheelmoved(browserMouseX, browserMouseY, y)
-        return
-    end
-    if self:isPlaying() then
-        return
-    end
+end
 
+function EditorApp:mousereleased(x, y, button)
+    self.uiRoot:mousereleased(x, y, button)
+end
+
+function EditorApp:mousemoved(x, y, dx, dy)
     self:updateSceneViewport()
+    self.uiLayout:updateCursor(x, y)
+    self.uiRoot:mousemoved(x, y, dx, dy)
+end
 
-    local mouseX, mouseY =
-        love.mouse.getPosition()
-
-    if not self.sceneView:containsPoint(
-        mouseX,
-        mouseY
-    ) then
-        return
-    end
-
-    self.sceneView:wheelmoved(x, y)
+function EditorApp:wheelmoved(_, amount)
+    self:updateSceneViewport()
+    local x, y = love.mouse.getPosition()
+    self.uiRoot:wheelmoved(x, y, amount)
 end
 
 function EditorApp:textinput(text)
-    if self:isPlaying() then
-        return
-    end
+    if self:isPlaying() then return end
+    if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
+    return self.uiRoot:textinput(text)
+end
 
-    self.inspector:textinput(text)
+function EditorApp:handleSceneKey(key)
+    if self:isPlaying() then return true end
+    local controlDown = love.keyboard.isDown("lctrl", "rctrl")
+    local x, y = love.mouse.getPosition()
+    local usesMousePosition = (key == "a" and not controlDown) or (key == "d" and controlDown)
+    if usesMousePosition and not self.sceneView:containsPoint(x, y) then return true end
+    self.sceneView:keypressed(key, controlDown, x, y)
+    return true
 end
 
 function EditorApp:keypressed(key)
-    local controlDown =
-        love.keyboard.isDown(
-            "lctrl",
-            "rctrl"
-        )
-
-    local shiftDown =
-        love.keyboard.isDown(
-            "lshift",
-            "rshift"
-        )
-
-    -- Save는 Play 여부와 무관한 Editor 전역 명령으로 유지한다.
-    if key == "s"
-        and controlDown
-        and not shiftDown
-    then
-        return self:saveCurrentDocument()
-    end
-
-    -- 현재는 별도 toolbar가 없으므로 F5를 최소 Play/Stop 입력으로 사용한다.
+    -- 팝업과 편집 포커스가 입력을 우선 소비한다. 저장·Play는 에디터 전역 명령이다.
+    if self.uiRoot.popup then return self.uiRoot:keypressed(key) end
+    local controlDown = love.keyboard.isDown("lctrl", "rctrl")
+    local shiftDown = love.keyboard.isDown("lshift", "rshift")
+    if key == "s" and controlDown and not shiftDown then return self:saveCurrentDocument() end
     if key == "f5" then
-        if self:isPlaying() then
-            return self:stopPlay()
-        end
-
+        if self:isPlaying() then return self:stopPlay() end
         return self:startPlay()
     end
-
-    -- Runtime input forwarding을 만들기 전까지
-    -- Play 중 다른 key가 authoring shortcut으로 들어가지 않게 막는다.
-    if self:isPlaying() then
-        return
-    end
-
-    if self.activePanel == "assets" then
-        if key == "backspace" then return self.assetBrowser:goUp() end
-        if key == "r" and controlDown then return self.assetBrowser:refresh() end
-        if key == "return" then
-            for _, entry in ipairs(self.assetBrowser.entries) do
-                if entry.reference == self.assetBrowser.selectedReference and entry.type == "directory" and not entry.isLink then
-                    return self.assetBrowser:openFolder(entry.reference)
-                end
-            end
-        end
-        return
-    end
-
-    if self.inspector:keypressed(key) then
-        return
-    end
-
-    self:updateSceneViewport()
-
-    local mouseX, mouseY =
-        love.mouse.getPosition()
-
-    local usesMouseWorldPosition =
-        (key == "a" and not controlDown)
-        or (key == "d" and controlDown)
-
-    if usesMouseWorldPosition
-        and not self.sceneView:containsPoint(
-            mouseX,
-            mouseY
-        )
-    then
-        return
-    end
-
-    self.sceneView:keypressed(
-        key,
-        controlDown,
-        mouseX,
-        mouseY
-    )
+    if self:isPlaying() then return end
+    if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
+    return self.uiRoot:keypressed(key)
 end
 
 return EditorApp

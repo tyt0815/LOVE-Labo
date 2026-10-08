@@ -5,3 +5,4 @@
 - [0003. 프로젝트 시작 화면에서 Windows 기본 폴더 선택 사용](adr/0003-native-folder-dialog.md)
 - [0004. 실행 인자로 프로젝트 바로 열기](adr/0004-project-startup-option.md)
 - [0005. 프로젝트 생성 시 JSON 기본 레벨 저장](adr/0005-default-level-on-project-creation.md)
+- [0006. 에디터 위젯 트리·Canvas와 에셋 보기 전환](adr/0006-widget-canvas-and-asset-views.md)
