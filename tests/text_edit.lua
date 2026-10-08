@@ -1,0 +1,133 @@
+local Assert = require("tests.assert")
+local Edit = require("editor.ui.text_edit")
+local IME = require("editor.ui.ime")
+local UI = require("editor.ui")
+local tests = {}
+local modifiers = {}
+local function add(name, fn)
+    tests[#tests + 1] = {name = name, fn = function()
+        local original = love.keyboard.isDown
+        love.keyboard.isDown = function(...)
+            for _, key in ipairs({...}) do if modifiers[key] then return true end end
+            return false
+        end
+        modifiers = {}; IME.update()
+        local ok, err = pcall(fn)
+        love.keyboard.isDown = original; modifiers = {}; IME.update()
+        if not ok then error(err, 0) end
+    end}
+end
+local function key(owner, text, name, ctrl, shift)
+    modifiers = {lctrl = ctrl, lshift = shift}
+    local value = UI.editKey(text, name, false, owner)
+    modifiers = {}
+    return value
+end
+
+add("UTF8 caret inserts and deletes in the middle without splitting Hangul", function()
+    local owner, text = {}, "A한글BC"
+    Edit.begin(owner, text, false)
+    text = key(owner, text, "left"); text = key(owner, text, "left")
+    text = IME.input(owner, text, "!", false); Assert.equal("A한글!BC", text)
+    text = key(owner, text, "backspace"); Assert.equal("A한글BC", text)
+    text = key(owner, text, "delete"); Assert.equal("A한글C", text)
+    text = key(owner, text, "left"); text = key(owner, text, "backspace")
+    Assert.equal("A글C", text)
+end)
+
+add("Shift selection replaces only its range and clipboard uses selected text", function()
+    local owner, text, clipboard = {}, "abcDEF", ""
+    local originalGet, originalSet = love.system.getClipboardText, love.system.setClipboardText
+    love.system.getClipboardText = function() return clipboard end
+    love.system.setClipboardText = function(value) clipboard = value end
+    local ok, err = pcall(function()
+        Edit.begin(owner, text, false)
+        text = key(owner, text, "home")
+        for _ = 1, 3 do text = key(owner, text, "right", false, true) end
+        text = key(owner, text, "c", true); Assert.equal("abc", clipboard)
+        text = IME.input(owner, text, "한", false); Assert.equal("한DEF", text)
+        text = key(owner, text, "end"); text = key(owner, text, "left", false, true)
+        text = key(owner, text, "x", true); Assert.equal("F", clipboard); Assert.equal("한DE", text)
+        clipboard = "글\r\n!"; text = key(owner, text, "v", true); Assert.equal("한DE글!", text)
+        text = key(owner, text, "a", true); text = key(owner, text, "delete"); Assert.equal("", text)
+    end)
+    love.system.getClipboardText, love.system.setClipboardText = originalGet, originalSet
+    if not ok then error(err, 0) end
+end)
+
+add("Mouse click and drag select a UTF8 substring inside a dialog", function()
+    local root = require("editor.ui.root").new(require("editor.ui.canvas").new())
+    local dialog = require("editor.ui.dialog").new(root, {input = true, value = "한글abcd", onConfirm = function() return true end})
+    IME.display(dialog, dialog.text, dialog.replace)
+    local font, rect = love.graphics.getFont(), dialog.field
+    local x = rect.x + 8 + font:getWidth("한글")
+    root:mousepressed(x, rect.y + 10, 1)
+    local tx = rect.x + 8 + font:getWidth("한글ab")
+    root:mousemoved(tx, rect.y + 10, tx - x, 0)
+    root:mousemoved(x, rect.y + 10, x - tx, 0)
+    local first, last = Edit.range(dialog.editState)
+    Assert.equal(2, first); Assert.equal(2, last)
+    root:mousemoved(tx, rect.y + 10, tx - x, 0)
+    root:mousereleased(tx, rect.y + 10, 1)
+    first, last = Edit.range(dialog.editState)
+    Assert.equal(2, first); Assert.equal(4, last)
+    root:textinput("XY"); Assert.equal("한글XYcd", dialog.text)
+    root:keypressed("home"); root:textinput("!"); Assert.equal("!한글XYcd", dialog.text)
+    root:dismissPopup()
+end)
+
+add("IME composition replaces the selection at the caret and keeps its suffix", function()
+    local owner, text = {}, "AB한글CD"
+    Edit.begin(owner, text, false); owner.editState.anchor, owner.editState.cursor = 2, 4
+    IME.edited(owner, "가"); Assert.equal("AB가CD", IME.display(owner, text, false))
+    Assert.equal("AB한글CD", text)
+    text = IME.input(owner, text, "가", false); Assert.equal("AB가CD", text)
+    IME.edited(owner, "나"); Assert.equal("AB가나CD", IME.display(owner, text, false))
+    text = IME.finish(owner, text, false); Assert.equal("AB가나CD", text)
+    text = IME.input(owner, text, "나", false); Assert.equal("AB가나CD", text)
+    IME.update(); text = IME.input(owner, text, "!", false); Assert.equal("AB가나!CD", text)
+end)
+
+add("Numeric Inspector and snap fields share caret editing and mouse capture", function()
+    local app = require("editor.app").new()
+    local object = app.level:addLObject(120, 0)
+    app.sceneView.selectedLObject = object
+    local rect = app.inspector:fieldRect("x", love.graphics.getWidth())
+    app:mousepressed(rect.x + 2, rect.y + 4, 1)
+    Assert.equal(app.inspectorWidget, app.uiRoot.captured)
+    app:mousereleased(rect.x + 2, rect.y + 4, 1)
+    app:keypressed("home"); app:textinput("3"); app:keypressed("return")
+    Assert.equal(3120, object.transform.x)
+    local controls = app.viewportControls
+    assert(app.sceneView:setSnap("translate", false, 100))
+    local _, field = controls:rects()
+    app:mousepressed(field.x + 2, field.y + 4, 1); app:mousereleased(field.x + 2, field.y + 4, 1)
+    app:keypressed("home"); app:keypressed("right"); app:textinput("2"); app:keypressed("return")
+    Assert.equal(1200, app.sceneView.snapSettings.translate.unit)
+    app:keypressed("e"); app:keypressed("space"); Assert.equal("rotate", app.sceneView.gizmoMode)
+    app:keypressed("r"); app:keypressed("space"); Assert.equal("scale", app.sceneView.gizmoMode)
+end)
+
+add("Text highlight and caret use theme colors and scroll follows the caret", function()
+    local owner, text = {}, "ab한글01234567890123456789"
+    Edit.begin(owner, text, false)
+    local rect = {x = 10, y = 10, w = 90, h = 28}
+    IME.display(owner, text, false); Edit.geometry(owner, text, rect)
+    Assert.truthy(owner.editState.scroll > 0)
+    text = key(owner, text, "home"); IME.display(owner, text, false); Edit.geometry(owner, text, rect)
+    Assert.equal(0, owner.editState.scroll)
+    text = key(owner, text, "right", false, true); text = key(owner, text, "right", false, true)
+    local canvas = love.graphics.newCanvas(120, 50)
+    love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.clear(0, 0, 0, 0)
+    UI.field(IME.display(owner, text, false), rect, true, nil, owner)
+    love.graphics.setCanvas(); love.graphics.pop()
+    local pixels = canvas:newImageData()
+    if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then pixels:encode("png", "text-selection-preview.png") end
+    local r, g, b = pixels:getPixel(20, 14)
+    local color = require("editor.theme").color("textSelection")
+    Assert.truthy(math.abs(r - (color[1] * color[4] + 1 - color[4])) < 0.01)
+    Assert.truthy(math.abs(g - (color[2] * color[4] + 1 - color[4])) < 0.01)
+    Assert.truthy(math.abs(b - (color[3] * color[4] + 1 - color[4])) < 0.01)
+    pixels:release(); canvas:release()
+end)
+return tests

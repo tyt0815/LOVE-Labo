@@ -2,6 +2,7 @@ local Theme = require("editor.theme")
 local Widget = require("editor.ui.widget")
 local UI = require("editor.ui")
 local IME = require("editor.ui.ime")
+local Edit = require("editor.ui.text_edit")
 local Dialog = setmetatable({}, { __index = Widget })
 Dialog.__index = Dialog
 
@@ -69,7 +70,7 @@ function Dialog:dispatch(event, ...)
             self.selected = math.max(1, math.min(#self.options.choices, (self.selected or 1) + (key == "up" and -1 or 1)))
             self.choiceScroll = math.max(0, math.min(self.choiceScroll, self.selected - 1))
             self.choiceScroll = math.max(self.choiceScroll, self.selected - 5)
-        elseif self.options.input and not self.choiceFocused then self.text, self.replace = UI.editKey(self.text, key, self.replace) end
+        elseif self.options.input and not self.choiceFocused then self.text, self.replace = UI.editKey(self.text, key, self.replace, self) end
     elseif event == "mousepressed" then
         local x, y, button = ...
         if button == 1 then
@@ -78,7 +79,10 @@ function Dialog:dispatch(event, ...)
             end
             if UI.contains(x, y, self.cancel) then self.root:dismissPopup()
             elseif UI.contains(x, y, self.confirm) then self:submit()
-            elseif UI.contains(x, y, self.field) then self.choiceFocused, self.contentFocused = false, false
+            elseif UI.contains(x, y, self.field) then
+                self.text, self.replace = IME.finish(self, self.text, self.replace)
+                self.choiceFocused, self.contentFocused, self.replace = false, false, false
+                Edit.press(self, self.text, self.field, x, false)
             elseif self.options.content and self.options.content:containsPoint(x, y) then
                 self.contentFocused = true
                 self.options.content:dispatch(event, x, y, button)
@@ -87,6 +91,8 @@ function Dialog:dispatch(event, ...)
                 if self.options.choices[index] then self.selected, self.choiceFocused = index, true end
             end
         end
+    elseif event == "mousemoved" then Edit.move(self, (...))
+    elseif event == "mousereleased" then Edit.release(self)
     elseif event == "wheelmoved" and self.options.content then
         local x, y = ...
         if self.options.content:containsPoint(x, y) then self.options.content:dispatch(event, ...) end
@@ -108,7 +114,7 @@ function Dialog:draw()
     UI.text(self.options.title, box.x + 16, box.y + 16, box.w - 32)
     UI.text(self.options.message or "", box.x + 16, box.y + 46, box.w - 32)
     if self.options.input then UI.field(IME.display(self, self.text, self.replace), self.field,
-        not self.choiceFocused and not self.contentFocused, self.composition)
+        not self.choiceFocused and not self.contentFocused, self.composition, self)
     else UI.text(self.options.detail or "", box.x + 16, box.y + 82, box.w - 32) end
     if self.options.choices then
         UI.text(self.options.choiceLabel or "Class", box.x + 16, box.y + 118, box.w - 32)

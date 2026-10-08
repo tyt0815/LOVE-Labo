@@ -1,4 +1,5 @@
 local IME = {}
+local Edit = require("editor.ui.text_edit")
 local ignored = {}
 
 function IME.update()
@@ -18,13 +19,13 @@ function IME.edited(owner, text)
 end
 
 function IME.display(owner, text, replace)
-    return owner.composition and ((replace and "" or text) .. owner.composition) or text
+    return Edit.preview(owner, text, replace, owner.composition)
 end
 
 function IME.input(owner, value, text, replace)
     if IME.consume(text) then return value, replace end
     owner.composition = nil
-    return (replace and "" or value) .. text, false
+    return Edit.insert(owner, value, text, replace)
 end
 
 local function reset(owner)
@@ -41,13 +42,14 @@ end
 
 function IME.finish(owner, text, replace)
     if not owner.composition then return text, replace end
-    text = IME.display(owner, text, replace)
+    local composition = owner.composition
     reset(owner)
-    return text, false
+    return Edit.insert(owner, text, composition, replace)
 end
 
 function IME.cancel(owner)
     reset(owner)
+    owner.editState = nil
 end
 
 function IME.handlesKey(owner, key)
@@ -58,7 +60,8 @@ end
 
 function IME.endsComposition(key)
     return key == "tab" or key == "left" or key == "right" or key == "up" or key == "down"
-        or love.keyboard.isDown("lctrl", "rctrl") and (key == "a" or key == "c" or key == "v")
+        or key == "home" or key == "end"
+        or love.keyboard.isDown("lctrl", "rctrl") and (key == "a" or key == "c" or key == "v" or key == "x")
 end
 
 return IME

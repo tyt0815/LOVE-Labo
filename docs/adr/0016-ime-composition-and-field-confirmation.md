@@ -1,6 +1,7 @@
 # 0016. IME 조합 표시와 입력칸 확정
 
 - 상태: 채택
+- 후속 부분 대체: [ADR 0023](0023-text-edit-and-component-group-layout.md)의 커서·범위 선택·중간 입력
 - 날짜: 2026-10-09
 - 확장: [ADR 0006](0006-widget-canvas-and-asset-views.md)의 포커스 입력 전달
 

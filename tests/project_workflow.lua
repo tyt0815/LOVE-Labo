@@ -1005,6 +1005,7 @@ add("creation dialogs choose script type and filter scrollable Level and Prefab 
         root:mousepressed(dialog.choicesRect.x + 5, dialog.choicesRect.y + 35, 1)
         local reference = dialog.options.choices[selectedIndex].value
         root:mousepressed(dialog.field.x + 5, dialog.field.y + 5, 1)
+        dialog.replace = true
         app:textinput("SelectedStage")
         app:keypressed("return")
         Assert.equal(nil, root.popup)
@@ -1900,6 +1901,14 @@ add("Instance Inspector routes text and reference dropdown input through the UI"
         app:textinput("새 이름")
         app:keypressed("return")
         Assert.equal("새 이름", a.propertyOverrides.title)
+        x, y = field("title")
+        app:mousepressed(x, y, 1); app:mousereleased(x, y, 1)
+        app:textinput("abcd")
+        local titleRect = inspector:propertyRect("title", y - 3)
+        local caretX = titleRect.x + 8 + love.graphics.getFont():getWidth("ab")
+        app:mousepressed(caretX, y, 1); app:mousereleased(caretX, y, 1)
+        app:textinput("!"); app:keypressed("return")
+        Assert.equal("ab!cd", a.propertyOverrides.title)
         x, y = field("target")
         app:mousepressed(x, y, 1)
         Assert.truthy(app.uiRoot.popup)
@@ -2044,6 +2053,7 @@ add("Component Inspector groups collapse without changing overrides for instance
         local inspector = app.inspector.classInspector
         inspector:layout(inspector.left, inspector.width, 1000)
         Assert.equal(nil, inspector.expanded.sprite)
+        Assert.equal("counter", inspector.rows[1].component)
         local header
         for _, row in ipairs(inspector.rows) do
             Assert.truthy(row.name ~= "sprite.x")
@@ -2053,6 +2063,14 @@ add("Component Inspector groups collapse without changing overrides for instance
         inspector:mousepressed(inspector.left + 20, inspector.propertyTop + header.offset + 10, 1)
         Assert.truthy(inspector.expanded.sprite)
         local rect = inspector:ensurePropertyVisible("sprite.x")
+        Assert.truthy(rect.x > inspector.left + require("editor.ui").metrics.contentPaddingX)
+        local headerIndex, propertyIndex
+        for i, row in ipairs(inspector.rows) do
+            if row.component == "sprite" then headerIndex = i end
+            if row.name == "speed" then propertyIndex = i end
+        end
+        Assert.truthy(headerIndex < propertyIndex)
+        Assert.equal(32 + 3 * 56, inspector.rows[headerIndex].groupHeight)
         inspector:mousepressed(rect.x + 5, rect.y + 5, 1); inspector:textinput("19"); inspector:keypressed("return")
         Assert.equal(19, object.componentOverrides.sprite.x)
         if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then

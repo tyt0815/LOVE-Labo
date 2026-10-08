@@ -273,7 +273,6 @@ function SceneView:keypressed(key, controlDown, mouseX, mouseY)
     if not controlDown then
         local modes = {w = "translate", e = "rotate", r = "scale"}
         if modes[key] then self:setGizmoMode(modes[key]); return end
-        if key == "space" then self:setGizmoMode(({translate = "rotate", rotate = "scale", scale = "translate"})[self.gizmoMode]); return end
     end
     if key == "f" and not controlDown then
         self:frameSelected()
@@ -467,7 +466,7 @@ function SceneView:draw()
     )
     self:drawMouseWorldPosition()
     love.graphics.print(
-        "W: Move  E: Rotate  R: Scale  Space: Cycle",
+        "W: Move  E: Rotate  R: Scale",
         viewportX + UI.metrics.contentPaddingX,
         viewportY + 56 + UI.metrics.contentPaddingY
     )

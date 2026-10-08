@@ -2815,6 +2815,9 @@ end
 for _, test in ipairs(require("tests.ime")) do
     tests[#tests + 1] = test
 end
+for _, test in ipairs(require("tests.text_edit")) do
+    tests[#tests + 1] = test
+end
 for _, test in ipairs(require("tests.theme")) do
     tests[#tests + 1] = test
 end

@@ -8,7 +8,7 @@ local defaults = {
     background = "#B1E3FA", panel = "#B1E3FA", viewportBackground = "#E0F4FC", surface = "#E0F4FC",
     button = "#E0F4FC", hover = "#FFFFFF", selection = "#25AAE14D",
     border = "#4C90B166", panelBorder = "#4C90B166", panelTitle = "#1B4D68",
-    focus = "#EA316E", input = "#FFFFFF",
+    focus = "#EA316E", input = "#FFFFFF", textSelection = "#258AE180",
     text = "#383F4A", textMuted = "#4C90B1", textDisabled = "#7798A9", error = "#EA316E",
     overlay = "#1B4D6866", thumbnailBackground = "#FFFFFF",
     iconBackground = "#FFFFFF", iconBorder = "#25AAE1", iconText = "#1B4D68",

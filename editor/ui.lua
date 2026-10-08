@@ -116,8 +116,9 @@ function UI.button(label, rect, active, hint, flat)
         math.max(0, rect.w - padding * 2), nil, false, "center")
 end
 
-function UI.field(text, rect, focused, composition)
+function UI.field(text, rect, focused, composition, owner)
     love.graphics.push("all")
+    love.graphics.setLineWidth(1)
     UI.hint(rect, "Edit the value. Enter: apply. Esc: cancel.")
     Theme.setColor("input")
     love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
@@ -126,23 +127,34 @@ function UI.field(text, rect, focused, composition)
     love.graphics.intersectScissor(rect.x + 8, rect.y, math.max(0, rect.w - 16), rect.h)
     local font = love.graphics.getFont()
     local left = rect.x + 8
-    if focused then left = math.min(left, rect.x + rect.w - 12 - font:getWidth(text)) end
+    local Edit, state = require("editor.ui.text_edit"), owner and owner.editState
+    local caretWidth
+    if focused and state then
+        left, caretWidth = Edit.geometry(owner, text, rect)
+        if not composition then
+            local first, last = Edit.range(state)
+            Theme.setColor("textSelection")
+            love.graphics.rectangle("fill", left + font:getWidth(Edit.prefix(text, first)), rect.y + 3,
+                font:getWidth(Edit.prefix(text, last)) - font:getWidth(Edit.prefix(text, first)), rect.h - 6)
+        end
+    elseif focused then left = math.min(left, rect.x + rect.w - 12 - font:getWidth(text)) end
     UI.text(text, left, rect.y + (rect.h - font:getHeight()) / 2)
     if focused and composition then
         Theme.setColor("focus")
-        local right = left + font:getWidth(text)
+        local right = left + (caretWidth or font:getWidth(text))
         love.graphics.line(right - font:getWidth(composition), rect.y + (rect.h + font:getHeight()) / 2,
             right, rect.y + (rect.h + font:getHeight()) / 2)
     end
     if focused then
-        local cursor = left + font:getWidth(text) + 2
+        local cursor = left + (caretWidth or font:getWidth(text)) + 1
         Theme.setColor("focus")
         love.graphics.line(cursor, rect.y + 8, cursor, rect.y + rect.h - 8)
     end
     love.graphics.pop()
 end
 
-function UI.editKey(text, key, replace)
+function UI.editKey(text, key, replace, owner)
+    if owner then return require("editor.ui.text_edit").key(owner, text, key, replace) end
     local control = love.keyboard.isDown("lctrl", "rctrl")
     if control and key == "a" then return text, true end
     if control and key == "v" then

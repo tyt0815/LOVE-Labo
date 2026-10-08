@@ -13,6 +13,7 @@
     "panelTitle": "#383A42",
     "focus": "#4078F2",
     "input": "#FFFFFF",
+    "textSelection": "#BFCEEC",
     "text": "#383A42",
     "textMuted": "#696C77",
     "textDisabled": "#A0A1A7",

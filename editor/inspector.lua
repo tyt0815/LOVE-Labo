@@ -1,6 +1,7 @@
 local Theme = require("editor.theme")
 local UI = require("editor.ui")
 local IME = require("editor.ui.ime")
+local Edit = require("editor.ui.text_edit")
 local Inspector = {}
 Inspector.__index = Inspector
 
@@ -100,6 +101,7 @@ function Inspector:beginEdit(field, selectedLObject)
     -- 새 field를 클릭하면 기존 값 전체가 선택된 것처럼 동작한다.
     -- 따라서 첫 text input은 기존 숫자 뒤에 붙지 않고 값을 교체한다.
     self.replaceOnTextInput = true
+    Edit.begin(self, self.editText, true)
 
     return true
 end
@@ -154,7 +156,7 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
         return self.classInspector:mousepressed(x, y, button)
     end
     if selectedLObject and self.classInspector and self.classInspector.target and y >= 334 then
-        self:commitEdit()
+        if self.activeField then self:commitEdit() end
         return self.classInspector:mousepressed(x, y, button)
     end
 
@@ -171,14 +173,28 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     end
 
     if self.activeField == field and self.editingLObject == selectedLObject then
-        return true
+        self.editText, self.replaceOnTextInput = IME.finish(self, self.editText, self.replaceOnTextInput)
+        Edit.press(self, self.editText, self:fieldRect(field, windowWidth), x, false)
+        self.replaceOnTextInput = false
+        return true, true
     end
 
     self:commitEdit()
     self:beginEdit(field, selectedLObject)
-
-    return true
+    Edit.press(self, self.editText, self:fieldRect(field, windowWidth), x, true)
+    return true, true
 end
+
+function Inspector:fieldRect(field, windowWidth)
+    local offset = fieldOffset(field)
+    return {x = windowWidth - self.width + UI.metrics.contentPaddingX + offset, y = TRANSFORM_FIELDS[field],
+        w = self.width - offset - 2 * UI.metrics.contentPaddingX, h = FIELD_HEIGHT}
+end
+function Inspector:mousemoved(x)
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:mousemoved(x) end
+    return Edit.move(self, x)
+end
+function Inspector:mousereleased() Edit.release(self); if self.classInspector then self.classInspector:mousereleased() end; return true end
 
 function Inspector:textinput(text)
     if self.classInspector and self.classInspector:isEditing() then return self.classInspector:textinput(text) end
@@ -208,17 +224,6 @@ function Inspector:keypressed(key)
         self.editText, self.replaceOnTextInput = IME.finish(self, self.editText, self.replaceOnTextInput)
     end
 
-    if key == "backspace" then
-        if self.replaceOnTextInput then
-            self.editText = ""
-            self.replaceOnTextInput = false
-        else
-            self.editText = UI.editKey(self.editText, key, false)
-        end
-
-        return true
-    end
-
     if key == "return" or key == "kpenter" then
         self:commitEdit()
         return true
@@ -229,6 +234,7 @@ function Inspector:keypressed(key)
         return true
     end
 
+    self.editText, self.replaceOnTextInput = UI.editKey(self.editText, key, self.replaceOnTextInput, self)
     -- 편집 중 다른 key도 Scene View shortcut으로 전달하지 않는다.
     return true
 end
@@ -244,13 +250,6 @@ function Inspector:drawField(label, field, y, selectedLObject, left)
     Theme.setColor("textMuted")
     require("editor.ui").label(label, left + UI.metrics.contentPaddingX, y + 4)
 
-    Theme.setColor("input")
-
-    love.graphics.rectangle("fill", fieldLeft, y, fieldWidth, FIELD_HEIGHT)
-
-    Theme.setColor(isActive and "focus" or "border")
-    love.graphics.rectangle("line", fieldLeft, y, fieldWidth, FIELD_HEIGHT)
-
     local text
 
     if isActive then
@@ -259,8 +258,7 @@ function Inspector:drawField(label, field, y, selectedLObject, left)
         text = string.format("%.2f", selectedLObject.transform[field])
     end
 
-    Theme.setColor("text")
-    love.graphics.print(text, fieldLeft + 6, y + 4)
+    UI.field(text, {x = fieldLeft, y = y, w = fieldWidth, h = FIELD_HEIGHT}, isActive, isActive and self.composition, self)
 end
 
 function Inspector:draw(selectedLObject)

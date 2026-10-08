@@ -1,6 +1,7 @@
 local Widget = require("editor.ui.widget")
 local UI = require("editor.ui")
 local IME = require("editor.ui.ime")
+local Edit = require("editor.ui.text_edit")
 local Controls = setmetatable({}, {__index = Widget})
 Controls.__index = Controls
 local modes = {"translate", "rotate", "scale"}
@@ -13,6 +14,9 @@ function Controls.new(view)
     self.handlers = {
         draw = function() self:drawControls() end,
         mousepressed = function(_, x, y, button) return self:press(x, y, button) end,
+        mousemoved = function(_, x) return Edit.move(self, x) end,
+        mousereleased = function() Edit.release(self); return true end,
+        cancel = function() Edit.release(self); return true end,
         wheelmoved = function() return true end,
         keypressed = function(_, key) return self:editKey(key) end,
         textinput = function(_, text)
@@ -68,11 +72,17 @@ function Controls:press(x, y, button)
     local rects = self:snapRects()
     for _, mode in ipairs(modes) do
         if UI.contains(x, y, rects[mode].field) then
+            local fresh = self.editing ~= mode
             if self.editing ~= mode then
                 self:commit()
                 self.editing, self.text, self.replace = mode, tostring(self.view.snapSettings[mode].unit), true
+                Edit.begin(self, self.text, true)
+            else
+                self.text, self.replace = IME.finish(self, self.text, self.replace)
+                self.replace = false
             end
-            return true
+            Edit.press(self, self.text, rects[mode].field, x, fresh)
+            return true, true
         end
     end
     self:commit()
@@ -92,7 +102,7 @@ function Controls:editKey(key)
     if IME.endsComposition(key) then self.text, self.replace = IME.finish(self, self.text, self.replace) end
     if key == "return" or key == "kpenter" then self:commit()
     elseif key == "escape" then IME.cancel(self); self.editing, self.error = nil, nil
-    else self.text, self.replace = UI.editKey(self.text, key, self.replace) end
+    else self.text, self.replace = UI.editKey(self.text, key, self.replace, self) end
     return true
 end
 
@@ -107,7 +117,7 @@ function Controls:drawControls()
         UI.button(labels[mode], rects.button, setting.enabled,
             labels[mode] .. " snapping: " .. (setting.enabled and "On" or "Off") .. ". Click to toggle.")
         UI.field(self.editing == mode and IME.display(self, self.text, self.replace) or tostring(setting.unit), rects.field,
-            self.editing == mode, self.editing == mode and self.composition)
+            self.editing == mode, self.editing == mode and self.composition, self)
         UI.hint(rects.field, self.error or labels[mode] .. " snap step in " .. units[mode] .. ". Enter: apply. Esc: cancel.")
     end
     love.graphics.pop()

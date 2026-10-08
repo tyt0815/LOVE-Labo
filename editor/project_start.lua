@@ -4,6 +4,7 @@ local FileSystem = require("editor.host_filesystem")
 local UI = require("editor.ui")
 local FolderDialog = require("editor.folder_dialog")
 local IME = require("editor.ui.ime")
+local Edit = require("editor.ui.text_edit")
 
 local ProjectStart = {}
 ProjectStart.__index = ProjectStart
@@ -21,8 +22,10 @@ function ProjectStart.new(onOpen, selectFolder)
 end
 
 function ProjectStart:setPath(path)
+    local previous = self.path
     -- 입력 출처와 OS에 관계없이 시작 화면의 경로 표기는 '/'로 통일한다.
     self.path = path:gsub("\\", "/")
+    if self.editState and self.editState.text == previous then self.editState.text = self.path end
 end
 
 function ProjectStart:layout()
@@ -67,6 +70,7 @@ function ProjectStart:browse()
     if err then self.error = err; return end
     if path then self:setPath(path); self.error = nil end
     self.activeField, self.replace = "path", true
+    Edit.begin(self, self.path, true)
 end
 
 function ProjectStart:draw()
@@ -83,13 +87,13 @@ function ProjectStart:draw()
     if self.mode == "create" then
         UI.text("Project name", p.x + 24, p.y + 136)
         UI.field(self.activeField == "name" and IME.display(self, self.name, self.replace) or self.name,
-            layout.name, self.activeField == "name", self.activeField == "name" and self.composition)
+            layout.name, self.activeField == "name", self.activeField == "name" and self.composition, self)
     else
         UI.text("Select a folder containing " .. Project.FILE_NAME .. ".", p.x + 24, p.y + 158, p.w - 48)
     end
     UI.text(self.mode == "create" and "Parent folder" or "Project folder", p.x + 24, p.y + 212)
     UI.field(self.activeField == "path" and IME.display(self, self.path, self.replace) or self.path,
-        layout.path, self.activeField == "path", self.activeField == "path" and self.composition)
+        layout.path, self.activeField == "path", self.activeField == "path" and self.composition, self)
     UI.button("Browse", layout.browse)
     if self.mode == "create" then
         UI.text("Create: " .. FileSystem.join(self.path, self.name), p.x + 24, p.y + 290, p.w - 48)
@@ -104,7 +108,12 @@ function ProjectStart:mousepressed(x, y, button)
     if button ~= 1 then return end
     local r = self:layout()
     local sameField = self.activeField and UI.contains(x, y, r[self.activeField])
-    if sameField then return end
+    if sameField then
+        self:finishComposition()
+        Edit.press(self, self[self.activeField], r[self.activeField], x, false)
+        self.replace = false
+        return
+    end
     self:finishComposition()
     if UI.contains(x, y, r.create) then self.mode = "create"; self.activeField = "name"; self.error = nil
     elseif UI.contains(x, y, r.open) then self.mode = "open"; self.activeField = "path"; self.error = nil
@@ -115,7 +124,14 @@ function ProjectStart:mousepressed(x, y, button)
     elseif UI.contains(x, y, r.submit) then self:submit()
     else self.activeField = nil end
     self.replace = true
+    if self.activeField then
+        Edit.begin(self, self[self.activeField], true)
+        if UI.contains(x, y, r[self.activeField]) then Edit.press(self, self[self.activeField], r[self.activeField], x, true) end
+    end
 end
+
+function ProjectStart:mousemoved(x) return Edit.move(self, x) end
+function ProjectStart:mousereleased() Edit.release(self) end
 
 function ProjectStart:textinput(text)
     if IME.consume(text) then return end
@@ -147,10 +163,11 @@ function ProjectStart:keypressed(key)
         self:finishComposition()
         self.activeField = self.mode == "create" and self.activeField == "path" and "name" or "path"
         self.replace = true
+        Edit.begin(self, self[self.activeField], true)
         return
     end
     if self.activeField then
-        self[self.activeField], self.replace = UI.editKey(self[self.activeField], key, self.replace)
+        self[self.activeField], self.replace = UI.editKey(self[self.activeField], key, self.replace, self)
         if self.activeField == "path" then self:setPath(self.path) end
     end
 end

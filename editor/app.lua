@@ -616,11 +616,14 @@ function EditorApp:initializeUI()
         draw = function() self.inspector:draw(self:updateInspectorTarget()) end,
         mousepressed = function(_, x, y, button)
             if not self:isPlaying() then
-                self.inspector:mousepressed(x, y, button, love.graphics.getWidth(), self:updateInspectorTarget())
+                return self.inspector:mousepressed(x, y, button, love.graphics.getWidth(), self:updateInspectorTarget())
             end
             return true
         end,
         keypressed = function(_, key) return self.inspector:keypressed(key) end,
+        mousemoved = function(_, x) return self.inspector:mousemoved(x) end,
+        mousereleased = function() return self.inspector:mousereleased() end,
+        cancel = function() return self.inspector:mousereleased() end,
         textinput = function(_, text) return self.inspector:textinput(text) end,
         textedited = function(_, text) return self.inspector:textedited(text) end,
         wheelmoved = function(_, _, _, amount)
@@ -844,7 +847,7 @@ function EditorApp:keypressed(key)
     if self:isPlaying() then return end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
     if not controlDown and not self.inspector:isEditing() and not self.viewportControls.editing
-        and (key == "w" or key == "e" or key == "r" or key == "space") then return self:handleSceneKey(key) end
+        and (key == "w" or key == "e" or key == "r") then return self:handleSceneKey(key) end
     return self.uiRoot:keypressed(key)
 end
 

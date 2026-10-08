@@ -80,6 +80,7 @@ function love.directorydropped(path)
         app:setPath(path)
         app.activeField = "path"
         app.replace = true
+        require("editor.ui.text_edit").begin(app, app.path, true)
         app.error = nil
     end
 end

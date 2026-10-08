@@ -280,7 +280,7 @@ add("UE mode shortcuts respect numeric input focus without mode buttons", functi
     app:keypressed("e"); Assert.equal("rotate", app.sceneView.gizmoMode)
     app:keypressed("r"); Assert.equal("scale", app.sceneView.gizmoMode)
     app:keypressed("w"); Assert.equal("translate", app.sceneView.gizmoMode)
-    app:keypressed("space"); Assert.equal("rotate", app.sceneView.gizmoMode)
+    app:keypressed("space"); Assert.equal("translate", app.sceneView.gizmoMode)
     local controls = app.viewportControls
     Assert.equal(nil, controls.modeRects)
     app:keypressed("r")

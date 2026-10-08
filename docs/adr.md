@@ -22,3 +22,4 @@
 - [0020. 독립 스냅 설정·회전 정규화와 Inspector 선택 유지](adr/0020-independent-snaps-and-inspector-selection.md)
 - [0021. BeginPlay 초기화와 X/Y 직교 투영 회전](adr/0021-begin-play-and-orthographic-rotation.md)
 - [0022. 세 축 회전 기즈모와 활성 축 표시](adr/0022-three-axis-rotation-gizmo.md)
+- [0023. 공통 텍스트 편집 상태와 컴포넌트 그룹 경계](adr/0023-text-edit-and-component-group-layout.md)
