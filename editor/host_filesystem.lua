@@ -23,6 +23,7 @@ int __stdcall CreateDirectoryW(const uint16_t *path, void *security);
 int __stdcall RemoveDirectoryW(const uint16_t *path);
 int __stdcall DeleteFileW(const uint16_t *path);
 int __stdcall MoveFileW(const uint16_t *source, const uint16_t *target);
+int __stdcall MoveFileExW(const uint16_t *source, const uint16_t *target, uint32_t flags);
 void * __stdcall FindFirstFileW(const uint16_t *path, LaboFindData *data);
 int __stdcall FindNextFileW(void *handle, LaboFindData *data);
 int __stdcall FindClose(void *handle);
@@ -154,6 +155,22 @@ function FileSystem.createFile(path, text)
     if not wrote or not closed then
         FileSystem.removeFile(path)
         return false, err or failure("Close file")
+    end
+    return true
+end
+
+function FileSystem.writeAtomic(path, text)
+    local info, err = FileSystem.info(path)
+    if err then return false, err end
+    if info and (info.isLink or info.type ~= "file") then return false, "Target is not a regular file" end
+    local temporary = path .. ".tmp-" .. require("editor.asset_id").new()
+    local created, createError = FileSystem.createFile(temporary, text)
+    if not created then return false, createError end
+    -- 같은 디렉터리의 새 파일로 교체하여 실패 시 기존 정상 파일을 보존한다.
+    if win.MoveFileExW(wide(temporary), wide(path), 9) == 0 then
+        local moveError = failure("Replace file")
+        FileSystem.removeFile(temporary)
+        return false, moveError
     end
     return true
 end

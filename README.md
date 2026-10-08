@@ -27,12 +27,15 @@ love . --project "C:\Projects\TestProject"
 ```text
 MyProject/
   project.labo
+  asset-index.json          # 재생성 가능한 ID → 경로 캐시
   Assets/
     Levels/
       StartLevel.level
+      StartLevel.level.meta
   Sources/
     Levels/
       StartLevel.lua
+      StartLevel.lua.meta
 ```
 
 프로젝트가 열리면 좌측 계층, 중앙 뷰포트, 우측 인스펙터와 하단 프로젝트 브라우저가 표시된다. 왼쪽 폴더 트리에 `Assets/`와 `Sources/`를 별도 루트로 보여준다.
@@ -41,7 +44,8 @@ MyProject/
 - 기본 파일 보기는 **Thumbnails**다. 이미지 파일은 실제 미리보기, 폴더는 폴더 아이콘을 표시한다. 파일의 기본 아이콘은 정사각형에 종류 텍스트를 넣는 형태로 통일한다(`Lv`, `Lua`, `TXT` 등). 우측 Refresh 왼쪽의 드롭다운에서 **List**로 전환할 수 있다. 드롭다운은 방향키·Enter·Escape도 지원한다.
 - 오른쪽 목록의 폴더는 더블클릭 또는 선택 후 `Enter`로 연다. 파일 영역 위의 경로에서 상위 폴더 이름을 클릭하거나 `Backspace`로 이동한다. Assets·Sources 루트 밖으로 이동하지 않는다.
 - 경로는 평소 일반 텍스트로 표시하고, 폴더 이름에 마우스를 올리면 클릭 영역의 배경이 부드럽게 나타난다.
-- 빈 공간을 우클릭하면 **New**, 파일·폴더를 우클릭하면 **New / Delete** 메뉴를 연다. **New**에는 Assets에서 **Folder / Level / Prefab**, Sources에서 **Folder / Lua Script**만 표시한다. 메뉴가 열린 상태에서 다른 위치를 우클릭하면 해당 위치의 메뉴로 바로 바뀐다. 이름 입력 후 Enter 또는 Create로 생성하며 기존 파일은 덮어쓰지 않는다.
+- 빈 공간을 우클릭하면 **New**, 파일·폴더를 우클릭하면 **New / Move / Rename / Delete** 메뉴를 연다(`Move / Rename`은 한 항목). **New**에는 Assets에서 **Folder / Level / Prefab**, Sources에서 **Folder / Lua Script**만 표시한다. 메뉴가 열린 상태에서 다른 위치를 우클릭하면 해당 위치의 메뉴로 바로 바뀐다. 이름 입력 후 Enter 또는 Create로 생성하며 기존 파일은 덮어쓰지 않는다.
+- **Move / Rename**에서 프로젝트 기준 새 경로를 입력한다(예: `Sources/Enemies/Enemy.lua`). 대상 부모 폴더는 먼저 만들어 두며 Assets·Sources의 원래 루트와 확장자는 유지한다. 원본과 메타를 함께 옮기고 ID는 유지한다. 현재 열린 레벨도 새 위치에 저장된다.
 - **Lua Script** 생성 시 **Level Script / LObject Script**를 고른다. **Level** 생성은 기존 Level Script를, **Prefab** 생성은 기존 LObject Script를 선택한다. Sources의 하위 폴더까지 종류에 맞는 소스만 표시하며 선택 목록은 클릭·방향키·휠을 지원한다. Tab으로 이름과 목록 사이를 전환한다. 해당 종류의 소스가 없으면 먼저 Sources에서 만든다. 선택한 소스는 수정하지 않으며 여러 에셋이 같은 코드를 참조할 수 있다.
 - **Delete**는 확인 후 파일이나 폴더의 전체 내용을 영구 삭제한다. 프로젝트 루트·기본 레벨·현재 열린 레벨을 포함하는 경로와 파일시스템 링크는 삭제하지 않는다. 레벨에 연결된 Lua나 다른 파일의 참조를 자동으로 정리하지 않는다. 메뉴는 방향키·Enter·Escape로도 조작한다.
 - `.level` 파일을 더블클릭하면 해당 레벨을 연다. 현재 레벨에 저장하지 않은 변경이 있으면 유지하고 오류를 표시한다. Lua 코드는 외부 편집기로 수정한다.
@@ -54,13 +58,13 @@ MyProject/
 
 ## 레벨 코드 연결
 
-프로젝트 정보 파일의 `defaultLevelReference`는 기본 레벨을, 레벨 JSON의 `scriptReference`는 실행할 Lua 코드를 가리킨다. 모두 프로젝트 기준 `/` 상대 경로다.
+프로젝트 정보 파일의 `defaultLevelReference`는 기본 레벨의 ID를, 레벨 JSON의 `scriptReference`는 실행할 Lua의 ID를 저장한다. ID의 현재 경로는 메타에서 재구성한 프로젝트 인덱스로 찾는다. 새 파일은 버전 2이며 기존 버전 1의 경로 참조도 읽고 가져오기 시 등록된 파일의 ID로 전환한다.
 
 ```json
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "lobjects": [],
-  "scriptReference": "Sources/Levels/StartLevel.lua"
+  "scriptReference": "12345678-1234-4234-8234-123456789abc"
 }
 ```
 
@@ -81,19 +85,35 @@ end
 return Level
 ```
 
-종류 표식은 Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`다. 표식이 없는 기존 Lua는 Level Script로 분류한다. 목록을 만들 때 코드를 실행하지 않는다. LObject Script 템플릿은 `load(self, world)`·`update(self, dt)` 함수를 제공한다.
+Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최초 가져오기 때 종류를 결정하는 힌트다. 표식 없는 기존 Lua는 Level Script로 분류한다. 가져온 뒤에는 `.lua.meta`의 `scriptKind`를 사용한다. 목록을 만들 때 코드를 실행하지 않는다. LObject Script 템플릿은 `load(self, world)`·`update(self, dt)` 함수를 제공한다.
 
 생성되는 Prefab은 다음 형태다. `definitionReference`는 선택한 LObject Script를 가리키며 빈 `overrides`는 원본 기본값을 유지한다. 현재는 에셋 생성과 참조 저장을 지원한다. Prefab 편집·배치와 LObject Definition의 Runtime 연결은 후속 구현 범위다.
 
 ```json
 {
-  "formatVersion": 1,
-  "definitionReference": "Sources/Enemy.lua",
+  "formatVersion": 2,
+  "definitionReference": "abcdef12-1234-4234-8234-123456789abc",
   "overrides": {}
 }
 ```
 
 **F5**는 Play/Stop이다. Play마다 코드 파일을 새로 읽고 Runtime World를 만든다. `load`는 한 번, `update`는 매 프레임 LObject 업데이트 전에 호출한다. Stop은 Runtime 변경을 버리며 배치 데이터에 반영하지 않는다. 코드 오류는 에디터에 표시하고 Play를 시작하지 않거나 중지한다. 자동화 테스트 모드에서는 프로젝트 코드를 실행하지 않는다.
+
+## 에셋 ID와 메타데이터
+
+Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 둔다. ID는 여기만 원본으로 보관한다. 예를 들어 `StartLevel.lua.meta`는 다음 형태다.
+
+```json
+{
+  "version": 1,
+  "id": "12345678-1234-4234-8234-123456789abc",
+  "scriptKind": "level"
+}
+```
+
+프로젝트 전체의 경로 목록은 루트의 `asset-index.json` 하나다. `paths`에는 `ID → Assets/... 또는 Sources/...`만 모아 둔다. 파일을 옮겨도 Level·Prefab의 ID 참조는 그대로이며 목록의 경로만 바뀐다. 파일·폴더 이동은 원본과 메타를 함께 처리한다.
+
+열기·Refresh에서 메타를 가져오고 인덱스를 다시 만든다. 캐시를 삭제하거나 손상시켜도 ID는 바뀌지 않는다. 중복·손상된 메타는 오류로 표시하며 새 ID로 덮어쓰지 않는다. 메타는 원본과 함께 Git에 보관하고 `asset-index.json`, 임시 이동 기록 `asset-move.json`은 Git에서 제외한다. 외부 도구로 이동할 때도 원본과 메타를 함께 옮긴 뒤 Refresh한다. 메타와 저장 임시 파일은 브라우저에 표시하지 않는다.
 
 ## 에디터 테마
 

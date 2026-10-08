@@ -62,6 +62,8 @@ function EditorApp:setDocument(document)
     if not document or not document.level then
         return false
     end
+    local reference = self.project and self.project:referenceForPath(document.path)
+    self.documentAssetId = reference and self.project:getAssetId(reference) or nil
 
     -- Runtime World는 현재 document의 Level snapshot에서 만들어진다.
     -- document가 바뀌면 이전 Runtime은 폐기한다.
@@ -154,14 +156,36 @@ function EditorApp:stopPlay()
     return true
 end
 
+function EditorApp:resolveDocumentReferences()
+    if self.project then
+        self.level.scriptReference = self.project:getAssetId(self.level.scriptReference) or self.level.scriptReference
+        for _, object in ipairs(self.level.lobjects) do
+            object.definitionReference = self.project:getAssetId(object.definitionReference) or object.definitionReference
+        end
+    end
+end
+
 function EditorApp:saveCurrentDocument(path)
+    if not path and self.project and self.documentAssetId then
+        local currentPath, err = self.project:resolveAssetFile(self.documentAssetId)
+        if not currentPath then return false, err end
+        self.document.path = currentPath
+    end
     self.inspector:commitEdit()
+    self:resolveDocumentReferences()
 
     local saved, err =
         self.document:save(path)
 
     if saved and path ~= nil then
         self.documentReference = nil
+    end
+    if saved and self.project and self.project:referenceForPath(self.document.path) then
+        local indexed, indexError = self.project:rebuildAssetIndex()
+        if not indexed then return false, "Level saved; metadata import failed: " .. tostring(indexError) end
+        self.documentAssetId = self.project:getAssetId(self.project:referenceForPath(self.document.path))
+        self:resolveDocumentReferences()
+        self.document.savedSnapshot = assert(require("editor.level_file").encode(self.level))
     end
 
     return saved, err
@@ -367,7 +391,8 @@ function EditorApp:initializeUI()
         end
         self.assetBrowser.canDelete = function(reference)
             local path = self.project:resolvePath(reference)
-            local documentPath = self.document.path and self.document.path:gsub("\\", "/")
+            local currentPath = self.documentAssetId and self.project:resolvePath(self.documentAssetId) or self.document.path
+            local documentPath = currentPath and currentPath:gsub("\\", "/")
             if require("ffi").os == "Windows" then
                 path, documentPath = path and path:lower(), documentPath and documentPath:lower()
             end
@@ -375,6 +400,33 @@ function EditorApp:initializeUI()
                 return false, "This entry contains the currently open level"
             end
             return true
+        end
+        self.assetBrowser.onMove = function(source, destination)
+            local refs = self.moveReferences
+            if refs then
+                self.level.scriptReference = refs.script
+                for i, object in ipairs(self.level.lobjects) do object.definitionReference = refs.objects[i] end
+                if refs.clean and self.documentAssetId then
+                    self.document.savedSnapshot = assert(require("editor.level_file").encode(self.level))
+                end
+                self.moveReferences = nil
+            end
+            local oldPath, newPath = self.project:resolvePath(source), self.project:resolvePath(destination)
+            local current = self.document.path and self.document.path:gsub("\\", "/")
+            if current and oldPath and (current:lower() == oldPath:lower()
+                or current:lower():sub(1, #oldPath + 1) == oldPath:lower() .. "/") then
+                self.document.path = newPath .. current:sub(#oldPath + 1)
+                self.documentReference = self.project:getAssetId(destination .. current:sub(#oldPath + 1))
+            end
+        end
+        self.assetBrowser.onBeforeMove = function()
+            -- 성공 후에만 메모리 참조를 바꾸어 취소·실패가 문서의 dirty 상태를 바꾸지 않게 한다.
+            local refs = {clean = not self.document:isDirty(), objects = {},
+                script = self.project:getAssetId(self.level.scriptReference) or self.level.scriptReference}
+            for i, object in ipairs(self.level.lobjects) do
+                refs.objects[i] = self.project:getAssetId(object.definitionReference) or object.definitionReference
+            end
+            self.moveReferences = refs
         end
         slots.assets = self.canvas:addChild(self.assetBrowser)
     end

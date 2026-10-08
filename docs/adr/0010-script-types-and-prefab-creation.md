@@ -4,6 +4,7 @@
 - 날짜: 2026-10-08
 - 부분 대체: [ADR 0008](0008-context-menu-and-project-entries.md)의 수동 Level 생성 시 같은 이름의 Lua 자동 생성
 - 확장: [ADR 0007](0007-sources-and-level-scripts.md)의 Level 스크립트 참조와 [설계 문서](../LOVE_Labo_Design.md)의 Prefab
+- 경로 참조와 종류의 원본은 [ADR 0011](0011-asset-ids-metadata-and-path-cache.md)의 파일별 메타·ID 참조로 대체
 
 ## 배경과 제약
 

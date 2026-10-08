@@ -942,7 +942,7 @@ tests[#tests + 1] = {
         Assert.equal(first, second)
 
         Assert.truthy(
-            first:find('"formatVersion": 1', 1, true)
+            first:find('"formatVersion": 2', 1, true)
         )
         Assert.truthy(
             first:find('"authoringId": 1', 1, true)

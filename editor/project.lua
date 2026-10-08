@@ -103,10 +103,13 @@ function Project.create(parentPath, name)
     if existing then return nil, "Project folder already exists" end
     if existingError then return nil, existingError end
     local Json = require("editor.json")
-    local text = assert(Json.encode({ version = 1, name = name,
-        defaultLevelReference = Project.DEFAULT_LEVEL_REFERENCE }, true)) .. "\n"
+    local Registry = require("editor.asset_registry")
+    local scriptMeta, scriptId = Registry.metaText("level")
+    local levelMeta, levelId = Registry.metaText()
+    local text = assert(Json.encode({ version = 2, name = name,
+        defaultLevelReference = levelId }, true)) .. "\n"
     local level = require("editor.level").new()
-    assert(level:setScriptReference(Project.DEFAULT_SCRIPT_REFERENCE))
+    assert(level:setScriptReference(scriptId))
     local levelText, encodeError = require("editor.level_file").encode(level)
     if not levelText then return nil, encodeError end
     local createdDirectories, createdFiles = {}, {}
@@ -125,7 +128,9 @@ function Project.create(parentPath, name)
     end
     for _, file in ipairs({
         { path = fs.join(root, Project.DEFAULT_SCRIPT_REFERENCE), text = require("editor.level_script_template") },
+        { path = fs.join(root, Project.DEFAULT_SCRIPT_REFERENCE .. ".meta"), text = scriptMeta },
         { path = fs.join(root, Project.DEFAULT_LEVEL_REFERENCE), text = levelText },
+        { path = fs.join(root, Project.DEFAULT_LEVEL_REFERENCE .. ".meta"), text = levelMeta },
         { path = fs.join(root, Project.FILE_NAME), text = text }
     }) do
         local created, err = fs.createFile(file.path, file.text)
@@ -144,7 +149,7 @@ function Project.open(rootPath)
     local text, readError = fs.read(fs.join(project.rootPath, Project.FILE_NAME))
     if not text then return nil, "Cannot open " .. Project.FILE_NAME .. ": " .. tostring(readError) end
     local data, decodeError = require("editor.json").decode(text)
-    if type(data) ~= "table" or data.version ~= 1 then
+    if type(data) ~= "table" or (data.version ~= 1 and data.version ~= 2) then
         return nil, decodeError or "Unsupported project format"
     end
     local valid, nameError = Project.isValidName(data.name)
@@ -161,15 +166,60 @@ function Project.open(rootPath)
         return nil, "Sources must be a regular folder"
     end
     if data.defaultLevelReference ~= nil then
-        if type(data.defaultLevelReference) ~= "string" or not data.defaultLevelReference:match("^Assets/.+%.level$") then
+        if type(data.defaultLevelReference) ~= "string" or (not require("editor.asset_id").isValid(data.defaultLevelReference)
+            and not data.defaultLevelReference:match("^Assets/.+%.level$")) then
             return nil, "defaultLevelReference must refer to an Assets/*.level file"
         end
-        local validReference, referenceError = validateReference(data.defaultLevelReference)
-        if not validReference then return nil, referenceError end
+        if not require("editor.asset_id").isValid(data.defaultLevelReference) then
+            local validReference, referenceError = validateReference(data.defaultLevelReference)
+            if not validReference then return nil, referenceError end
+        end
     end
     project.defaultLevelReference = data.defaultLevelReference
     project.name = data.name
+    local recovered, recoverError = require("editor.asset_registry").recoverMove(project)
+    if not recovered then return nil, recoverError end
+    local rebuilt, rebuildError = project:rebuildAssetIndex()
+    if not rebuilt then return nil, rebuildError end
+    local migrated, migrateError = require("editor.asset_registry").migrate(project, data)
+    if not migrated then return nil, migrateError end
     return project
+end
+
+function Project:rebuildAssetIndex(skipRecovery, skipMigration)
+    if not skipRecovery then
+        local recovered, err = require("editor.asset_registry").recoverMove(self)
+        if not recovered then return false, err end
+    end
+    local Registry = require("editor.asset_registry")
+    local rebuilt, err = Registry.rebuild(self)
+    if not rebuilt then return false, err end
+    if skipMigration then return true end
+    return Registry.migrate(self)
+end
+
+function Project:getAssetId(reference)
+    if type(reference) ~= "string" then return nil end
+    return self.assetIds and self.assetIds[reference]
+        or self.assetIdsByLower and self.assetIdsByLower[reference:lower()]
+end
+
+function Project:getAssetReference(reference)
+    if require("editor.asset_id").isValid(reference) then
+        local path = self.assetPaths and self.assetPaths[reference]
+        if not path then return nil, "Asset ID is missing: " .. reference end
+        return path
+    end
+    return reference
+end
+
+function Project:referenceForPath(path)
+    if type(path) ~= "string" then return nil end
+    local normalized = path:gsub("\\", "/")
+    local prefix = self.rootPath:gsub("/+$", "") .. "/"
+    if normalized:lower():sub(1, #prefix) ~= prefix:lower() then return nil end
+    local reference = normalized:sub(#prefix + 1)
+    if reference:match("^Assets/") or reference:match("^Sources/") then return reference end
 end
 
 function Project:listAssets(reference)
@@ -200,13 +250,18 @@ function Project:listDirectory(reference)
     end
     local entries, listError = fs.list(path)
     if not entries then return nil, listError end
+    local visible = {}
     for _, entry in ipairs(entries) do
-        entry.reference = reference .. "/" .. entry.name
+        if not require("editor.asset_registry").isInternal(entry.name) then
+            entry.reference = reference .. "/" .. entry.name
+            visible[#visible + 1] = entry
+        end
     end
-    return entries
+    return visible
 end
 
 function Project:resolveAssetFile(reference)
+    reference = self:getAssetReference(reference)
     if type(reference) ~= "string" or reference:sub(1, 7) ~= "Assets/" then
         return nil, "Asset file must be inside Assets"
     end
@@ -214,6 +269,7 @@ function Project:resolveAssetFile(reference)
 end
 
 function Project:resolveSourceFile(reference)
+    reference = self:getAssetReference(reference)
     local valid, err = require("editor.level").isValidScriptReference(reference)
     if reference == nil or not valid then return nil, err or "Source reference is required" end
     return self:resolveProjectFile(reference)
@@ -256,6 +312,15 @@ function Project:checkedEntry(reference)
 end
 
 function Project:getScriptKind(reference)
+    reference = self:getAssetReference(reference)
+    local id = self:getAssetId(reference)
+    if id then reference = self.assetPaths[id] end
+    local meta = self.assetMetadata and self.assetMetadata[reference]
+    if meta and meta.scriptKind then
+        local path, err = self:resolveSourceFile(reference)
+        if not path then return nil, err end
+        return meta.scriptKind
+    end
     local path, err = self:resolveSourceFile(reference)
     if not path then return nil, err end
     local text, readError = filesystem().read(path)
@@ -299,6 +364,7 @@ function Project:createEntry(folder, kind, name, options)
     options = options or {}
     local valid, err = Project.isValidName(name)
     if not valid then return false, err end
+    if require("editor.asset_registry").isInternal(name:lower()) then return false, "Metadata and temporary names are reserved" end
     if kind ~= "folder" and kind ~= "level" and kind ~= "prefab" and kind ~= "lua" then return false, "Unknown entry type" end
     if (kind == "level" or kind == "prefab") and not folder:match("^Assets/?") then return false, "Level and Prefab assets belong in Assets" end
     if kind == "lua" and not folder:match("^Sources/?") then return false, "Lua scripts belong in Sources" end
@@ -308,6 +374,8 @@ function Project:createEntry(folder, kind, name, options)
         return false, "Choose Level Script or LObject Script"
     end
     if kind == "level" or kind == "prefab" then
+        local rebuilt, rebuildError = self:rebuildAssetIndex()
+        if not rebuilt then return false, rebuildError end
         local required = kind == "level" and "level" or "lobject"
         local actual, scriptError = self:getScriptKind(options.scriptReference)
         if not actual then return false, scriptError end
@@ -344,8 +412,12 @@ function Project:createEntry(folder, kind, name, options)
         local path, pathError = self:resolvePath(reference)
         if not path then return false, pathError end
         local wrote, writeError = fs.createFile(path, text)
-        if wrote then createdFiles[#createdFiles + 1] = path end
-        return wrote, writeError
+        if not wrote then return false, writeError end
+        createdFiles[#createdFiles + 1] = path
+        local meta = require("editor.asset_registry").metaText(kind == "lua" and options.scriptKind or nil)
+        local saved, metaError = fs.createFile(path .. ".meta", meta)
+        if saved then createdFiles[#createdFiles + 1] = path .. ".meta" end
+        return saved, metaError
     end
     local suffix = kind == "level" and ".level" or kind == "prefab" and ".prefab" or kind == "lua" and ".lua" or ""
     if suffix ~= "" then
@@ -357,49 +429,68 @@ function Project:createEntry(folder, kind, name, options)
     local ok, createError
     if kind == "folder" then
         ok, createError = ensureFolder(folder)
-        if ok then ok, createError = fs.mkdir(assert(self:resolvePath(reference))) end
+        if ok then
+            local directory = assert(self:resolvePath(reference))
+            ok, createError = fs.mkdir(directory)
+            if ok then createdDirectories[#createdDirectories + 1] = directory end
+        end
     elseif kind == "lua" then
         ok, createError = writeNew(reference, require(options.scriptKind == "level"
             and "editor.level_script_template" or "editor.lobject_script_template"))
     elseif kind == "level" then
         local level = require("editor.level").new()
-        assert(level:setScriptReference(options.scriptReference))
+        assert(level:setScriptReference(self:getAssetId(options.scriptReference) or options.scriptReference))
         local text, encodeError = require("editor.level_file").encode(level)
         if not text then return rollback(encodeError) end
         ok, createError = writeNew(reference, text)
     else
-        local text, encodeError = require("editor.prefab").encode(options.scriptReference)
+        local text, encodeError = require("editor.prefab").encode(self:getAssetId(options.scriptReference) or options.scriptReference)
         if not text then return rollback(encodeError) end
         ok, createError = writeNew(reference, text)
     end
     if not ok then return rollback(createError) end
+    local rebuilt, rebuildError = self:rebuildAssetIndex(false, true)
+    if not rebuilt then return rollback(rebuildError) end
     return true, reference
 end
 
 function Project:deleteEntry(reference)
+    if type(reference) == "string" and require("editor.asset_registry").isInternal(reference) then
+        return false, "Metadata cannot be deleted separately"
+    end
     local path, info = self:checkedEntry(reference)
     if not path then return false, info end
     if reference == "Assets" or reference == "Sources" then return false, "Project roots cannot be deleted" end
-    local default = self.defaultLevelReference
+    local default = self:getAssetReference(self.defaultLevelReference)
     -- 현재 호스트는 Windows이므로 대소문자만 다른 참조도 같은 파일로 보호한다.
     local compared = reference:lower()
     default = default and default:lower()
     if default and (default == compared or default:sub(1, #compared + 1) == compared .. "/") then
         return false, "This entry contains the project's default level"
     end
-    local fs, removals = filesystem(), {}
+    local fs, removals, visited = filesystem(), {}, {}
     local function collect(current)
+        if visited[current] then return true end
+        visited[current] = true
         local path, info = self:checkedEntry(current)
         if not path then return false, info end
         if info.type == "directory" then
-            local children, err = self:listDirectory(current)
+            local children, err = fs.list(path)
             if not children then return false, err end
             for _, child in ipairs(children) do
-                local ok, childError = collect(child.reference)
+                local ok, childError = collect(current .. "/" .. child.name)
                 if not ok then return false, childError end
             end
         end
         removals[#removals + 1] = { reference = current, type = info.type }
+        if info.type == "file" then
+            local meta = fs.info(path .. ".meta")
+            if meta then
+                if meta.isLink or meta.type ~= "file" then return false, "Invalid metadata" end
+                local ok, metaError = collect(current .. ".meta")
+                if not ok then return false, metaError end
+            end
+        end
         return true
     end
     -- 먼저 전체를 검사해 링크가 섞인 폴더를 일부만 삭제하지 않는다.
@@ -414,6 +505,64 @@ function Project:deleteEntry(reference)
         else removed, removeError = fs.removeFile(path) end
         if not removed then return false, removeError end
     end
+    return self:rebuildAssetIndex()
+end
+
+function Project:moveEntry(source, destination)
+    if source == "Assets" or source == "Sources" then return false, "Project roots cannot be moved" end
+    if type(destination) ~= "string" then return false, "Enter a destination path" end
+    if source:match("^[^/]+") ~= destination:match("^[^/]+") then return false, "Keep the entry in its Assets or Sources root" end
+    local rebuilt, rebuildError = self:rebuildAssetIndex()
+    if not rebuilt then return false, rebuildError end
+    local path, info = self:checkedEntry(source)
+    if not path then return false, info end
+    if require("editor.asset_registry").isInternal(source:lower())
+        or require("editor.asset_registry").isInternal(destination:lower()) then return false, "Metadata cannot be moved separately" end
+    local target, targetError = self:resolvePath(destination)
+    if not target then return false, targetError end
+    local parent = destination:match("^(.*)/[^/]+$")
+    local parentPath, parentInfo = self:checkedEntry(parent)
+    if not parentPath or parentInfo.type ~= "directory" then return false, "Destination parent must be an existing regular folder" end
+    if destination:lower() == source:lower() or destination:lower():sub(1, #source + 1) == source:lower() .. "/" then
+        return false, "Choose a different location outside this folder"
+    end
+    if info.type == "file" and (source:match("%.[^./]+$") or "") ~= (destination:match("%.[^./]+$") or "") then
+        return false, "Keep the original file extension"
+    end
+    local fs = filesystem()
+    for _, candidate in ipairs({target, target .. ".meta"}) do
+        local existing, existingError = fs.info(candidate)
+        if existing or existingError then return false, existingError or "Destination already exists" end
+    end
+    local journalPath = fs.join(self.rootPath, "asset-move.json")
+    if info.type == "file" then
+        local text = assert(require("editor.json").encode({version = 1, source = source, destination = destination,
+            id = self:getAssetId(source)}, true)) .. "\n"
+        local journalSaved, journalError = fs.createFile(journalPath, text)
+        if not journalSaved then return false, journalError end
+    end
+    local moved, moveError = fs.rename(path, target)
+    if not moved then
+        if info.type == "file" then fs.removeFile(journalPath) end
+        return false, moveError
+    end
+    if info.type == "file" then
+        local metaMoved, metaError = fs.rename(path .. ".meta", target .. ".meta")
+        if not metaMoved then
+            local restored, restoreError = fs.rename(target, path)
+            if restored then fs.removeFile(journalPath) end
+            return false, metaError .. (restored and "" or " / rollback failed: " .. tostring(restoreError))
+        end
+    end
+    local indexed, indexError = self:rebuildAssetIndex(true, true)
+    if not indexed then
+        if info.type == "file" then fs.rename(target .. ".meta", path .. ".meta") end
+        local restored, restoreError = fs.rename(target, path)
+        if restored and info.type == "file" then fs.removeFile(journalPath) end
+        self:rebuildAssetIndex()
+        return false, tostring(indexError) .. (restored and "" or " / rollback failed: " .. tostring(restoreError))
+    end
+    if info.type == "file" then fs.removeFile(journalPath) end
     return true
 end
 
@@ -443,6 +592,9 @@ function Project:isValidReference(reference)
 end
 
 function Project:resolvePath(reference)
+    local resolved, idError = self:getAssetReference(reference)
+    if not resolved then return nil, idError end
+    reference = resolved
     local valid, err = validateReference(reference)
 
     if not valid then

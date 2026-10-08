@@ -162,6 +162,8 @@ end
 
 function AssetBrowser:refresh(keepPopup)
     if not keepPopup then self.uiRoot:dismissPopup() end
+    local rebuilt, rebuildError = self.project:rebuildAssetIndex()
+    if not rebuilt then self.error = rebuildError; return false, rebuildError end
     self.thumbnails:clear()
     self.children = {}
     local selected = self.selectedReference
@@ -177,6 +179,7 @@ function AssetBrowser:refresh(keepPopup)
             if entry.reference == selected then self.selectedReference = selected end
         end
     end
+    if opened and self.project.assetIndexError then self.error = self.project.assetIndexError end
     return opened, err
 end
 
@@ -295,10 +298,28 @@ function AssetBrowser:showContextMenu(x, y)
     end
     local items = { { label = "New", children = newItems } }
     if entry and entry.reference ~= "Assets" and entry.reference ~= "Sources" then
+        items[#items + 1] = { label = "Move / Rename", enabled = not entry.isLink,
+            action = function() self:showMoveDialog(entry) end }
         items[#items + 1] = { label = "Delete", enabled = not entry.isLink,
             action = function() self:showDeleteDialog(entry) end }
     end
     ContextMenu.new(self.uiRoot):show(x, y, items)
+end
+
+function AssetBrowser:showMoveDialog(entry)
+    Dialog.new(self.uiRoot, {title = "Move / Rename", message = entry.reference,
+        input = true, value = entry.reference, confirmLabel = "Move", onConfirm = function(destination)
+            if self.onBeforeMove then self.onBeforeMove() end
+            local moved, err = self.project:moveEntry(entry.reference, destination)
+            if not moved then return false, err end
+            if self.onMove then self.onMove(entry.reference, destination) end
+            if self.folder == entry.reference or self.folder:sub(1, #entry.reference + 1) == entry.reference .. "/" then
+                self.folder = destination .. self.folder:sub(#entry.reference + 1)
+            end
+            self:refresh(true)
+            self.selectedReference = destination
+            return true
+        end})
 end
 
 function AssetBrowser:showCreateDialog(folder, kind)

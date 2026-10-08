@@ -1,10 +1,11 @@
 local Level = {}
 Level.__index = Level
 
-local FORMAT_VERSION = 1
+local FORMAT_VERSION = 2
 
 function Level.isValidScriptReference(reference)
     if reference == nil then return true end
+    if require("editor.asset_id").isValid(reference) then return true end
     if type(reference) ~= "string" or not reference:match("^Sources/.+%.lua$")
         or reference:find('[%z\1-\31\\:*?"<>|]') or reference:find("//", 1, true) then
         return false, "level scriptReference must be a canonical Sources/*.lua reference"
@@ -192,7 +193,7 @@ function Level.fromData(data)
         return nil, "level data must be a table"
     end
 
-    if data.formatVersion ~= FORMAT_VERSION then
+    if data.formatVersion ~= 1 and data.formatVersion ~= FORMAT_VERSION then
         return nil, "unsupported level format version"
     end
 
