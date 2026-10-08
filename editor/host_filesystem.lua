@@ -26,10 +26,6 @@ void * __stdcall FindFirstFileW(const uint16_t *path, LaboFindData *data);
 int __stdcall FindNextFileW(void *handle, LaboFindData *data);
 int __stdcall FindClose(void *handle);
 uint32_t __stdcall GetLastError(void);
-int __stdcall MultiByteToWideChar(uint32_t cp, uint32_t flags, const char *text,
-    int length, uint16_t *output, int capacity);
-int __stdcall WideCharToMultiByte(uint32_t cp, uint32_t flags, const uint16_t *text,
-    int length, char *output, int capacity, const char *defaultChar, int *usedDefault);
 void * __stdcall CreateFileW(const uint16_t *path, uint32_t access, uint32_t sharing,
     void *security, uint32_t disposition, uint32_t flags, void *templateFile);
 int __stdcall ReadFile(void *handle, void *buffer, uint32_t size, uint32_t *read, void *overlapped);
@@ -44,21 +40,8 @@ local function failure(operation, code)
     return operation .. " failed (Windows error " .. tonumber(code or win.GetLastError()) .. ")"
 end
 
-local function wide(text)
-    assert(type(text) == "string" and not text:find("\0", 1, true), "invalid filesystem path")
-    local length = win.MultiByteToWideChar(65001, 8, text, #text, nil, 0)
-    assert(length > 0, "invalid UTF-8 filesystem path")
-    local result = ffi.new("uint16_t[?]", length + 1)
-    win.MultiByteToWideChar(65001, 8, text, #text, result, length)
-    return result
-end
-
-local function utf8(text)
-    local length = win.WideCharToMultiByte(65001, 0, text, -1, nil, 0, nil, nil)
-    local result = ffi.new("char[?]", length)
-    win.WideCharToMultiByte(65001, 0, text, -1, result, length, nil, nil)
-    return ffi.string(result)
-end
+local Unicode = require("editor.windows_unicode")
+local wide, utf8 = Unicode.wide, Unicode.utf8
 
 function FileSystem.join(path, name)
     return path:gsub("[/\\]+$", "") .. "/" .. name

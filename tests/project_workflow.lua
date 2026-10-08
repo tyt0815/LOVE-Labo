@@ -164,33 +164,42 @@ add("launcher creates and reopens project and contains failures", function()
     end)
 end)
 
-add("launcher folder picker and unicode text input support creation flow", function()
+add("launcher native Browse applies selection and preserves path on cancel or failure", function()
     fixture(function(parent)
-        assert(FS.mkdir(FS.join(parent, "Child")))
-        local launcher = Launcher.new(function() return true end)
+        local chosen = FS.join(parent, "한글 폴더")
+        assert(FS.mkdir(chosen))
+        local nextPath, nextError, receivedPath, receivedTitle = chosen
+        local launcher = Launcher.new(function() return true end, function(path, title)
+            receivedPath, receivedTitle = path, title
+            return nextPath, nextError
+        end)
         launcher.path = parent
         local browse = launcher:layout().browse
         launcher:mousepressed(browse.x + 5, browse.y + 5, 1)
-        Assert.equal(1, #launcher.picker.entries)
-        local list = launcher:pickerRects().list
-        launcher:mousepressed(list.x + 5, list.y + 5, 1)
-        Assert.equal(FS.join(parent, "Child"), launcher.picker.path)
-        local choose = launcher:pickerRects().choose
-        launcher:mousepressed(choose.x + 5, choose.y + 5, 1)
-        Assert.equal(nil, launcher.picker)
-        Assert.equal(FS.join(parent, "Child"), launcher.path)
+        Assert.equal(parent, receivedPath)
+        Assert.equal("새 프로젝트의 부모 폴더 선택", receivedTitle)
+        Assert.equal(chosen, launcher.path)
+        Assert.equal("path", launcher.activeField)
+        nextPath = nil
+        launcher.mode = "open"
+        launcher:mousepressed(browse.x + 5, browse.y + 5, 1)
+        Assert.equal("프로젝트 폴더 열기", receivedTitle)
+        Assert.equal(chosen, launcher.path)
+        Assert.equal(nil, launcher.error)
+        nextError = "dialog failure"
+        launcher:mousepressed(browse.x + 5, browse.y + 5, 1)
+        Assert.equal(chosen, launcher.path)
+        Assert.equal("dialog failure", launcher.error)
+        launcher.selectFolder = function() error("unexpected dialog error") end
+        launcher:browse()
+        Assert.equal(chosen, launcher.path)
+        Assert.truthy(launcher.error:find("unexpected dialog error", 1, true))
         launcher.activeField, launcher.replace = "name", true
         launcher:textinput("테스트")
         launcher:keypressed("backspace")
         Assert.equal("테스", launcher.name)
         launcher:textinput("트")
         Assert.equal("테스트", launcher.name)
-        launcher.picker = {}
-        launcher:navigate("")
-        Assert.truthy(launcher.picker.error)
-        local invalidChoice = launcher:pickerRects().choose
-        launcher:mousepressed(invalidChoice.x + 5, invalidChoice.y + 5, 1)
-        Assert.truthy(launcher.picker.error)
     end)
 end)
 
@@ -265,7 +274,6 @@ add("launcher and editor UI render with isolated graphics state", function()
             launcher:draw()
             local r = love.graphics.getColor()
             Assert.equal(before, r)
-            launcher.picker = {}; launcher:navigate(parent); launcher:draw()
             app:draw()
             Assert.equal(nil, love.graphics.getScissor())
         end)

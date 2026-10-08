@@ -81,13 +81,12 @@ function love.directorydropped(path)
         app.path = path
         app.activeField = "path"
         app.replace = true
-        app.picker = nil
         app.error = nil
     end
 end
 
 function love.wheelmoved(x, y)
-    if app then
+    if app and app.wheelmoved then
         app:wheelmoved(x, y)
     end
 end
