@@ -11,6 +11,7 @@ EditorApp.__index = EditorApp
 function EditorApp.new(document, project, preferences)
     local self = setmetatable({}, EditorApp)
     self.histories = setmetatable({}, {__mode = "k"})
+    self.assetActions, self.assetActionIndex, self.historyClock = {}, 0, 0
 
     self.sceneView = SceneView.new()
     if preferences then
@@ -67,6 +68,9 @@ function EditorApp.new(document, project, preferences)
         self.documentReference = project.defaultLevelReference
     end
     self:initializeUI()
+    if self.assetBrowser then
+        self.assetBrowser.assetOperations = require("editor.asset_operations").new(self, self.assetBrowser)
+    end
 
     return self
 end
@@ -628,6 +632,14 @@ function EditorApp:initializeUI()
             if path and documentPath and (documentPath == path or documentPath:sub(1, #path + 1) == path .. "/") then
                 return false, "This entry contains the currently open level"
             end
+            local prefab = self.prefabDocument
+            local prefabPath = prefab and self.project:resolvePath(prefab.assetId)
+            if prefabPath then prefabPath = prefabPath:gsub("\\", "/") end
+            if prefabPath and require("ffi").os == "Windows" then prefabPath = prefabPath:lower() end
+            if path and prefabPath and prefab:isDirty()
+                and (prefabPath == path or prefabPath:sub(1, #path + 1) == path .. "/") then
+                return false, "Save the edited prefab before removing it"
+            end
             return true
         end
         self.assetBrowser.onMove = function(source, destination)
@@ -813,13 +825,40 @@ function EditorApp:keypressed(key)
 end
 
 function EditorApp:recordHistory()
+    if self.performingAssets or self.replayingAssets then return end
     if self:isPlaying() or self.inspector:isEditing() or self.sceneView.isDraggingLObject then return end
     local selected = self.sceneView.selectedLObject
     local history = self.histories[self.document]
     history.highWater = math.max(history.highWater or 1, self.level.nextAuthoringId)
-    history:record(assert(require("editor.level_file").encode(self.level)), selected and selected.authoringId)
+    local changed = history:record(assert(require("editor.level_file").encode(self.level)), selected and selected.authoringId)
+    if changed then self:stampHistory(history) end
     local prefab = self.prefabDocument
-    if prefab then self.histories[prefab]:record(assert(require("editor.prefab").encodeData(prefab.data))) end
+    if prefab then
+        local prefabHistory = self.histories[prefab]
+        if prefabHistory:record(assert(require("editor.prefab").encodeData(prefab.data))) then self:stampHistory(prefabHistory) end
+    end
+end
+
+function EditorApp:discardRedo()
+    for i = #self.assetActions, self.assetActionIndex + 1, -1 do self.assetActions[i] = nil end
+    for _, history in pairs(self.histories) do
+        for i = #history.entries, history.index + 1, -1 do history.entries[i] = nil end
+    end
+end
+
+function EditorApp:stampHistory(history)
+    self:discardRedo()
+    self.historyClock = self.historyClock + 1
+    history.entries[history.index].stamp = self.historyClock
+end
+
+function EditorApp:pushAssetAction(command)
+    self:discardRedo()
+    self.historyClock = self.historyClock + 1
+    command.stamp = self.historyClock
+    self.assetActions[#self.assetActions + 1] = command
+    if #self.assetActions > 100 then table.remove(self.assetActions, 1) end
+    self.assetActionIndex = #self.assetActions
 end
 
 function EditorApp:undoRedo(direction)
@@ -837,6 +876,22 @@ function EditorApp:undoRedo(direction)
         and self.inspector.classInspector.target == self.prefabInspectorTarget
     local document = prefab and self.prefabDocument or self.document
     local history = self.histories[document]
+    local action = self.assetActions[self.assetActionIndex + (direction == 1 and 1 or 0)]
+    local nextState = history and history.entries[history.index + direction]
+    local stamp = nextState and (direction == -1 and history.entries[history.index].stamp or nextState.stamp)
+    if action and (not stamp or (direction == -1 and action.stamp > stamp)
+        or (direction == 1 and action.stamp < stamp)) then
+        self.replayingAssets = true
+        local called, ok, err = pcall(direction == -1 and action.undo or action.redo)
+        self.replayingAssets = nil
+        if not called or not ok then
+            self.assetBrowser.error = tostring(called and err or ok)
+            return false
+        end
+        self.assetActionIndex = self.assetActionIndex + direction
+        self.assetBrowser.error = nil
+        return true
+    end
     local state = history and history:step(direction)
     if not state then return false end
     if prefab then

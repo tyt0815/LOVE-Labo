@@ -453,7 +453,7 @@ function Project:createEntry(folder, kind, name, options)
     return true, reference
 end
 
-function Project:deleteEntry(reference)
+function Project:deletionEntries(reference)
     if type(reference) == "string" and require("editor.asset_registry").isInternal(reference) then
         return false, "Metadata cannot be deleted separately"
     end
@@ -495,6 +495,13 @@ function Project:deleteEntry(reference)
     -- 먼저 전체를 검사해 링크가 섞인 폴더를 일부만 삭제하지 않는다.
     local ok, err = collect(reference)
     if not ok then return false, err end
+    return removals
+end
+
+function Project:deleteEntry(reference)
+    local removals, err = self:deletionEntries(reference)
+    if not removals then return false, err end
+    local fs = filesystem()
     for _, entry in ipairs(removals) do
         local path, info = self:checkedEntry(entry.reference)
         if not path then return false, info end

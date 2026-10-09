@@ -1,6 +1,7 @@
 # 0030. 파일·실행 메뉴와 문서 Undo/Redo
 
 - 상태: 채택
+- 파일 작업 제외 결정은 [ADR 0031](0031-asset-operation-history.md)로 대체한다.
 - 날짜: 2026-10-09
 - 확장: [ADR 0006](0006-widget-canvas-and-asset-views.md)의 위젯 트리, [ADR 0024](0024-collapsible-details-and-property-columns.md)의 Inspector 배치
 - 유지: [ADR 0028](0028-agent-cli-and-standalone-game-export.md)의 공용 생성·저장·Export 로직

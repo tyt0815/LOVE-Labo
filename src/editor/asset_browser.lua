@@ -560,6 +560,11 @@ function AssetBrowser:showRenameDialog(entry)
 end
 
 function AssetBrowser:moveEntry(entry, destination)
+    if self.assetOperations then return self.assetOperations:move(entry, destination) end
+    return self:moveEntryDirect(entry, destination)
+end
+
+function AssetBrowser:moveEntryDirect(entry, destination)
     if self.onBeforeMove then self.onBeforeMove() end
     local moved, err = self.project:moveEntry(entry.reference, destination)
     if not moved then return false, err end
@@ -590,7 +595,9 @@ function AssetBrowser:showCreateDialog(folder, kind)
         onConfirm = function(name, choice)
             if listError then return false, listError end
             local options = kind == "lua" and {scriptKind = choice} or {scriptReference = choice or nil}
-            local ok, reference = self.project:createEntry(folder, kind, name, options)
+            local ok, reference
+            if self.assetOperations then ok, reference = self.assetOperations:create(folder, kind, name, options)
+            else ok, reference = self.project:createEntry(folder, kind, name, options) end
             if not ok then return false, reference end
             self:refresh(true)
             if self.folder ~= folder then self:openFolder(folder) end
@@ -603,13 +610,16 @@ end
 function AssetBrowser:showDeleteDialog(entry)
     Dialog.new(self.uiRoot, { title = "Delete " .. (entry.type == "directory" and "Folder" or "File"),
         message = entry.reference,
-        detail = "Permanently delete" .. (entry.type == "directory" and " this folder and all its contents?" or " this file?"),
+        detail = (self.assetOperations and "Delete" or "Permanently delete") .. (entry.type == "directory" and " this folder and all its contents?" or " this file?")
+            .. (self.assetOperations and " Undo can restore it." or ""),
         confirmLabel = "Delete", onConfirm = function()
             if self.canDelete then
                 local allowed, err = self.canDelete(entry.reference)
                 if not allowed then return false, err end
             end
-            local ok, err = self.project:deleteEntry(entry.reference)
+            local ok, err
+            if self.assetOperations then ok, err = self.assetOperations:delete(entry.reference)
+            else ok, err = self.project:deleteEntry(entry.reference) end
             -- 삭제 도중 파일 잠금 등으로 실패해도 실제 남은 항목을 다시 읽는다.
             self:refresh(true)
             if not ok then return false, err end
