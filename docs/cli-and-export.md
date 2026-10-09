@@ -29,7 +29,7 @@ Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\
 | `project info` | `--project` | 에셋 경로·ID·종류, 기본 레벨 조회 |
 | `project set-default` | `--project`, `--level` | 기본 레벨 지정 |
 | `class create` | `--project`, `--name`, 선택 `--type`/`--parent` | `level`/`lobject`/`component` 템플릿과 메타데이터 생성. `--parent`는 부모 Lua ID·경로 또는 내장 LObjectComponent·SceneComponent·RenderComponent·SpriteComponent이며 종류를 자동 결정한다. 지정한 `--type`이 부모와 다르면 거절한다. |
-| `prefab create` | `--project`, `--name`, 선택 `--class` | `--class`에 LObject 클래스 또는 부모 Prefab ID·경로를 지정한다. |
+| `prefab create` | `--project`, `--name`, 선택 `--class` 또는 `--instance`/`--level` | `--class`에 LObject 클래스 또는 부모 Prefab ID·경로를 지정한다. `--instance`는 지정 레벨(생략 시 기본 레벨)의 루트와 자손을 현재 값으로 캡처한다. 외부 객체 참조는 거절한다. |
 | `prefab get/set` | `--project`, `--prefab` | 프로퍼티·컴포넌트 기본 override 조회/수정 |
 | `level create` | `--project`, `--name`, 선택 `--class` | 레벨 생성 |
 | `level get/set` | `--project`, 선택 `--level` | 레벨 데이터와 선언 프로퍼티 조회/수정 |

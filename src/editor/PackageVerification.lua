@@ -111,7 +111,7 @@ return NewClass
         local object = assert(app.sceneView.selectedLObject)
         app:updateInspectorTarget()
         local inspector = app.inspector.classInspector
-        check("component hierarchy tree", #inspector.tree.nodes == 3 and inspector.tree.nodes[3].depth == 2)
+        check("component hierarchy tree", #inspector.tree.nodes == 2 and inspector.tree.nodes[2].depth == 1)
         preview("object-properties")
         inspector:selectComponent("root")
         local groups = {}; for _, row in ipairs(inspector.rows) do if row.header then groups[row.label] = true end end
@@ -175,6 +175,7 @@ return NewClass
         check("instance placement saved", savedObject.transform.x == 100 and savedObject.transform.y == 200)
         check("property edit saved", savedObject.propertyOverrides.speed == 42)
         app = App.new(document, reopened)
+        project = reopened
         assert(app:startPlay())
         check("project class beginPlay", app.runtimeWorld.lobjects[1].begun)
         local world = app.runtimeWorld
@@ -193,6 +194,47 @@ return NewClass
         app.activePanel, app.inspectorSource = "hierarchy", "scene"
         app:updateInspectorTarget(); app:draw()
         preview("object-hierarchy-multiselect")
+        assert(app:showCreatePrefabDialog(root))
+        app.uiRoot.popup.text = "PF_Player"; app.uiRoot.popup:submit()
+        local captured = assert(project:getAssetId("Assets/PF_Player.prefab"))
+        check("hierarchy capture asset", require("editor.Prefab").decode(project:readAsset(captured)).formatVersion == 3)
+        assert(app:inspectAsset("Assets/PF_Player.prefab"))
+        inspector = app.inspector.classInspector
+        check("two Inspector hierarchies", #inspector.objectTree.nodes == 2 and inspector.objectTree.height == 78 and inspector.tree.height == 78)
+        preview("prefab-object-and-component-trees")
+        assert(app:beginObjectPick("$child", "root"))
+        assert(app.assetBrowser:openFolder("Sources")); app.assetBrowser:setViewMode("list"); app:updateSceneViewport()
+        local sourceIndex
+        for index, entry in ipairs(app.assetBrowser.entries) do if entry.reference == "Sources/NewClass.lua" then sourceIndex = index end end
+        local sourceRect = app.assetBrowser:entryBounds(assert(sourceIndex))
+        app:mousepressed(sourceRect.x + 40, sourceRect.y + 10, 1)
+        check("Prefab child source picking", not app.objectPick and #inspector.objectTree.nodes == 3 and app.inspectorSource == "assets")
+        local grip = inspector:treeGrip(inspector.objectTree)
+        app:mousepressed(grip.x + 30, grip.y + 2, 1); app:mousemoved(grip.x + 30, grip.y + 80, 0, 78); app:mousereleased(grip.x + 30, grip.y + 80, 1)
+        check("Inspector tree resize", inspector.objectTree.height == 156 and inspector.tree.height == 78)
+        preview("prefab-tree-resized")
+        assert(app:saveInspectedDocument())
+        local placeX, placeY = app.sceneView:worldToScreen(300, 0)
+        assert(app:placePrefab(captured, placeX, placeY))
+        check("hierarchy template placement", #app.level.lobjects == 5)
+        assert(app:startPlay())
+        check("hierarchy template Play", #app.runtimeWorld.lobjects == 5 and app.runtimeWorld.lobjects[3].properties.target == app.runtimeWorld.lobjects[4])
+        app:stopPlay()
+        for index = 1, 24 do
+            assert(Fs.mkdir(project:resolvePath("Assets/Folder" .. index)))
+            assert(Fs.writeAtomic(project:resolvePath("Assets/File" .. index .. ".txt"), "asset"))
+            app.level:addLObject(index * 10, -150, classId)
+        end
+        assert(project:rebuildAssetIndex())
+        assert(app:inspectAsset("Assets/PF_Player.prefab"))
+        for index = 1, 8 do assert(app.prefabEditor:add(classId, "root")) end
+        app.prefabInspectorTarget = assert(app.prefabEditor:target("root"))
+        app:updateInspectorTarget()
+        app.assetBrowser:refresh(); assert(app.assetBrowser:openFolder("Assets")); app.assetBrowser:setViewMode("list")
+        app:updateSceneViewport(); app:draw()
+        check("overflow list scrollbars", app.hierarchy.scrollbar.visible and app.assetBrowser.treeScrollbar.visible
+            and app.assetBrowser.fileScrollbar.visible and app.inspector.classInspector.objectTree.scrollbar.visible)
+        preview("overflow-scrollbars")
         result.projectDirectory = project.rootPath
         result.theme = require("editor.Theme").name
         local canvas = love.graphics.newCanvas(love.graphics.getDimensions())

@@ -133,6 +133,45 @@ if ($taskLuaProcess.ExitCode -ne 0 -or -not $taskLuaReport.ok -or $taskLuaReport
     -or $taskLuaReport.objects -ne 3 -or $taskLuaReport.properties[2].speed -ne 10 `
     -or -not $taskLuaReport.properties[2].started) { throw 'Standalone Lua template spawn failed' }
 invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'projectile'; value = $taskChildPrefab.assetId} | Out-Null
+# 레벨 오브젝트의 자손과 내부 참조를 캡처하여 별도 레벨·독립 게임에서도 복원한다.
+invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'projectile'; value = $false} | Out-Null
+$taskHierarchyPrefab = invokeLaboRequest @{command = 'prefab.create'; project = $taskProject; name = 'PF_Hierarchy'; instance = $taskId}
+$taskHierarchyLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Hierarchy'}
+$taskHierarchyRoot = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskHierarchyLevel.assetId; prefab = $taskHierarchyPrefab.assetId; x = 300; y = 400}
+$taskHierarchyData = invokeLaboRequest @{command = 'level.get'; project = $taskProject; level = $taskHierarchyLevel.assetId}
+if ($taskHierarchyData.data.lobjects.Count -ne 2 -or $taskHierarchyData.data.lobjects[1].parentAuthoringId -ne $taskHierarchyRoot.data.authoringId) { throw 'Cli hierarchy materialization failed' }
+$taskHierarchyGamePath = Join-Path $taskDirectory 'Hierarchy.love'
+invokeLaboRequest @{command = 'export'; project = $taskProject; level = $taskHierarchyLevel.assetId; output = $taskHierarchyGamePath} | Out-Null
+$taskHierarchyReportPath = Join-Path $taskDirectory 'hierarchy-report.json'
+$taskHierarchyProcess = Start-Process -FilePath (Join-Path $loveDirectory 'lovec.exe') `
+    -ArgumentList @(('"' + $taskHierarchyGamePath + '"'), '--verify-game', ('"' + $taskHierarchyReportPath + '"')) `
+    -WorkingDirectory $taskDirectory -WindowStyle Hidden -PassThru
+if (-not $taskHierarchyProcess.WaitForExit(60000)) { $taskHierarchyProcess.Kill(); throw 'Hierarchy verification timed out' }
+$taskHierarchyReport = Get-Content -LiteralPath $taskHierarchyReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($taskHierarchyProcess.ExitCode -ne 0 -or -not $taskHierarchyReport.ok -or $taskHierarchyReport.editorLoaded `
+    -or $taskHierarchyReport.objects -ne 2 -or $taskHierarchyReport.properties[0].speed -ne 42 `
+    -or $taskHierarchyReport.properties[1].speed -ne 25 -or -not $taskHierarchyReport.properties[1].started `
+    -or $taskHierarchyReport.properties[0].target.instance -ne $taskHierarchyData.data.lobjects[1].authoringId) { throw 'Standalone hierarchy and internal references failed' }
+invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'projectile'; value = $taskChildPrefab.assetId} | Out-Null
+# 저장된 레벨에 구체화 자손이 남아 있어도 최신 Prefab에 없는 가지는 게임에서 제거한다.
+$taskHierarchyPrefabPath = Join-Path $taskProject 'Assets\PF_Hierarchy.prefab'
+$taskHierarchyPrefabBytes = [IO.File]::ReadAllBytes($taskHierarchyPrefabPath)
+try {
+    $taskPrunedPrefab = Get-Content -LiteralPath $taskHierarchyPrefabPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $taskPrunedPrefab.children = @(); $taskPrunedPrefab.bindings = @()
+    [IO.File]::WriteAllText($taskHierarchyPrefabPath, ($taskPrunedPrefab | ConvertTo-Json -Depth 16), $taskUtf8)
+    $taskPrunedGamePath = Join-Path $taskDirectory 'PrunedHierarchy.love'
+    invokeLaboRequest @{command = 'export'; project = $taskProject; level = $taskHierarchyLevel.assetId; output = $taskPrunedGamePath} | Out-Null
+    $taskPrunedReportPath = Join-Path $taskDirectory 'pruned-hierarchy-report.json'
+    $taskPrunedProcess = Start-Process -FilePath (Join-Path $loveDirectory 'lovec.exe') `
+        -ArgumentList @(('"' + $taskPrunedGamePath + '"'), '--verify-game', ('"' + $taskPrunedReportPath + '"')) `
+        -WorkingDirectory $taskDirectory -WindowStyle Hidden -PassThru
+    if (-not $taskPrunedProcess.WaitForExit(60000)) { $taskPrunedProcess.Kill(); throw 'Pruned hierarchy verification timed out' }
+    $taskPrunedReport = Get-Content -LiteralPath $taskPrunedReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($taskPrunedProcess.ExitCode -ne 0 -or -not $taskPrunedReport.ok -or $taskPrunedReport.editorLoaded `
+        -or $taskPrunedReport.objects -ne 1 -or $taskPrunedReport.properties[0].speed -ne 42 `
+        -or -not $taskPrunedReport.properties[0].started) { throw 'Standalone game retained stale Prefab children' }
+} finally { [IO.File]::WriteAllBytes($taskHierarchyPrefabPath, $taskHierarchyPrefabBytes) }
 # 시작·update·이미지 디코딩 실패도 프로세스 크래시 대신 진단 결과를 반환한다.
 $taskImagePath = Join-Path $taskProject 'Assets\Sprite.png'
 $taskOriginalImage = [IO.File]::ReadAllBytes($taskImagePath)

@@ -1,5 +1,7 @@
 # 다중 선택과 오브젝트 계층
 
+Hierarchy의 `Create Prefab...`은 선택 루트와 자손 전체를 현재 값으로 캡처한다. Prefab Inspector에서는 오브젝트 계층의 `Add Child → Pick Source...`으로 클래스·Prefab·레벨 인스턴스를 골라 자식을 추가한다. [계층 Prefab 사용법](hierarchy-prefabs.md)을 참고한다. 긴 목록에는 스크롤바가 나타나며 Inspector의 두 계층은 각각 기본 3행 높이에서 하단을 드래그하여 조절한다.
+
 - 에셋 파일/폴더 목록과 썸네일의 빈 곳에서 왼쪽 드래그하면 겹치는 항목을 영역 선택한다. Ctrl+클릭은 추가/해제, Shift+클릭은 범위 선택, Ctrl+A는 전체 선택이다.
 - 선택한 에셋을 폴더로 드래그하거나 우클릭 Move로 함께 이동한다. Delete 또는 우클릭 Delete는 확인창을 연다. 다중 이동·삭제는 Ctrl+Z 한 번으로 복구하고 Ctrl+Shift+Z로 다시 실행한다. 이름 변경은 단일 선택에서 제공한다.
 - Hierarchy와 뷰포트는 선택 상태를 공유한다. 빈 곳 드래그로 영역 선택, Ctrl+클릭으로 추가/해제한다. Hierarchy의 Shift+클릭은 범위 선택이다. Inspector는 마지막 선택한 객체의 프로퍼티를 표시한다.

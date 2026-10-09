@@ -36,15 +36,15 @@ end
 return Actor
 ```
 
-Inspector 위쪽 계층 트리에서 `sprite (SpriteComponent)`를 선택한 다음 `image`의 드롭다운 또는 스포이드로 Assets의 이미지를 지정한다. 이미지를 외부에서 추가했다면 Asset Browser의 Refresh를 누른다. 선택한 SceneComponent의 `Transform` 그룹은 부모 계층에 대한 상대 위치를 `X/Y`로 표시하며 코드·저장에는 `x/y`를 쓴다. 트리와 프로퍼티 그룹은 기본 펼침이며 접기·선택 상태는 저장 데이터에 포함하지 않는다. 객체 노드를 선택하면 객체의 Actor Transform과 클래스 프로퍼티가 나타난다. `target` 옆 스포이드를 누르고 같은 레벨의 인스턴스를 Scene View 또는 Hierarchy에서 클릭한다. 찾기 버튼은 대상을 프레이밍하고 리셋은 기본 참조(None)로 복원한다. 숫자·문자열은 입력 후 Enter, boolean은 버튼으로 수정한다. 각 필드의 되돌리기 화살표 아이콘(↺)은 Prefab/클래스 기본값으로 복원한다.
+Inspector의 컴포넌트 계층에서 `sprite (SpriteComponent)`를 선택한 다음 `image`의 드롭다운 또는 스포이드로 Assets의 이미지를 지정한다. 이미지를 외부에서 추가했다면 Asset Browser의 Refresh를 누른다. 선택한 자손 SceneComponent의 `Transform` 그룹은 부모 컴포넌트 기준 상대 위치를 `X/Y`로 표시하며 코드·저장에는 `x/y`를 쓴다. 트리와 프로퍼티 그룹은 기본 펼침이며 접기·선택 상태는 저장 데이터에 포함하지 않는다. 컴포넌트 선택 중에도 오브젝트 프로퍼티는 위에 유지된다. `target` 옆 스포이드를 누르고 같은 레벨의 인스턴스를 Scene View 또는 Hierarchy에서 클릭한다. 찾기 버튼은 대상을 프레이밍하고 리셋은 기본 참조(None)로 복원한다. 숫자·문자열은 입력 후 Enter, boolean은 버튼으로 수정한다. 각 필드의 되돌리기 화살표 아이콘(↺)은 Prefab/클래스 기본값으로 복원한다.
 
 `projectile`에는 LObject Lua 클래스 또는 Prefab을 드롭다운·스포이드로 지정한다. 스포이드로 인스턴스를 선택하면 직접 원본을 사용한다. 이미지·생성 템플릿·Parent Class의 찾기는 폴더를 열고 잠시 강조하며 선택과 Inspector를 유지한다. 일반 에셋 클릭·드래그는 해당 에셋의 Inspector를 연다. 이미지 행은 두 줄이며 리셋은 드롭다운 오른쪽, 스포이드·찾기는 아래에 있다. 런타임 생성은 [spawnLObject 사용법](runtime-spawn.md)을 참고한다.
 
 Prefab 값 변경은 저장 전에도 배치된 인스턴스의 기본값과 Play에 적용된다. 인스턴스의 개별 override가 우선한다. Inspector 오른쪽 위 Save 또는 Ctrl+S는 현재 문서를 저장한다. File → Save All 또는 Ctrl+Shift+S는 변경된 Prefab·레벨 목록을 기본 체크된 체크박스로 보여주며 확인한 대상만 저장한다. 행 클릭·Space로 체크를 전환한다. 체크 해제·취소는 초안을 유지하고, 체크된 이름 없는 레벨은 확인 후 경로를 입력한다.
 
-Prefab에서 바꾼 값은 인스턴스의 기본값이 된다. 인스턴스의 변경값은 레벨에 따로 저장된다. 객체·컴포넌트 복제는 값 테이블을 공유하지 않으며, 다른 인스턴스 참조는 같은 대상을 유지한다. 순환 참조도 가능하다. 참조한 객체를 삭제하면 Missing으로 표시되며 참조를 수정하기 전까지 Play 시작이 실패한다. 참조는 같은 레벨 내에서만 사용한다. Prefab의 object 필드는 None으로 두고 배치한 인스턴스에서 대상을 지정한다.
+Prefab에서 바꾼 값은 인스턴스의 기본값이 된다. 인스턴스의 변경값은 레벨에 따로 저장된다. 객체·컴포넌트 복제는 값 테이블을 공유하지 않으며 명시적인 레벨 인스턴스 참조는 같은 대상을 유지한다. 순환 참조도 가능하다. 참조한 객체를 삭제하면 Missing으로 표시되며 참조를 수정하기 전까지 Play 시작이 실패한다. Prefab에서는 자기 오브젝트 계층 내부를 참조할 수 있으며 생성마다 새 자손에 연결한다. 외부 레벨 객체 참조는 배치한 인스턴스에서 지정한다.
 
-Inspector는 **계층 트리 → 선택 대상의 프로퍼티 그룹** 순이다. 트리에는 Prefab 또는 인스턴스, 루트, 자손·손자 컴포넌트를 들여써서 표시한다. 트리 선택은 뷰포트의 객체 선택을 유지한다. `Actor.lua`의 기본 오브젝트 프로퍼티는 `Actor` 그룹, SpriteComponent의 기본 프로퍼티는 `SpriteComponent` 그룹에 표시한다. 각 그룹은 같은 깊이이고 기본 펼침이다. 각 행은 왼쪽 절반에 이름, 오른쪽 절반에 값과 초기값 복원 아이콘을 둔다. 펼친 그룹은 하나의 배경 박스와 테두리로 범위를 표시한다. 복원 아이콘은 기본적으로 기호만 보인다. 텍스트 필드는 마우스 클릭·좌우/Home/End로 커서를 옮기고, 드래그·Shift 이동으로 선택한 문자만 입력·붙여넣기로 교체한다. 한글 조합도 커서 위치에 삽입된다.
+Prefab Inspector는 **오브젝트 계층 → Parent Class → 오브젝트 프로퍼티 → 컴포넌트 계층 → 컴포넌트 프로퍼티** 순이다. 인스턴스는 오브젝트 프로퍼티부터 표시한다. 두 계층은 각각 3행 높이로 시작하고 아래쪽을 드래그하여 조절한다. 트리 선택은 뷰포트의 객체 선택을 유지한다. `Actor.lua`의 기본 오브젝트 프로퍼티는 `Actor` 그룹, SpriteComponent의 기본 프로퍼티는 `SpriteComponent` 그룹에 표시한다. 각 그룹은 같은 깊이이고 기본 펼침이다. 각 행은 왼쪽 절반에 이름, 오른쪽 절반에 값과 초기값 복원 아이콘을 둔다. 펼친 그룹은 하나의 배경 박스와 테두리로 범위를 표시한다. 복원 아이콘은 기본적으로 기호만 보인다. 텍스트 필드는 마우스 클릭·좌우/Home/End로 커서를 옮기고, 드래그·Shift 이동으로 선택한 문자만 입력·붙여넣기로 교체한다. 한글 조합도 커서 위치에 삽입된다. 자손 생성은 [계층 Prefab 사용법](hierarchy-prefabs.md)을 참고한다.
 
 프로퍼티 선언에 `group = "Movement"`를 추가하면 별도 그룹에 표시한다. 객체·레벨·컴포넌트 모두 같은 문법을 쓰며 부모의 지정 그룹은 자식에서 생략하면 상속한다. 그룹 이름은 비어 있지 않은 문자열이어야 한다. SceneComponent의 x/y는 기본 `Transform` 그룹이다.
 
@@ -102,7 +102,7 @@ hand:attachTo(self.rootComponent)
 
 루트는 SceneComponent 계열이어야 한다. 루트 Transform이 곧 인스턴스 Transform이며 `self.transform`은 `self.rootComponent.transform`으로 위임한다. 루트 교체 시 기존 인스턴스 Transform을 유지한다. 기본 루트는 제거하고 기존 자식들을 새 루트로 옮긴다. 사용자 루트를 다른 이름의 루트로 바꾸면 기존 루트는 단위 로컬 Transform의 자식으로 남는다. 같은 이름으로 교체하면 기존 루트를 제거하고 자식들을 옮긴다. 자손은 위치·회전·스케일이 포함된 상대 Transform을 갖는다.
 
-Prefab Inspector에서는 **루트 Transform을 숨긴다**. 루트의 이미지·일반 프로퍼티와 자손 Transform은 계속 편집할 수 있다. 인스턴스의 객체 노드와 루트 노드에서는 같은 배치 Transform을 편집하며 레벨의 `transform`에 한 번만 저장한다. 기존 Prefab·인스턴스 `componentOverrides`의 루트 로컬 offset은 더하지 않는다. 이전에 루트 offset으로 이동시켰다면 인스턴스 배치 또는 자손 Transform으로 옮긴다. 기존 파일을 자동 수정하지 않는다.
+Prefab Inspector에서는 **루트 오브젝트 Transform을 숨긴다**. 루트의 이미지·일반 프로퍼티와 자손 Transform은 계속 편집할 수 있다. 인스턴스의 오브젝트 Transform은 배치값이며 레벨의 `transform`에 한 번만 저장한다. 루트 컴포넌트에 중복 Transform 그룹은 표시하지 않는다. 기존 Prefab·인스턴스 `componentOverrides`의 루트 로컬 offset은 더하지 않는다. 이전에 루트 offset으로 이동시켰다면 인스턴스 배치 또는 자손 Transform으로 옮긴다. 기존 파일을 자동 수정하지 않는다.
 
 ```lua
 self.rootComponent.transform.x = 100 -- self.transform.x와 같은 값

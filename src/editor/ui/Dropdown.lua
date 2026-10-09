@@ -1,12 +1,14 @@
 local Theme = require("editor.Theme")
 local Widget = require("editor.ui.Widget")
 local Ui = require("editor.Ui")
+local Scrollbar = require("editor.ui.Scrollbar")
 local Dropdown = setmetatable({}, { __index = Widget })
 Dropdown.__index = Dropdown
 
 function Dropdown.new(root, options, value, onChange)
     local self = setmetatable(Widget.new(), Dropdown)
     self.root, self.options, self.value, self.onChange = root, options, value, onChange
+    self.scrollbar = Scrollbar.new(function() return self.scroll or 0 end, function(value) self.scroll = math.floor(value + 0.5) end)
     self.menu = Widget.new({
         draw = function(widget)
             if self.beginMenuDraw then self.beginMenuDraw() end
@@ -17,13 +19,16 @@ function Dropdown.new(root, options, value, onChange)
                 local option = self.options[index]
                 if option then
                     local rect = {x = widget.x + 3, y = widget.y + (row - 1) * (self.rowHeight or 30) + 3,
-                        w = widget.width - 6, h = (self.rowHeight or 30) - 2}
+                        w = widget.width - 6 - (self.scrollbar.visible and Scrollbar.WIDTH or 0), h = (self.rowHeight or 30) - 2}
                     if self.drawOption then self.drawOption(option, rect, index == self.highlight)
                     else Ui.button(option.label, rect, index == self.highlight, "Select " .. option.label .. ". Enter: apply.") end
                 end
             end
+            self.scrollbar:draw()
         end,
         mousepressed = function(widget, x, y, button)
+            local handled, capture = self.scrollbar:dispatch("mousepressed", x, y, button)
+            if handled then return true, capture end
             if button ~= 1 then return true end
             local index = math.floor((y - widget.y - 3) / (self.rowHeight or 30)) + 1 + self.scroll
             local option = self.options[index]
@@ -31,6 +36,10 @@ function Dropdown.new(root, options, value, onChange)
             self.root:dismissPopup()
             return true
         end,
+        mousemoved = function(_, x, y) return self.scrollbar:dispatch("mousemoved", x, y) end,
+        mousereleased = function(_, x, y, button) return self.scrollbar:dispatch("mousereleased", x, y, button) end,
+        cancel = function() self.scrollbar:dispatch("cancel"); return true end,
+        dismiss = function() self.scrollbar:dispatch("dismiss"); return true end,
         keypressed = function(_, key)
             if #self.options == 0 then return true end
             if key == "down" then self.highlight = self.highlight % #self.options + 1
@@ -100,6 +109,8 @@ function Dropdown:dispatch(event, ...)
     if top + height > windowHeight then top = math.max(0, math.min(windowHeight - height, self.y - height - 2)) end
     local width = math.min(love.graphics.getWidth(), self.menuWidth or self.width)
     self.menu:setBounds(math.min(self.x, love.graphics.getWidth() - width), top, width, height)
+    self.scrollbar:layout({x = self.menu.x + width - Scrollbar.WIDTH - 3, y = top + 3,
+        w = Scrollbar.WIDTH, h = height - 6}, #self.options, self.visibleRows)
     self.root:setPopup(self.menu)
     return true
 end

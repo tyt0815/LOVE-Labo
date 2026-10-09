@@ -28,7 +28,9 @@ function Assets:preview(data)
         return cache.object
     end
     local Definition = require("editor.ObjectDefinition")
-    local definition, err = Definition.resolve(self.project, data.definitionReference)
+    local definition, err
+    if self.level then definition, err = require("project.PrefabHierarchy").authoringDefinition(self.project, self.level, data)
+    else definition, err = Definition.resolve(self.project, data.definitionReference) end
     local object = assert(require("core.LObject").new(1, data))
     local ok, configureError
     if definition then ok, configureError = Definition.configure(object, definition, data.propertyOverrides, data.componentOverrides) end

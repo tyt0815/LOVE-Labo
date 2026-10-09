@@ -463,7 +463,9 @@ function Project:createEntry(folder, kind, name, options)
         if not text then return rollback(encodeError) end
         ok, createError = writeNew(reference, text)
     else
-        local text, encodeError = require("editor.Prefab").encode(self:getAssetId(options.scriptReference) or options.scriptReference)
+        local text, encodeError
+        if options.prefabData then text, encodeError = require("editor.Prefab").encodeData(options.prefabData)
+        else text, encodeError = require("editor.Prefab").encode(self:getAssetId(options.scriptReference) or options.scriptReference) end
         if not text then return rollback(encodeError) end
         ok, createError = writeNew(reference, text)
     end

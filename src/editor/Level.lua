@@ -58,6 +58,17 @@ local function validateLObjectData(data, usedAuthoringIds)
     end
 
     usedAuthoringIds[data.authoringId] = true
+    if data.prefabRootId ~= nil or data.prefabNodePath ~= nil then
+        if not isPositiveInteger(data.prefabRootId) or type(data.prefabNodePath) ~= "string"
+            or data.prefabNodePath ~= "root" and data.prefabNodePath:sub(1, 5) ~= "root/"
+            or data.prefabNodePath:find("[^%w_/%-]") then return nil, "Invalid Prefab instance identity" end
+    end
+    if data.prefabRemovedPaths ~= nil then
+        if type(data.prefabRemovedPaths) ~= "table" then return nil, "Invalid removed Prefab paths" end
+        for _, path in ipairs(data.prefabRemovedPaths) do
+            if type(path) ~= "string" or path:sub(1, 5) ~= "root/" or path:find("[^%w_/%-]") then return nil, "Invalid removed Prefab path" end
+        end
+    end
     local transform, transformError = Transform.copy(data.transform)
     if not transform then return nil, transformError end
     local properties, propertyError = require("editor.PropertyData").validate(data.propertyOverrides)
@@ -71,6 +82,8 @@ local function validateLObjectData(data, usedAuthoringIds)
     return {
         authoringId = data.authoringId,
         name = data.name, parentAuthoringId = data.parentAuthoringId,
+        prefabRootId = data.prefabRootId, prefabNodePath = data.prefabNodePath,
+        prefabRemovedPaths = data.prefabRemovedPaths and require("editor.PropertyData").copy(data.prefabRemovedPaths),
         definitionReference = data.definitionReference,
         propertyOverrides = properties,
         componentOverrides = components,
@@ -127,6 +140,14 @@ function Level:setScriptReference(reference)
     return true
 end
 
+function Level:getChildren(parent)
+    local children = {}
+    for _, object in ipairs(self.lobjects) do
+        if object.parentAuthoringId == parent.authoringId then children[#children + 1] = object end
+    end
+    return children
+end
+
 function Level:duplicateLObject(target, x, y)
     if self:findLObject(target.authoringId) ~= target then return nil end
     local duplicate = self:duplicateLObjects({target})[1]
@@ -148,6 +169,8 @@ function Level:toData()
         lobjects[i] = {
             authoringId = lobject.authoringId,
             name = lobject.name, parentAuthoringId = lobject.parentAuthoringId,
+            prefabRootId = lobject.prefabRootId, prefabNodePath = lobject.prefabNodePath,
+            prefabRemovedPaths = lobject.prefabRemovedPaths and require("editor.PropertyData").copy(lobject.prefabRemovedPaths),
             definitionReference =
                 lobject.definitionReference,
             propertyOverrides = next(lobject.propertyOverrides or {}) and require("editor.PropertyData").copy(lobject.propertyOverrides) or nil,
@@ -272,6 +295,10 @@ function Level:reparent(objects, parent)
         if not x then return false, "Parent Transform cannot be inverted" end
         positions[object] = {x, y}
     end
+    if self.beforeReparent then
+        local ok, err = self.beforeReparent(roots, parent)
+        if not ok then return false, err end
+    end
     for _, object in ipairs(roots) do
         object.parentAuthoringId = parent and parent.authoringId or nil
         object.transform.x, object.transform.y = unpack(positions[object])
@@ -279,7 +306,15 @@ function Level:reparent(objects, parent)
     return true
 end
 function Level:validateHierarchy()
+    local paths = {}
     for _, object in ipairs(self.lobjects) do
+        if object.prefabRootId then
+            local root = self:findLObject(object.prefabRootId)
+            if not root then return false, "Missing Prefab root instance" end
+            local key = object.prefabRootId .. ":" .. object.prefabNodePath
+            if paths[key] then return false, "Duplicate Prefab node instance" end
+            paths[key] = true
+        end
         if object.name ~= nil and (type(object.name) ~= "string" or object.name == "") then return false, "Invalid object name" end
         local visited, current = {}, object
         while current do
@@ -305,30 +340,61 @@ function Level:treeRows(collapsed)
     end
     visit(nil, 0); return rows
 end
-function Level:removeLObjects(objects)
+function Level:removeLObjects(objects, syncingPrefab)
     local removed = {}
     for _, object in ipairs(self.lobjects) do
         for _, selected in ipairs(objects) do
             if object == selected or self:isDescendant(object, selected) then removed[object] = true; break end
         end
     end
+    if not syncingPrefab then
+        for object in pairs(removed) do
+            local root = object.prefabRootId and self:findLObject(object.prefabRootId)
+            if root and not removed[root] then
+                root.prefabRemovedPaths = root.prefabRemovedPaths or {}
+                local found = false; for _, path in ipairs(root.prefabRemovedPaths) do if path == object.prefabNodePath then found = true end end
+                if not found then root.prefabRemovedPaths[#root.prefabRemovedPaths + 1] = object.prefabNodePath end
+            end
+        end
+    end
     for i = #self.lobjects, 1, -1 do if removed[self.lobjects[i]] then table.remove(self.lobjects, i) end end
     return next(removed) ~= nil
 end
 function Level:duplicateLObjects(objects)
-    local roots, result, originals = self:selectionRoots(objects), {}, {}
+    local roots, result, originals, remapped = self:selectionRoots(objects), {}, {}, {}
     for _, object in ipairs(self.lobjects) do originals[#originals + 1] = object end
+    local included, baked = {}, {}
+    for _, object in ipairs(originals) do
+        for _, root in ipairs(roots) do if object == root or self:isDescendant(object, root) then included[object.authoringId] = true; break end end
+    end
+    -- 원래 Prefab 루트가 없는 복제는 현재 상속값을 독립적인 정의로 보존한다.
+    if self.duplicateData then
+        for _, object in ipairs(originals) do
+            if included[object.authoringId] and object.prefabRootId and not included[object.prefabRootId] then
+                baked[object.authoringId] = assert(self.duplicateData(object))
+            end
+        end
+    end
     local function clone(object, parentId)
-        local duplicate = assert(self:addLObject(object.transform.x, object.transform.y, object.definitionReference, object.name and object.name:gsub(" %d+$", "") or "LObject"))
+        local data = baked[object.authoringId] or object
+        local duplicate = assert(self:addLObject(object.transform.x, object.transform.y, data.definitionReference, object.name and object.name:gsub(" %d+$", "") or "LObject"))
         duplicate.transform = assert(Transform.copy(object.transform))
         duplicate.parentAuthoringId = parentId
-        duplicate.propertyOverrides = require("editor.PropertyData").copy(object.propertyOverrides)
-        duplicate.componentOverrides = require("editor.PropertyData").copyComponents(object.componentOverrides)
+        duplicate.propertyOverrides = require("editor.PropertyData").copy(data.propertyOverrides)
+        duplicate.componentOverrides = require("editor.PropertyData").copyComponents(data.componentOverrides)
+        duplicate.prefabRemovedPaths = data.prefabRemovedPaths and require("editor.PropertyData").copy(data.prefabRemovedPaths)
         result[#result + 1] = duplicate
+        remapped[object.authoringId] = duplicate
         for _, child in ipairs(originals) do if child.parentAuthoringId == object.authoringId then clone(child, duplicate.authoringId) end end
         return duplicate
     end
     for _, root in ipairs(roots) do clone(root, root.parentAuthoringId) end
+    for oldId, duplicate in pairs(remapped) do
+        local source = self:findLObject(oldId)
+        if source.prefabRootId and remapped[source.prefabRootId] then
+            duplicate.prefabRootId, duplicate.prefabNodePath = remapped[source.prefabRootId].authoringId, source.prefabNodePath
+        end
+    end
     return result
 end
 

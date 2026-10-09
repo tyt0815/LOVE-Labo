@@ -3,6 +3,7 @@ local Widget = require("editor.ui.Widget")
 local Ui = require("editor.Ui")
 local Ime = require("editor.ui.Ime")
 local Edit = require("editor.ui.TextEdit")
+local Scrollbar = require("editor.ui.Scrollbar")
 local Dialog = setmetatable({}, { __index = Widget })
 Dialog.__index = Dialog
 
@@ -22,6 +23,9 @@ function Dialog.new(root, options)
     if options.onBack then self.back = {x = box.x + 16, y = self.cancel.y, w = Ui.buttonWidth("Back"), h = 30} end
     self.choicesRect = { x = box.x + 16, y = box.y + 140, w = box.w - 32, h = 150 }
     self.selected, self.choiceScroll = not options.listOnly and options.choices and #options.choices > 0 and 1 or nil, 0
+    self.scrollbar = Scrollbar.new(function() return self.choiceScroll end, function(value) self.choiceScroll = math.floor(value + 0.5) end)
+    self.scrollbar:layout({x = self.choicesRect.x + self.choicesRect.w - Scrollbar.WIDTH, y = self.choicesRect.y,
+        w = Scrollbar.WIDTH, h = self.choicesRect.h}, #(options.choices or {}), 5)
     if options.checkboxes then
         for _, choice in ipairs(options.choices) do if choice.checked == nil then choice.checked = true end end
     end
@@ -60,7 +64,11 @@ function Dialog:hitTest()
 end
 
 function Dialog:dispatch(event, ...)
-    if event == "dismiss" then Ime.cancel(self)
+    local handled, capture = self.scrollbar:dispatch(event, ...)
+    if handled then return true, capture end
+    if event == "dismiss" or event == "cancel" then
+        Ime.cancel(self)
+        if self.options.content then self.options.content:dispatch("cancel") end
     elseif event == "textedited" and self.options.input and not self.choiceFocused then
         self.contentFocused = false
         Ime.edited(self, (...))
@@ -108,7 +116,8 @@ function Dialog:dispatch(event, ...)
                 Edit.press(self, self.text, self.field, x, false)
             elseif self.options.content and self.options.content:containsPoint(x, y) then
                 self.contentFocused = true
-                self.options.content:dispatch(event, x, y, button)
+                local _, capture = self.options.content:dispatch(event, x, y, button)
+                return true, capture
             elseif self.options.choices and Ui.contains(x, y, self.choicesRect) then
                 local index = math.floor((y - self.choicesRect.y) / 30) + 1 + self.choiceScroll
                 if self.options.choices[index] and self.options.checkboxes then
@@ -118,8 +127,12 @@ function Dialog:dispatch(event, ...)
                 if self.options.choices[index] and not self.options.listOnly then self.selected, self.choiceFocused = index, true end
             end
         end
-    elseif event == "mousemoved" then Edit.move(self, (...))
-    elseif event == "mousereleased" then Edit.release(self)
+    elseif event == "mousemoved" then
+        if self.options.content then self.options.content:dispatch(event, ...) end
+        Edit.move(self, (...))
+    elseif event == "mousereleased" then
+        if self.options.content then self.options.content:dispatch(event, ...) end
+        Edit.release(self)
     elseif event == "wheelmoved" and self.options.content then
         local x, y = ...
         if self.options.content:containsPoint(x, y) then self.options.content:dispatch(event, ...) end
@@ -159,12 +172,13 @@ function Dialog:draw()
                 end
                 if self.options.checkboxes then Ui.checkbox({x = rect.x + 8, y = y + 8, w = 14, h = 14}, choice.checked) end
                 local padding = self.options.checkboxes and 30 or 8
-                Ui.text(choice.label, rect.x + padding, y + 7, rect.w - padding - 8)
+                Ui.text(choice.label, rect.x + padding, y + 7, rect.w - padding - 8 - Scrollbar.WIDTH)
                 Ui.hint({x = rect.x, y = y, w = rect.w, h = 30}, self.options.listOnly and choice.label
                     or "Select " .. choice.label .. ". Enter: confirm.")
             end
         end
         if #self.options.choices == 0 then Ui.text(self.options.emptyLabel or "No matching classes. Create one in Sources.", rect.x + 8, rect.y + 8, rect.w - 16) end
+        self.scrollbar:draw()
         local hint = self.options.checkboxes and "Click / Space: toggle    Up/Down or wheel: navigate"
             or self.options.listOnly and "Up/Down or wheel: scroll" or "Tab: name/class    Up/Down or wheel: select class"
         Ui.text(hint, box.x + 16, box.y + 294, box.w - 32, Theme.color("textMuted"))

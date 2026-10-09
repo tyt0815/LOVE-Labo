@@ -41,4 +41,4 @@ local object, err = require("Engine").spawnLObject(world, prefabId, transform, o
 
 beginPlay는 즉시 실행한다. update 도중 생성된 객체는 다음 프레임부터 update하므로 생성된 객체가 같은 프레임 안에서 무한히 증식하는 반복을 피한다. 시작 beginPlay에서 생성한 객체는 첫 update부터 참여한다. 객체·컴포넌트 생성은 게임 동작이므로 Inspector에서도 실행되는 `build` 대신 `beginPlay`·`update`에 작성한다.
 
-Editor Play와 Export한 게임은 동일한 런타임 생성 로직을 사용한다. Core World 자체는 프로젝트 파일을 읽지 않으며 WorldLoader가 Prefab 생성기를 연결한다.
+Editor Play와 Export한 게임은 동일한 런타임 생성 로직을 사용한다. Core World 자체는 프로젝트 파일을 읽지 않으며 WorldLoader가 Prefab 생성기를 연결한다. 계층 Prefab은 루트와 모든 자손을 새로 구성하며 내부 객체 참조를 해당 생성의 자손에 연결한다. 반환값은 루트 LObject다. 전체 계층의 프로퍼티·컴포넌트·참조 구성을 마친 뒤 beginPlay를 실행한다. [계층 Prefab 사용법](hierarchy-prefabs.md)을 참고한다.

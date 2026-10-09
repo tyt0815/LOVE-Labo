@@ -1,3 +1,4 @@
+local Scrollbar = require("editor.ui.Scrollbar")
 local FolderTree = require("editor.ui.FolderTree")
 local Widget = require("editor.ui.Widget")
 local Tree = setmetatable({}, {__index = FolderTree})
@@ -74,6 +75,8 @@ function Tree.new(project, kind)
     end
     for _, node in ipairs(self.roots) do sort(node) end
     self.selected = self.roots[1].reference
+    self.scrollbar = Scrollbar.new(function() return self.scroll end,
+        function(value) self.scroll = math.floor(value + 0.5) end)
     self:rebuild()
     return self
 end

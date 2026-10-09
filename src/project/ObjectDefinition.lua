@@ -15,7 +15,7 @@ end
 function Definition.resolve(project, reference, loadClass, excludedId)
     loadClass = loadClass or LuaClass.loader(project)
     local properties, components = {}, {}
-    local class
+    local class, classReference
     local visiting, chain = {}, {}
     local function resolve(current, depth)
         if not current then return true end
@@ -45,6 +45,7 @@ function Definition.resolve(project, reference, loadClass, excludedId)
             local err
             class, err = loadClass(reference, "lobject")
             if not class then return nil, err end
+            classReference = project:getAssetId(path) or path
         end
         return true
     end
@@ -55,7 +56,7 @@ function Definition.resolve(project, reference, loadClass, excludedId)
         local valid, errorText = LuaClass.values(class, prefab.overrides.properties)
         if not valid then return nil, errorText end
     end
-    return {class = class, properties = properties, components = components, layers = chain, componentLoader = loadClass}
+    return {class = class, classReference = classReference, properties = properties, components = components, layers = chain, componentLoader = loadClass}
 end
 
 function Definition.configure(object, definition, propertyOverrides, componentOverrides)
@@ -109,8 +110,14 @@ function Definition.resolveReferences(values, schema, objects, project)
     for name, declaration in pairs(schema or {}) do
         local value = values[name]
         if declaration.type == "object" and value ~= false then
+            local resolved = false
+            if type(value) == "table" then
+                for _, object in pairs(objects) do if object == value then resolved = true; break end end
+            end
+            if not resolved then
             if not objects[value] then return false, "Missing LObject reference: " .. tostring(value) end
             values[name] = objects[value]
+            end
         elseif (declaration.type == "image" or Schema.isTemplate(declaration.type)) and value ~= false then
             local path, err
             if Schema.isTemplate(declaration.type) then path, err = require("project.LObjectTemplate").source(project, value)

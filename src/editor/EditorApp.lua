@@ -96,6 +96,12 @@ function EditorApp:setDocument(document)
     self.instanceInspectorObject, self.instanceInspectorTarget = nil, nil
     if self.spriteAssets then self.spriteAssets:clear() end
     self.level = document.level
+    if self.project then self.level.beforeReparent = function(roots, parent)
+        return require("project.PrefabHierarchy").prepareReparent(self.project, self.level, roots, parent)
+    end end
+    if self.project then self.level.duplicateData = function(object)
+        return require("project.PrefabHierarchy").duplicateData(self.project, self.level, object)
+    end end
     if not self.histories[document] then
         self.histories[document] = require("editor.History").new(assert(require("editor.LevelFile").encode(self.level)))
     end
@@ -201,32 +207,15 @@ function EditorApp:prepareInspectedAsset(reference)
     self.inspectedAssetReference = id
     self.inspectorSource = "assets"
     self.histories[document] = self.histories[document] or require("editor.History").new(assert(require("editor.Prefab").encodeData(document.data)))
-    self.prefabInspectorTarget = {data = document.data, kind = "lobject", parentOwnerId = document.assetId,
-        referenceField = "definitionReference", label = "Prefab",
-        getDisplayName = function()
-            local path = self.project:getAssetReference(document.assetId)
-            return path and path:match("([^/]+)%.prefab$") or "Missing Prefab"
-        end,
-        isDirty = function() return document:isDirty() end,
-        getOverrides = function(target)
-            local values = require("editor.PropertyData").copy(target.data.overrides.properties)
-            for name, fields in pairs(target.data.overrides.components or {}) do
-                for field, value in pairs(fields) do values[name .. "." .. field] = value end
-            end
-            return values
-        end,
-        setOverrides = function(target, values)
-            local properties, components = {}, {}
-            for key, value in pairs(values) do
-                local name, field = key:match("^([^.]+)%.(.+)$")
-                if name then components[name] = components[name] or {}; components[name][field] = value
-                else properties[key] = value end
-            end
-            target.data.overrides.properties = next(properties) and properties or nil
-            target.data.overrides.components = next(components) and components or nil
-            self.project.draftRevision = (self.project.draftRevision or 0) + 1
-            self.instanceInspectorObject = nil
-        end}
+    self.prefabEditor = require("editor.PrefabEditor").new(self.project, document, function()
+        self.project.draftRevision = (self.project.draftRevision or 0) + 1
+        self.instanceInspectorObject = nil
+    end, function(path)
+        self.prefabInspectorTarget = assert(self.prefabEditor:target(path))
+        self:updateInspectorTarget()
+    end)
+    self.prefabInspectorTarget = assert(self.prefabEditor:target("root"))
+    self.prefabEditor.onContext = function(path, x, y) self:showPrefabObjectMenu(path, x, y) end
     return true
 end
 
@@ -254,6 +243,8 @@ function EditorApp:placePrefab(reference, x, y, hierarchyDrop)
         object.parentAuthoringId = parent.authoringId
         self.hierarchy.collapsed[parent.authoringId] = nil
     end
+    local expanded, expandError = require("project.PrefabHierarchy").expandAuthoring(self.project, self.level, object)
+    if not expanded then self.level:removeLObject(object); return false, expandError end
     self.sceneView:setSelection({object}); self.activePanel = hierarchyDrop and "hierarchy" or "scene"; self.inspectorSource = "scene"
     self.assetBrowser.selectedReference = nil
     self:updateInspectorTarget()
@@ -287,6 +278,18 @@ end
 
 function EditorApp:updateInspectorTarget()
     if not self.inspector.classInspector then return self.sceneView.selectedLObject end
+    local revision = self.project.draftRevision or 0
+    if self.prefabSyncLevel ~= self.level or self.prefabSyncRevision ~= revision then
+        local roots = {}
+        for _, object in ipairs(self.level.lobjects) do
+            if not object.prefabRootId or object.prefabRootId == object.authoringId then roots[#roots + 1] = object end
+        end
+        for _, object in ipairs(roots) do
+            local ok, err = require("project.PrefabHierarchy").expandAuthoring(self.project, self.level, object)
+            if not ok then self.runtimeError = err end
+        end
+        self.prefabSyncLevel, self.prefabSyncRevision = self.level, revision
+    end
     local selected = self.inspectedAssetReference and self.project:getAssetReference(self.inspectedAssetReference)
     self.inspectorSource = self.inspectorSource or "scene"
     local assetSelected = self.inspectorSource == "assets" and selected
@@ -319,7 +322,7 @@ function EditorApp:updateInspectorTarget()
             self.inspector:commitEdit()
             self.instanceInspectorObject = object
             local Definition = require("editor.ObjectDefinition")
-            local definition, err = Definition.resolve(self.project, object.definitionReference)
+            local definition, err = require("project.PrefabHierarchy").authoringDefinition(self.project, self.level, object)
             local targetError
             self.instanceInspectorTarget = nil
             if definition then self.instanceInspectorTarget, targetError = Definition.inspectorTarget(self.project, object, definition, self.level, "LObject " .. object.authoringId) end
@@ -636,7 +639,7 @@ function EditorApp:initializeUI()
         mousemoved = function(_, x, y) return self.hierarchy:mousemoved(x, y) end,
         mousereleased = function(_, x, y, button) return self.hierarchy:mousereleased(x, y, button) end,
         wheelmoved = function(_, _, _, amount) self.hierarchy:wheelmoved(amount); return true end,
-        cancel = function() self.hierarchy.drag = nil end,
+        cancel = function() self.hierarchy.drag = nil; self.hierarchy.scrollbar:dispatch("cancel") end,
         keypressed = function(_, key) return self:handleSceneKey(key) end
     })
     self.hierarchy.sceneView = self.sceneView
@@ -694,8 +697,17 @@ function EditorApp:initializeUI()
             self:updateInspectorTarget()
         end
         self.inspector.classInspector.onPick = function(name) return self:beginObjectPick(name) end
+        self.inspector.classInspector.onTargetReloaded = function(target)
+            self.prefabInspectorTarget = target; self:updateInspectorTarget()
+        end
         self.inspector.classInspector.isPicking = function(name) return self.objectPick and self.objectPick.name == name end
         self.inspector.classInspector.onFrame = function(value)
+            local inspector = self.inspector.classInspector
+            if inspector.target and inspector.target.prefabScope then
+                local object = inspector.target.level.lobjects[value]
+                if not object then return false, "Referenced Prefab object is missing" end
+                return inspector.objectTree:reveal(object.path)
+            end
             for _, object in ipairs(self.level.lobjects) do
                 if object.authoringId == value then self.sceneView:frameLObject(object); self.sceneView.ping = {object = object, remaining = 1.5}; return true end
             end
@@ -730,16 +742,18 @@ function EditorApp:initializeUI()
         end
         self.assetBrowser.onRefresh = function()
             self.inspector:commitEdit()
+            self.prefabSyncRevision = nil
             for id, document in pairs(self.prefabDocuments) do
                 if not document:isDirty() then
                     local fresh = require("editor.PrefabDocument").load(self.project, id)
                     if fresh and fresh.savedSnapshot ~= document.savedSnapshot then
                         document.data, document.savedSnapshot = fresh.data, fresh.savedSnapshot
                         self.histories[document] = require("editor.History").new(fresh.savedSnapshot)
-                        if document == self.prefabDocument then self.prefabInspectorTarget.data = document.data end
+                        if document == self.prefabDocument then self.prefabInspectorTarget = assert(self.prefabEditor:target()) end
                     end
                 end
             end
+            self:updateInspectorTarget()
             self.inspector.classInspector:reload()
             self.instanceInspectorObject = nil
             self.spriteAssets:clear()
@@ -827,6 +841,8 @@ function EditorApp:updateSceneViewport()
 end
 
 function EditorApp:update(dt)
+    local objectTree = self.inspector.classInspector and self.inspector.classInspector.objectTree
+    if objectTree and objectTree.ping then objectTree.ping.remaining = objectTree.ping.remaining - dt; if objectTree.ping.remaining <= 0 then objectTree.ping = nil end end
     if self.sceneView.ping then self.sceneView.ping.remaining = self.sceneView.ping.remaining - dt; if self.sceneView.ping.remaining <= 0 then self.sceneView.ping = nil end end
     self.uiRoot:update(dt)
     if self.runtimeWorld then
@@ -886,20 +902,23 @@ end
 
 function EditorApp:cancelObjectPick()
     if not self.objectPick then return end
+    if self.objectPick.scrollbar then self.objectPick.scrollbar:dispatch("cancel") end
     love.mouse.setCursor(self.objectPick.cursor)
     self.objectPick = nil
 end
 
-function EditorApp:beginObjectPick(name)
+function EditorApp:beginObjectPick(name, parentPath)
     local inspector = self.inspector.classInspector
     if self:isPlaying() or not inspector or not inspector.target then return false, "Stop Play before picking a reference" end
     local declaration = name ~= "$parent" and inspector.class.properties[name]
-    local kind = declaration and declaration.type or name == "$parent" and "parent"
-    if kind ~= "parent" and kind ~= "object" and kind ~= "image" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
-    if kind == "object" and inspector.target.level ~= self.level then return false, "Pick an instance reference on a level or placed instance" end
+    local kind = name == "$child" and "child" or declaration and declaration.type or name == "$parent" and "parent"
+    if kind == "child" and (not self.prefabEditor or inspector.target ~= self.prefabInspectorTarget) then return false, "Open a Prefab before adding children" end
+    if kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "image" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
+    if kind == "object" and inspector.target.level ~= self.level and not inspector.target.prefabScope then return false, "Pick an instance reference on a level or placed instance" end
     if self.objectPick then self:cancelObjectPick(); return true end
     self.inspector:commitEdit(); self.uiRoot:cancelCapture(); self.uiRoot:dismissPopup()
     self.objectPick = {target = inspector.target, component = inspector.selectedComponent, name = name, kind = kind, cursor = love.mouse.getCursor()}
+    if kind == "child" then self.objectPick.parentPath = parentPath or self.prefabEditor.selected end
     self.pickCursor = self.pickCursor or love.mouse.getSystemCursor("crosshair")
     love.mouse.setCursor(self.pickCursor)
     return true
@@ -916,7 +935,17 @@ end
 function EditorApp:inspectAsset(reference) return self:selectAsset(reference) end
 function EditorApp:pickReferenceAt(x, y)
     local reference, object
-    if self.assetBrowser:containsPoint(x, y) then
+    self.assetBrowser:clampScroll(); self.hierarchy:layoutScrollbar()
+    local bars = {self.assetBrowser.treeScrollbar, self.assetBrowser.fileScrollbar, self.hierarchy.scrollbar}
+    local tree = self.inspector.classInspector.objectTree
+    if tree then bars[#bars + 1] = tree.scrollbar end
+    for _, bar in ipairs(bars) do
+        if bar:dispatch("mousepressed", x, y, 1) then self.objectPick.scrollbar = bar; return end
+    end
+    if tree and self.objectPick.kind == "object" and self.inspector.classInspector.target.prefabScope and tree:containsPoint(x, y) then
+        local node = tree:nodeAt(x, y)
+        object = node and self.inspector.classInspector.target.scopeByPath[node.key]
+    elseif self.assetBrowser:containsPoint(x, y) then
         local entry = self.assetBrowser:getEntryAtPosition(x, y)
         if entry and entry.type == "directory" and not entry.isLink then self.assetBrowser:openFolder(entry.reference); return end
         if entry and entry.type == "file" and not entry.isLink then reference = entry.reference end
@@ -938,6 +967,23 @@ function EditorApp:pickReferenceAt(x, y)
     if not reference and not object then return end
     local pick, inspector = self.objectPick, self.inspector.classInspector
     if inspector.target ~= pick.target or inspector.selectedComponent ~= pick.component then self:cancelObjectPick(); return end
+    if pick.kind == "child" then
+        local previous = assert(require("editor.Prefab").encodeData(self.prefabDocument.data))
+        self:recordHistory()
+        local called, ok, err, path = pcall(function()
+            if object then return self.prefabEditor:addInstance(self.level, object, pick.parentPath) end
+            return self.prefabEditor:add(reference, pick.parentPath)
+        end)
+        if not called or not ok then
+            self.prefabDocument.data = assert(require("editor.Prefab").decode(previous))
+            inspector.error = tostring(called and err or ok)
+            return
+        end
+        self:cancelObjectPick()
+        self.prefabInspectorTarget = assert(self.prefabEditor:target(path))
+        self:updateInspectorTarget(); self:recordHistory()
+        return
+    end
     local value, err = inspector:pickCandidate(pick.name, reference, object)
     if value == nil then inspector.error = err; return end
     local ok = inspector:applyPicked(pick.name, value)
@@ -948,7 +994,8 @@ function EditorApp:mousepressed(x, y, button, presses)
     if self.objectPick then
         if button == 2 then self:cancelObjectPick(); return true end
         if button == 1 then
-            if self.inspectorWidget:containsPoint(x, y) then self:cancelObjectPick()
+            if self.inspectorWidget:containsPoint(x, y) and not (self.objectPick.kind == "object"
+                and self.inspector.classInspector.target.prefabScope and self.inspector.classInspector.objectTree:containsPoint(x, y)) then self:cancelObjectPick()
             else self:pickReferenceAt(x, y); return true end
         else return true end
     end
@@ -957,13 +1004,24 @@ function EditorApp:mousepressed(x, y, button, presses)
 end
 
 function EditorApp:mousereleased(x, y, button)
+    if self.objectPick and self.objectPick.scrollbar then
+        self.objectPick.scrollbar:dispatch("mousereleased", x, y, button); self.objectPick.scrollbar = nil
+        return true
+    end
     self.uiRoot:mousereleased(x, y, button)
 end
 
 function EditorApp:mousemoved(x, y, dx, dy)
     self:updateSceneViewport()
-    if self.objectPick then love.mouse.setCursor(self.pickCursor); return end
+    if self.objectPick then
+        if self.objectPick.scrollbar then self.objectPick.scrollbar:dispatch("mousemoved", x, y) end
+        love.mouse.setCursor(self.pickCursor); return
+    end
     self.uiLayout:updateCursor(x, y)
+    if self.inspector.classInspector and self.inspector.classInspector:resizeAt(x, y) then
+        self.treeResizeCursor = self.treeResizeCursor or love.mouse.getSystemCursor("sizens")
+        love.mouse.setCursor(self.treeResizeCursor)
+    end
     self.uiRoot:mousemoved(x, y, dx, dy)
 end
 
@@ -1043,12 +1101,40 @@ function EditorApp:showObjectMenu(x, y, object)
     end
     require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, {
         {label = "Duplicate", shortcut = "Ctrl+D", enabled = enabled, action = function() edit(function() self.sceneView:duplicateSelection() end) end},
+        {label = "Create Prefab...", enabled = object ~= nil, action = function() self:showCreatePrefabDialog(object) end},
         {label = "Delete", shortcut = "Delete", enabled = enabled, action = function() edit(function() self.sceneView:deleteSelection() end) end},
         {label = "Frame Selection", shortcut = "F", enabled = enabled, action = function() self.sceneView:frameSelected() end},
         {label = "Detach from Parent", enabled = enabled, action = function() edit(function()
             local ok, err = self.level:reparent(self.sceneView:getSelection(), nil); self.hierarchy.error = not ok and err or nil
         end) end},
         {label = "Select All", shortcut = "Ctrl+A", action = function() self.sceneView:setSelection(self.level.lobjects) end}
+    })
+end
+
+function EditorApp:showCreatePrefabDialog(object)
+    if self:isPlaying() then return false, "Stop Play before creating a Prefab" end
+    self.inspector:commitEdit(); self:recordHistory()
+    local captured, err = require("project.PrefabHierarchy").capture(self.project, self.level, object)
+    if not captured then self.hierarchy.error = err; return false, err end
+    local folder = self.assetBrowser.folder
+    if not folder:match("^Assets") then folder = "Assets" end
+    local tree = require("editor.ui.FolderTree").new(self.project, "Assets", nil, folder)
+    require("editor.ui.Dialog").new(self.uiRoot, {title = "Create Prefab", input = true,
+        message = "Save this object and its descendants. The level instances stay unchanged.",
+        value = "PF_" .. (object.name or "Object"):gsub("[^%w_]", "_"), content = tree,
+        onConfirm = function(name)
+            local ok, reference = self.assetBrowser.assetOperations:create(tree.selected or folder, "prefab", name, {prefabData = captured})
+            if ok then self.assetBrowser:reveal(reference) end
+            return ok, reference
+        end})
+    return true
+end
+
+function EditorApp:showPrefabObjectMenu(path, x, y)
+    require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, {
+        {label = "Add Child", children = {
+            {label = "Pick Source...", action = function() self:beginObjectPick("$child", path) end}
+        }}
     })
 end
 function EditorApp:recordHistory()
@@ -1124,8 +1210,9 @@ function EditorApp:undoRedo(direction)
     if not state then return false end
     if prefab then
         document.data = assert(require("editor.Prefab").decode(state.text))
-        self.prefabInspectorTarget.data = document.data
-        self.inspector.classInspector:reload()
+        self.project.draftRevision = (self.project.draftRevision or 0) + 1
+        self.prefabInspectorTarget = assert(self.prefabEditor:target())
+        self:updateInspectorTarget()
     else
         document.level = assert(require("editor.LevelFile").decode(state.text))
         document.level.nextAuthoringId = math.max(document.level.nextAuthoringId, history.highWater or 1)

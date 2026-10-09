@@ -146,6 +146,10 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if not self:containsPoint(x, y, windowWidth) then
         return false
     end
+    if self.classInspector and self.classInspector.preview and self.classInspector.target then
+        if self.activeField then self:commitEdit() end
+        return self.classInspector:mousepressed(x, y, button)
+    end
 
     if self.classInspector and self.classInspector.target and not selectedLObject then
         return self.classInspector:mousepressed(x, y, button)
@@ -207,6 +211,9 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
 end
 
 function Inspector:fieldRect(field, windowWidth)
+    if self.classInspector and self.classInspector.preview then
+        return self.classInspector:ensurePropertyVisible(self.classInspector.preview.rootComponent.name .. "." .. field)
+    end
     local _, rect = PropertyLayout.cells(windowWidth - self.width, self.width, self:getTransformTop() + 32 + (TRANSFORM_FIELDS[field] - 1) * PropertyLayout.ROW_HEIGHT)
     return rect
 end
@@ -215,10 +222,11 @@ function Inspector:getPropertyTop()
     return self:getTransformTop() + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.ROW_HEIGHT or PropertyLayout.HEADER_HEIGHT) + 8
 end
 function Inspector:getTransformTop()
+    if self.classInspector and self.classInspector.preview then return self.classInspector.propertyTop or TRANSFORM_TOP + (self.y or 0) end
     return self.classInspector and self.classInspector:treeBottom() and self.classInspector:treeBottom() + 8 or TRANSFORM_TOP + (self.y or 0)
 end
 function Inspector:mousemoved(x, y, dx)
-    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:mousemoved(x, y, dx) end
+    if self.classInspector and (self.classInspector:isEditing() or self.classInspector:isPointerActive()) then return self.classInspector:mousemoved(x, y, dx) end
     local handled, text = NumberDrag.move(self, x, dx)
     if handled then
         if text then self.editText, self.replaceOnTextInput = text, false; Edit.begin(self, text, false) end
@@ -357,7 +365,7 @@ function Inspector:draw(selectedLObject)
     Ui.label(name, left + Ui.METRICS.contentPaddingX, 44 + Ui.METRICS.contentPaddingY + (self.y or 0), self.width - 2 * Ui.METRICS.contentPaddingX)
     Ui.text(self:instanceKind(selectedLObject), left + Ui.METRICS.contentPaddingX, 60 + Ui.METRICS.contentPaddingY + (self.y or 0), self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
 
-    if selectedLObject.transform and not (self.classInspector and self.classInspector.selectedComponent) then
+    if selectedLObject.transform and not (self.classInspector and self.classInspector.preview) then
         PropertyLayout.group(left, self.width, self:getTransformTop(), self:getPropertyTop() - self:getTransformTop() - 8, "Transform", self.transformExpanded)
         if self.transformExpanded then
             for _, field in ipairs(TRANSFORM_ORDER) do

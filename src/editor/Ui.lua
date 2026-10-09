@@ -130,6 +130,15 @@ function Ui.checkbox(rect, checked)
     end
     love.graphics.pop()
 end
+function Ui.resizeGrip(rect)
+    love.graphics.push("all")
+    local x, y = love.mouse.getPosition()
+    Theme.setColor(Ui.contains(x, y, rect) and "focus" or "border")
+    love.graphics.setLineWidth(1)
+    love.graphics.line(rect.x, rect.y + rect.h / 2, rect.x + rect.w, rect.y + rect.h / 2)
+    Ui.hint(rect, "Drag to resize this tree.")
+    love.graphics.pop()
+end
 
 function Ui.resetButton(rect)
     Ui.button("", rect, false, "Reset to default.", true)

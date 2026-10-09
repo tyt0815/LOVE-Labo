@@ -22,8 +22,10 @@ function Template.resolve(project, reference, loadClass)
     if not path then return nil, kind end
     local definition, err = Definition.resolve(project, reference, loadClass)
     if not definition then return nil, err end
+    local hierarchy, hierarchyError = require("project.PrefabHierarchy").resolve(project, reference, loadClass)
+    if not hierarchy then return nil, hierarchyError end
     -- Lua 클래스는 디스크 Prefab 없이 기본 생성 정의를 가진다. 실제 객체는 매번 새로 구성한다.
-    return {reference = project:getAssetId(path) or path, sourceKind = kind, name = path:match("([^/]+)%.[^.]+$"), definition = definition}
+    return {reference = project:getAssetId(path) or path, sourceKind = kind, name = path:match("([^/]+)%.[^.]+$"), definition = definition, hierarchy = hierarchy}
 end
 function Template.loader(project, loadClass)
     local cache = {}

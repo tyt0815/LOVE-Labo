@@ -76,6 +76,11 @@ local function execute(request)
         local builtin = ({LObjectComponent = true, SceneComponent = true, RenderComponent = true, SpriteComponent = true})[parent or ""]
         local options = {scriptKind = request.type or builtin and "component" or (parent and assert(project:getScriptKind(parent))) or "lobject",
             parentReference = parent, scriptReference = request.class}
+        if kind == "prefab" and request.instance then
+            local document = assert(require("editor.LevelDocument").load(assert(project:resolveAssetFile(request.level or project.defaultLevelReference))))
+            local object = assert(document.level:findLObject(tonumber(request.instance)), "Instance not found")
+            options.prefabData = assert(require("project.PrefabHierarchy").capture(project, document.level, object))
+        end
         local ok, reference = project:createEntry(folder, kind == "class" and "lua" or kind, required(request, "name"), options)
         assert(ok, reference)
         return basicResult(project, reference)
@@ -115,6 +120,7 @@ local function execute(request)
     local bytes = assert(Fs.read(levelPath)); checkRevision(request, bytes)
     local document = assert(require("editor.LevelDocument").load(levelPath))
     local level = document.level
+    level.beforeReparent = function(roots, parent) return require("project.PrefabHierarchy").prepareReparent(project, level, roots, parent) end
     local changed, object, target
     if command == "instance.add" then
         local prefab = request.template or required(request, "prefab")
@@ -123,6 +129,7 @@ local function execute(request)
         local x, y = tonumber(request.x or 0), tonumber(request.y or 0)
         assert(require("core.Transform").finite(x) and require("core.Transform").finite(y), "Invalid placement coordinates")
         object = assert(level:addLObject(x, y, project:getAssetId(reference), reference:match("([^/]+)%.[^.]+$")))
+        assert(require("project.PrefabHierarchy").expandAuthoring(project, level, object))
         if request.parent ~= nil and request.parent ~= false then
             local parent = assert(level:findLObject(tonumber(request.parent)), "Parent instance not found")
             object.parentAuthoringId = parent.authoringId

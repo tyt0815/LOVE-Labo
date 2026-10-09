@@ -1,3 +1,4 @@
+local Scrollbar = require("editor.ui.Scrollbar")
 local Widget = require("editor.ui.Widget")
 local Theme = require("editor.Theme")
 local Ui = require("editor.Ui")
@@ -11,6 +12,8 @@ function FolderTree.new(project, root, excluded, selected, onSelect)
     self.expanded, self.scroll = {[root] = true}, 0
     local parent = selected
     while parent do self.expanded[parent] = true; parent = parent:match("^(.*)/[^/]+$") end
+    self.scrollbar = Scrollbar.new(function() return self.scroll end,
+        function(value) self.scroll = math.floor(value + 0.5) end)
     self:rebuild()
     return self
 end
@@ -32,9 +35,16 @@ function FolderTree:rebuild()
     self:clampScroll()
 end
 
+function FolderTree:setBounds(x, y, width, height)
+    Widget.setBounds(self, x, y, width, height)
+    self:clampScroll()
+end
+
 function FolderTree:clampScroll()
     self.rows = math.max(1, math.floor(self.height / ROW))
     self.scroll = math.floor(math.max(0, math.min(self.scroll, math.max(0, #self.nodes - self.rows))))
+    if self.scrollbar then self.scrollbar:layout({x = self.x + self.width - Scrollbar.WIDTH, y = self.y,
+        w = Scrollbar.WIDTH, h = self.height}, #self.nodes, self.rows) end
 end
 
 function FolderTree:choose(node)
@@ -43,6 +53,8 @@ function FolderTree:choose(node)
 end
 
 function FolderTree:dispatch(event, ...)
+    local handled, capture = self.scrollbar:dispatch(event, ...)
+    if handled then return true, capture end
     if event == "mousepressed" then
         local x, y, button = ...
         if button == 1 then
@@ -89,14 +101,14 @@ function FolderTree:draw()
         local x = self.x + 10 + node.depth * 16
         Theme.setColor("textMuted")
         if not node.children or #node.children > 0 then
-            if self.expanded[node.reference] then love.graphics.line(x, y + 11, x + 4, y + 15, x + 8, y + 11)
-            else love.graphics.line(x + 2, y + 9, x + 6, y + 13, x + 2, y + 17) end
+            Ui.chevron(x, y + ROW / 2, self.expanded[node.reference])
         end
-        Ui.text(node.name .. (node.error and " (Invalid)" or ""), x + 16, y + 7, self.width - (x - self.x) - 24,
+        Ui.text(node.name .. (node.error and " (Invalid)" or ""), x + 16, y + 7, self.width - (x - self.x) - 36,
             node.error and Theme.color("error") or nil)
         Ui.hint({x = self.x, y = y, w = self.width, h = ROW}, node.error or
             ("Select " .. (node.path or node.reference) .. ". Arrows: expand or collapse."))
     end
+    self.scrollbar:draw()
     love.graphics.pop()
 end
 return FolderTree

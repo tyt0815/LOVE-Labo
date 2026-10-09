@@ -101,7 +101,7 @@ function Menu:draw()
             if item.shortcut then Ui.text(item.shortcut, panel.x + panel.w - shortcutWidth - 8, y + 7, shortcutWidth, Theme.color("textMuted"), false, "right") end
             Ui.hint({x = panel.x, y = y, w = panel.w, h = ROW},
                 item.enabled == false and item.label .. " is unavailable here." or item.label .. ". Click or press Enter to select.")
-            if item.children then Ui.text(">", panel.x + panel.w - 22, y + 7) end
+            if item.children then Ui.chevron(panel.x + panel.w - 22, y + ROW / 2, false) end
         end
     end
 end

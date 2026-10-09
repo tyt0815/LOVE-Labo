@@ -201,7 +201,7 @@ Prefab
 → 이미 정의된 authoring data의 기본값 variation
 ```
 
-현재는 사용자가 요청한 단일 부모 Prefab 상속과 오브젝트·컴포넌트 프로퍼티 값 override를 지원한다. 컴포넌트 구성은 Lua Definition에서만 정하며 부모 변경 전파와 자식 override 유지 규칙은 [ADR 0032](adr/0032-parent-first-creation-and-prefab-inheritance.md)를 따른다. 중첩 인스턴스나 컴포넌트 추가·삭제 등의 복잡한 composition은 구현하지 않는다.
+단일 부모 Prefab 상속과 오브젝트·컴포넌트 프로퍼티 값 override를 지원한다. Prefab은 루트와 자손 오브젝트의 생성 정의로 확장하며 자손 원본으로 Lua 클래스·중첩 Prefab을 사용할 수 있다. 안정적인 자손 ID로 상속하고 내부 객체 참조는 생성된 자기 계층에 연결한다. 컴포넌트 구성은 Lua Definition에서 정한다. 기존 값 상속은 [ADR 0032](adr/0032-parent-first-creation-and-prefab-inheritance.md), 계층 저장·배치·생성 및 두 Inspector 트리는 [ADR 0042](adr/0042-hierarchy-prefab-definitions.md)를 따른다.
 
 `.prefab`은 사람이 읽고 Git/AI가 다루기 쉬운 text asset을 기본 방향으로 한다.
 
@@ -347,7 +347,7 @@ Level은 인스턴스의 선택적 `name`·`parentAuthoringId`를 저장한다. 
 
 Lua의 `world:openLevel(levelReference)`는 대상 World를 준비하고 현재 update 프레임 종료 후 성공한 후보만 교체한다. 실패하면 현재 World를 유지하며, Editor에서는 authoring 문서를 변경하지 않아 Stop Play로 원래 편집 레벨에 돌아간다. 게임 Export에도 같은 로더와 API를 포함한다. 상세 계약은 [ADR 0038](adr/0038-runtime-level-transition.md)을 따른다.
 
-현재는 `prefab` 참조 프로퍼티를 선택하고 `World:spawnLObject`로 Prefab 기반 Runtime LObject를 추가할 수 있다. 생성기는 runtime 계층에서 World에 주입하며 Core가 파일 로더나 Editor에 의존하지 않는다. Spawn은 authoring 배치·ID·저장 데이터에 반영하지 않는다. 초기화·실패·update 순서와 Inspector 리소스 입력은 [ADR 0033](adr/0033-prefab-spawn-and-resource-inspector.md)에 기록한다.
+`lobjectTemplate` 참조 프로퍼티에 LObject Lua 클래스 또는 Prefab을 선택하고 `World:spawnLObject`로 Runtime LObject 계층을 생성한다. `prefab`은 호환 별칭이다. 반환값은 루트이며 자손과 내부 참조를 구성한 후 초기화한다. 생성기는 runtime 계층에서 World에 주입하며 Core가 파일 로더나 Editor에 의존하지 않는다. Spawn은 authoring 배치·ID·저장 데이터에 반영하지 않는다. 초기 계약은 [ADR 0033](adr/0033-prefab-spawn-and-resource-inspector.md), 확장은 [ADR 0039](adr/0039-lobject-templates-and-resource-picking.md)·[ADR 0042](adr/0042-hierarchy-prefab-definitions.md)를 따른다.
 
 현재 렌더링은 SceneComponent → RenderComponent → SpriteComponent 상속으로 구성한다. 공용 Renderer는 호스트의 카메라·이미지 로더를 사용하고 컴포넌트 draw를 로컬 좌표계에서 호출한다. getLocalBounds는 클릭·선택 외곽선의 공용 범위를 제공한다. LObject.transform은 루트 Transform으로 위임하고 자손은 부모 기준 회전·스케일·위치를 합성한다. Prefab 루트 Transform은 Inspector에서 숨기며 인스턴스의 루트 편집은 배치 transform 하나에 저장한다. 상세 계약과 기존 루트 offset 처리 방식은 [ADR 0035](adr/0035-render-components-and-root-transform.md)를 따른다.
 
@@ -473,7 +473,7 @@ LÖVE Labo
 범용 Visual Scripting
 깊은 게임 객체 class inheritance
 Generic ECS framework
-Prefab 중첩 인스턴스 및 컴포넌트 구성 override
+Prefab의 컴포넌트 구성 override 및 오브젝트 노드 재부모화 UI
 UE급 Level Streaming
 완전한 Hot Reload
 완전한 process/VM sandbox

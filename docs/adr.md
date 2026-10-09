@@ -40,3 +40,6 @@
 - [0038. 프레임 경계의 런타임 레벨 전환](adr/0038-runtime-level-transition.md)
 - [0039. LObject 생성 템플릿과 리소스 스포이드](adr/0039-lobject-templates-and-resource-picking.md)
 - [0040. Prefab 편집 초안과 전체 저장 확인](adr/0040-prefab-drafts-and-save-all-review.md)
+- [0041. Inspector 대상 추가는 드래그 예외보다 스포이드를 우선한다](adr/0041-inspector-picking-over-drag-exceptions.md)
+- [0042. 루트 오브젝트와 자손을 하나의 Prefab 생성 정의로 저장한다](adr/0042-hierarchy-prefab-definitions.md)
+- [0043. 목록 스크롤바를 공유하고 Inspector 계층 높이를 독립 조절한다](adr/0043-list-scrollbars-and-resizable-inspector-trees.md)

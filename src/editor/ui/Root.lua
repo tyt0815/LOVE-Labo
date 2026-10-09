@@ -18,6 +18,7 @@ end
 
 function Root:dismissPopup()
     local popup = self.popup
+    if self.captured == popup then self:cancelCapture() end
     self.popup = nil
     if popup then popup:dispatch("dismiss") end
 end
@@ -67,7 +68,11 @@ function Root:mousepressed(x, y, button, presses)
             self:dismissPopup()
         else
             local target = self.popup:hitTest(x, y)
-            if target then return self:dispatchTo(target, "mousepressed", x, y, button, presses) end
+            if target then
+                local handled, capture, consumer = self:dispatchTo(target, "mousepressed", x, y, button, presses)
+                if capture then self.captured, self.captureButton = consumer, button end
+                return handled
+            end
             -- 일반 바깥 클릭은 닫기에만 사용하여 뒤쪽 객체를 실수로 조작하지 않는다.
             self:dismissPopup()
             return true

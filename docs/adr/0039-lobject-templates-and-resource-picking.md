@@ -1,6 +1,7 @@
 # 0039. LObject 생성 템플릿과 리소스 스포이드
 
 - 상태: 채택
+- 후속: Prefab 계층의 대상 추가와 이후 드래그 요청 검토 지침은 [ADR 0041](0041-inspector-picking-over-drag-exceptions.md)로 확장한다.
 - 날짜: 2026-10-09
 - 부분 대체: [ADR 0033](0033-prefab-spawn-and-resource-inspector.md)의 Prefab 전용 참조, Inspector 리소스 드롭, 드래그 중 Inspector 유지, 찾기의 선택 동작
 - 유지: 단일 LObject Prefab 형식, Core의 파일 해석 금지, authoring/runtime 상태 분리

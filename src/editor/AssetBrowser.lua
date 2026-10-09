@@ -1,3 +1,4 @@
+local Scrollbar = require("editor.ui.Scrollbar")
 local Theme = require("editor.Theme")
 local Ui = require("editor.Ui")
 local Canvas = require("editor.ui.Canvas")
@@ -27,6 +28,8 @@ function AssetBrowser.new(project)
     }
     for key, value in pairs(state) do self[key] = value end
     self.thumbnails = Thumbnail.new(project)
+    self.treeScrollbar = Scrollbar.new(function() return self.treeScroll end, function(value) self.treeScroll = math.floor(value + 0.5) end)
+    self.fileScrollbar = Scrollbar.new(function() return self.fileScroll end, function(value) self.fileScroll = math.floor(value + 0.5) end)
     self.localRoot = Root.new(self)
     self.uiRoot = self.localRoot
     self.viewDropdown = Dropdown.new(self.uiRoot,
@@ -37,20 +40,42 @@ function AssetBrowser.new(project)
     self.treeSlot = self:addChild(Widget.new({
         draw = function() self:drawTree() end,
         hint = function(_, x, y) return self:contentHint(x, y) end,
-        mousepressed = function(_, ...) return self:handleContentMousepressed(...) end,
-        mousemoved = function(_, x, y) return self:dragMoved(x, y) end,
-        mousereleased = function(_, x, y, button) return self:dragReleased(x, y, button) end,
-        cancel = function() self:cancelDrag(); return true end,
+        mousepressed = function(_, ...)
+            self:clampScroll()
+            local handled, capture = self.treeScrollbar:dispatch("mousepressed", ...)
+            if handled then return true, capture end
+            return self:handleContentMousepressed(...)
+        end,
+        mousemoved = function(_, x, y)
+            if self.treeScrollbar:dispatch("mousemoved", x, y) then return true end
+            return self:dragMoved(x, y)
+        end,
+        mousereleased = function(_, x, y, button)
+            if self.treeScrollbar:dispatch("mousereleased", x, y, button) then return true end
+            return self:dragReleased(x, y, button)
+        end,
+        cancel = function() self.treeScrollbar:dispatch("cancel"); self:cancelDrag(); return true end,
         drawOverlay = function() self:drawDragOverlay() end,
         wheelmoved = function(_, ...) self:wheelmoved(...); return true end
     }))
     self.fileSlot = self:addChild(Widget.new({
         draw = function() self:drawFiles() end,
         hint = function(_, x, y) return self:contentHint(x, y) end,
-        mousepressed = function(_, ...) return self:handleContentMousepressed(...) end,
-        mousemoved = function(_, x, y) return self:dragMoved(x, y) end,
-        mousereleased = function(_, x, y, button) return self:dragReleased(x, y, button) end,
-        cancel = function() self:cancelDrag(); return true end,
+        mousepressed = function(_, ...)
+            self:clampScroll()
+            local handled, capture = self.fileScrollbar:dispatch("mousepressed", ...)
+            if handled then return true, capture end
+            return self:handleContentMousepressed(...)
+        end,
+        mousemoved = function(_, x, y)
+            if self.fileScrollbar:dispatch("mousemoved", x, y) then return true end
+            return self:dragMoved(x, y)
+        end,
+        mousereleased = function(_, x, y, button)
+            if self.fileScrollbar:dispatch("mousereleased", x, y, button) then return true end
+            return self:dragReleased(x, y, button)
+        end,
+        cancel = function() self.fileScrollbar:dispatch("cancel"); self:cancelDrag(); return true end,
         drawOverlay = function() self:drawDragOverlay() end,
         wheelmoved = function(_, ...) self:wheelmoved(...); return true end
     }))
@@ -62,8 +87,7 @@ function AssetBrowser.new(project)
     self.handlers.mousepressed = function(_, x, y, button)
         if button ~= 1 then return true end
         local buttons = self:buttons()
-        if Ui.contains(x, y, buttons.fold) then self.collapsed = not self.collapsed
-        elseif Ui.contains(x, y, buttons.refresh) then self:refresh() end
+        if Ui.contains(x, y, buttons.refresh) then self:refresh() end
         return true
     end
     self.handlers.keypressed = function(_, key)
@@ -249,6 +273,8 @@ end
 function AssetBrowser:clampScroll()
     local visible = math.max(1, math.floor(self.treeSlot.widget.height / ROW))
     self.treeScroll = math.floor(math.max(0, math.min(self.treeScroll, math.max(0, #self.tree - visible))))
+    local tree = self.treeSlot.widget
+    self.treeScrollbar:layout({x = tree.x + tree.width - Scrollbar.WIDTH, y = tree.y, w = Scrollbar.WIDTH, h = tree.height}, #self.tree, visible)
     local fileRows = #self.entries
     visible = math.max(1, math.floor(self.fileSlot.widget.height / ROW))
     if self.viewMode == "thumbnails" then
@@ -256,17 +282,16 @@ function AssetBrowser:clampScroll()
         fileRows = math.ceil(#self.entries / self:columns())
     end
     self.fileScroll = math.floor(math.max(0, math.min(self.fileScroll, math.max(0, fileRows - visible))))
+    local files = self.fileSlot.widget
+    self.fileScrollbar:layout({x = files.x + files.width - Scrollbar.WIDTH, y = files.y, w = Scrollbar.WIDTH, h = files.height}, fileRows, visible)
 end
 
 function AssetBrowser:buttons()
     local function button(x, w) return { x = x, y = self.y + 8, w = w, h = 26 } end
     local gap = Ui.METRICS.buttonGap
-    local foldWidth = Ui.buttonWidth(self.collapsed and "+" or "-")
     local refreshWidth, viewWidth = Ui.buttonWidth("Refresh"), Ui.buttonWidth("View")
-    local foldX = self.x + self.width - Ui.METRICS.contentPaddingX - foldWidth
-    local refreshX = foldX - gap - refreshWidth
+    local refreshX = self.x + self.width - Ui.METRICS.contentPaddingX - refreshWidth
     return {
-        fold = button(foldX, foldWidth),
         refresh = button(refreshX, refreshWidth),
         view = button(refreshX - gap - viewWidth, viewWidth)
     }
@@ -278,7 +303,6 @@ function AssetBrowser:draw()
     love.graphics.setScissor(self.x, self.y, self.width, self.height)
     Ui.panel(self.x, self.y, self.width, self.height)
     local buttons = self:buttons()
-    Ui.button(self.collapsed and "+" or "-", buttons.fold, self.collapsed, "Collapse or expand the Asset Browser.", true)
     Ui.panelHeading("Asset Browser", self.x, self.y, math.max(0, buttons.view.x - self.x - Ui.METRICS.buttonGap))
     Ui.button("Refresh", buttons.refresh, false, "Rescan project files and reload class declarations. Ctrl+R: refresh.", true)
     if not self.collapsed then
@@ -675,6 +699,7 @@ function AssetBrowser:drawTree()
             Ui.text(node.name, view.x + Ui.METRICS.contentPaddingX + 16 + node.depth * 14, rowY + 5, view.width - Ui.METRICS.contentPaddingX - 26 - node.depth * 14)
         end
     end
+    self.treeScrollbar:draw()
     love.graphics.pop()
 end
 
@@ -779,6 +804,7 @@ function AssetBrowser:drawFiles()
         end
     end
     if #self.entries == 0 then Ui.text("This folder is empty", view.x + Ui.METRICS.contentPaddingX, view.y + 8) end
+    self.fileScrollbar:draw()
     love.graphics.pop()
 end
 

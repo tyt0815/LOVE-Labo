@@ -1,4 +1,3 @@
-local Definition = require("project.ObjectDefinition")
 local Spawner = {}
 
 function Spawner.bind(project, world, loadClass)
@@ -11,7 +10,6 @@ function Spawner.bind(project, world, loadClass)
         local called, object, err = pcall(function()
             local template, templateError = loadTemplate(reference)
             if not template then return nil, templateError end
-            local definition = template.definition
             local initialTransform, transformError = require("core.Transform").copy(transform or {x = 0, y = 0})
             if not initialTransform then return nil, transformError end
             overrides = overrides or {}
@@ -24,22 +22,15 @@ function Spawner.bind(project, world, loadClass)
             local number = 1; while used[base .. " " .. number] do number = number + 1 end
             instance.name = base .. " " .. number
             world.nextRuntimeId = world.nextRuntimeId + 1
-            local ok, configureError = Definition.configure(instance, definition, overrides.properties, overrides.components)
-            if not ok then return nil, configureError end
-            local byId = {}
-            for _, existing in ipairs(world.lobjects) do
-                if existing.authoringId then byId[existing.authoringId] = existing end
-            end
-            local valid, propertyError = Definition.resolveReferences(instance.properties, instance.luaClass and instance.luaClass.properties, byId, project)
-            if not valid then return nil, propertyError end
-            for _, name in ipairs(instance.componentOrder) do
-                local component = instance.components[name]
-                valid, propertyError = Definition.resolveReferences(component.properties, getmetatable(component).properties, byId, project)
-                if not valid then return nil, propertyError end
-            end
             world.lobjects[#world.lobjects + 1] = instance
-            local begun, beginError = instance:beginPlay(world)
-            if not begun then return nil, beginError end
+            local objects, configureError = require("runtime.TemplateObjects").configure(world, template.hierarchy, instance, overrides)
+            if not objects then return nil, configureError end
+            local valid, propertyError = require("runtime.TemplateObjects").resolveReferences(project, world)
+            if not valid then return nil, propertyError end
+            for _, node in ipairs(template.hierarchy.nodes) do
+                local begun, beginError = objects[node.path]:beginPlay(world)
+                if not begun then return nil, beginError end
+            end
             return instance
         end)
         depth = depth - 1
