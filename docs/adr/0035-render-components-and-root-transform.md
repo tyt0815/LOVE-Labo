@@ -1,6 +1,7 @@
 # 0035. Draw 오버라이드와 루트 Transform 통일
 
 - 상태: 채택
+- 후속: Draw·GetLocalBounds·모듈 이름은 [ADR 0036](0036-code-conventions-and-module-names.md)의 draw·getLocalBounds·PascalCase 파일명으로 대체한다.
 - 날짜: 2026-10-09
 - 부분 대체: [ADR 0017](0017-components-instance-properties-and-prefab-placement.md)의 Sprite 전용 렌더러
 - 부분 대체: [ADR 0034](0034-component-hierarchy-and-inspector-tree.md)의 독립 Actor Transform·루트 로컬 위치·위치만 합산하는 계층
@@ -29,6 +30,7 @@
 6. 루트 교체는 인스턴스 Transform을 유지한다. 새 루트의 생성 override Transform은 배치 위치에 추가하지 않는다. 기존 사용자 루트를 새 루트의 자식으로 보존할 경우 기존 루트 로컬 Transform은 단위 변환이 된다. 실패 복구는 부착 관계와 기존 Transform도 복원한다.
 7. Prefab 스키마와 Inspector에서는 루트 Transform을 제외한다. 루트 이미지·일반 프로퍼티는 편집 가능하다. 자손의 Transform은 Prefab·인스턴스 모두 편집한다. 인스턴스 객체 노드의 Actor Transform과 루트 노드의 Transform은 같은 배치 데이터를 편집한다. 루트 필드의 변경은 레벨 transform에 저장하고 componentOverrides에는 중복 저장하지 않으며 기존 Undo/Redo를 사용한다.
 8. 레벨·Prefab 버전은 유지한다. 저장된 루트 Transform componentOverride는 이전 로컬 offset 계약으로 읽되 적용하지 않는다. 루트의 새 위치는 레벨 transform 또는 SpawnLObject transform으로 지정한다. 자손 컴포넌트 override는 기존 이름별 계약으로 유지한다. 기존 파일은 자동 덮어쓰지 않는다.
+
 
 ## 관계
 

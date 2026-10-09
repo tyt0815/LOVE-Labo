@@ -1,0 +1,1043 @@
+local Theme = require("editor.Theme")
+local LevelDocument = require("editor.LevelDocument")
+local SceneView = require("editor.SceneView")
+local GameView = require("editor.GameView")
+local Hierarchy = require("editor.Hierarchy")
+local Inspector = require("editor.Inspector")
+
+local EditorApp = {}
+EditorApp.__index = EditorApp
+
+function EditorApp.new(document, project, preferences)
+    local self = setmetatable({}, EditorApp)
+    self.histories = setmetatable({}, {__mode = "k"})
+    self.assetActions, self.assetActionIndex, self.historyClock = {}, 0, 0
+
+    self.sceneView = SceneView.new()
+    if preferences then
+        self.sceneView.snapSettings = require("editor.SnapSettings").copy(preferences.snapSettings)
+        self.sceneView.onSnapChanged = preferences.saveSnapSettings
+    end
+    self.gameView = GameView.new()
+    self.hierarchy = Hierarchy.new()
+    self.inspector = Inspector.new()
+    -- 이전 필드의 확정과 다음 필드의 편집 시작 사이에 Undo 경계를 둔다.
+    self.inspector.onCommitEdit = function() self:recordHistory() end
+
+    self.project = project
+    if project then
+        self.spriteAssets = require("editor.SpriteAssets").new(project)
+        self.sceneView.spriteAssets, self.gameView.spriteAssets = self.spriteAssets, self.spriteAssets
+    end
+    self.statusHeight = project and 26 or 0
+    self.assetBrowser = project and require("editor.AssetBrowser").new(project) or nil
+    self.assetBrowserHeight = 350
+    self.isResizingAssets = false
+    self.activePanel = "scene"
+    self.documentReference = nil
+
+    -- Play 중에만 존재하는 Runtime World다.
+    -- authoring Level과 별도 mutable state를 소유하며 Stop 시 폐기한다.
+    self.runtimeWorld = nil
+
+    if not document then
+        if project and project.defaultLevelReference then
+            local path = project:resolveAssetFile(project.defaultLevelReference)
+            -- 기본 레벨 파일이 없으면 저장 경로가 없는 빈 문서로 시작한다.
+            if path then
+                local loaded, loadError = LevelDocument.load(path)
+                if not loaded then error(loadError) end
+                document = loaded
+            end
+        end
+    end
+
+    if not document then
+        local newDocument, err =
+            LevelDocument.new()
+
+        if not newDocument then
+            error(err)
+        end
+
+        document = newDocument
+    end
+
+    self:setDocument(document)
+    if project and project.defaultLevelReference and document.path == project:resolvePath(project.defaultLevelReference) then
+        self.documentReference = project.defaultLevelReference
+    end
+    self:initializeUI()
+    if self.assetBrowser then
+        self.assetBrowser.assetOperations = require("editor.AssetOperations").new(self, self.assetBrowser)
+    end
+
+    return self
+end
+
+function EditorApp:setDocument(document)
+    if not document or not document.level then
+        return false
+    end
+    self:cancelObjectPick()
+    local reference = self.project and self.project:referenceForPath(document.path)
+    self.documentAssetId = reference and self.project:getAssetId(reference) or nil
+
+    -- Runtime World는 현재 document의 Level snapshot에서 만들어진다.
+    -- document가 바뀌면 이전 Runtime은 폐기한다.
+    self.runtimeWorld = nil
+
+    self.document = document
+    self.inspectedAssetReference = nil
+    self.instanceInspectorObject, self.instanceInspectorTarget = nil, nil
+    if self.spriteAssets then self.spriteAssets:clear() end
+    self.level = document.level
+    if not self.histories[document] then
+        self.histories[document] = require("editor.History").new(assert(require("editor.LevelFile").encode(self.level)))
+    end
+    self.documentReference = nil
+
+    self.sceneView.level = self.level
+    self.hierarchy.level = self.level
+    self.inspector.level = self.level
+
+    self.sceneView.selectedLObject = nil
+    self.sceneView:cancelDrag(false)
+    self.sceneView.isPanning = false
+    self.inspector:cancelEdit()
+    self.levelInspectorTarget = {data = self.level, level = self.level, kind = "level", referenceField = "scriptReference", label = "Level",
+        getDisplayName = function()
+            local path = self.documentAssetId and self.project:getAssetReference(self.documentAssetId) or self.document.path
+            return path and path:gsub("\\", "/"):match("([^/]+)%.level$") or "Untitled Level"
+        end,
+        getOverrides = function(target) return target.data.propertyOverrides end,
+        isDirty = function() return not self.document.path or self.document:isDirty() end,
+        setOverrides = function(target, values) target.data.propertyOverrides = values end}
+    self.runtimeError = nil
+    if self.uiRoot then
+        self.uiRoot:dismissPopup()
+        self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
+        self.uiRoot.focused = self.sceneWidget
+    end
+
+    return true
+end
+
+function EditorApp:isPlaying()
+    return self.runtimeWorld ~= nil
+end
+
+function EditorApp:getActiveCenterView()
+    if self:isPlaying() then
+        return self.gameView
+    end
+
+    return self.sceneView
+end
+
+function EditorApp:startPlay()
+    self:cancelObjectPick()
+    if self:isPlaying() then
+        return false, "editor is already playing"
+    end
+
+    -- Inspector의 transient edit을 authoring Level에 먼저 확정한 뒤
+    -- 그 시점의 Level snapshot으로 Runtime World를 만든다.
+    self.inspector:commitEdit()
+    if self.viewportControls then self.viewportControls:commit() end
+
+    local called, world, worldError = pcall(require("runtime.WorldLoader").create, self.project, self.level:toData())
+    if not called then worldError, world = tostring(world), nil end
+    if not world then self.runtimeError = worldError; return false, worldError end
+    self.runtimeError, self.runtimeWorld = nil, world
+
+    -- Play 중 hidden Scene View drag/pan 상태가 남아 있지 않게 정리한다.
+    self.sceneView:cancelDrag(false)
+    self.sceneView.isPanning = false
+    if self.uiRoot.focused == self.viewportControls then self.uiRoot.focused = self.sceneWidget end
+
+    return true
+end
+
+function EditorApp:stopPlay()
+    if not self:isPlaying() then
+        return false, "editor is not playing"
+    end
+
+    -- Runtime 변경을 authoring Level에 write-back하지 않고 통째로 폐기한다.
+    self.runtimeWorld = nil
+
+    return true
+end
+
+function EditorApp:resolveDocumentReferences()
+    if self.project then
+        self.level.scriptReference = self.project:getAssetId(self.level.scriptReference) or self.level.scriptReference
+        for _, object in ipairs(self.level.lobjects) do
+            object.definitionReference = self.project:getAssetId(object.definitionReference) or object.definitionReference
+        end
+    end
+end
+
+function EditorApp:inspectAsset(reference)
+    if not reference or not reference:match("^Assets/.+%.prefab$") then return true end
+    local id = self.project:getAssetId(reference)
+    if self.prefabDocument and self.prefabDocument.assetId == id then
+        self.inspectedAssetReference, self.inspectorSource = id, "assets"; return true
+    end
+    self.inspector:commitEdit()
+    if self.prefabDocument and self.prefabDocument:isDirty() then return false, "Save the edited Prefab first (Ctrl+S)" end
+    local document, err = require("editor.PrefabDocument").load(self.project, reference)
+    if not document then return false, err end
+    self.prefabDocument = document
+    self.inspectedAssetReference = id
+    self.inspectorSource = "assets"
+    self.histories[document] = require("editor.History").new(assert(require("editor.Prefab").encodeData(document.data)))
+    self.prefabInspectorTarget = {data = document.data, kind = "lobject", parentOwnerId = document.assetId,
+        referenceField = "definitionReference", label = "Prefab",
+        getDisplayName = function()
+            local path = self.project:getAssetReference(document.assetId)
+            return path and path:match("([^/]+)%.prefab$") or "Missing Prefab"
+        end,
+        isDirty = function() return document:isDirty() end,
+        getOverrides = function(target)
+            local values = require("editor.PropertyData").copy(target.data.overrides.properties)
+            for name, fields in pairs(target.data.overrides.components or {}) do
+                for field, value in pairs(fields) do values[name .. "." .. field] = value end
+            end
+            return values
+        end,
+        setOverrides = function(target, values)
+            local properties, components = {}, {}
+            for key, value in pairs(values) do
+                local name, field = key:match("^([^.]+)%.(.+)$")
+                if name then components[name] = components[name] or {}; components[name][field] = value
+                else properties[key] = value end
+            end
+            target.data.overrides.properties = next(properties) and properties or nil
+            target.data.overrides.components = next(components) and components or nil
+        end}
+    return true
+end
+
+function EditorApp:placePrefab(reference, x, y)
+    if self:isPlaying() then return false, "Stop Play before placing a Prefab" end
+    if not self.sceneView:containsPoint(x, y) then return false, "Drop inside the Scene View" end
+    if self.viewportControls:containsPoint(x, y) then return false, "Drop outside the viewport controls" end
+    local source, sourceError = self.project:getAssetReference(reference)
+    if not source then return false, sourceError end
+    if not source:match("^Assets/.+%.prefab$") then return false, "Expected a Prefab asset" end
+    if self.prefabDocument and self.prefabDocument.assetId == self.project:getAssetId(reference) and self.prefabDocument:isDirty() then
+        return false, "Save the edited Prefab first (Ctrl+S)"
+    end
+    local Definition = require("editor.ObjectDefinition")
+    local definition, err = Definition.resolve(self.project, reference)
+    if not definition then return false, err end
+    local target, targetError = Definition.inspectorTarget(self.project, {}, definition, self.level, "LObject")
+    if not target then return false, targetError end
+    self.inspector:commitEdit()
+    local wx, wy = self.sceneView:screenToWorld(x, y)
+    local object = assert(self.level:addLObject(wx, wy, self.project:getAssetId(reference) or reference))
+    self.sceneView.selectedLObject, self.activePanel = object, "scene"
+    self.assetBrowser.selectedReference = nil
+    self:updateInspectorTarget()
+    return true
+end
+
+function EditorApp:updateInspectorTarget()
+    if not self.inspector.classInspector then return self.sceneView.selectedLObject end
+    local dragContext = self.assetBrowser.drag and self.assetDragInspector
+    local selected = self.inspectedAssetReference and self.project:getAssetReference(self.inspectedAssetReference)
+        or self.assetBrowser.selectedReference
+    if dragContext then selected = dragContext.asset end
+    if not dragContext and (self.activePanel == "scene" or self.activePanel == "hierarchy") then self.inspectorSource = "scene" end
+    if not self.inspectorSource then self.inspectorSource = self.activePanel == "assets" and "assets" or "scene" end
+    local assetSelected = (dragContext and dragContext.source or self.inspectorSource) == "assets" and selected
+    local prefab = assetSelected and self.prefabDocument
+        and selected and self.project:getAssetId(selected) == self.prefabDocument.assetId
+    local currentLevelAsset = assetSelected and self.documentAssetId
+        and self.project:getAssetId(selected) == self.documentAssetId
+    local object = not assetSelected and self.sceneView.selectedLObject or nil
+    self.inspector.assetSummary = nil
+    if assetSelected and not prefab and not currentLevelAsset then
+        local name = selected:match("([^/]+)$")
+        local extension = name:match("%.([^%.]+)$")
+        local _, info = self.project:checkedEntry(selected)
+        local kind = type(info) == "table" and info.type == "directory" and "Folder" or "File"
+        if kind ~= "Folder" and extension then
+            name = name:sub(1, -#extension - 2)
+            local kinds = {level = "Level", prefab = "Prefab", lua = "Lua Class"}
+            kind = kinds[extension] or extension:upper() .. " File"
+            if extension == "lua" then
+                local meta = self.project.assetMetadata and self.project.assetMetadata[selected]
+                local classes = {level = "Level Class", lobject = "LObject Class", component = "Component Class"}
+                kind = meta and classes[meta.scriptKind] or kind
+            end
+        end
+        self.inspector.assetSummary = {name = name, kind = kind, reference = selected}
+    end
+    local target
+    if object then
+        if self.instanceInspectorObject ~= object then
+            self.inspector:commitEdit()
+            self.instanceInspectorObject = object
+            local Definition = require("editor.ObjectDefinition")
+            local definition, err = Definition.resolve(self.project, object.definitionReference)
+            local targetError
+            self.instanceInspectorTarget = nil
+            if definition then self.instanceInspectorTarget, targetError = Definition.inspectorTarget(self.project, object, definition, self.level, "LObject " .. object.authoringId) end
+            self.runtimeError = err or targetError
+        end
+        target = self.instanceInspectorTarget
+    elseif not self.inspector.assetSummary then
+        self.instanceInspectorObject = nil
+        target = prefab and self.prefabInspectorTarget or self.levelInspectorTarget
+    end
+    self.levelInspectorTarget.level = self.level
+    self.inspector.classInspector:setTarget(target)
+    self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
+        self.inspector.width, love.graphics.getHeight() - self.statusHeight, object and self.inspector:getPropertyTop(), self.inspector.y)
+    return object
+end
+
+function EditorApp:saveInspectedDocument()
+    self.inspector:commitEdit()
+    if self.prefabDocument and self.inspector.classInspector and self.inspector.classInspector.target == self.prefabInspectorTarget then
+        local saved, err = self.prefabDocument:save(self.project)
+        if not saved then self.inspector.classInspector.error = err end
+        if saved and self.spriteAssets then self.spriteAssets:clear(); self.instanceInspectorObject = nil end
+        return saved, err
+    end
+    local saved, err = self:saveCurrentDocument()
+    if not saved then self.runtimeError = err end
+    return saved, err
+end
+
+function EditorApp:saveCurrentDocument(path)
+    if not path and not self.document.path and self.project then
+        self:showSaveLevelDialog()
+        return true
+    end
+    if not path and self.project and self.documentAssetId then
+        local currentPath, err = self.project:resolveAssetFile(self.documentAssetId)
+        if not currentPath then return false, err end
+        self.document.path = currentPath
+    end
+    self.inspector:commitEdit()
+    self:resolveDocumentReferences()
+
+    local saved, err =
+        self.document:save(path)
+
+    if saved and path ~= nil then
+        self.documentReference = nil
+    end
+    if saved and self.project and self.project:referenceForPath(self.document.path) then
+        local indexed, indexError = self.project:rebuildAssetIndex()
+        if not indexed then return false, "Level saved; metadata import failed: " .. tostring(indexError) end
+        self.documentAssetId = self.project:getAssetId(self.project:referenceForPath(self.document.path))
+        self:resolveDocumentReferences()
+        self.document.savedSnapshot = assert(require("editor.LevelFile").encode(self.level))
+    end
+
+    return saved, err
+end
+
+function EditorApp:saveNewLevel(reference)
+    if not self.project then return false, "editor has no project" end
+    if type(reference) ~= "string" or not reference:match("^Assets/.+%.level$") then
+        return false, "Choose an Assets/*.level path"
+    end
+    local path, err = self.project:resolvePath(reference)
+    if not path then return false, err end
+    local folder, name = reference:match("^(.*)/([^/]+)$")
+    self.inspector:commitEdit()
+    self:resolveDocumentReferences()
+    local saved, saveError = self.project:createEntry(folder, "level", name,
+        {level = self.level, scriptReference = self.level.scriptReference})
+    if not saved then return false, saveError end
+    self.document.path = path
+    self.document.savedSnapshot = assert(require("editor.LevelFile").encode(self.level))
+    self.documentAssetId = self.project:getAssetId(reference)
+    self.documentReference = self.documentAssetId
+    if self.assetBrowser then self.assetBrowser:refresh(true) end
+    return true
+end
+
+function EditorApp:showSaveLevelDialog()
+    local folder = self.assetBrowser and self.assetBrowser.folder or "Assets"
+    if folder ~= "Assets" and folder:sub(1, 7) ~= "Assets/" then folder = "Assets" end
+    require("editor.ui.Dialog").new(self.uiRoot, {title = "Save Level", input = true,
+        message = "Path inside Assets (existing files are not replaced)",
+        value = folder .. "/NewLevel.level", confirmLabel = "Save",
+        onConfirm = function(reference) return self:saveNewLevel(reference) end})
+end
+
+function EditorApp:saveCurrentDocumentAs(reference)
+    if not self.project then
+        return false, "editor has no project"
+    end
+
+    local path, resolveError =
+        self.project:resolvePath(reference)
+
+    if not path then
+        return false, resolveError
+    end
+
+    local saved, saveError =
+        self:saveCurrentDocument(path)
+
+    if not saved then
+        return false, saveError
+    end
+
+    self.documentReference = reference
+
+    return true
+end
+
+function EditorApp:createProjectDocument(
+    reference,
+    allowDiscard
+)
+    if not self.project then
+        return false, "editor has no project"
+    end
+
+    local path, resolveError =
+        self.project:resolvePath(reference)
+
+    if not path then
+        return false, resolveError
+    end
+
+    self.inspector:commitEdit()
+
+    local dirty =
+        self.document:isDirty()
+
+    if dirty and not allowDiscard then
+        return false,
+            "current level has unsaved changes"
+    end
+
+    local document, createError =
+        LevelDocument.create(path)
+
+    if not document then
+        return false, createError
+    end
+
+    self:setDocument(document)
+    self.documentReference = reference
+
+    return true
+end
+
+function EditorApp:openDocument(
+    path,
+    allowDiscard
+)
+    self.inspector:commitEdit()
+
+    local dirty =
+        self.document:isDirty()
+
+    if dirty and not allowDiscard then
+        return false,
+            "current level has unsaved changes"
+    end
+
+    local document, loadError =
+        LevelDocument.load(path)
+
+    if not document then
+        return false, loadError
+    end
+
+    self:setDocument(document)
+
+    return true
+end
+
+function EditorApp:openProjectDocument(
+    reference,
+    allowDiscard
+)
+    if not self.project then
+        return false, "editor has no project"
+    end
+
+    local path, resolveError =
+        self.project:resolvePath(reference)
+
+    if not path then
+        return false, resolveError
+    end
+
+    local opened, openError =
+        self:openDocument(
+            path,
+            allowDiscard
+        )
+
+    if not opened then
+        return false, openError
+    end
+
+    self.documentReference = reference
+
+    return true
+end
+
+function EditorApp:initializeUI()
+    local Widget = require("editor.ui.Widget")
+    local Canvas = require("editor.ui.Canvas")
+    local Root = require("editor.ui.Root")
+    self.canvas = Canvas.new()
+    self.uiRoot = Root.new(self.canvas)
+    local function panel(name, handlers)
+        local canvas = Canvas.new()
+        canvas.panelName = name
+        local content = Widget.new(handlers)
+        canvas:addChild(content, { fill = true })
+        return canvas, content
+    end
+    local center, sceneWidget = panel("scene", {
+        hint = function() return self:isPlaying() and "Game View. F5: stop Play." or "Scene View. Drag gizmo: move. Ctrl+D: duplicate. F: frame. Middle drag: pan. Wheel: zoom." end,
+        bounds = function(_, x, y, width, height)
+            self.sceneView:setViewport(x, y, width, height)
+            self.gameView:setViewport(x, y, width, height)
+        end,
+        draw = function()
+            if self:isPlaying() then self.gameView:draw(self.runtimeWorld)
+            else self.sceneView:draw() end
+            if self.runtimeError then
+                require("editor.Ui").text(self.runtimeError, self.sceneView.viewportX + 16, 94,
+                    self.sceneView.viewportWidth - 32, Theme.color("error"))
+            end
+        end,
+        mousepressed = function(_, x, y, button)
+            if self:isPlaying() then return true end
+            self.sceneView:mousepressed(x, y, button)
+            return true, self.sceneView.isPanning or self.sceneView.isDraggingLObject
+        end,
+        mousemoved = function(_, ...)
+            if not self:isPlaying() then self.sceneView:mousemoved(...) end
+            return true
+        end,
+        mousereleased = function(_, ...)
+            if not self:isPlaying() then self.sceneView:mousereleased(...) end
+            return true
+        end,
+        wheelmoved = function(_, _, _, amount)
+            if not self:isPlaying() then self.sceneView:wheelmoved(0, amount) end
+            return true
+        end,
+        keypressed = function(_, key) return self:handleSceneKey(key) end,
+        cancel = function() self.sceneView:cancelDrag(true); self.sceneView.isPanning = false end,
+    })
+    self.sceneWidget = sceneWidget
+    self.viewportControls = require("editor.ui.ViewportControls").new(self.sceneView)
+    local snapSlot = center:addChild(self.viewportControls, {z = 1})
+    center.handlers.bounds = function(_, _, _, width, height)
+        snapSlot.width = math.max(0, math.min(self.viewportControls:preferredWidth(), width - 12))
+        snapSlot.x, snapSlot.y = math.max(6, width - snapSlot.width - 12), 6
+        snapSlot.height = math.min(self.viewportControls:preferredHeight(snapSlot.width), math.max(0, height - 12))
+    end
+    local hierarchy = panel("hierarchy", {
+        hint = function(_, x, y)
+            local object = self.hierarchy:getLObjectAtPosition(x, y)
+            return object and "Select LObject " .. object.authoringId .. ". Delete: remove. Ctrl+D: duplicate."
+                or "Hierarchy: objects in the current level. Click an empty row to inspect the level."
+        end,
+        bounds = function(_, _, y, _, height) self.hierarchy.height, self.hierarchy.y = height, y end,
+        draw = function() self.hierarchy:draw(self.sceneView.selectedLObject) end,
+        mousepressed = function(_, x, y, button)
+            if not self:isPlaying() and button == 1 then
+                self.sceneView.selectedLObject = self.hierarchy:getLObjectAtPosition(x, y)
+            end
+            return true
+        end,
+        keypressed = function(_, key) return self:handleSceneKey(key) end
+    })
+    local inspector, inspectorWidget = panel("inspector", {
+        bounds = function(_, x, y, width, height)
+            self.inspector.height, self.inspector.y = height, y
+            local inspector = self.inspector.classInspector
+            if inspector and inspector.target then
+                inspector:layout(x, width, y + height, inspector.target.instance and self.inspector:getPropertyTop(), y)
+            end
+        end,
+        hint = function() return "Inspector: edit the selected object, level or Prefab. Ctrl+S: save." end,
+        draw = function() self.inspector:draw(self:updateInspectorTarget()) end,
+        mousepressed = function(_, x, y, button)
+            if not self:isPlaying() then
+                return self.inspector:mousepressed(x, y, button, love.graphics.getWidth(), self:updateInspectorTarget())
+            end
+            return true
+        end,
+        keypressed = function(_, key) return self.inspector:keypressed(key) end,
+        mousemoved = function(_, x, y, dx) return self.inspector:mousemoved(x, y, dx) end,
+        mousereleased = function() return self.inspector:mousereleased() end,
+        cancel = function() return self.inspector:cancelPointer() end,
+        textinput = function(_, text) return self.inspector:textinput(text) end,
+        textedited = function(_, text) return self.inspector:textedited(text) end,
+        wheelmoved = function(_, x, y, amount)
+            if not self:isPlaying() and self.inspector.classInspector and self.inspector.classInspector.target then
+                self.inspector.classInspector:wheelmoved(amount, x, y)
+            end
+            return true
+        end
+    })
+    self.inspectorWidget = inspectorWidget
+    local slots = {
+        center = self.canvas:addChild(center),
+        hierarchy = self.canvas:addChild(hierarchy),
+        inspector = self.canvas:addChild(inspector)
+    }
+    self.menuBar = require("editor.ui.MenuBar").new(self)
+    slots.menu = self.canvas:addChild(self.menuBar, {z = 102})
+    if self.statusHeight > 0 then
+        self.statusWidget = Widget.new({mousepressed = function() return true end, wheelmoved = function() return true end})
+        self.statusWidget.focusable = false
+        slots.status = self.canvas:addChild(self.statusWidget, {z = 101})
+    end
+    if self.assetBrowser then
+        self.inspector.classInspector = require("editor.ClassInspector").new(self.project, self.uiRoot)
+        self.inspector.classInspector.onCommitEdit = self.inspector.onCommitEdit
+        self.inspector.classInspector.onScopeChanged = function()
+            self.inspector:commitEdit()
+            self:updateInspectorTarget()
+        end
+        self.inspector.classInspector.onPick = function(name) return self:beginObjectPick(name) end
+        self.inspector.classInspector.isPicking = function(name) return self.objectPick and self.objectPick.name == name end
+        self.inspector.classInspector.onFrame = function(value)
+            for _, object in ipairs(self.level.lobjects) do
+                if object.authoringId == value then return self.sceneView:frameLObject(object) end
+            end
+            return false, "Referenced instance was not found"
+        end
+        self.inspector.classInspector.onReveal = function(value)
+            self.assetBrowser.collapsed = false
+            self:updateSceneViewport()
+            return self.assetBrowser:reveal(value)
+        end
+        self:updateInspectorTarget()
+        self.assetBrowser.onSelect = function(reference)
+            local ok, err = self:inspectAsset(reference)
+            if ok then
+                self.inspectedAssetReference = reference and (self.project:getAssetId(reference) or reference)
+                self.inspectorSource = "assets"
+            end
+            return ok, err
+        end
+        self.assetBrowser.externalDropTarget = function(entry, x, y)
+            if self.inspectorWidget:containsPoint(x, y) then
+                if self:isPlaying() then return false, nil, "Stop Play before editing resources" end
+                self:updateInspectorTarget()
+                return self.inspector.classInspector:assetDropTarget(entry, x, y)
+            end
+            if not self.sceneView:containsPoint(x, y) then return end
+            if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
+            if self.viewportControls:containsPoint(x, y) then return false, nil, "Drop outside the viewport controls" end
+            if entry.type ~= "file" or not entry.reference:match("^Assets/.+%.prefab$") then return false, nil, "Drop a Prefab into the Scene View" end
+            local vx, vy, width, height = self.sceneView:getViewport()
+            return "scene", {x = vx, y = vy, w = width, h = height}
+        end
+        self.assetBrowser.onExternalDrop = function(entry, x, y, destination)
+            if destination == "inspector" then
+                self.uiRoot.focused = self.inspectorWidget
+                return self.inspector.classInspector:dropAsset(entry, x, y)
+            end
+            return self:placePrefab(entry.reference, x, y)
+        end
+        self.assetBrowser.onEndDrag = function()
+            local context = self.assetDragInspector
+            if not context then return end
+            self.activePanel, self.inspectorSource = "inspector", context.source
+            self.uiRoot.focused = context.focused
+            if context.source == "assets" then self.assetBrowser.selectedReference = context.asset end
+            self.assetDragInspector = nil
+            self:updateInspectorTarget()
+        end
+        self.assetBrowser.onRefresh = function()
+            self.inspector:commitEdit()
+            self.inspector.classInspector:reload()
+            self.instanceInspectorObject = nil
+            self.spriteAssets:clear()
+        end
+        self.assetBrowser:setUIRoot(self.uiRoot)
+        self.assetBrowser.onOpenFile = function(reference)
+            if reference:match("^Assets/.+%.level$") then return self:openProjectDocument(reference) end
+            return true
+        end
+        self.assetBrowser.canDelete = function(reference)
+            local path = self.project:resolvePath(reference)
+            local currentPath = self.documentAssetId and self.project:resolvePath(self.documentAssetId) or self.document.path
+            local documentPath = currentPath and currentPath:gsub("\\", "/")
+            if require("ffi").os == "Windows" then
+                path, documentPath = path and path:lower(), documentPath and documentPath:lower()
+            end
+            if path and documentPath and (documentPath == path or documentPath:sub(1, #path + 1) == path .. "/") then
+                return false, "This entry contains the currently open level"
+            end
+            local prefab = self.prefabDocument
+            local prefabPath = prefab and self.project:resolvePath(prefab.assetId)
+            if prefabPath then prefabPath = prefabPath:gsub("\\", "/") end
+            if prefabPath and require("ffi").os == "Windows" then prefabPath = prefabPath:lower() end
+            if path and prefabPath and prefab:isDirty()
+                and (prefabPath == path or prefabPath:sub(1, #path + 1) == path .. "/") then
+                return false, "Save the edited prefab before removing it"
+            end
+            return true
+        end
+        self.assetBrowser.onMove = function(source, destination)
+            local refs = self.moveReferences
+            if refs then
+                self.level.scriptReference = refs.script
+                for i, object in ipairs(self.level.lobjects) do object.definitionReference = refs.objects[i] end
+                if refs.clean and self.documentAssetId then
+                    self.document.savedSnapshot = assert(require("editor.LevelFile").encode(self.level))
+                end
+                self.moveReferences = nil
+            end
+            local oldPath, newPath = self.project:resolvePath(source), self.project:resolvePath(destination)
+            local current = self.document.path and self.document.path:gsub("\\", "/")
+            if current and oldPath and (current:lower() == oldPath:lower()
+                or current:lower():sub(1, #oldPath + 1) == oldPath:lower() .. "/") then
+                self.document.path = newPath .. current:sub(#oldPath + 1)
+                self.documentReference = self.project:getAssetId(destination .. current:sub(#oldPath + 1))
+            end
+        end
+        self.assetBrowser.onBeforeMove = function()
+            -- 성공 후에만 메모리 참조를 바꾸어 취소·실패가 문서의 dirty 상태를 바꾸지 않게 한다.
+            local refs = {clean = not self.document:isDirty(), objects = {},
+                script = self.project:getAssetId(self.level.scriptReference) or self.level.scriptReference}
+            for i, object in ipairs(self.level.lobjects) do
+                refs.objects[i] = self.project:getAssetId(object.definitionReference) or object.definitionReference
+            end
+            self.moveReferences = refs
+        end
+        slots.assets = self.canvas:addChild(self.assetBrowser)
+    end
+    self.uiRoot.focused = sceneWidget
+    self.uiRoot.beforeMousepressed = function(target)
+        if target == self.viewportControls and self.sceneView.isDraggingLObject then
+            self.sceneView:cancelDrag(true)
+            self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
+        end
+        if target ~= self.viewportControls then self.viewportControls:commit() end
+        local ancestor = target
+        while ancestor and not ancestor.panelName do ancestor = ancestor.parent end
+        local name = ancestor and ancestor.panelName
+        if target == self.menuBar then return end
+        if name == "assets" then
+            -- 클릭은 해제 시 Inspector를 바꾸고, 드래그는 원래 편집 대상을 유지한다.
+            self.assetDragInspector = {asset = self.inspectedAssetReference and self.project:getAssetReference(self.inspectedAssetReference)
+                    or self.assetBrowser.selectedReference,
+                focused = self.uiRoot.focused,
+                source = self.inspectorSource or (self.activePanel == "assets" and "assets" or "scene")}
+        else self.assetDragInspector = nil end
+        if name then self.activePanel = name end
+        if name and name ~= "inspector" and name ~= "assets" then self.inspectorSource = "scene" end
+        if not self:isPlaying() and name ~= "inspector" then self.inspector:commitEdit() end
+        if name ~= "scene" then
+            self.sceneView:cancelDrag(false)
+            self.sceneView.isPanning = false
+        end
+    end
+    self.uiLayout = require("editor.ui.EditorLayout").new(self, self.canvas, slots)
+    self:updateSceneViewport()
+end
+
+function EditorApp:updateSceneViewport()
+    self.viewportControls.visible = not self:isPlaying()
+    self.uiLayout:arrange(love.graphics.getDimensions())
+end
+
+function EditorApp:update(dt)
+    self.uiRoot:update(dt)
+    if self.runtimeWorld then
+        local ok, updated, err = pcall(self.runtimeWorld.update, self.runtimeWorld, dt)
+        if not ok then err, updated = tostring(updated), false end
+        if updated == false then self.runtimeError = err; self.runtimeWorld = nil end
+        return updated, err
+    end
+end
+
+function EditorApp:draw()
+    self:updateSceneViewport()
+    local Ui = require("editor.Ui")
+    local x, y = love.mouse.getPosition()
+    Ui.beginFrame(x, y)
+    Theme.clear("background")
+    self.uiRoot:draw()
+    self:drawStatusBar(x, y)
+end
+
+function EditorApp:statusText(x, y)
+    if self.objectPick then return "Pick an instance in Scene View. Esc or right click: cancel." end
+    local Ui = require("editor.Ui")
+    if self.assetBrowser and self.assetBrowser.drag and self.assetBrowser.drag.active then
+        local drag = self.assetBrowser.drag
+        return drag.error or (drag.destination == "scene" and "Place Prefab in Scene. Esc: cancel."
+            or drag.destination == "inspector" and "Set Inspector resource. Esc: cancel."
+            or "Move to " .. (drag.destination or "") .. ". Esc: cancel.")
+    end
+    local hint = Ui.hoverHint or self.uiRoot:getHint(x, y)
+    local err = self.runtimeError or self.assetBrowser and self.assetBrowser.error
+        or self.inspector.classInspector and self.inspector.classInspector.error
+        or self.spriteAssets and self.spriteAssets.error
+        or self.viewportControls.error
+    if err then return "Error: " .. err .. (hint and " | " .. hint or "") end
+    if hint then return hint end
+    return self.assetBrowser and self.assetBrowser.selectedReference
+        or "Double-click a folder or level to open it. Ctrl+S: save. F5: Play / Stop. Ctrl+Shift+E: Export."
+end
+
+function EditorApp:drawStatusBar(x, y)
+    if self.statusHeight == 0 then return end
+    local width, height = love.graphics.getDimensions()
+    love.graphics.push("all")
+    love.graphics.setScissor(0, height - self.statusHeight, width, self.statusHeight)
+    Theme.setColor("background")
+    love.graphics.rectangle("fill", 0, height - self.statusHeight, width, self.statusHeight)
+    self.statusHint = self:statusText(x, y)
+    require("editor.Ui").text(self.statusHint, 12, height - self.statusHeight + 6, width - 24, Theme.color("text"))
+    love.graphics.pop()
+end
+
+function EditorApp:cancelObjectPick()
+    if not self.objectPick then return end
+    love.mouse.setCursor(self.objectPick.cursor)
+    self.objectPick = nil
+end
+
+function EditorApp:beginObjectPick(name)
+    local inspector = self.inspector.classInspector
+    if self:isPlaying() or not inspector or not inspector.target or inspector.target.level ~= self.level then
+        return false, "Pick an instance reference on a level or placed instance"
+    end
+    if self.objectPick then self:cancelObjectPick(); return true end
+    self.inspector:commitEdit()
+    self.uiRoot:cancelCapture()
+    self.objectPick = {target = inspector.target, name = name, cursor = love.mouse.getCursor()}
+    self.pickCursor = self.pickCursor or love.mouse.getSystemCursor("crosshair")
+    love.mouse.setCursor(self.pickCursor)
+    return true
+end
+
+function EditorApp:mousepressed(x, y, button, presses)
+    self:updateSceneViewport()
+    if self.objectPick then
+        if button == 2 then self:cancelObjectPick(); return true end
+        if button == 1 and self.sceneView:containsPoint(x, y) and not self.viewportControls:containsPoint(x, y) then
+            local wx, wy = self.sceneView:screenToWorld(x, y)
+            local object = self.sceneView:findLObjectAtWorldPosition(wx, wy)
+            if object then
+                local pick = self.objectPick
+                self:cancelObjectPick()
+                local inspector = self.inspector.classInspector
+                if inspector.target == pick.target then inspector:setProperty(pick.name, object.authoringId) end
+            end
+            return true
+        end
+        self:cancelObjectPick()
+    end
+    self.uiRoot:mousepressed(x, y, button, presses)
+    self:updateSceneViewport()
+end
+
+function EditorApp:mousereleased(x, y, button)
+    self.uiRoot:mousereleased(x, y, button)
+end
+
+function EditorApp:mousemoved(x, y, dx, dy)
+    self:updateSceneViewport()
+    self.uiLayout:updateCursor(x, y)
+    if self.objectPick then love.mouse.setCursor(self.pickCursor); return end
+    self.uiRoot:mousemoved(x, y, dx, dy)
+end
+
+function EditorApp:focus(focused)
+    if focused then return end
+    self:cancelObjectPick()
+    if self.assetBrowser then self.assetBrowser:cancelDrag() end
+    self.inspector:cancelPointer()
+    if self.viewportControls.numberDrag then self.viewportControls:dispatch("cancel") end
+    if self.uiRoot.captured == self.inspectorWidget or self.uiRoot.captured == self.viewportControls then
+        self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
+    end
+end
+function EditorApp:wheelmoved(_, amount)
+    self:updateSceneViewport()
+    local x, y = love.mouse.getPosition()
+    self.uiRoot:wheelmoved(x, y, amount)
+end
+
+function EditorApp:textinput(text)
+    if self.uiRoot.popup then return self.uiRoot:textinput(text) end
+    if self:isPlaying() then return end
+    if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
+    return self.uiRoot:textinput(text)
+end
+
+function EditorApp:textedited(text, start, length)
+    if self.uiRoot.popup then return self.uiRoot:textedited(text, start, length) end
+    if self:isPlaying() then return end
+    if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
+    return self.uiRoot:textedited(text, start, length)
+end
+
+function EditorApp:handleSceneKey(key)
+    if self:isPlaying() then return true end
+    local controlDown = love.keyboard.isDown("lctrl", "rctrl")
+    local x, y = love.mouse.getPosition()
+    local usesMousePosition = key == "d" and controlDown
+    if usesMousePosition and not self.sceneView:containsPoint(x, y) then return true end
+    if usesMousePosition and self.viewportControls:containsPoint(x, y) then return true end
+    self.sceneView:keypressed(key, controlDown, x, y)
+    if not self.sceneView.isDraggingLObject and not self.sceneView.isPanning and self.uiRoot.captured == self.sceneWidget then self.uiRoot.captured, self.uiRoot.captureButton = nil, nil end
+    return true
+end
+
+function EditorApp:keypressed(key)
+    if self.objectPick then
+        if key == "escape" then self:cancelObjectPick() end
+        return true
+    end
+    -- 팝업과 편집 포커스가 입력을 우선 소비한다. 저장·Play는 에디터 전역 명령이다.
+    if self.uiRoot.popup then return self.uiRoot:keypressed(key) end
+    local controlDown = love.keyboard.isDown("lctrl", "rctrl")
+    local shiftDown = love.keyboard.isDown("lshift", "rshift")
+    if key == "z" and controlDown and not self:isPlaying() then return self:undoRedo(shiftDown and 1 or -1) end
+    if key == "e" and controlDown and shiftDown and not self:isPlaying() then return self:showExportDialog() end
+    if key == "s" and controlDown and not shiftDown then return self:saveInspectedDocument() end
+    if key == "f5" then
+        if self:isPlaying() then return self:stopPlay() end
+        return self:startPlay()
+    end
+    if self:isPlaying() then return end
+    if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
+    if not controlDown and not self.inspector:isEditing() and not self.viewportControls.editing
+        and (key == "w" or key == "e" or key == "r") then return self:handleSceneKey(key) end
+    return self.uiRoot:keypressed(key)
+end
+
+function EditorApp:recordHistory()
+    if self.performingAssets or self.replayingAssets then return end
+    if self:isPlaying() or self.inspector:isEditing() or self.sceneView.isDraggingLObject then return end
+    local selected = self.sceneView.selectedLObject
+    local history = self.histories[self.document]
+    history.highWater = math.max(history.highWater or 1, self.level.nextAuthoringId)
+    local changed = history:record(assert(require("editor.LevelFile").encode(self.level)), selected and selected.authoringId)
+    if changed then self:stampHistory(history) end
+    local prefab = self.prefabDocument
+    if prefab then
+        local prefabHistory = self.histories[prefab]
+        if prefabHistory:record(assert(require("editor.Prefab").encodeData(prefab.data))) then self:stampHistory(prefabHistory) end
+    end
+end
+
+function EditorApp:discardRedo()
+    for i = #self.assetActions, self.assetActionIndex + 1, -1 do self.assetActions[i] = nil end
+    for _, history in pairs(self.histories) do
+        for i = #history.entries, history.index + 1, -1 do history.entries[i] = nil end
+    end
+end
+
+function EditorApp:stampHistory(history)
+    self:discardRedo()
+    self.historyClock = self.historyClock + 1
+    history.entries[history.index].stamp = self.historyClock
+end
+
+function EditorApp:pushAssetAction(command)
+    self:discardRedo()
+    self.historyClock = self.historyClock + 1
+    command.stamp = self.historyClock
+    self.assetActions[#self.assetActions + 1] = command
+    if #self.assetActions > 100 then table.remove(self.assetActions, 1) end
+    self.assetActionIndex = #self.assetActions
+end
+
+function EditorApp:undoRedo(direction)
+    self:cancelObjectPick()
+    if self:isPlaying() then return false end
+    self.inspector:mousereleased()
+    self.inspector:commitEdit()
+    -- 캡처를 지우기 전에 스냅 드래그의 마우스 상태와 편집 값을 확정한다.
+    self.viewportControls:release()
+    self.viewportControls:commit()
+    self.sceneView:cancelDrag(false)
+    -- 나머지 캡처 소유자도 취소를 받아 내부 드래그 상태를 정리한다.
+    self.uiRoot:cancelCapture()
+    self:recordHistory()
+    local prefab = self.prefabDocument and self.inspector.classInspector
+        and self.inspector.classInspector.target == self.prefabInspectorTarget
+    local document = prefab and self.prefabDocument or self.document
+    local history = self.histories[document]
+    local action = self.assetActions[self.assetActionIndex + (direction == 1 and 1 or 0)]
+    local nextState = history and history.entries[history.index + direction]
+    local stamp = nextState and (direction == -1 and history.entries[history.index].stamp or nextState.stamp)
+    if action and (not stamp or (direction == -1 and action.stamp > stamp)
+        or (direction == 1 and action.stamp < stamp)) then
+        self.replayingAssets = true
+        local called, ok, err = pcall(direction == -1 and action.undo or action.redo)
+        self.replayingAssets = nil
+        if not called or not ok then
+            self.assetBrowser.error = tostring(called and err or ok)
+            return false
+        end
+        self.assetActionIndex = self.assetActionIndex + direction
+        self.assetBrowser.error = nil
+        return true
+    end
+    local state = history and history:step(direction)
+    if not state then return false end
+    if prefab then
+        document.data = assert(require("editor.Prefab").decode(state.text))
+        self.prefabInspectorTarget.data = document.data
+        self.inspector.classInspector:reload()
+    else
+        document.level = assert(require("editor.LevelFile").decode(state.text))
+        document.level.nextAuthoringId = math.max(document.level.nextAuthoringId, history.highWater or 1)
+        self:setDocument(document)
+        for _, object in ipairs(self.level.lobjects) do
+            if object.authoringId == state.selection then self.sceneView.selectedLObject = object end
+        end
+        self.activePanel, self.inspectorSource = "scene", "scene"
+        self:updateInspectorTarget()
+    end
+    if self.spriteAssets then self.spriteAssets:clear() end
+    return true
+end
+
+-- 하나의 드래그·필드 편집을 완료한 시점에만 문서 스냅샷을 기록한다.
+for _, name in ipairs({"mousepressed", "mousereleased", "keypressed", "focus"}) do
+    local handler = EditorApp[name]
+    EditorApp[name] = function(self, ...)
+        local result, extra = handler(self, ...)
+        self:recordHistory()
+        return result, extra
+    end
+end
+
+function EditorApp:showExportDialog()
+    if not self.project then return false, "Export requires a project" end
+    self.inspector:commitEdit()
+    require("editor.ui.Dialog").new(self.uiRoot, {title = "Export Game", input = true,
+        message = "Export the current level as a standalone .love game.",
+        value = require("editor.HostFileSystem").join(self.project.rootPath, "Build/Game.love"), confirmLabel = "Export",
+        onConfirm = function(output)
+            if self.prefabDocument and self.prefabDocument:isDirty() then return false, "Save the edited Prefab first (Ctrl+S)" end
+            local called, ok, err = pcall(require("editor.Export").write, self.project, self.level, output)
+            if not called then return false, tostring(ok) end
+            return ok, err
+        end})
+    return true
+end
+
+return EditorApp

@@ -16,13 +16,13 @@ end
 -- LÖVE Runtime이 프로그램 시작 시 한 번 호출하는 callback이다.
 function love.load(args)
     if hasArg(args, "--cli") then
-        require("editor.cli").run(args)
+        require("editor.Cli").run(args)
         return
     end
-    require("editor.theme").load()
-    require("editor.fonts").apply()
+    require("editor.Theme").load()
+    require("editor.Fonts").apply()
     if hasArg(args, "--verify-package") then
-        require("editor.package_verification").run(args)
+        require("editor.PackageVerification").run(args)
         return
     end
     if hasArg(args, "--test") then
@@ -34,15 +34,15 @@ function love.load(args)
         local source = love.filesystem.getSource():gsub("\\", "/")
         local repository = source:match("^(.*)/src$")
         assert(repository, "Tests require the repository src directory")
-        local FS = require("editor.host_filesystem")
+        local Fs = require("editor.HostFileSystem")
         table.insert(package.loaders, 2, function(name)
             if not name:match("^tests%.[%w_%.]+$") or name:find("..", 1, true) then return "\nNot a repository test module" end
             local relative = name:gsub("%.", "/") .. ".lua"
-            local text, err = FS.read(FS.join(repository, relative))
+            local text, err = Fs.read(Fs.join(repository, relative))
             if not text then return "\n" .. tostring(err) end
             return assert(loadstring(text, "@" .. relative))
         end)
-        local runner = require("tests.runner")
+        local runner = require("tests.Runner")
 
         local _, failed = runner.runAll()
 
@@ -51,22 +51,22 @@ function love.load(args)
         return
     end
 
-    local ProjectStart = require("editor.project_start")
+    local ProjectStart = require("editor.ProjectStart")
     app = ProjectStart.new(function(project)
-        local Settings = require("editor.snap_settings")
-        local ok, editor = pcall(require("editor.app").new, nil, project, {snapSettings = Settings.load(), saveSnapSettings = Settings.save})
+        local Settings = require("editor.SnapSettings")
+        local ok, editor = pcall(require("editor.EditorApp").new, nil, project, {snapSettings = Settings.load(), saveSnapSettings = Settings.save})
         if not ok then return false, tostring(editor) end
         app = editor
         love.window.setTitle("LOVE Labo - " .. project.name)
         return true
     end)
-    require("editor.startup").openRequestedProject(args, app, love.filesystem.getWorkingDirectory())
+    require("editor.Startup").openRequestedProject(args, app, love.filesystem.getWorkingDirectory())
 end
 
 -- love.update는 LÖVE Runtime이 매 프레임 호출한다.
 -- dt는 직전 프레임 이후 경과 시간(초)이다.
 function love.update(dt)
-    require("editor.ui.ime").update()
+    require("editor.ui.Ime").update()
     if app and app.update then
         app:update(dt)
     end
@@ -104,7 +104,7 @@ function love.directorydropped(path)
         app:setPath(path)
         app.activeField = "path"
         app.replace = true
-        require("editor.ui.text_edit").begin(app, app.path, true)
+        require("editor.ui.TextEdit").begin(app, app.path, true)
         app.error = nil
     end
 end
@@ -118,7 +118,7 @@ end
 -- love.textinput은 실제 입력된 문자(text)를 전달한다.
 -- Inspector의 숫자 field처럼 text editing이 필요한 UI에서 사용한다.
 function love.textinput(text)
-    if require("editor.ui.ime").consume(text) then return end
+    if require("editor.ui.Ime").consume(text) then return end
     if app then
         app:textinput(text)
     end

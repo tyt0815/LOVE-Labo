@@ -1,6 +1,6 @@
-local Assert = require("tests.assert")
-local Theme = require("editor.theme")
-local Json = require("editor.json")
+local Assert = require("tests.Assert")
+local Theme = require("editor.Theme")
+local Json = require("editor.Json")
 local tests = {}
 local function add(name, fn)
     tests[#tests + 1] = { name = name, fn = function()

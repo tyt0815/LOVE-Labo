@@ -3,13 +3,13 @@
 PowerShell과 LÖVE 11.5 Windows 런타임이 필요하다. 저장소 루트에서 실행한다.
 
 ```powershell
-.\scripts\package-editor.ps1 -Verify
+.\scripts\packageEditor.ps1 -verify
 ```
 
 다른 LÖVE 설치 경로나 출력 폴더를 사용할 수 있다.
 
 ```powershell
-.\scripts\package-editor.ps1 -LoveDirectory 'D:\Tools\LOVE' -OutputDirectory '.\build\windows' -Verify
+.\scripts\packageEditor.ps1 -loveDirectory 'D:\Tools\LOVE' -outputDirectory '.\build\windows' -verify
 ```
 
 ## 결과물
@@ -42,7 +42,7 @@ PowerShell과 LÖVE 11.5 Windows 런타임이 필요하다. 저장소 루트에�
 - fused 실행, 테스트·설정 제외, 폰트 포함, 외부 테마 적용
 - 한글 프로젝트 경로에서 클래스·메타데이터·Prefab·레벨 생성, 시작 화면과 `--project` 열기
 - 외부 이미지 로딩, 인스턴스 배치, Inspector 프로퍼티 수정·저장·재로딩
-- 프로젝트 코드의 BeginPlay, Play/Stop, UI 그리기
+- 프로젝트 코드의 beginPlay, Play/Stop, Ui 그리기
 
 검증 결과는 출력 폴더 옆 `verification-<고유값>/report.json`에 남고, 화면은 `preview.png`로 저장한다. 실패하거나 60초 안에 종료하지 않으면 스크립트가 오류를 반환한다. 기존 사용자 프로젝트·설정은 수정하지 않는다. 검증 프로젝트를 배포 폴더에 포함하지 않도록 출력 폴더의 부모에 보관한다.
 

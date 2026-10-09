@@ -1,17 +1,17 @@
-local Assert = require("tests.assert")
-local IME = require("editor.ui.ime")
-local UI = require("editor.ui")
-local Root = require("editor.ui.root")
-local Canvas = require("editor.ui.canvas")
-local Dialog = require("editor.ui.dialog")
-local ProjectStart = require("editor.project_start")
-local ClassInspector = require("editor.class_inspector")
+local Assert = require("tests.Assert")
+local Ime = require("editor.ui.Ime")
+local Ui = require("editor.Ui")
+local Root = require("editor.ui.Root")
+local Canvas = require("editor.ui.Canvas")
+local Dialog = require("editor.ui.Dialog")
+local ProjectStart = require("editor.ProjectStart")
+local ClassInspector = require("editor.ClassInspector")
 local tests = {}
 local function add(name, fn)
     tests[#tests + 1] = {name = name, fn = function()
-        IME.update()
+        Ime.update()
         local ok, err = pcall(fn)
-        IME.update()
+        Ime.update()
         if not ok then error(err, 0) end
     end}
 end
@@ -22,13 +22,13 @@ add("Hangul composition displays immediately and commits each syllable once", fu
     dialog.contentFocused = true
     root:textedited("ㅎ", 0, 1)
     Assert.equal(false, dialog.contentFocused)
-    Assert.equal("ㅎ", IME.display(dialog, dialog.text, dialog.replace))
+    Assert.equal("ㅎ", Ime.display(dialog, dialog.text, dialog.replace))
     root:textedited("한", 0, 1)
     Assert.equal("Default", dialog.text)
-    Assert.equal("한", IME.display(dialog, dialog.text, dialog.replace))
+    Assert.equal("한", Ime.display(dialog, dialog.text, dialog.replace))
     root:textinput("한")
     root:textedited("글", 0, 1)
-    Assert.equal("한글", IME.display(dialog, dialog.text, dialog.replace))
+    Assert.equal("한글", Ime.display(dialog, dialog.text, dialog.replace))
     root:textinput("글")
     root:textedited("", 0, 0)
     Assert.equal("한글", dialog.text)
@@ -49,13 +49,13 @@ add("dialog click confirms final Hangul and late native input cannot leak to ano
     local nextDialog = Dialog.new(root, {input = true, value = "Next", onConfirm = function() return true end})
     root:textinput("글")
     Assert.equal("Next", nextDialog.text)
-    IME.update()
+    Ime.update()
     root:textinput("글")
     Assert.equal("글", nextDialog.text)
     root:dismissPopup()
 end)
 
-add("IME backspace changes only the composing syllable and escape cancels", function()
+add("Ime backspace changes only the composing syllable and escape cancels", function()
     local root = Root.new(Canvas.new())
     local dialog = Dialog.new(root, {input = true, onConfirm = function() error("unexpected submit") end})
     root:textinput("한")
@@ -63,7 +63,7 @@ add("IME backspace changes only the composing syllable and escape cancels", func
     root:keypressed("backspace")
     Assert.equal("한", dialog.text)
     root:textedited("그", 0, 1)
-    Assert.equal("한그", IME.display(dialog, dialog.text, dialog.replace))
+    Assert.equal("한그", Ime.display(dialog, dialog.text, dialog.replace))
     root:textedited("", 0, 0)
     root:keypressed("backspace")
     Assert.equal("", dialog.text)
@@ -125,7 +125,7 @@ add("class choice arrows finish Hangul composition before changing selection", f
 end)
 
 add("focused folder tree arrows finish Hangul composition before navigating", function()
-    local FolderTree = require("editor.ui.folder_tree")
+    local FolderTree = require("editor.ui.FolderTree")
     local project = {listDirectory = function(_, reference)
         if reference ~= "Assets" then return {} end
         return {{type = "directory", reference = "Assets/First"},
@@ -171,13 +171,13 @@ add("class properties keep final Hangul on Enter and blur and cancel on Escape",
         else owner:keypressed(mode == "enter" and "return" or "escape") end
         Assert.equal(mode ~= "escape" and "한글" or nil, value())
         Assert.equal(nil, owner.composition)
-        IME.update()
+        Ime.update()
     end
 end)
 
 add("editor routes composition through popup and focused inspector", function()
-    local EditorApp = require("editor.app")
-    local Widget = require("editor.ui.widget")
+    local EditorApp = require("editor.EditorApp")
+    local Widget = require("editor.ui.Widget")
     local owner = inspector()
     local app = setmetatable({uiRoot = Root.new(Canvas.new()), inspector = owner}, EditorApp)
     app.inspectorWidget = Widget.new({textedited = function(_, text) return owner:textedited(text) end})
@@ -194,12 +194,12 @@ end)
 add("project start renders preedit instead of lagging committed text", function()
     local start = ProjectStart.new(function() return true end)
     start:textedited("한")
-    local original, shown = UI.field
-    UI.field = function(text, _, focused, composition)
+    local original, shown = Ui.field
+    Ui.field = function(text, _, focused, composition)
         if focused then shown = {text, composition} end
     end
     local ok, err = pcall(start.draw, start)
-    UI.field = original
+    Ui.field = original
     if not ok then error(err, 0) end
     Assert.equal("한", shown[1])
     Assert.equal("한", shown[2])

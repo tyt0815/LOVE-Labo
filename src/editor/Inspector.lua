@@ -1,0 +1,376 @@
+local Theme = require("editor.Theme")
+local Ui = require("editor.Ui")
+local Ime = require("editor.ui.Ime")
+local Edit = require("editor.ui.TextEdit")
+local PropertyLayout = require("editor.ui.PropertyLayout")
+local NumberDrag = require("editor.ui.NumberDrag")
+local Inspector = {}
+Inspector.__index = Inspector
+
+local DEFAULT_WIDTH = 300
+
+local TRANSFORM_ORDER = {"x", "y", "rotationX", "rotationY", "rotation", "scaleX", "scaleY"}
+local TRANSFORM_FIELDS = {}
+for i, field in ipairs(TRANSFORM_ORDER) do TRANSFORM_FIELDS[field] = i end
+local TRANSFORM_LABELS = {x = "X", y = "Y", rotationX = "Rot X°", rotationY = "Rot Y°", rotation = "Rot Z°", scaleX = "Scale X", scaleY = "Scale Y"}
+local TRANSFORM_TOP = 90 + Ui.METRICS.contentPaddingY
+
+function Inspector.new(level, width)
+    local self = setmetatable({}, Inspector)
+
+    self.level = level
+    self.width = width or DEFAULT_WIDTH
+
+    -- Inspector의 text edit 상태는 authoring data와 분리된 transient Editor state다.
+    self.activeField = nil
+    self.editingLObject = nil
+    self.editText = ""
+    self.replaceOnTextInput = false
+    self.transformExpanded = true
+
+    return self
+end
+
+function Inspector:containsPoint(x, y, windowWidth)
+    if windowWidth == nil then
+        return false
+    end
+
+    local left = windowWidth - self.width
+    return x >= left and x < windowWidth and y >= 0
+end
+
+function Inspector:getLObjectIndex(target)
+    if not self.level or not target then
+        return nil
+    end
+
+    for i, lobject in ipairs(self.level.lobjects) do
+        if lobject == target then
+            return i
+        end
+    end
+
+    return nil
+end
+
+function Inspector:getFieldAtPosition(x, y, windowWidth)
+    if not self:containsPoint(x, y, windowWidth) then
+        return nil
+    end
+
+    if not self.transformExpanded or self.classInspector and self.classInspector.selectedComponent then return nil end
+    for _, field in ipairs(TRANSFORM_ORDER) do
+        if Ui.contains(x, y, self:fieldRect(field, windowWidth)) then return field end
+    end
+
+    return nil
+end
+
+function Inspector:isEditing()
+    return self.activeField ~= nil or self.classInspector and self.classInspector:isEditing() or false
+end
+
+function Inspector:beginEdit(field, selectedLObject)
+    if not TRANSFORM_FIELDS[field]
+        or not selectedLObject
+        or not selectedLObject.transform
+    then
+        return false
+    end
+
+    local value = selectedLObject.transform[field]
+
+    if type(value) ~= "number" then
+        return false
+    end
+
+    self.activeField = field
+    self.editingLObject = selectedLObject
+    self.editText = tostring(value)
+
+    -- 새 field를 클릭하면 기존 값 전체가 선택된 것처럼 동작한다.
+    -- 따라서 첫 text input은 기존 숫자 뒤에 붙지 않고 값을 교체한다.
+    self.replaceOnTextInput = true
+    Edit.begin(self, self.editText, true)
+
+    return true
+end
+
+function Inspector:clearEditState()
+    NumberDrag.finish(self)
+    Ime.cancel(self)
+    self.activeField = nil
+    self.editingLObject = nil
+    self.editText = ""
+    self.replaceOnTextInput = false
+end
+
+function Inspector:commitEdit()
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:commitEdit() end
+    if not self:isEditing() then
+        return false
+    end
+
+    local field = self.activeField
+    local lobject = self.editingLObject
+    self.editText, self.replaceOnTextInput = Ime.finish(self, self.editText, self.replaceOnTextInput)
+    local value = tonumber(self.editText)
+
+    if require("core.Transform").finite(value) and lobject and lobject.transform
+        and ((field ~= "scaleX" and field ~= "scaleY") or value > 0) then
+        lobject.transform[field] = field:match("^rotation") and require("core.Transform").normalizeRotation(value) or value
+        self:clearEditState()
+        if self.onCommitEdit then self.onCommitEdit() end
+        return true
+    end
+
+    -- 유효한 숫자가 아니면 authoring data는 변경하지 않고 편집만 종료한다.
+    self:clearEditState()
+    if self.onCommitEdit then self.onCommitEdit() end
+    return false
+end
+
+function Inspector:cancelEdit()
+    NumberDrag.cancel(self)
+    if self.classInspector then self.classInspector:cancelEdit() end
+    if not self:isEditing() then
+        return false
+    end
+
+    self:clearEditState()
+    return true
+end
+
+function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
+    if not self:containsPoint(x, y, windowWidth) then
+        return false
+    end
+
+    if self.classInspector and self.classInspector.target and not selectedLObject then
+        return self.classInspector:mousepressed(x, y, button)
+    end
+    if self.classInspector and self.classInspector.target and (self.classInspector.selectedComponent
+        or self.classInspector.tree and self.classInspector.tree:containsPoint(x, y)) then
+        self:commitEdit(); return self.classInspector:mousepressed(x, y, button)
+    end
+    if self.classInspector then self.classInspector.treeFocused = false end
+    if selectedLObject and Ui.contains(x, y, {x = windowWidth - self.width + Ui.METRICS.contentPaddingX, y = self:getTransformTop(), w = self.width - 2 * Ui.METRICS.contentPaddingX, h = self.transformExpanded and 32 or PropertyLayout.HEADER_HEIGHT}) and button == 1 then
+        self:commitEdit()
+        self.transformExpanded = not self.transformExpanded
+        if self.classInspector and self.classInspector.target then self.classInspector:layout(windowWidth - self.width, self.width, (self.height or love.graphics.getHeight()) + (self.y or 0), self:getPropertyTop(), self.y) end
+        return true
+    end
+    if selectedLObject and self.classInspector and self.classInspector.target and y >= self:getPropertyTop() then
+        if self.activeField then self:commitEdit() end
+        return self.classInspector:mousepressed(x, y, button)
+    end
+
+    -- Inspector 영역의 mouse press는 button 종류와 관계없이 소비한다.
+    if button ~= 1 then
+        return true
+    end
+
+    if selectedLObject and self.transformExpanded then
+        for _, field in ipairs(TRANSFORM_ORDER) do
+            local _, _, reset = PropertyLayout.cells(windowWidth - self.width, self.width, self:fieldRect(field, windowWidth).y - 3)
+            if Ui.contains(x, y, reset) then
+                self:commitEdit()
+                selectedLObject.transform[field] = field:match("^scale") and 1 or 0
+                return true
+            end
+        end
+    end
+
+    local field = self:getFieldAtPosition(x, y, windowWidth)
+
+    if not field or not selectedLObject then
+        self:commitEdit()
+        return true
+    end
+
+    if self.activeField == field and self.editingLObject == selectedLObject then
+        self.editText, self.replaceOnTextInput = Ime.finish(self, self.editText, self.replaceOnTextInput)
+        Edit.press(self, self.editText, self:fieldRect(field, windowWidth), x, false)
+        self.replaceOnTextInput = false
+        return true, true
+    end
+
+    self:commitEdit()
+    self:beginEdit(field, selectedLObject)
+    Edit.press(self, self.editText, self:fieldRect(field, windowWidth), x, true)
+    local scale = field:match("^scale")
+    NumberDrag.begin(self, self.editText, x, {pointerY = y, step = scale and 0.01 or 1, minimum = scale and 0.01 or nil,
+        normalize = field:match("^rotation") and require("core.Transform").normalizeRotation or nil,
+        onChange = function(value) selectedLObject.transform[field] = value end})
+    return true, true
+end
+
+function Inspector:fieldRect(field, windowWidth)
+    local _, rect = PropertyLayout.cells(windowWidth - self.width, self.width, self:getTransformTop() + 32 + (TRANSFORM_FIELDS[field] - 1) * PropertyLayout.ROW_HEIGHT)
+    return rect
+end
+function Inspector:getPropertyTop()
+    if self.classInspector and self.classInspector.selectedComponent and self.classInspector:treeBottom() then return self.classInspector:treeBottom() + 8 end
+    return self:getTransformTop() + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.ROW_HEIGHT or PropertyLayout.HEADER_HEIGHT) + 8
+end
+function Inspector:getTransformTop()
+    return self.classInspector and self.classInspector:treeBottom() and self.classInspector:treeBottom() + 8 or TRANSFORM_TOP + (self.y or 0)
+end
+function Inspector:mousemoved(x, y, dx)
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:mousemoved(x, y, dx) end
+    local handled, text = NumberDrag.move(self, x, dx)
+    if handled then
+        if text then self.editText, self.replaceOnTextInput = text, false; Edit.begin(self, text, false) end
+        return true
+    end
+    return Edit.move(self, x)
+end
+function Inspector:mousereleased()
+    if NumberDrag.finish(self) then self:commitEdit() end
+    Edit.release(self)
+    if self.classInspector then self.classInspector:mousereleased() end
+    return true
+end
+function Inspector:cancelPointer()
+    if self.numberDrag then self:cancelEdit() end
+    Edit.release(self)
+    if self.classInspector then self.classInspector:cancelPointer() end
+    return true
+end
+
+function Inspector:textinput(text)
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:textinput(text) end
+    if not self:isEditing() then
+        return false
+    end
+
+    self.editText, self.replaceOnTextInput = Ime.input(self, self.editText, text, self.replaceOnTextInput)
+
+    return true
+end
+
+function Inspector:textedited(text)
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:textedited(text) end
+    if not self:isEditing() then return false end
+    Ime.edited(self, text)
+    return true
+end
+
+function Inspector:keypressed(key)
+    if self.classInspector and self.classInspector:isEditing() then return self.classInspector:keypressed(key) end
+    if not self:isEditing() then
+        if self.classInspector then return self.classInspector:keypressed(key) end
+        return false
+    end
+    if NumberDrag.modifier(self, key) then return true end
+    if Ime.handlesKey(self, key) then return true end
+    if Ime.endsComposition(key) then
+        self.editText, self.replaceOnTextInput = Ime.finish(self, self.editText, self.replaceOnTextInput)
+    end
+
+    if key == "return" or key == "kpenter" then
+        self:commitEdit()
+        return true
+    end
+
+    if key == "escape" then
+        self:cancelEdit()
+        return true
+    end
+
+    self.editText, self.replaceOnTextInput = Ui.editKey(self.editText, key, self.replaceOnTextInput, self)
+    -- 편집 중 다른 key도 Scene View shortcut으로 전달하지 않는다.
+    return true
+end
+
+function Inspector:drawField(label, field, y, selectedLObject, left)
+    PropertyLayout.separators(left, self.width, y - 3)
+    local labelRect, rect, reset = PropertyLayout.cells(left, self.width, y - 3)
+    local isActive =
+        self.activeField == field
+        and self.editingLObject == selectedLObject
+
+    Ui.text(label, labelRect.x, labelRect.y, labelRect.w)
+
+    local text
+
+    if isActive then
+        text = Ime.display(self, self.editText, self.replaceOnTextInput)
+    else
+        text = string.format("%.2f", selectedLObject.transform[field])
+    end
+
+    Ui.field(text, rect, isActive, isActive and self.composition, self)
+    Ui.resetButton(reset)
+end
+
+function Inspector:instanceKind(object)
+    local project = self.classInspector and self.classInspector.project
+    local reference = project and object.definitionReference and project:getAssetReference(object.definitionReference)
+    local name = reference and reference:match("([^/]+)%.[^.]+$") or "LObject"
+    return name .. " Instance"
+end
+function Inspector:draw(selectedLObject)
+    local windowWidth, windowHeight = love.graphics.getDimensions()
+    windowHeight = self.height or windowHeight
+    local left = windowWidth - self.width
+
+    love.graphics.push("all")
+    love.graphics.intersectScissor(left, self.y or 0, self.width, windowHeight)
+
+    local Ui = require("editor.Ui")
+    Ui.panel(left, self.y or 0, self.width, windowHeight)
+    Ui.panelHeading("Inspector", left, self.y or 0, self.width)
+
+    if self.assetSummary then
+        Ui.label(self.assetSummary.name, left + Ui.METRICS.contentPaddingX, 44 + Ui.METRICS.contentPaddingY + (self.y or 0), self.width - 2 * Ui.METRICS.contentPaddingX)
+        Ui.text(self.assetSummary.kind, left + Ui.METRICS.contentPaddingX, 60 + Ui.METRICS.contentPaddingY + (self.y or 0), self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
+        Ui.text(self.assetSummary.reference, left + Ui.METRICS.contentPaddingX, 86 + Ui.METRICS.contentPaddingY + (self.y or 0), self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
+        local hint = self.assetSummary.kind == "Level" and "Double-click to edit level"
+            or self.assetSummary.kind == "Folder" and "Double-click to browse" or "Read-only asset information"
+        Ui.text(hint, left + Ui.METRICS.contentPaddingX, 110 + Ui.METRICS.contentPaddingY + (self.y or 0), self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
+        love.graphics.pop()
+        return
+    end
+
+    if not selectedLObject then
+        if self.classInspector and self.classInspector.target then
+            self.classInspector:layout(left, self.width, windowHeight + (self.y or 0), nil, self.y)
+            self.classInspector:draw()
+            love.graphics.pop()
+            return
+        end
+        Theme.setColor("textMuted")
+        love.graphics.print("No selection", left + Ui.METRICS.contentPaddingX, 44 + Ui.METRICS.contentPaddingY + (self.y or 0))
+        love.graphics.pop()
+        return
+    end
+
+    local index = self:getLObjectIndex(selectedLObject)
+    local displayId = selectedLObject.authoringId or index
+
+    Theme.setColor("text")
+
+    local name = type(selectedLObject.name) == "string" and selectedLObject.name ~= "" and selectedLObject.name
+        or displayId and "LObject " .. displayId or "LObject"
+    Ui.label(name, left + Ui.METRICS.contentPaddingX, 44 + Ui.METRICS.contentPaddingY + (self.y or 0), self.width - 2 * Ui.METRICS.contentPaddingX)
+    Ui.text(self:instanceKind(selectedLObject), left + Ui.METRICS.contentPaddingX, 60 + Ui.METRICS.contentPaddingY + (self.y or 0), self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
+
+    if selectedLObject.transform and not (self.classInspector and self.classInspector.selectedComponent) then
+        PropertyLayout.group(left, self.width, self:getTransformTop(), self:getPropertyTop() - self:getTransformTop() - 8, "Transform", self.transformExpanded)
+        if self.transformExpanded then
+            for _, field in ipairs(TRANSFORM_ORDER) do
+                self:drawField(TRANSFORM_LABELS[field], field, self:fieldRect(field, windowWidth).y, selectedLObject, left)
+            end
+        end
+    end
+    if self.classInspector and self.classInspector.target then
+        self.classInspector:layout(left, self.width, windowHeight + (self.y or 0), self:getPropertyTop(), self.y)
+        self.classInspector:draw()
+    end
+
+    love.graphics.pop()
+end
+
+return Inspector

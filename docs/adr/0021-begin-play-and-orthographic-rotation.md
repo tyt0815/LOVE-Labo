@@ -1,6 +1,7 @@
 # 0021. BeginPlay 초기화와 X/Y 직교 투영 회전
 
 - 상태: 채택
+- 후속: BeginPlay 및 모듈 표기는 [ADR 0036](0036-code-conventions-and-module-names.md)의 camelCase·PascalCase 계약으로 대체한다.
 - 후속 확장: [ADR 0023](0023-text-edit-and-component-group-layout.md)의 컴포넌트 우선 정렬·그룹 경계
 - 후속 부분 대체: [ADR 0022](0022-three-axis-rotation-gizmo.md)의 X/Y/Z 회전 기즈모
 - 날짜: 2026-10-09

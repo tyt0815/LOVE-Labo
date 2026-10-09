@@ -4,6 +4,8 @@ LÖVE 11.5 + LuaJIT을 사용하는 2D 제작 에디터다. 현재 외부 프로
 
 제품 코드와 번들 리소스는 `src/`, 개발 테스트·샘플 프로젝트는 `tests/`, 문서는 `docs/`, 자동화는 `scripts/`, 생성된 배포물은 `build/`에 둔다. 패키징·CLI·게임 Export 사용법은 [패키징](docs/packaging.md)과 [CLI·Export](docs/cli-and-export.md)를 참고한다.
 
+코드 컨벤션은 [AGENTS.md](AGENTS.md)를 따른다. 클래스·제품 모듈 파일은 PascalCase, 함수·변수는 camelCase, 상수는 UPPER_SNAKE_CASE다. 공개 API는 `require("Engine")`, `beginPlay`, `update`, `draw`, `getLocalBounds`, `spawnLObject`를 사용한다. 이전 대문자 API·소문자 모듈 경로를 사용하는 외부 프로젝트 코드는 새 표기로 갱신한다. 이름·들여쓰기·require 경로 검사: `python scripts/checkConventions.py`.
+
 ## 실행
 
 ```powershell
@@ -107,7 +109,7 @@ SceneComponent 계열의 **Transform** 그룹은 X/Y·Rot X/Y/Z·Scale X/Y를 �
 -- labo-script: level
 local StartLevel = {}
 
-function StartLevel.BeginPlay(world)
+function StartLevel.beginPlay(world)
     -- Play 시작 시 Runtime World를 초기화한다.
 end
 
@@ -118,7 +120,7 @@ end
 return StartLevel
 ```
 
-Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최초 가져오기 때 종류를 결정하는 힌트다. 표식 없는 기존 Lua는 Level Class로 분류한다. 가져온 뒤에는 `.lua.meta`의 `scriptKind`를 사용한다. 호환성을 위해 기존 저장 필드명과 헤더는 유지한다. 기존 클래스의 load·컴포넌트의 Load도 실행되며 새 BeginPlay와 함께 선언하면 BeginPlay만 호출한다. LObject Class 템플릿은 `BeginPlay(self, world)`·`update(self, dt)` 함수를 제공한다.
+Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최초 가져오기 때 종류를 결정하는 힌트다. 표식 없는 기존 Lua는 Level Class로 분류한다. 가져온 뒤에는 `.lua.meta`의 `scriptKind`를 사용한다. 호환성을 위해 기존 저장 필드명과 헤더는 유지한다. 기존 클래스의 load·컴포넌트의 load도 실행되며 새 beginPlay와 함께 선언하면 beginPlay만 호출한다. LObject Class 템플릿은 `beginPlay(self, world)`·`update(self, dt)` 함수를 제공한다.
 
 생성되는 Prefab은 다음 형태다. `definitionReference`는 선택한 LObject Class를 가리키며 부모가 없으면 생략한다. 빈 `overrides`는 원본 기본값을 유지한다. Asset Browser의 Prefab을 Scene View에 드래그해서 배치하면 새 인스턴스가 선택된다. Inspector에서 클래스·컴포넌트 값을 편집하고 Ctrl+S로 레벨을 저장한다. Prefab 자체를 선택하면 Prefab 기본값을 편집한다.
 
@@ -130,15 +132,15 @@ Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최�
 }
 ```
 
-**F5**는 Play/Stop이다. Play마다 코드 파일을 새로 읽고 Runtime World를 만든다. `BeginPlay`는 한 번, `update`는 매 프레임 LObject 업데이트 전에 호출한다. Stop은 Runtime 변경을 버리며 배치 데이터에 반영하지 않는다. 코드 오류는 에디터에 표시하고 Play를 시작하지 않거나 중지한다. 자동화 테스트 모드에서는 프로젝트 코드를 실행하지 않는다.
+**F5**는 Play/Stop이다. Play마다 코드 파일을 새로 읽고 Runtime World를 만든다. `beginPlay`는 한 번, `update`는 매 프레임 LObject 업데이트 전에 호출한다. Stop은 Runtime 변경을 버리며 배치 데이터에 반영하지 않는다. 코드 오류는 에디터에 표시하고 Play를 시작하지 않거나 중지한다. 자동화 테스트 모드에서는 프로젝트 코드를 실행하지 않는다.
 
 ## Lua Class 상속과 프로퍼티
 
-RenderComponent의 Draw/GetLocalBounds 오버라이드, 루트 Transform과 이미지·객체 참조의 선언 및 편집 예시는 [컴포넌트 사용법](docs/components.md)을 참고한다.
+RenderComponent의 draw/getLocalBounds 오버라이드, 루트 Transform과 이미지·객체 참조의 선언 및 편집 예시는 [컴포넌트 사용법](docs/components.md)을 참고한다.
 
-`type = "prefab"`은 Inspector에서 다른 Prefab을 선택하는 참조 프로퍼티다. Lua에서는 `world:SpawnLObject(self.properties.projectile, {x = 100, y = 0})`로 해당 Prefab의 런타임 객체를 만든다. 생성·초기화·오류 계약과 예제는 [Prefab 런타임 생성](docs/runtime-spawn.md)을 참고한다.
+`type = "prefab"`은 Inspector에서 다른 Prefab을 선택하는 참조 프로퍼티다. Lua에서는 `world:spawnLObject(self.properties.projectile, {x = 100, y = 0})`로 해당 Prefab의 런타임 객체를 만든다. 생성·초기화·오류 계약과 예제는 [Prefab 런타임 생성](docs/runtime-spawn.md)을 참고한다.
 
-클래스는 일반 Lua 테이블을 반환한다. `extends`에는 같은 종류의 부모 `.lua.meta`의 `id`를 기록한다. ID를 사용하므로 부모 파일 이동·이름 변경에도 상속이 유지된다. 생략한 함수와 프로퍼티는 부모에게서 물려받으며, 자식 함수에서 `Child.super.BeginPlay(world)`처럼 부모 함수를 명시적으로 호출할 수 있다. 순환 상속·다른 종류의 부모·잘못된 선언은 오류다.
+클래스는 일반 Lua 테이블을 반환한다. `extends`에는 같은 종류의 부모 `.lua.meta`의 `id`를 기록한다. ID를 사용하므로 부모 파일 이동·이름 변경에도 상속이 유지된다. 생략한 함수와 프로퍼티는 부모에게서 물려받으며, 자식 함수에서 `Child.super.beginPlay(world)`처럼 부모 함수를 명시적으로 호출할 수 있다. 순환 상속·다른 종류의 부모·잘못된 선언은 오류다.
 
 ```lua
 -- labo-script: level
@@ -151,8 +153,8 @@ local Child = {
     },
 }
 
-function Child.BeginPlay(world)
-    if Child.super.BeginPlay then Child.super.BeginPlay(world) end
+function Child.beginPlay(world)
+    if Child.super.beginPlay then Child.super.beginPlay(world) end
     print(world.properties.title)
 end
 
@@ -161,7 +163,7 @@ return Child
 
 인스펙터에서 `number`·`string`은 입력칸, `boolean`은 토글로 편집한다. 되돌리기 화살표 아이콘(↺)은 클래스 기본값으로 되돌린다. 상속받은 프로퍼티도 편집할 수 있고 자식에서 기본값을 재정의할 수 있으나 타입은 유지해야 한다. Level은 `propertyOverrides`, Prefab은 `overrides.properties`에 기본값과 다른 값만 저장한다. 부모 변경 시 새 클래스와 호환되는 값만 유지하고 **None**으로 해제하면 변경값을 비운다. Play에서는 Level의 `world.properties`, LObject의 `self.properties`로 최종 값을 읽는다. Runtime 변경은 에셋에 반영하지 않는다.
 
-클래스 목록은 메타데이터만 읽지만, 프로퍼티 선언을 표시할 때는 선택한 클래스와 부모의 Lua 모듈을 로드한다. 모듈 최상위에는 선언만 두고 실제 게임 동작은 `BeginPlay`·`update`에 작성한다. 인스펙터 로드는 lifecycle 함수를 호출하지 않는다. 외부에서 클래스를 수정한 뒤에는 **Refresh** 또는 대상 문서 다시 열기로 선언을 갱신한다.
+클래스 목록은 메타데이터만 읽지만, 프로퍼티 선언을 표시할 때는 선택한 클래스와 부모의 Lua 모듈을 로드한다. 모듈 최상위에는 선언만 두고 실제 게임 동작은 `beginPlay`·`update`에 작성한다. 인스펙터 로드는 lifecycle 함수를 호출하지 않는다. 외부에서 클래스를 수정한 뒤에는 **Refresh** 또는 대상 문서 다시 열기로 선언을 갱신한다.
 
 ## 에셋 ID와 메타데이터
 
@@ -194,7 +196,7 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 }
 ```
 
-- `default`: [LÖVE 공식 홈페이지](https://love2d.org/)의 [CSS](https://love2d.org/style/style.css?b)·[박스 SVG](https://love2d.org/style/box.svg)를 참고한 전체 배경·패널 `#B1E3FA`, 뷰포트 배경 `#E0F4FC`, 짙은 제목 `#1B4D68`, 분홍 `#EA316E`·파랑 `#25AAE1` 강조색이다. `src/editor/theme.lua`에 내장되어 JSON 파일 없이도 동작한다.
+- `default`: [LÖVE 공식 홈페이지](https://love2d.org/)의 [CSS](https://love2d.org/style/style.css?b)·[박스 SVG](https://love2d.org/style/box.svg)를 참고한 전체 배경·패널 `#B1E3FA`, 뷰포트 배경 `#E0F4FC`, 짙은 제목 `#1B4D68`, 분홍 `#EA316E`·파랑 `#25AAE1` 강조색이다. `src/editor/Theme.lua`에 내장되어 JSON 파일 없이도 동작한다.
 - `atom-one-light`: [VS Code Atom One Light](https://github.com/akamud/vscode-theme-onelight/blob/master/themes/OneLight.json) 스타일의 밝은 회색 배경, 짙은 글자와 파란 강조색.
 
 색을 직접 바꾸려면 아래처럼 `src/editor/themes/my-theme.json`을 만들고 설정에서 `"theme": "my-theme"`을 선택한다. 파일의 `colors`는 `#RRGGBB` 또는 알파를 포함한 `#RRGGBBAA` 색을 받는다. 일부 색만 지정해도 나머지는 코드에 내장된 기본 테마를 사용한다. 모든 색 항목은 `atom-one-light.json`을 참고한다.
@@ -228,27 +230,28 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 
 설정이나 선택된 테마가 없거나 잘못되면 코드의 기본 테마로 시작한다. 기본 테마 JSON은 읽지 않는다. 이미지 미리보기의 원래 색은 유지한다.
 
-## 에디터 UI 구성
+## 에디터 Ui 구성
 
 `src/editor/ui/`는 위젯 트리와 입력 전달을 관리한다. Core Runtime 및 LObject 생명주기와 분리된다.
 
 ```text
 src/editor/ui/
-  widget.lua          # 공통 위젯과 이벤트 처리
-  panel.lua           # 자식 위젯·그리기 순서·클리핑
-  slot.lua            # 부모 기준 배치 정보
-  canvas.lua          # 슬롯 배치와 중첩 Canvas
-  root.lua            # 입력 소비·포커스·드래그 캡처·팝업
-  dropdown.lua        # 재사용 가능한 보기 선택 컨트롤
-  breadcrumb.lua      # 클릭 가능한 프로젝트 상대 경로
-  context_menu.lua    # 하위 메뉴와 항목별 동작을 받는 공통 우클릭 메뉴
-  dialog.lua          # 이름 입력·삭제 확인 팝업
-  editor_layout.lua   # 에디터 패널 배치·경계선 크기 조절
+  Widget.lua          # 공통 위젯과 이벤트 처리
+  Panel.lua           # 자식 위젯·그리기 순서·클리핑
+  Slot.lua            # 부모 기준 배치 정보
+  Canvas.lua          # 슬롯 배치와 중첩 Canvas
+  Root.lua            # 입력 소비·포커스·드래그 캡처·팝업
+  Dropdown.lua        # 재사용 가능한 보기 선택 컨트롤
+  Breadcrumb.lua      # 클릭 가능한 프로젝트 상대 경로
+  ContextMenu.lua     # 하위 메뉴와 항목별 동작을 받는 공통 우클릭 메뉴
+  Dialog.lua          # 이름 입력·삭제 확인 팝업
+  EditorLayout.lua    # 에디터 패널 배치·경계선 크기 조절
 ```
 
-기존 `src/editor/ui.lua`는 텍스트·버튼·입력칸 그리기 도우미로 유지한다. 에디터는 루트의 그리기·입력 메서드를 호출하며, 계층·뷰포트·인스펙터는 각각 Canvas 안의 콘텐츠 위젯으로 연결된다. 에셋 브라우저는 내부에 폴더 트리·경로·파일 영역·드롭다운 슬롯을 가진 Canvas다. 폴더 트리와 경로·파일 목록은 간격을 둔 독립 패널로 표시하며, 파일 목록 패널은 뷰포트 배경색을 공유한다. 내부 모듈명은 `asset_browser.lua`를 유지한다. 확장자별 플러그인 등록 API는 아직 제공하지 않는다.
+기존 `src/editor/Ui.lua`는 텍스트·버튼·입력칸 그리기 도우미로 유지한다. 에디터는 루트의 그리기·입력 메서드를 호출하며, 계층·뷰포트·인스펙터는 각각 Canvas 안의 콘텐츠 위젯으로 연결된다. 에셋 브라우저는 내부에 폴더 트리·경로·파일 영역·드롭다운 슬롯을 가진 Canvas다. 폴더 트리와 경로·파일 목록은 간격을 둔 독립 패널로 표시하며, 파일 목록 패널은 뷰포트 배경색을 공유한다. 내부 모듈명은 `AssetBrowser.lua`다. 확장자별 플러그인 등록 API는 아직 제공하지 않는다.
+
 ## 패널 여백 조절
 
-일반 버튼의 폭은 텍스트 폭에 `UI.metrics.buttonPaddingX`를 좌우로 더해서 계산한다. 기본은 좌우 각각 10px이며, 버튼 사이 간격은 `buttonGap`(기본 8px)이다. 에셋 브라우저 도구·다이얼로그·프로젝트 시작 화면·인스펙터의 동작 버튼에 적용하며, 드롭다운 메뉴의 선택 행과 입력칸은 목록·필드 폭을 유지한다. 표시와 클릭 영역은 같은 크기를 사용한다.
+일반 버튼의 폭은 텍스트 폭에 `Ui.METRICS.buttonPaddingX`를 좌우로 더해서 계산한다. 기본은 좌우 각각 10px이며, 버튼 사이 간격은 `buttonGap`(기본 8px)이다. 에셋 브라우저 도구·다이얼로그·프로젝트 시작 화면·인스펙터의 동작 버튼에 적용하며, 드롭다운 메뉴의 선택 행과 입력칸은 목록·필드 폭을 유지한다. 표시와 클릭 영역은 같은 크기를 사용한다.
 
-`src/editor/ui.lua` 상단의 `UI.metrics`를 수정하고 에디터를 다시 실행하면 공통 패널 여백을 바꿀 수 있습니다. `titlePaddingX`·`titlePaddingY`는 패널 경계에서 제목까지의 좌측·상단 거리, `titleFontSize`는 제목 크기입니다. `contentPaddingX`는 본문 좌측 여백이며, `contentPaddingY`는 제목 아래 콘텐츠에 추가하는 상단 여백입니다. 제목과 본문을 맞추려면 두 X 값을 같게 설정하세요. `selectionPaddingX`·`selectionPaddingY`는 선택 박스의 가로·세로 여백, `selectionRadius`는 모서리 반경입니다. 모든 수치는 픽셀 단위입니다.
+`src/editor/Ui.lua` 상단의 `Ui.METRICS`를 수정하고 에디터를 다시 실행하면 공통 패널 여백을 바꿀 수 있습니다. `titlePaddingX`·`titlePaddingY`는 패널 경계에서 제목까지의 좌측·상단 거리, `titleFontSize`는 제목 크기입니다. `contentPaddingX`는 본문 좌측 여백이며, `contentPaddingY`는 제목 아래 콘텐츠에 추가하는 상단 여백입니다. 제목과 본문을 맞추려면 두 X 값을 같게 설정하세요. `selectionPaddingX`·`selectionPaddingY`는 선택 박스의 가로·세로 여백, `selectionRadius`는 모서리 반경입니다. 모든 수치는 픽셀 단위입니다.

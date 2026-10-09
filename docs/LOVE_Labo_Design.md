@@ -109,7 +109,7 @@ startup API
       Hierarchy / Assets         Level / Spawn
       Play / Console                    │
                  │                  Public API
-                 │                require("engine")
+                 │                require("Engine")
                  │                         │
                  └─────────────── Project Lua
                                            │
@@ -151,7 +151,7 @@ Runtime LObject의 mutable data가 Definition, Prefab, Level 원본과 의도치
 
 ## 4.3 Component
 
-현재 컴포넌트 구성·위치·이미지 및 인스턴스 프로퍼티 계약은 [ADR 0017](adr/0017-components-instance-properties-and-prefab-placement.md)을 따른다. 프로젝트 코드는 `require("engine")`의 공개 컴포넌트 클래스를 `build(self)`에서 이름을 지정해 부착한다. Inspector는 구성 변경 없이 선언한 값과 참조를 편집한다. 접기 그룹·이름/값 좌우 열·기본 펼침 상태는 [ADR 0024](adr/0024-collapsible-details-and-property-columns.md)를 따른다.
+현재 컴포넌트 구성·위치·이미지 및 인스턴스 프로퍼티 계약은 [ADR 0017](adr/0017-components-instance-properties-and-prefab-placement.md)을 따른다. 프로젝트 코드는 `require("Engine")`의 공개 컴포넌트 클래스를 `build(self)`에서 이름을 지정해 부착한다. Inspector는 구성 변경 없이 선언한 값과 참조를 편집한다. 접기 그룹·이름/값 좌우 열·기본 펼침 상태는 [ADR 0024](adr/0024-collapsible-details-and-property-columns.md)를 따른다.
 
 LObject의 Transform은 위치, X/Y/Z 회전(도), 양수 X/Y 스케일을 가진다. X/Y 기울기는 XY 직교 투영하며 회전 기즈모는 위쪽 선으로 X, 오른쪽 선으로 Y, 두 선을 잇는 호로 Z를 조절한다. 편집 기즈모·Inspector·저장·Runtime·Sprite 렌더링이 같은 값을 사용한다. 현재 계약은 [ADR 0022](adr/0022-three-axis-rotation-gizmo.md), [ADR 0021](adr/0021-begin-play-and-orthographic-rotation.md)과 [ADR 0020](adr/0020-independent-snaps-and-inspector-selection.md)를 따른다.
 
@@ -280,7 +280,7 @@ Plugin extension
 
 Scene View는 authoring state를 보여주고 Game View는 Runtime World 결과를 보여준다.
 
-LÖVE `love.graphics`는 stateful API이므로 Viewport와 Editor UI 사이에서 graphics state가 새지 않도록 한다.
+LÖVE `love.graphics`는 stateful API이므로 Viewport와 Editor Ui 사이에서 graphics state가 새지 않도록 한다.
 
 ---
 
@@ -307,10 +307,12 @@ asset path를 runtime drawable 자체로 취급하지 않는다. Rendering 전�
 
 # 11. Project Loader / Public API
 
+모듈 파일·클래스 테이블은 PascalCase, 함수·변수는 camelCase, 상수는 UPPER_SNAKE_CASE와 공백 네 칸을 사용한다. main.lua·conf.lua, LÖVE 콜백·메타메서드·외부 API는 예외다. 공개 초기화·렌더링·생성 이름은 beginPlay·draw·getLocalBounds·spawnLObject이며 [ADR 0036](adr/0036-code-conventions-and-module-names.md)에 전수 정리와 호환성 범위를 기록한다.
+
 Project Lua가 Core 내부 파일 경로에 직접 의존하지 않도록 Public facade를 둔다.
 
 ```lua
-local Engine = require("engine")
+local Engine = require("Engine")
 ```
 
 Editor Play와 exported `.love`에서 같은 Project Lua가 가능한 한 같은 의미로 동작하도록 한다.
@@ -341,9 +343,11 @@ Host는 `love.load`, `love.update`, `love.draw` 같은 top-level LÖVE callback 
 
 Runtime World는 Level authoring data에서 Runtime LObject를 생성한다.
 
-현재는 `prefab` 참조 프로퍼티를 선택하고 `World:SpawnLObject`로 Prefab 기반 Runtime LObject를 추가할 수 있다. 생성기는 runtime 계층에서 World에 주입하며 Core가 파일 로더나 Editor에 의존하지 않는다. Spawn은 authoring 배치·ID·저장 데이터에 반영하지 않는다. 초기화·실패·Update 순서와 Inspector 리소스 입력은 [ADR 0033](adr/0033-prefab-spawn-and-resource-inspector.md)에 기록한다.
 
-현재 렌더링은 SceneComponent → RenderComponent → SpriteComponent 상속으로 구성한다. 공용 Renderer는 호스트의 카메라·이미지 로더를 사용하고 컴포넌트 Draw를 로컬 좌표계에서 호출한다. GetLocalBounds는 클릭·선택 외곽선의 공용 범위를 제공한다. LObject.transform은 루트 Transform으로 위임하고 자손은 부모 기준 회전·스케일·위치를 합성한다. Prefab 루트 Transform은 Inspector에서 숨기며 인스턴스의 루트 편집은 배치 transform 하나에 저장한다. 상세 계약과 기존 루트 offset 처리 방식은 [ADR 0035](adr/0035-render-components-and-root-transform.md)를 따른다.
+
+현재는 `prefab` 참조 프로퍼티를 선택하고 `World:spawnLObject`로 Prefab 기반 Runtime LObject를 추가할 수 있다. 생성기는 runtime 계층에서 World에 주입하며 Core가 파일 로더나 Editor에 의존하지 않는다. Spawn은 authoring 배치·ID·저장 데이터에 반영하지 않는다. 초기화·실패·update 순서와 Inspector 리소스 입력은 [ADR 0033](adr/0033-prefab-spawn-and-resource-inspector.md)에 기록한다.
+
+현재 렌더링은 SceneComponent → RenderComponent → SpriteComponent 상속으로 구성한다. 공용 Renderer는 호스트의 카메라·이미지 로더를 사용하고 컴포넌트 draw를 로컬 좌표계에서 호출한다. getLocalBounds는 클릭·선택 외곽선의 공용 범위를 제공한다. LObject.transform은 루트 Transform으로 위임하고 자손은 부모 기준 회전·스케일·위치를 합성한다. Prefab 루트 Transform은 Inspector에서 숨기며 인스턴스의 루트 편집은 배치 transform 하나에 저장한다. 상세 계약과 기존 루트 offset 처리 방식은 [ADR 0035](adr/0035-render-components-and-root-transform.md)를 따른다.
 
 ```text
 love.update(dt)
@@ -409,7 +413,7 @@ Plugin API는 실제 확장 요구가 생긴 뒤 최소 extension point부터 �
 
 Exported runtime은 Editor 코드에 의존하지 않고 Project Lua/data/assets를 package 내부에서 읽을 수 있어야 한다.
 
-현재 GUI의 Ctrl+Shift+E와 CLI Export는 독립 `.love`를 생성한다. 게임 전용 Host·Core·공용 Project 모듈·프로젝트 Sources/Assets와 ID 매니페스트만 포함하고 Editor와 테스트는 제외한다. 초기 Export는 등록된 프로젝트 파일 전체를 포함하며 게임 EXE 생성은 이후 범위다. 세부사항은 [ADR 0028](adr/0028-agent-cli-and-standalone-game-export.md)과 [CLI·Export 사용법](cli-and-export.md)을 따른다.
+현재 GUI의 Ctrl+Shift+E와 Cli Export는 독립 `.love`를 생성한다. 게임 전용 Host·Core·공용 Project 모듈·프로젝트 Sources/Assets와 ID 매니페스트만 포함하고 Editor와 테스트는 제외한다. 초기 Export는 등록된 프로젝트 파일 전체를 포함하며 게임 EXE 생성은 이후 범위다. 세부사항은 [ADR 0028](adr/0028-agent-cli-and-standalone-game-export.md)과 [Cli·Export 사용법](cli-and-export.md)을 따른다.
 
 ---
 
