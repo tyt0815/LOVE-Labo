@@ -98,10 +98,11 @@ function EditorApp:setDocument(document)
     self.documentReference = nil
 
     self.sceneView.level = self.level
+    if self.spriteAssets then self.spriteAssets.level = self.level end
     self.hierarchy.level = self.level
     self.inspector.level = self.level
 
-    self.sceneView.selectedLObject = nil
+    self.sceneView:setSelection({})
     self.sceneView:cancelDrag(false)
     self.sceneView.isPanning = false
     self.inspector:cancelEdit()
@@ -220,9 +221,9 @@ function EditorApp:inspectAsset(reference)
     return true
 end
 
-function EditorApp:placePrefab(reference, x, y)
+function EditorApp:placePrefab(reference, x, y, hierarchyDrop)
     if self:isPlaying() then return false, "Stop Play before placing a Prefab" end
-    if not self.sceneView:containsPoint(x, y) then return false, "Drop inside the Scene View" end
+    if not hierarchyDrop and not self.sceneView:containsPoint(x, y) then return false, "Drop inside the Scene View" end
     if self.viewportControls:containsPoint(x, y) then return false, "Drop outside the viewport controls" end
     local source, sourceError = self.project:getAssetReference(reference)
     if not source then return false, sourceError end
@@ -237,10 +238,41 @@ function EditorApp:placePrefab(reference, x, y)
     if not target then return false, targetError end
     self.inspector:commitEdit()
     local wx, wy = self.sceneView:screenToWorld(x, y)
-    local object = assert(self.level:addLObject(wx, wy, self.project:getAssetId(reference) or reference))
-    self.sceneView.selectedLObject, self.activePanel = object, "scene"
+    local parent
+    if type(hierarchyDrop) == "table" then parent = hierarchyDrop.parent
+    elseif hierarchyDrop then parent = self.hierarchy:getLObjectAtPosition(x, y) end
+    if hierarchyDrop then wx, wy = 0, 0 end
+    local object = assert(self.level:addLObject(wx, wy, self.project:getAssetId(reference) or reference, source:match("([^/]+)%.prefab$")))
+    if parent then
+        object.parentAuthoringId = parent.authoringId
+        self.hierarchy.collapsed[parent.authoringId] = nil
+    end
+    self.sceneView:setSelection({object}); self.activePanel = hierarchyDrop and "hierarchy" or "scene"
     self.assetBrowser.selectedReference = nil
     self:updateInspectorTarget()
+    return true
+end
+
+function EditorApp:placePrefabs(entries, x, y, hierarchyDrop)
+    local startId, previous = self.level.nextAuthoringId, self.sceneView:getSelection()
+    local collapsed = {}; for id, value in pairs(self.hierarchy.collapsed) do collapsed[id] = value end
+    local target = hierarchyDrop and {parent = self.hierarchy:getLObjectAtPosition(x, y)} or nil
+    local added = {}
+    for _, entry in ipairs(entries) do
+        local called, ok, err = pcall(self.placePrefab, self, entry.reference, x, y, target)
+        if not called then err, ok = tostring(ok), false end
+        if not ok then
+            for _, object in ipairs(self.level.lobjects) do
+                if object.authoringId >= startId then added[#added + 1] = object end
+            end
+            self.level:removeLObjects(added)
+            self.hierarchy.collapsed = collapsed
+            self.sceneView:setSelection(previous); self:updateInspectorTarget()
+            return false, err
+        end
+    end
+    for _, object in ipairs(self.level.lobjects) do if object.authoringId >= startId then added[#added + 1] = object end end
+    self.sceneView:setSelection(added); self:updateInspectorTarget()
     return true
 end
 
@@ -521,7 +553,7 @@ function EditorApp:initializeUI()
         mousepressed = function(_, x, y, button)
             if self:isPlaying() then return true end
             self.sceneView:mousepressed(x, y, button)
-            return true, self.sceneView.isPanning or self.sceneView.isDraggingLObject
+            return true, self.sceneView.isPanning or self.sceneView.isDraggingLObject or self.sceneView.marquee ~= nil or self.sceneView.pointerDrag ~= nil
         end,
         mousemoved = function(_, ...)
             if not self:isPlaying() then self.sceneView:mousemoved(...) end
@@ -555,13 +587,19 @@ function EditorApp:initializeUI()
         bounds = function(_, _, y, _, height) self.hierarchy.height, self.hierarchy.y = height, y end,
         draw = function() self.hierarchy:draw(self.sceneView.selectedLObject) end,
         mousepressed = function(_, x, y, button)
-            if not self:isPlaying() and button == 1 then
-                self.sceneView.selectedLObject = self.hierarchy:getLObjectAtPosition(x, y)
-            end
+            if not self:isPlaying() then return self.hierarchy:mousepressed(x, y, button) end
             return true
         end,
+        mousemoved = function(_, x, y) return self.hierarchy:mousemoved(x, y) end,
+        mousereleased = function(_, x, y, button) return self.hierarchy:mousereleased(x, y, button) end,
+        wheelmoved = function(_, _, _, amount) self.hierarchy:wheelmoved(amount); return true end,
+        cancel = function() self.hierarchy.drag = nil end,
         keypressed = function(_, key) return self:handleSceneKey(key) end
     })
+    self.hierarchy.sceneView = self.sceneView
+    self.sceneView.onContextMenu = function(x, y, object) self:showObjectMenu(x, y, object) end
+    self.hierarchy.onContextMenu = self.sceneView.onContextMenu
+
     local inspector, inspectorWidget = panel("inspector", {
         bounds = function(_, x, y, width, height)
             self.inspector.height, self.inspector.y = height, y
@@ -639,6 +677,11 @@ function EditorApp:initializeUI()
                 self:updateInspectorTarget()
                 return self.inspector.classInspector:assetDropTarget(entry, x, y)
             end
+            if self.hierarchy:containsPoint(x, y) then
+                if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
+                if entry.type ~= "file" or not entry.reference:match("^Assets/.+%.prefab$") then return false, nil, "Drop a Prefab into the Hierarchy" end
+                return "hierarchy", {x = 0, y = self.hierarchy.y or 0, w = self.hierarchy.width, h = self.hierarchy.height}
+            end
             if not self.sceneView:containsPoint(x, y) then return end
             if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
             if self.viewportControls:containsPoint(x, y) then return false, nil, "Drop outside the viewport controls" end
@@ -651,7 +694,10 @@ function EditorApp:initializeUI()
                 self.uiRoot.focused = self.inspectorWidget
                 return self.inspector.classInspector:dropAsset(entry, x, y)
             end
-            return self:placePrefab(entry.reference, x, y)
+            return self:placePrefab(entry.reference, x, y, destination == "hierarchy")
+        end
+        self.assetBrowser.onExternalDropMany = function(entries, x, y, destination)
+            return self:placePrefabs(entries, x, y, destination == "hierarchy")
         end
         self.assetBrowser.onEndDrag = function()
             local context = self.assetDragInspector
@@ -763,6 +809,11 @@ function EditorApp:update(dt)
         local ok, updated, err = pcall(self.runtimeWorld.update, self.runtimeWorld, dt)
         if not ok then err, updated = tostring(updated), false end
         if updated == false then self.runtimeError = err; self.runtimeWorld = nil end
+        if self.runtimeWorld then
+            local candidate, transitionError = self.runtimeWorld:takeLevelTransition()
+            if candidate then self.runtimeWorld, self.runtimeError = candidate, nil
+            elseif transitionError then self.runtimeError = transitionError end
+        end
         return updated, err
     end
 end
@@ -867,9 +918,7 @@ function EditorApp:focus(focused)
     if self.assetBrowser then self.assetBrowser:cancelDrag() end
     self.inspector:cancelPointer()
     if self.viewportControls.numberDrag then self.viewportControls:dispatch("cancel") end
-    if self.uiRoot.captured == self.inspectorWidget or self.uiRoot.captured == self.viewportControls then
-        self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
-    end
+    self.uiRoot:cancelCapture()
 end
 function EditorApp:wheelmoved(_, amount)
     self:updateSceneViewport()
@@ -896,9 +945,11 @@ function EditorApp:handleSceneKey(key)
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
     local x, y = love.mouse.getPosition()
     local usesMousePosition = key == "d" and controlDown
+    if usesMousePosition and self.activePanel == "hierarchy" then self.sceneView:duplicateSelection(); return true end
     if usesMousePosition and not self.sceneView:containsPoint(x, y) then return true end
     if usesMousePosition and self.viewportControls:containsPoint(x, y) then return true end
     self.sceneView:keypressed(key, controlDown, x, y)
+    if key == "escape" then self.uiRoot:cancelCapture(); self.hierarchy.drag = nil end
     if not self.sceneView.isDraggingLObject and not self.sceneView.isPanning and self.uiRoot.captured == self.sceneWidget then self.uiRoot.captured, self.uiRoot.captureButton = nil, nil end
     return true
 end
@@ -926,6 +977,22 @@ function EditorApp:keypressed(key)
     return self.uiRoot:keypressed(key)
 end
 
+function EditorApp:showObjectMenu(x, y, object)
+    if object and not self.sceneView:isSelected(object) then self.sceneView:setSelection({object}) end
+    local enabled = #self.sceneView:getSelection() > 0
+    local function edit(callback)
+        self.inspector:commitEdit(); self:recordHistory(); callback(); self:recordHistory(); self:updateInspectorTarget()
+    end
+    require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, {
+        {label = "Duplicate", shortcut = "Ctrl+D", enabled = enabled, action = function() edit(function() self.sceneView:duplicateSelection() end) end},
+        {label = "Delete", shortcut = "Delete", enabled = enabled, action = function() edit(function() self.sceneView:deleteSelection() end) end},
+        {label = "Frame Selection", shortcut = "F", enabled = enabled, action = function() self.sceneView:frameSelected() end},
+        {label = "Detach from Parent", enabled = enabled, action = function() edit(function()
+            local ok, err = self.level:reparent(self.sceneView:getSelection(), nil); self.hierarchy.error = not ok and err or nil
+        end) end},
+        {label = "Select All", shortcut = "Ctrl+A", action = function() self.sceneView:setSelection(self.level.lobjects) end}
+    })
+end
 function EditorApp:recordHistory()
     if self.performingAssets or self.replayingAssets then return end
     if self:isPlaying() or self.inspector:isEditing() or self.sceneView.isDraggingLObject then return end

@@ -63,7 +63,7 @@ end
 local function execute(request)
     local command = required(request, "command")
     if command == "help" then
-        return {commands = {"project.create", "project.info", "project.set-default", "class.create", "prefab.create", "prefab.get", "prefab.set", "level.create", "level.get", "level.set", "instance.add", "instance.get", "instance.set", "export"}}
+        return {commands = {"project.create", "project.info", "project.set-default", "class.create", "prefab.create", "prefab.get", "prefab.set", "level.create", "level.get", "level.set", "instance.add", "instance.get", "instance.set", "instance.reparent", "export"}}
     end
     if command == "project.create" then
         local project = assert(Project.create(absolute(required(request, "parent")), required(request, "name")))
@@ -125,7 +125,11 @@ local function execute(request)
         assert(require("project.ObjectDefinition").resolve(project, prefab))
         local x, y = tonumber(request.x or 0), tonumber(request.y or 0)
         assert(require("core.Transform").finite(x) and require("core.Transform").finite(y), "Invalid placement coordinates")
-        object = assert(level:addLObject(x, y, project:getAssetId(reference)))
+        object = assert(level:addLObject(x, y, project:getAssetId(reference), reference:match("([^/]+)%.prefab$")))
+        if request.parent ~= nil and request.parent ~= false then
+            local parent = assert(level:findLObject(tonumber(request.parent)), "Parent instance not found")
+            object.parentAuthoringId = parent.authoringId
+        end
         changed = true
     elseif command:match("^instance%.") then
         local id = tonumber(required(request, "instance"))
@@ -133,7 +137,10 @@ local function execute(request)
         assert(object, "Instance not found")
         local definition = assert(require("project.ObjectDefinition").resolve(project, object.definitionReference))
         target = assert(require("project.ObjectDefinition").inspectorTarget(project, object, definition, level))
-        if command == "instance.set" then
+        if command == "instance.reparent" then
+            local parent = request.parent ~= nil and request.parent ~= false and assert(level:findLObject(tonumber(request.parent)), "Parent instance not found") or nil
+            assert(level:reparent({object}, parent)); changed = true
+        elseif command == "instance.set" then
             local name, item = required(request, "property"), value(request)
             local transformField = name:match("^transform%.(.+)$")
             if transformField then

@@ -39,7 +39,7 @@ function Renderer.hit(object, imageFor, worldX, worldY)
     end)
     return hit
 end
-function Renderer.outline(object, imageFor, toScreen)
+function Renderer.outline(object, imageFor, toScreen, measureOnly)
     local ctx = context(imageFor)
     visit(object, function(component)
         local x, y, width, height = component:getLocalBounds(ctx)
@@ -49,7 +49,7 @@ function Renderer.outline(object, imageFor, toScreen)
                 local wx, wy = Transform.point(world, corner[1], corner[2])
                 local sx, sy = toScreen(wx, wy); points[#points + 1], points[#points + 2] = sx, sy
             end
-            love.graphics.polygon("line", points)
+            if not measureOnly then love.graphics.polygon("line", points) end
         end
     end)
 end

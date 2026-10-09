@@ -343,7 +343,9 @@ Host는 `love.load`, `love.update`, `love.draw` 같은 top-level LÖVE callback 
 
 Runtime World는 Level authoring data에서 Runtime LObject를 생성한다.
 
+Level은 인스턴스의 선택적 `name`·`parentAuthoringId`를 저장한다. 오브젝트 부모가 있으면 루트 Transform은 부모 오브젝트 기준 상대값이고, 월드 행렬은 오브젝트 계층과 컴포넌트 계층을 차례로 합성한다. Hierarchy·Scene View의 다중 선택은 공용 선택 상태를 사용한다. 선택된 자손은 이동·복제·삭제에서 중복 처리하지 않는다. 에셋의 다중 이동·삭제는 한 Undo로 묶는다. 자세한 데이터·조작 계약은 [ADR 0037](adr/0037-object-hierarchy-and-multi-selection.md)을 따른다.
 
+Lua의 `world:openLevel(levelReference)`는 대상 World를 준비하고 현재 update 프레임 종료 후 성공한 후보만 교체한다. 실패하면 현재 World를 유지하며, Editor에서는 authoring 문서를 변경하지 않아 Stop Play로 원래 편집 레벨에 돌아간다. 게임 Export에도 같은 로더와 API를 포함한다. 상세 계약은 [ADR 0038](adr/0038-runtime-level-transition.md)을 따른다.
 
 현재는 `prefab` 참조 프로퍼티를 선택하고 `World:spawnLObject`로 Prefab 기반 Runtime LObject를 추가할 수 있다. 생성기는 runtime 계층에서 World에 주입하며 Core가 파일 로더나 Editor에 의존하지 않는다. Spawn은 authoring 배치·ID·저장 데이터에 반영하지 않는다. 초기화·실패·update 순서와 Inspector 리소스 입력은 [ADR 0033](adr/0033-prefab-spawn-and-resource-inspector.md)에 기록한다.
 

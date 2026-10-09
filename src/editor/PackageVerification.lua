@@ -178,7 +178,15 @@ return NewClass
         check("runtime prefab spawn", #world.lobjects == 3 and spawned.begun and spawned.authoringId == nil)
         app.gameView:draw()
         assert(app:stopPlay())
-        app:draw()
+        local root, child = app.level.lobjects[1], app.level.lobjects[2]
+        assert(app.level:reparent({child}, root))
+        check("object parenting", child.parentAuthoringId == root.authoringId and #app.level:treeRows() == 2)
+        root.transform.rotation = 25
+        root.transform.scaleX, root.transform.scaleY = 1.2, 1.2
+        app.sceneView:setSelection({root, child})
+        app.activePanel, app.inspectorSource = "hierarchy", "scene"
+        app:updateInspectorTarget(); app:draw()
+        preview("object-hierarchy-multiselect")
         result.projectDirectory = project.rootPath
         result.theme = require("editor.Theme").name
         local canvas = love.graphics.newCanvas(love.graphics.getDimensions())

@@ -19,7 +19,7 @@ local CARD_WIDTH, CARD_HEIGHT = 112, 138
 function AssetBrowser.new(project)
     local self = setmetatable(Canvas.new(), AssetBrowser)
     local state = {
-        project = project, folder = "Assets", entries = {}, selectedReference = nil,
+        project = project, folder = "Assets", entries = {}, selectedReference = nil, selectedReferences = {},
         expanded = { Assets = true, Sources = true }, children = {}, tree = {},
         treeScroll = 0, fileScroll = 0, collapsed = false,
         x = 0, y = 0, width = 0, height = 0, error = nil,
@@ -68,6 +68,8 @@ function AssetBrowser.new(project)
     end
     self.handlers.keypressed = function(_, key)
         if key == "escape" then self:cancelDrag()
+        elseif key == "a" and love.keyboard.isDown("lctrl", "rctrl") then self:setSelection(self.entries)
+        elseif key == "delete" then local entries = self:getSelectedEntries(); if entries[1] then self:showDeleteSelectionDialog(entries[1]) end
         elseif key == "backspace" then self:goUp()
         elseif key == "r" and love.keyboard.isDown("lctrl", "rctrl") then self:refresh()
         elseif key == "return" then
@@ -167,7 +169,7 @@ function AssetBrowser:openFolder(reference)
     self.breadcrumb.path = reference
     self.thumbnails:clear()
     self.children[reference] = entries
-    self.selectedReference, self.fileScroll = nil, 0
+    self.selectedReference, self.selectedReferences, self.fileScroll = nil, {}, 0
     -- 목록에서 들어간 폴더도 트리에 보이도록 조상만 펼친다.
     local parent = reference:match("^(.*)/[^/]+$")
     while parent do
@@ -185,7 +187,7 @@ function AssetBrowser:refresh(keepPopup)
     if not rebuilt then self.error = rebuildError; return false, rebuildError end
     self.thumbnails:clear()
     self.children = {}
-    local selected = self.selectedReference
+    local selected, selections = self.selectedReference, self.selectedReferences
     local opened, err = self:openFolder(self.folder)
     if not opened then
         self.entries = {}
@@ -197,6 +199,9 @@ function AssetBrowser:refresh(keepPopup)
         for _, entry in ipairs(self.entries) do
             if entry.reference == selected then self.selectedReference = selected end
         end
+    end
+    if opened then
+        for _, entry in ipairs(self.entries) do if selections[entry.reference] then self.selectedReferences[entry.reference] = true end end
     end
     if opened and self.project.assetIndexError then self.error = self.project.assetIndexError end
     if opened and not keepPopup and self.onRefresh then self.onRefresh() end
@@ -327,14 +332,17 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
             if ok == false then self.error = err; return true end
         end
         local previousReference = self.selectedReference
-        self.selectedReference = entry and entry.reference or nil
+        self:selectEntry(entry, love.keyboard.isDown("lctrl", "rctrl"), love.keyboard.isDown("lshift", "rshift"))
         if entry and entry.type == "directory" and not entry.isLink and (presses or 1) >= 2 then
             self:openFolder(entry.reference)
         elseif entry and entry.type == "file" and not entry.isLink and (presses or 1) >= 2 and self.onOpenFile then
             local opened, err = self.onOpenFile(entry.reference)
             if opened == false then self.error = err end
-        elseif entry and not entry.isLink and (presses or 1) == 1 then
-            self.drag = {entry = entry, x = x, y = y, startX = x, startY = y, previousReference = previousReference}
+        elseif not entry then
+            self.marquee = {x = x, y = y, endX = x, endY = y, previous = self:getSelectedEntries()}
+            return true, true
+        elseif entry and self:isSelected(entry.reference) and not entry.isLink and (presses or 1) == 1 then
+            self.drag = {entry = entry, x = x, y = y, startX = x, startY = y, previousReference = previousReference, entries = self:getSelectedEntries()}
             return true, true
         end
     end
@@ -360,7 +368,7 @@ end
 
 function AssetBrowser:cancelDrag()
     local drag = self.drag
-    self.drag = nil
+    self.drag, self.marquee = nil, nil
     if drag and drag.active and self.onEndDrag then self.onEndDrag() end
     if self.uiRoot.captured == self.fileSlot.widget or self.uiRoot.captured == self.treeSlot.widget then
         self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
@@ -368,6 +376,14 @@ function AssetBrowser:cancelDrag()
 end
 
 function AssetBrowser:dropTargetAt(x, y)
+    local entries = self.drag.entries or {self.drag.entry}
+    if #entries > 1 and self.externalDropTarget then
+        for _, entry in ipairs(entries) do
+            local candidate, rect, err = self.externalDropTarget(entry, x, y)
+            if candidate == false then return nil, rect, err end
+            if candidate == "inspector" then return nil, rect, "Drop one asset onto an Inspector field" end
+        end
+    end
     if self.externalDropTarget then
         local target, rect, err = self.externalDropTarget(self.drag.entry, x, y)
         if target ~= nil then return target or nil, rect, err end
@@ -426,6 +442,21 @@ function AssetBrowser:dropTargetAt(x, y)
 end
 
 function AssetBrowser:dragMoved(x, y)
+    if self.marquee then
+        local Box, marquee = require("editor.ui.SelectionBox"), self.marquee
+        marquee.endX, marquee.endY = x, y
+        local rect = Box.rect(marquee.x, marquee.y, x, y)
+        local objects = {}; for _, entry in ipairs(marquee.previous) do objects[#objects + 1] = entry end
+        local view = self.fileSlot.widget
+        for i, entry in ipairs(self.entries) do
+            local bounds = self:entryBounds(i)
+            if Box.intersects(bounds, {x = view.x, y = view.y, w = view.width, h = view.height}) and Box.intersects(rect, bounds) then
+                local found = false; for _, selected in ipairs(objects) do if selected == entry then found = true end end
+                if not found then objects[#objects + 1] = entry end
+            end
+        end
+        self:setSelection(objects); return true
+    end
     local drag = self.drag
     if not drag then return true end
     drag.x, drag.y = x, y
@@ -439,6 +470,7 @@ function AssetBrowser:dragMoved(x, y)
 end
 
 function AssetBrowser:dragReleased(x, y, button)
+    if button == 1 and self.marquee then self.marquee = nil; return true end
     if button ~= 1 or not self.drag then return true end
     local drag = self.drag
     local destination, _, err
@@ -447,7 +479,14 @@ function AssetBrowser:dragReleased(x, y, button)
     if drag.active then
         if destination then
             local moved, moveError
-            if destination == "scene" or destination == "inspector" then moved, moveError = self.onExternalDrop(drag.entry, x, y, destination)
+            local entries = drag.entries or {drag.entry}
+            if destination == "scene" or destination == "hierarchy" or destination == "inspector" then
+                if #entries > 1 and self.onExternalDropMany then
+                    moved, moveError = self.onExternalDropMany(entries, x, y, destination)
+                else
+                    moved, moveError = self.onExternalDrop(drag.entry, x, y, destination)
+                end
+            elseif #entries > 1 then moved, moveError = self:moveEntries(entries, destination:match("^(.*)/[^/]+$"))
             else moved, moveError = self:moveEntry(drag.entry, destination) end
             self.error = not moved and moveError or nil
         else self.error = err end
@@ -480,6 +519,12 @@ function AssetBrowser:updateDrag(dt)
 end
 
 function AssetBrowser:drawDragOverlay()
+    if self.marquee then
+        love.graphics.push("all")
+        local view = self.fileSlot.widget; love.graphics.setScissor(view.x, view.y, view.width, view.height)
+        require("editor.ui.SelectionBox").draw(require("editor.ui.SelectionBox").rect(self.marquee.x, self.marquee.y, self.marquee.endX, self.marquee.endY))
+        love.graphics.pop(); return
+    end
     local drag = self.drag
     if not drag or not drag.active then return end
     love.graphics.push("all")
@@ -496,8 +541,8 @@ function AssetBrowser:drawDragOverlay()
     love.graphics.rectangle("fill", x, y, width, 54, 4, 4)
     Theme.setColor("border")
     love.graphics.rectangle("line", x, y, width, 54, 4, 4)
-    Ui.label(drag.entry.name, x + 8, y + 7, width - 16)
-    Ui.text(drag.error or (drag.destination == "scene" and "Place Prefab in Scene" or drag.destination == "inspector" and "Set Inspector resource" or "Move to " .. (drag.destination or "")), x + 8, y + 29, width - 16,
+    Ui.label(drag.entry.name .. (drag.entries and #drag.entries > 1 and " (+" .. (#drag.entries - 1) .. ")" or ""), x + 8, y + 7, width - 16)
+    Ui.text(drag.error or (drag.destination == "scene" and "Place Prefab in Scene" or drag.destination == "hierarchy" and "Place Prefab in Hierarchy" or drag.destination == "inspector" and "Set Inspector resource" or "Move to " .. (drag.destination or "")), x + 8, y + 29, width - 16,
         Theme.color(drag.destination and "textMuted" or "error"))
     love.graphics.pop()
 end
@@ -510,10 +555,12 @@ function AssetBrowser:showContextMenu(x, y)
         if node then
             entry = { reference = node.reference, name = node.name, type = "directory" }
             folder = node.reference
+            self:setSelection({entry})
         end
     else
         entry = self:getEntryAtPosition(x, y)
-        self.selectedReference = entry and entry.reference or nil
+        if not entry then self:setSelection({})
+        elseif not self:isSelected(entry.reference) then self:setSelection({entry}) end
         if entry and entry.type == "directory" and not entry.isLink then folder = entry.reference end
     end
     local newItems = {}
@@ -528,11 +575,11 @@ function AssetBrowser:showContextMenu(x, y)
     local items = { { label = "New", children = newItems } }
     if entry and entry.reference ~= "Assets" and entry.reference ~= "Sources" then
         items[#items + 1] = { label = "Move", enabled = not entry.isLink,
-            action = function() self:showMoveDialog(entry) end }
-        items[#items + 1] = { label = "Rename", enabled = not entry.isLink,
+            action = function() self:showMoveSelectionDialog(entry) end }
+        items[#items + 1] = { label = "Rename", enabled = not entry.isLink and #self:getSelectedEntries() <= 1,
             action = function() self:showRenameDialog(entry) end }
         items[#items + 1] = { label = "Delete", enabled = not entry.isLink,
-            action = function() self:showDeleteDialog(entry) end }
+            action = function() self:showDeleteSelectionDialog(entry) end }
     end
     ContextMenu.new(self.uiRoot):show(x, y, items)
 end
@@ -697,7 +744,7 @@ function AssetBrowser:drawFiles()
         if self.viewMode == "list" then
             local rowY = view.y + (i - 1 - self.fileScroll) * ROW
             if rowY + ROW > view.y and rowY < view.y + view.height then
-                if entry.reference == self.selectedReference then
+                if self:isSelected(entry.reference) then
                     Ui.selection(view.x, rowY, view.width, ROW)
                 end
                 local kind = entry.isLink and "[Link] " or entry.type == "directory" and "[Folder] " or "[File] "
@@ -707,7 +754,7 @@ function AssetBrowser:drawFiles()
             local column, row = (i - 1) % columns, math.floor((i - 1) / columns) - self.fileScroll
             local x, y = view.x + Ui.METRICS.contentPaddingX + column * CARD_WIDTH, view.y + 8 + row * CARD_HEIGHT
             if y + CARD_HEIGHT > view.y and y < view.y + view.height then
-                if entry.reference == self.selectedReference then
+                if self:isSelected(entry.reference) then
                     Theme.setColor("selection")
                     love.graphics.rectangle("fill", x, y, CARD_WIDTH - 6, CARD_HEIGHT - 6,
                         Ui.METRICS.selectionRadius, Ui.METRICS.selectionRadius)
@@ -735,6 +782,68 @@ function AssetBrowser:wheelmoved(x, y, amount)
     elseif self.fileSlot.widget:containsPoint(x, y) then self.fileScroll = self.fileScroll - amount * (self.viewMode == "list" and 3 or 1) end
     self:clampScroll()
     if self.drag and self.drag.active then self:dragMoved(self.drag.x, self.drag.y) end
+end
+
+function AssetBrowser:isSelected(reference) return self.selectedReferences[reference] or reference == self.selectedReference end
+function AssetBrowser:getSelectedEntries()
+    local result = {}
+    for _, entry in ipairs(self.entries) do if self:isSelected(entry.reference) then result[#result + 1] = entry end end
+    return result
+end
+function AssetBrowser:setSelection(entries)
+    self.selectedReferences = {}
+    for _, entry in ipairs(entries) do self.selectedReferences[entry.reference] = true end
+    self.selectedReference = entries[#entries] and entries[#entries].reference
+end
+function AssetBrowser:selectEntry(entry, toggle, range)
+    if range and entry and self.selectionAnchor == entry.reference then
+        self:setSelection({entry})
+    elseif range and entry and self.selectionAnchor then
+        local entries, selecting = {}, false
+        for _, current in ipairs(self.entries) do
+            if current.reference == entry.reference or current.reference == self.selectionAnchor then
+                if selecting then entries[#entries + 1] = current; break end
+                selecting = true
+            end
+            if selecting then entries[#entries + 1] = current end
+        end
+        self:setSelection(entries)
+    elseif toggle then
+        local entries, found = {}, false
+        for _, selected in ipairs(self:getSelectedEntries()) do if selected == entry then found = true else entries[#entries + 1] = selected end end
+        if entry and not found then entries[#entries + 1] = entry end
+        self:setSelection(entries)
+    elseif not entry or not self:isSelected(entry.reference) then self:setSelection(entry and {entry} or {}) end
+    if entry then self.selectionAnchor = entry.reference end
+end
+function AssetBrowser:entryBounds(i)
+    local view = self.fileSlot.widget
+    if self.viewMode == "list" then return {x = view.x, y = view.y + (i - 1 - self.fileScroll) * ROW, w = view.width, h = ROW} end
+    return {x = view.x + Ui.METRICS.contentPaddingX + (i - 1) % self:columns() * CARD_WIDTH,
+        y = view.y + 8 + (math.floor((i - 1) / self:columns()) - self.fileScroll) * CARD_HEIGHT, w = CARD_WIDTH - 6, h = CARD_HEIGHT - 6}
+end
+function AssetBrowser:moveEntries(entries, folder)
+    if self.assetOperations then return self.assetOperations:moveMany(entries, folder) end
+    return false, "Batch operations require an editor session"
+end
+function AssetBrowser:showMoveSelectionDialog(entry)
+    local entries = self:getSelectedEntries()
+    if #entries <= 1 then return self:showMoveDialog(entry) end
+    local dialog, folder = nil, self.folder
+    local tree = require("editor.ui.FolderTree").new(self.project, folder:match("^[^/]+"), nil, folder, function(selected)
+        dialog.text, dialog.replace, dialog.error = selected, true, nil
+    end)
+    dialog = Dialog.new(self.uiRoot, {title = "Move " .. #entries .. " Assets", input = true, value = folder, content = tree,
+        confirmLabel = "Move", onConfirm = function(destination) return self:moveEntries(entries, destination:gsub("\\", "/"):gsub("/+$", "")) end})
+end
+function AssetBrowser:showDeleteSelectionDialog(entry)
+    local entries = self:getSelectedEntries()
+    if #entries <= 1 then return self:showDeleteDialog(entry) end
+    Dialog.new(self.uiRoot, {title = "Delete Assets", message = "Delete " .. #entries .. " selected assets?", detail = "Undo can restore them.",
+        confirmLabel = "Delete", onConfirm = function()
+            if not self.assetOperations then return false, "Batch operations require an editor session" end
+            local ok, err = self.assetOperations:deleteMany(entries); self:refresh(true); return ok, err
+        end})
 end
 
 return AssetBrowser

@@ -54,6 +54,16 @@ function World:spawnLObject(prefab, transform, overrides)
     return self.spawnLObjectFactory(prefab, transform, overrides)
 end
 
+function World:openLevel(reference)
+    if not self.openLevelRequest then return false, "World has no Level loader" end
+    local called, ok, err = pcall(self.openLevelRequest, reference)
+    if not called then return false, tostring(ok) end
+    return ok, err
+end
+function World:takeLevelTransition()
+    if not self.applyLevelRequest then return nil end
+    return self.applyLevelRequest()
+end
 function World:update(dt)
     local valid, validationError =
         validateDeltaTime(dt)
@@ -135,6 +145,21 @@ function World.fromLevelData(levelData)
             lobject
     end
 
+    local byId = {}
+    for _, object in ipairs(runtimeLObjects) do
+        if object.authoringId then
+            if byId[object.authoringId] then return nil, "Duplicate object identity" end
+            byId[object.authoringId] = object
+        end
+    end
+    for i, object in ipairs(runtimeLObjects) do
+        local id = levelData.lobjects[i].parentAuthoringId
+        if id then
+            if not byId[id] then return nil, "Missing object parent" end
+            local ok, err = pcall(object.attachTo, object, byId[id])
+            if not ok then return nil, tostring(err) end
+        end
+    end
     local world = World.new()
 
     world.lobjects = runtimeLObjects

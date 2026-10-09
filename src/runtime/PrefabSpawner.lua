@@ -19,6 +19,10 @@ function Spawner.bind(project, world, loadClass)
             local instance, createError = require("core.LObject").new(world.nextRuntimeId,
                 {transform = initialTransform, definitionReference = project:getAssetId(path) or reference})
             if not instance then return nil, createError end
+            local base, used = path:match("([^/]+)%.prefab$"), {}
+            for _, existing in ipairs(world.lobjects) do if existing.name then used[existing.name] = true end end
+            local number = 1; while used[base .. " " .. number] do number = number + 1 end
+            instance.name = base .. " " .. number
             world.nextRuntimeId = world.nextRuntimeId + 1
             local ok, configureError = Definition.configure(instance, definition, overrides.properties, overrides.components)
             if not ok then return nil, configureError end

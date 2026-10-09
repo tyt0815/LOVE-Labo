@@ -51,6 +51,7 @@ function SceneView.new(gridSize, level)
 
     -- 선택 상태와 drag 상태는 Editor에서만 사용하는 transient state다.
     self.selectedLObject = nil
+    self.selectedLObjects = {}
     self.isDraggingLObject = false
     self.snapSettings = require("editor.SnapSettings").copy()
     self.gizmoMode = "translate"
@@ -136,12 +137,13 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
     if not self.level then
         return nil
     end
+    if self.spriteAssets then self.spriteAssets.level = self.level end
 
     local halfSize = LOBJECT_SIZE * 0.5
 
     for i = #self.level.lobjects, 1, -1 do
         local lobject = self.level.lobjects[i]
-        local transform = lobject.transform
+        local transform = self.level:getWorldTransform(lobject)
         if self.spriteAssets then
             local preview = self.spriteAssets:preview(lobject)
             if preview and require("core.Renderer").hit(preview, function(reference) return self.spriteAssets:image(reference) end, worldX, worldY) then return lobject end
@@ -173,9 +175,10 @@ function SceneView:mousepressed(x, y, button)
             return
         end
 
-        local axis = Gizmo.hit(self, x, y)
+        local axis = not love.keyboard.isDown("lctrl", "rctrl", "lshift", "rshift") and Gizmo.hit(self, x, y)
         if axis then
             self.drag = Gizmo.begin(self, axis, x, y)
+            self:beginGroupDrag()
             self.isDraggingLObject = true
             return
         end
@@ -183,14 +186,24 @@ function SceneView:mousepressed(x, y, button)
         local hitLObject = self:findLObjectAtWorldPosition(worldX, worldY)
 
         if hitLObject then
-            self.selectedLObject = hitLObject
+            self:selectLObject(hitLObject, love.keyboard.isDown("lctrl", "rctrl"))
             self.isDraggingLObject = false
+            if self:isSelected(hitLObject) then self.pointerDrag = {x = x, y = y} end
         else
             -- 빈 공간 클릭은 새 LObject를 만들지 않고 현재 선택만 해제한다.
-            self.selectedLObject = nil
+            local additive = love.keyboard.isDown("lctrl", "rctrl")
+            local previous = additive and self:getSelection() or {}
+            self:setSelection(previous)
+            self.marquee = {x = x, y = y, endX = x, endY = y, previous = previous}
             self.isDraggingLObject = false
         end
 
+        return
+    end
+
+    if button == 2 and self.onContextMenu then
+        local wx, wy = self:screenToWorld(x, y)
+        self.onContextMenu(x, y, self:findLObjectAtWorldPosition(wx, wy))
         return
     end
 
@@ -201,6 +214,7 @@ end
 
 function SceneView:mousereleased(x, y, button)
     if button == LEFT_MOUSE_BUTTON then
+        self.marquee = nil
         self:cancelDrag(false)
     end
 
@@ -211,8 +225,11 @@ end
 
 function SceneView:cancelDrag(restore)
     if restore and self.drag then
-        for field, value in pairs(self.drag.initial) do self.drag.object.transform[field] = value end
+        for object, saved in pairs(self.drag.selection or {[self.drag.object] = {transform = self.drag.initial}}) do
+            for field, value in pairs(saved.transform) do object.transform[field] = value end
+        end
     end
+    self.marquee, self.pointerDrag = nil, nil
     self.drag, self.isDraggingLObject = nil, false
 end
 
@@ -242,11 +259,32 @@ function SceneView:snapPosition(x, y)
 end
 
 function SceneView:mousemoved(x, y, dx, dy)
+    if self.pointerDrag and not self.drag and (x - self.pointerDrag.x)^2 + (y - self.pointerDrag.y)^2 >= 36 then
+        self.drag = Gizmo.begin(self, "free", self.pointerDrag.x, self.pointerDrag.y)
+        self.drag.mode = "translate"; self:beginGroupDrag(); self.isDraggingLObject = true
+        dx, dy = x - self.pointerDrag.x, y - self.pointerDrag.y
+        self.pointerDrag = nil
+    end
     if self.isDraggingLObject and self.drag then
         Gizmo.update(self, self.drag, dx, dy)
+        self:applyGroupDrag()
         return
     end
 
+    if self.marquee then
+        self.marquee.endX, self.marquee.endY = x, y
+        local Box = require("editor.ui.SelectionBox")
+        local rect = Box.rect(self.marquee.x, self.marquee.y, x, y)
+        local objects = {}; for _, object in ipairs(self.marquee.previous) do objects[#objects + 1] = object end
+        for _, object in ipairs(self.level.lobjects) do
+            if Box.intersects(rect, self:objectScreenBounds(object)) then
+                local exists = false; for _, selected in ipairs(objects) do if selected == object then exists = true end end
+                if not exists then objects[#objects + 1] = object end
+            end
+        end
+        self:setSelection(objects)
+        return
+    end
     if self.isPanning then
         self.cameraX = self.cameraX + dx
         self.cameraY = self.cameraY + dy
@@ -254,7 +292,16 @@ function SceneView:mousemoved(x, y, dx, dy)
 end
 
 function SceneView:frameSelected()
-    return self:frameLObject(self.selectedLObject)
+    local objects = self:getSelection()
+    if #objects < 2 then return self:frameLObject(self.selectedLObject) end
+    local minX, minY, maxX, maxY
+    for _, object in ipairs(objects) do
+        local world = self.level:getWorldTransform(object)
+        minX, minY = math.min(minX or world.x, world.x), math.min(minY or world.y, world.y)
+        maxX, maxY = math.max(maxX or world.x, world.x), math.max(maxY or world.y, world.y)
+    end
+    self.cameraX, self.cameraY = -(minX + maxX) * 0.5 * self.zoom, -(minY + maxY) * 0.5 * self.zoom
+    return true
 end
 
 function SceneView:frameLObject(object)
@@ -262,7 +309,7 @@ function SceneView:frameLObject(object)
         return false
     end
 
-    local transform = object.transform
+    local transform = self.level and self.level:getWorldTransform(object) or object.transform
 
     -- 선택된 LObject의 world 위치가 현재 Scene View 정중앙에 오도록
     -- viewport 위치와 독립적인 camera offset만 조정한다.
@@ -283,42 +330,18 @@ function SceneView:keypressed(key, controlDown, mouseX, mouseY)
         return
     end
 
+    if key == "a" and controlDown and self.level then self:setSelection(self.level.lobjects); return end
     if key == "d" and controlDown then
-        if not self.level
-            or not self.selectedLObject
-            or mouseX == nil
-            or mouseY == nil
-            or not self:containsPoint(mouseX, mouseY)
-        then
-            return
+        if not self.level or not self.selectedLObject then return end
+        -- 단일 루트는 기존 커서 위치 복제를 유지한다. 계층/다중 복제는 상대 배치를 보존한다.
+        local selected = self:getSelection()
+        local duplicates = self.level:duplicateLObjects(selected)
+        if #selected == 1 and #duplicates == 1 and mouseX and mouseY and self:containsPoint(mouseX, mouseY) then
+            self.level:setWorldPosition(duplicates[1], self:snapPosition(self:screenToWorld(mouseX, mouseY)))
         end
-
-        local worldX, worldY = self:snapPosition(self:screenToWorld(mouseX, mouseY))
-        local duplicate = self.level:duplicateLObject(
-            self.selectedLObject,
-            worldX,
-            worldY
-        )
-
-        if duplicate then
-            self.selectedLObject = duplicate
-            self:cancelDrag(false)
-        end
-
-        return
+        self:setSelection(duplicates); self:cancelDrag(false); return
     end
-
-    if key ~= "delete" then
-        return
-    end
-
-    if not self.level or not self.selectedLObject then
-        return
-    end
-
-    self.level:removeLObject(self.selectedLObject)
-    self.selectedLObject = nil
-    self:cancelDrag(false)
+    if key == "delete" then self:deleteSelection() end
 end
 
 function SceneView:zoomAtScreenPosition(screenX, screenY, wheelY)
@@ -396,13 +419,15 @@ function SceneView:drawLObjects()
             if preview then self.spriteAssets:draw(preview, self, self.zoom) end
         end
     end
-    if self.selectedLObject and self.spriteAssets then
-        local preview = self.spriteAssets:preview(self.selectedLObject)
-        if preview then
-            Theme.setColor("objectSelected")
-            love.graphics.setLineWidth(2)
-            require("core.Renderer").outline(preview, function(reference) return self.spriteAssets:image(reference) end,
-                function(x, y) return self:worldToScreen(x, y) end)
+    if self.spriteAssets then
+        for _, selected in ipairs(self:getSelection()) do
+            local preview = self.spriteAssets:preview(selected)
+            if preview then
+                Theme.setColor("objectSelected")
+                love.graphics.setLineWidth(2)
+                require("core.Renderer").outline(preview, function(reference) return self.spriteAssets:image(reference) end,
+                    function(x, y) return self:worldToScreen(x, y) end)
+            end
         end
     end
     Gizmo.draw(self)
@@ -459,7 +484,9 @@ function SceneView:draw()
     end
 
     self:drawWorldAxes()
+    if self.spriteAssets then self.spriteAssets.level = self.level end
     self:drawLObjects()
+    if self.marquee then require("editor.ui.SelectionBox").draw(require("editor.ui.SelectionBox").rect(self.marquee.x, self.marquee.y, self.marquee.endX, self.marquee.endY)) end
 
     Theme.setColor("text")
     Ui.panelHeading(
@@ -478,6 +505,96 @@ function SceneView:draw()
         viewportX + Ui.METRICS.contentPaddingX, viewportY + 76 + Ui.METRICS.contentPaddingY)
 
     love.graphics.pop()
+end
+
+function SceneView:getSelection()
+    if not self.selectedLObject then return {} end
+    local found = false
+    for _, object in ipairs(self.selectedLObjects) do if object == self.selectedLObject then found = true end end
+    if not found then self.selectedLObjects = {self.selectedLObject} end
+    return self.selectedLObjects
+end
+function SceneView:setSelection(objects)
+    self.selectedLObjects = {}; for _, object in ipairs(objects) do self.selectedLObjects[#self.selectedLObjects + 1] = object end
+    self.selectedLObject = self.selectedLObjects[#self.selectedLObjects]
+end
+function SceneView:isSelected(object)
+    for _, selected in ipairs(self:getSelection()) do if selected == object then return true end end
+    return false
+end
+function SceneView:selectLObject(object, toggle)
+    if not toggle then
+        if not self:isSelected(object) then self:setSelection(object and {object} or {}) end
+        return
+    end
+    local objects = {}; local found = false
+    for _, selected in ipairs(self:getSelection()) do if selected == object then found = true else objects[#objects + 1] = selected end end
+    if object and not found then objects[#objects + 1] = object end
+    self:setSelection(objects)
+end
+function SceneView:objectScreenBounds(object)
+    local world = self.level:getWorldTransform(object)
+    local x, y = self:worldToScreen(world.x, world.y)
+    local bounds = {x = x - 8, y = y - 8, w = 16, h = 16}
+    if self.spriteAssets then
+        local preview = self.spriteAssets:preview(object)
+        if preview then
+            local minX, minY, maxX, maxY
+            require("core.Renderer").outline(preview, function(reference) return self.spriteAssets:image(reference) end, function(px, py)
+                local sx, sy = self:worldToScreen(px, py)
+                minX, minY = math.min(minX or sx, sx), math.min(minY or sy, sy)
+                maxX, maxY = math.max(maxX or sx, sx), math.max(maxY or sy, sy)
+                return sx, sy
+            end, true)
+            if minX then bounds = {x = minX, y = minY, w = maxX - minX, h = maxY - minY} end
+        end
+    end
+    return bounds
+end
+function SceneView:deleteSelection()
+    if not self.level then return end
+    self.level:removeLObjects(self:getSelection()); self:setSelection({}); self:cancelDrag(false)
+end
+function SceneView:duplicateSelection()
+    self:setSelection(self.level:duplicateLObjects(self:getSelection()))
+end
+function SceneView:beginGroupDrag()
+    local drag = self.drag; drag.selection = {}
+    for _, object in ipairs(self.level:selectionRoots(self:getSelection())) do
+        local world = self.level:getWorldTransform(object)
+        drag.selection[object] = {transform = assert(require("core.Transform").copy(object.transform)), x = world.x, y = world.y}
+    end
+    drag.primaryLocal = assert(require("core.Transform").copy(drag.object.transform))
+    local world = self.level:getWorldTransform(drag.object)
+    drag.initial.x, drag.initial.y = world.x, world.y
+end
+function SceneView:applyGroupDrag()
+    local drag, Transform = self.drag, require("core.Transform")
+    local result = assert(Transform.copy(drag.object.transform))
+    local dx, dy = result.x - drag.initial.x, result.y - drag.initial.y
+    if drag.axis == "x" then dy = 0 elseif drag.axis == "y" then dx = 0 end
+    local primary = drag.primaryLocal
+    -- 선택된 조상의 이동에 자손이 다시 움직이지 않도록 최상위 선택만 변경한다.
+    for field, value in pairs(primary) do drag.object.transform[field] = value end
+    local positions = {}
+    if drag.mode == "translate" then
+        for object, saved in pairs(drag.selection) do
+            local x, y = saved.x + dx, saved.y + dy
+            local parent = self.level:getParent(object)
+            if parent then x, y = Transform.inversePoint(self.level:getWorldTransform(parent), x, y) end
+            if not x then return end
+            positions[object] = {x, y}
+        end
+    end
+    for object, saved in pairs(drag.selection) do
+        local t = object.transform
+        if drag.mode == "translate" then t.x, t.y = unpack(positions[object])
+        elseif drag.mode == "rotate" then
+            for _, field in ipairs({"rotation", "rotationX", "rotationY"}) do t[field] = Transform.normalizeRotation(saved.transform[field] + result[field] - primary[field]) end
+        else
+            t.scaleX, t.scaleY = saved.transform.scaleX * result.scaleX / primary.scaleX, saved.transform.scaleY * result.scaleY / primary.scaleY
+        end
+    end
 end
 
 return SceneView

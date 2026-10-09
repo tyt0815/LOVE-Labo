@@ -42,14 +42,17 @@ add("Gizmo axes constrain movement and its square permits free movement", functi
     end
 end)
 
-add("Object clicks select without dragging and gizmo handles keep their screen size", function()
+add("Object clicks select and direct drags move while gizmo handles keep their screen size", function()
     local view, object = scene()
     view.selectedLObject = nil
     local x, y = view:worldToScreen(0, 0)
     view:mousepressed(x, y, 1)
+    Assert.equal(false, view.isDraggingLObject)
     view:mousemoved(x + 50, y + 50, 50, 50)
     Assert.equal(object, view.selectedLObject)
-    Assert.equal(false, view.isDraggingLObject)
+    Assert.equal(true, view.isDraggingLObject)
+    Assert.equal(50, object.transform.x)
+    view:keypressed("escape")
     Assert.equal(0, object.transform.x)
     for _, zoom in ipairs({0.25, 1, 4}) do
         view.zoom, view.cameraX, view.cameraY = zoom, 15, -20

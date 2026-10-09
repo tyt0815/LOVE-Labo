@@ -44,10 +44,9 @@ function Loader.prepare(project, data)
     return world, class, initial, loadClass
 end
 
-function Loader.create(project, data)
-    local world, class, initial, loadClass = Loader.prepare(project, data)
-    if not world then return nil, class end
+function Loader.activate(project, world, class, initial, loadClass)
     require("runtime.PrefabSpawner").bind(project, world, loadClass)
+    require("runtime.LevelTransition").bind(project, world)
     for _, object in ipairs(initial) do
         local ok, err = object:beginPlay(world)
         if not ok then return nil, err end
@@ -57,5 +56,10 @@ function Loader.create(project, data)
         if not ok then return nil, err end
     end
     return world
+end
+function Loader.create(project, data)
+    local world, class, initial, loadClass = Loader.prepare(project, data)
+    if not world then return nil, class end
+    return Loader.activate(project, world, class, initial, loadClass)
 end
 return Loader

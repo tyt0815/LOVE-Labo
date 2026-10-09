@@ -36,3 +36,5 @@
 - [0034. 컴포넌트 부착 계층과 Inspector 선택 트리](adr/0034-component-hierarchy-and-inspector-tree.md)
 - [0035. draw 오버라이드와 루트 Transform 통일](adr/0035-render-components-and-root-transform.md)
 - [0036. 코드 컨벤션과 모듈·공개 함수 이름 통일](adr/0036-code-conventions-and-module-names.md)
+- [0037. 오브젝트 계층과 다중 선택](adr/0037-object-hierarchy-and-multi-selection.md)
+- [0038. 프레임 경계의 런타임 레벨 전환](adr/0038-runtime-level-transition.md)

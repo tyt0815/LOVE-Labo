@@ -62,9 +62,10 @@ end
 function Operations:perform(callback)
     self.app.inspector:commitEdit()
     self.app:recordHistory()
+    local previous = self.app.performingAssets
     self.app.performingAssets = true
     local called, ok, result = pcall(callback)
-    self.app.performingAssets = nil
+    self.app.performingAssets = previous
     if not called then return false, tostring(ok) end
     return ok, result
 end
@@ -176,6 +177,56 @@ function Operations:move(entry, destination)
             redo = function() return replay(source, destination) end})
         local history = self.app.histories[self.app.document]
         history.entries[history.index].text = assert(require("editor.LevelFile").encode(self.app.level))
+        return true
+    end)
+end
+-- 여러 파일 작업을 하나의 Undo 명령으로 묶고 실패 시 완료된 작업을 되돌린다.
+function Operations:batch(callback)
+    return self:perform(function()
+        local app, commands = self.app, {}
+        local push = app.pushAssetAction
+        app.pushAssetAction = function(_, command) commands[#commands + 1] = command end
+        local called, ok, err = pcall(callback)
+        app.pushAssetAction = push
+        local function replay(direction)
+            local completed = {}
+            local first, last, step = 1, #commands, 1
+            if direction == "undo" then first, last, step = #commands, 1, -1 end
+            for i = first, last, step do
+                local success, result, failure = pcall(commands[i][direction])
+                if not success or not result then
+                    local rollbackError
+                    for j = #completed, 1, -1 do
+                        local restored, value = pcall(commands[completed[j]][direction == "undo" and "redo" or "undo"])
+                        if not restored or not value then rollbackError = tostring(value) end
+                    end
+                    error(tostring(success and failure or result) .. (rollbackError and " / rollback failed: " .. rollbackError or ""))
+                end
+                completed[#completed + 1] = i
+            end
+            return true
+        end
+        if not called or not ok then
+            local restored, restoreError = pcall(replay, "undo")
+            return false, tostring(called and err or ok) .. (restored and "" or " / rollback failed: " .. tostring(restoreError))
+        end
+        if #commands > 0 then push(app, {undo = function() return replay("undo") end, redo = function() return replay("redo") end}) end
+        return true
+    end)
+end
+function Operations:deleteMany(entries)
+    return self:batch(function()
+        for _, entry in ipairs(entries) do self:checkDelete(entry.reference) end
+        for _, entry in ipairs(entries) do local ok, err = self:delete(entry.reference); if not ok then return false, err end end
+        return true
+    end)
+end
+function Operations:moveMany(entries, folder)
+    return self:batch(function()
+        for _, entry in ipairs(entries) do
+            local ok, err = self:move(entry, folder .. "/" .. (entry.name or entry.reference:match("[^/]+$")))
+            if not ok then return false, err end
+        end
         return true
     end)
 end

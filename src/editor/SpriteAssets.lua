@@ -22,7 +22,11 @@ end
 function Assets:preview(data)
     local signature = require("editor.Json").encode(data)
     local cache = self.previews[data]
-    if cache and cache.signature == signature then return cache.object end
+    if cache and cache.signature == signature then
+        cache.object = cache.object or nil
+        if cache.object then cache.object.parent = self.level and self.level:getParent(data) and self:preview(self.level:getParent(data)) or nil end
+        return cache.object
+    end
     local Definition = require("editor.ObjectDefinition")
     local definition, err = Definition.resolve(self.project, data.definitionReference)
     local object = assert(require("core.LObject").new(1, data))
@@ -30,6 +34,7 @@ function Assets:preview(data)
     if definition then ok, configureError = Definition.configure(object, definition, data.propertyOverrides, data.componentOverrides) end
     self.previews[data] = {signature = signature, object = ok and object or nil}
     if not ok then self.error = err or configureError end
+    if ok then object.parent = self.level and self.level:getParent(data) and self:preview(self.level:getParent(data)) or nil end
     return ok and object or nil
 end
 function Assets:draw(object, view, zoom)

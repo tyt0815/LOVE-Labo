@@ -7,7 +7,7 @@ local RADIUS, LENGTH = 60, 70
 -- 핸들의 화면 크기는 고정한다. 스케일 축만 객체의 로컬 축을 따른다.
 function Gizmo.handles(view)
     if not view.selectedLObject then return nil end
-    local transform = view.selectedLObject.transform
+    local transform = view.level and view.level:getWorldTransform(view.selectedLObject) or view.selectedLObject.transform
     local x, y = view:worldToScreen(transform.x, transform.y)
     local angle = view.gizmoMode == "scale" and math.rad(transform.rotation or 0) or 0
     local cosine, sine = math.cos(angle), math.sin(angle)

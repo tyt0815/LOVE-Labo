@@ -21,7 +21,7 @@ function Host.load(args)
         if value == "--verify-game" then
             Host.update(1 / 60); Host.draw()
             local report = {ok = failure == nil, error = failure, objects = world and #world.lobjects,
-                elapsedTime = world and world.elapsedTime, editorLoaded = package.loaded["editor.EditorApp"] ~= nil}
+                elapsedTime = world and world.elapsedTime, levelReference = world and world.levelReference, transitionError = world and world.levelTransitionError, editorLoaded = package.loaded["editor.EditorApp"] ~= nil}
             if world then
                 report.properties = {}
                 for _, object in ipairs(world.lobjects) do
@@ -43,7 +43,13 @@ function Host.load(args)
     end
 end
 function Host.update(dt)
-    if world then attempt(function() return world:update(dt) end) end
+    if world then
+        attempt(function() return world:update(dt) end)
+        if world then
+            local candidate = world:takeLevelTransition()
+            if candidate then world = candidate end
+        end
+    end
 end
 local function image(reference)
     if not images[reference] then images[reference] = love.graphics.newImage(assert(project:resolveAssetFile(reference))) end
@@ -59,6 +65,10 @@ function Host.draw()
             end
             return true
         end)
+    end
+    if world and world.levelTransitionError then
+        love.graphics.setColor(1, 0.5, 0.5, 1)
+        love.graphics.printf("Level transition failed\n" .. world.levelTransitionError, 20, 20, math.max(1, love.graphics.getWidth() - 40))
     end
     if failure then
         love.graphics.setColor(1, 0.5, 0.5, 1)

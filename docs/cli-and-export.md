@@ -33,8 +33,9 @@ Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\
 | `prefab get/set` | `--project`, `--prefab` | 프로퍼티·컴포넌트 기본 override 조회/수정 |
 | `level create` | `--project`, `--name`, 선택 `--class` | 레벨 생성 |
 | `level get/set` | `--project`, 선택 `--level` | 레벨 데이터와 선언 프로퍼티 조회/수정 |
-| `instance add` | `--project`, `--prefab`, 선택 `--level`, `--x`, `--y` | 레벨에 배치 |
+| `instance add` | `--project`, `--prefab`, 선택 `--level`, `--x`, `--y`, `--parent` | 레벨에 배치. 부모 authoring ID 지정 시 X/Y는 부모 기준 상대값이다. |
 | `instance get/set` | `--project`, `--instance`, 선택 `--level` | 인스턴스 조회/수정 |
+| `instance reparent` | `--project`, `--instance`, 선택 `--level`, `--parent` | 월드 위치를 유지하며 부모 변경. `--parent` 생략 또는 JSON `false`는 최상위로 분리한다. |
 | `export` | `--project`, 선택 `--level`, `--output` | 독립 실행 게임 `.love` 생성 |
 
 생성 명령의 `--folder`는 프로젝트 상대 경로이며 기본은 `Sources`/`Assets`이다. `--class`를 생략한 Prefab·레벨은 내장 클래스를 사용한다. 참조 인자는 에셋 ID와 프로젝트 상대 경로를 지원한다. `--level` 생략 시 프로젝트의 기본 레벨을 사용한다. `--output` 생략 시 프로젝트의 `Build/Game.love`를 생성한다.

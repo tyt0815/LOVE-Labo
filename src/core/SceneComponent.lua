@@ -30,12 +30,13 @@ end
 function Scene:getWorldTransform()
     local parent = self.parent
     while parent and not parent:isA(Scene) do parent = parent.parent end
-    return parent and Transform.compose(parent:getWorldTransform(), self.transform) or self.transform
+    if parent then return Transform.compose(parent:getWorldTransform(), self.transform) end
+    return self.owner and self.owner:getWorldTransform() or self.transform
 end
 function Scene:getWorldPosition() local world = self:getWorldTransform(); return world.x, world.y end
 function Scene:getRelativePosition()
     local x, y = self:getWorldPosition()
-    if self.owner then return Transform.inversePoint(self.owner.transform, x, y) end
+    if self.owner then return Transform.inversePoint(self.owner:getWorldTransform(), x, y) end
     return x, y
 end
 return Scene

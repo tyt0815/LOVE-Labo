@@ -2,7 +2,7 @@
 param([string]$loveDirectory = 'C:\Program Files\LOVE')
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-& (Join-Path $PSScriptRoot 'package-editor.ps1') -LoveDirectory $loveDirectory -Verify
+& (Join-Path $PSScriptRoot 'packageEditor.ps1') -loveDirectory $loveDirectory -verify
 $taskDirectory = Join-Path $taskRoot ('build\cli-export-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $taskDirectory | Out-Null
 $taskCli = Join-Path $taskRoot 'build\windows\Labo-cli.exe'
@@ -90,6 +90,9 @@ invokeLaboRequest @{command = 'project.set-default'; project = $taskProject; lev
 $taskFirst = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; prefab = $taskPrefab.assetId; x = 100; y = 200}
 $taskSecond = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; prefab = $taskChildPrefab.assetId; x = -100; y = -200}
 $taskId = $taskFirst.data.authoringId
+if ($taskFirst.data.name -ne 'NewPrefab 1') { throw 'Prefab instance name was not assigned' }
+$taskParented = invokeLaboRequest @{command = 'instance.reparent'; project = $taskProject; instance = $taskSecond.data.authoringId; parent = $taskId}
+if ($taskParented.data.parentAuthoringId -ne $taskId) { throw 'Cli object parenting failed' }
 invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'speed'; value = 42} | Out-Null
 invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'enabled'; value = $false} | Out-Null
 invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'title'; value = 'Cli game'} | Out-Null
@@ -145,4 +148,28 @@ try {
     [IO.File]::WriteAllText((Join-Path $taskProject 'Sources\NewClass.lua'), $taskCode, $taskUtf8)
     [IO.File]::WriteAllBytes($taskImagePath, $taskOriginalImage)
 }
-Write-Output "Cli creation, editing, references, Export and standalone game verified: $taskDirectory"
+# 패키지 안의 다른 레벨을 ID로 읽고 update 프레임 종료 후 World를 교체한다.
+$taskNextLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Next'}
+invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskNextLevel.assetId; prefab = $taskChildPrefab.assetId; x = 300; y = 400} | Out-Null
+$taskTransitionCode = @'
+local NewLevel = {}
+function NewLevel.update(self, dt)
+    assert(self:openLevel("__LEVEL_ID__"))
+end
+return NewLevel
+'@
+[IO.File]::WriteAllText((Join-Path $taskProject 'Sources\NewLevel.lua'), $taskTransitionCode.Replace('__LEVEL_ID__', $taskNextLevel.assetId), $taskUtf8)
+$taskTransitionGame = Join-Path $taskDirectory 'Transition.love'
+invokeLaboRequest @{command = 'export'; project = $taskProject; output = $taskTransitionGame} | Out-Null
+$taskTransitionReportPath = Join-Path $taskDirectory 'transition-report.json'
+$taskTransitionProcess = Start-Process -FilePath (Join-Path $loveDirectory 'lovec.exe') `
+    -ArgumentList @(('"' + $taskTransitionGame + '"'), '--verify-game', ('"' + $taskTransitionReportPath + '"')) `
+    -WorkingDirectory $taskDirectory -WindowStyle Hidden -PassThru
+if (-not $taskTransitionProcess.WaitForExit(60000)) { $taskTransitionProcess.Kill(); throw 'Level transition verification timed out' }
+$taskTransitionReport = Get-Content -LiteralPath $taskTransitionReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($taskTransitionProcess.ExitCode -ne 0 -or -not $taskTransitionReport.ok -or $taskTransitionReport.editorLoaded `
+    -or $taskTransitionReport.levelReference -ne $taskNextLevel.assetId -or $taskTransitionReport.objects -ne 1 `
+    -or $taskTransitionReport.properties[0].speed -ne 25 -or -not $taskTransitionReport.properties[0].started) {
+    throw 'Standalone game level transition failed'
+}
+Write-Output "Cli creation, editing, hierarchy, references, Export and level transition verified: $taskDirectory"

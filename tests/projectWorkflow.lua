@@ -306,6 +306,8 @@ add("editor bottom Assets layout routes inputs without changing lobject selectio
         Assert.equal(object, app.sceneView.selectedLObject)
         app:keypressed("delete")
         Assert.equal(1, #app.level.lobjects)
+        Assert.truthy(app.uiRoot.popup)
+        app:keypressed("escape")
         app:mousepressed(fileX, fileY, 1, 2)
         Assert.equal("Assets/Folder", browser.folder)
         local buttons = browser:buttons()
@@ -3451,4 +3453,215 @@ add("Sample NewClass builds a SpriteComponent root without a duplicate scene roo
     Assert.equal(object.transform, object.rootComponent.transform)
     Assert.equal(100, object.transform.x); Assert.equal(200, object.transform.y)
 end)
+add("Asset rectangle selection works in list and thumbnail modes", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "Marquee"))
+        assert(project:createEntry("Assets", "folder", "A")); assert(project:createEntry("Assets", "folder", "B"))
+        local app = EditorApp.new(nil, project); local browser = app.assetBrowser
+        for _, mode in ipairs({"list", "thumbnails"}) do
+            browser:setViewMode(mode); browser:setBounds(0, 0, 800, 500)
+            browser:setSelection({})
+            local view = browser.fileSlot.widget
+            browser:handleContentMousepressed(view.x + view.width - 4, view.y + 400, 1, 1)
+            browser:dragMoved(view.x + 2, view.y + 1); browser:dragReleased(view.x + 2, view.y + 1, 1)
+            Assert.equal(#browser.entries, #browser:getSelectedEntries())
+            Assert.equal(nil, browser.marquee)
+            local first = browser.entries[1]; browser:selectEntry(first, true)
+            Assert.equal(#browser.entries - 1, #browser:getSelectedEntries())
+        end
+    end)
+end)
+add("Batch asset moves and deletes each occupy one Undo command", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "Batch"))
+        assert(project:createEntry("Assets", "folder", "Destination"))
+        assert(project:createEntry("Assets", "prefab", "PF_A")); assert(project:createEntry("Assets", "prefab", "PF_B"))
+        local app = EditorApp.new(nil, project); local operations = app.assetBrowser.assetOperations
+        local entries = {{reference = "Assets/PF_A.prefab", name = "PF_A.prefab"}, {reference = "Assets/PF_B.prefab", name = "PF_B.prefab"}}
+        local id = project:getAssetId(entries[1].reference)
+        assert(operations:moveMany(entries, "Assets/Destination")); Assert.equal(1, #app.assetActions)
+        Assert.equal("Assets/Destination/PF_A.prefab", project:getAssetReference(id))
+        assert(app:undoRedo(-1)); Assert.equal("Assets/PF_A.prefab", project:getAssetReference(id))
+        assert(app:undoRedo(1)); Assert.equal("Assets/Destination/PF_A.prefab", project:getAssetReference(id))
+        entries[1].reference, entries[2].reference = "Assets/Destination/PF_A.prefab", "Assets/Destination/PF_B.prefab"
+        assert(operations:deleteMany(entries)); Assert.equal(2, #app.assetActions); Assert.equal(nil, project:getAssetReference(id))
+        assert(app:undoRedo(-1)); Assert.equal("Assets/Destination/PF_A.prefab", project:getAssetReference(id))
+        assert(app:undoRedo(1)); Assert.equal(nil, project:getAssetReference(id))
+    end)
+end)
+add("Batch asset move rolls back earlier files after a destination collision", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "RollbackBatch"))
+        assert(project:createEntry("Assets", "folder", "Destination"))
+        assert(project:createEntry("Assets", "prefab", "PF_A")); assert(project:createEntry("Assets", "prefab", "PF_B"))
+        assert(project:createEntry("Assets/Destination", "prefab", "PF_B"))
+        local app = EditorApp.new(nil, project)
+        local id = project:getAssetId("Assets/PF_A.prefab")
+        local ok = app.assetBrowser.assetOperations:moveMany({{reference = "Assets/PF_A.prefab", name = "PF_A.prefab"}, {reference = "Assets/PF_B.prefab", name = "PF_B.prefab"}}, "Assets/Destination")
+        Assert.equal(false, ok); Assert.equal(0, #app.assetActions)
+        Assert.equal("Assets/PF_A.prefab", project:getAssetReference(id)); Assert.truthy(project:checkedEntry("Assets/PF_B.prefab"))
+        Assert.equal(nil, project:checkedEntry("Assets/Destination/PF_A.prefab"))
+    end)
+end)
+add("Prefab drops onto Hierarchy create named children and Undo restores their tree", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "DropHierarchy"))
+        assert(project:createEntry("Assets", "prefab", "PF_Enemy"))
+        local app = EditorApp.new(nil, project); app:updateSceneViewport()
+        local x, y = 100, (app.hierarchy.y or 0) + 50
+        assert(app:placePrefab("Assets/PF_Enemy.prefab", x, y, true)); app:recordHistory()
+        local root = app.level.lobjects[1]
+        Assert.equal("PF_Enemy 1", root.name)
+        assert(app:placePrefab("Assets/PF_Enemy.prefab", x, y, true)); app:recordHistory()
+        local child = app.level.lobjects[2]; Assert.equal("PF_Enemy 2", child.name); Assert.equal(root.authoringId, child.parentAuthoringId)
+        Assert.equal(0, child.transform.x)
+        assert(app:undoRedo(-1)); Assert.equal(1, #app.level.lobjects)
+        assert(app:undoRedo(1)); Assert.equal(2, #app.level.lobjects); Assert.equal(root.authoringId, app.level.lobjects[2].parentAuthoringId)
+        app.sceneView:setSelection({app.level.lobjects[1], app.level.lobjects[2]})
+        app:showObjectMenu(x, y, app.level.lobjects[1])
+        app.uiRoot:keypressed("return"); Assert.equal(4, #app.level.lobjects)
+        Assert.equal(2, #app.sceneView:getSelection())
+        assert(app:undoRedo(-1)); Assert.equal(2, #app.level.lobjects)
+    end)
+end)
+add("Asset multi drag reparents no Inspector selection and moves every selected asset", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "BatchDrag"))
+        assert(project:createEntry("Assets", "folder", "Destination"))
+        assert(project:createEntry("Assets", "prefab", "PF_A")); assert(project:createEntry("Assets", "prefab", "PF_B"))
+        local app = EditorApp.new(nil, project); local browser = app.assetBrowser
+        browser:setViewMode("list"); browser:setBounds(0, 0, 800, 400)
+        browser.externalDropTarget = nil
+        local entries, targetIndex, firstIndex = {}, nil, nil
+        for i, entry in ipairs(browser.entries) do
+            if entry.reference:match("%.prefab$") then entries[#entries + 1] = entry; firstIndex = firstIndex or i end
+            if entry.name == "Destination" then targetIndex = i end
+        end
+        browser:setSelection(entries)
+        local first, target = browser:entryBounds(firstIndex), browser:entryBounds(targetIndex)
+        browser:handleContentMousepressed(first.x + 30, first.y + 10, 1, 1)
+        browser:dragMoved(target.x + 30, target.y + 10)
+        browser:dragReleased(target.x + 30, target.y + 10, 1)
+        Assert.equal(nil, browser.error); Assert.equal(1, #app.assetActions)
+        Assert.truthy(project:checkedEntry("Assets/Destination/PF_A.prefab")); Assert.truthy(project:checkedEntry("Assets/Destination/PF_B.prefab"))
+    end)
+end)
+
+add("Multiple Prefab hierarchy drops keep their original target and failures remove the whole batch", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "DropBatch"))
+        assert(project:createEntry("Assets", "prefab", "PF_A")); assert(project:createEntry("Assets", "prefab", "PF_B"))
+        local app = EditorApp.new(nil, project); app:updateSceneViewport()
+        local entries = {{reference = "Assets/PF_A.prefab"}, {reference = "Assets/PF_B.prefab"}}
+        local x, y = 100, (app.hierarchy.y or 0) + 80
+        assert(app:placePrefabs(entries, x, y, true))
+        Assert.equal(2, #app.level.lobjects); Assert.equal(2, #app.sceneView:getSelection())
+        Assert.equal(nil, app.level.lobjects[2].parentAuthoringId)
+        app.level.lobjects[1].transform.x = 80
+        y = (app.hierarchy.y or 0) + 50
+        assert(app:placePrefabs(entries, x, y, true))
+        Assert.equal(app.level.lobjects[1].authoringId, app.level.lobjects[3].parentAuthoringId)
+        Assert.equal(app.level.lobjects[1].authoringId, app.level.lobjects[4].parentAuthoringId)
+        local selected = app.sceneView.selectedLObject
+        local ok = app:placePrefabs({entries[1], {reference = "Assets/Missing.prefab"}}, x, y, true)
+        Assert.equal(false, ok); Assert.equal(4, #app.level.lobjects); Assert.equal(selected, app.sceneView.selectedLObject)
+    end)
+end)
+add("Cli can create child instances reparent and reject cycles without saving", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "CliHierarchy"))
+        assert(project:createEntry("Assets", "prefab", "PF_A"))
+        local Cli = require("editor.Cli")
+        local function request(command, fields)
+            fields.command, fields.project, fields.level = command, project.rootPath, DEFAULT_LEVEL_REFERENCE
+            return Cli.execute(fields)
+        end
+        local root = request("instance.add", {prefab = "Assets/PF_A.prefab", x = 100, y = 50}).data
+        local child = request("instance.add", {prefab = "Assets/PF_A.prefab", parent = root.authoringId, x = 10, y = 20}).data
+        Assert.equal(root.authoringId, child.parentAuthoringId); Assert.equal("PF_A 2", child.name)
+        child = request("instance.reparent", {instance = child.authoringId, parent = false}).data
+        Assert.equal(nil, child.parentAuthoringId); Assert.equal(110, child.transform.x)
+        request("instance.reparent", {instance = child.authoringId, parent = root.authoringId})
+        local path = assert(project:resolveAssetFile(DEFAULT_LEVEL_REFERENCE)); local bytes = assert(Fs.read(path))
+        Assert.equal(false, pcall(request, "instance.reparent", {instance = root.authoringId, parent = child.authoringId}))
+        Assert.equal(bytes, Fs.read(path))
+    end)
+end)
+add("Hierarchy dragging cancels on Escape focus loss and Undo even without an entry", function()
+    fixture(function(parent)
+        local app = EditorApp.new(nil, assert(createSampleProject(parent, "CancelTree")))
+        for _, cancel in ipairs({function() app:keypressed("escape") end, function() app:focus(false) end, function() app:undoRedo(-1) end}) do
+            app.level.lobjects = {}; app.sceneView:setSelection({})
+            local root, child = app.level:addLObject(0, 0), app.level:addLObject(10, 0)
+            app:updateSceneViewport()
+            local top = app.hierarchy.y or 0
+            app:mousepressed(100, top + 80, 1); app:mousemoved(100, top + 50, 0, -30)
+            Assert.truthy(app.hierarchy.drag); cancel(); Assert.equal(nil, app.hierarchy.drag); Assert.equal(nil, app.uiRoot.captured)
+            app:mousereleased(100, top + 50, 1); Assert.equal(nil, child.parentAuthoringId)
+        end
+    end)
+end)
+
+add("Editor Play transitions runtime levels and Stop preserves the original authoring document", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "PlayTransition"))
+        assert(project:createEntry("Assets", "prefab", "PF_Next"))
+        assert(project:createEntry("Assets", "level", "L_Next"))
+        local Cli = require("editor.Cli")
+        Cli.execute({command = "instance.add", project = project.rootPath, level = "Assets/L_Next.level", prefab = "Assets/PF_Next.prefab", x = 200, y = 300})
+        local app = EditorApp.new(nil, project); local document, level = app.document, app.level
+        local bytes = assert(require("editor.LevelFile").encode(level))
+        assert(app:startPlay()); local previous = app.runtimeWorld
+        local id = project:getAssetId("Assets/L_Next.level")
+        assert(previous:openLevel(id)); Assert.equal(previous, app.runtimeWorld)
+        app:update(0.1); Assert.truthy(previous ~= app.runtimeWorld)
+        Assert.equal(id, app.runtimeWorld.levelReference); Assert.equal(1, #app.runtimeWorld.lobjects)
+        Assert.equal(0, app.runtimeWorld.elapsedTime); Assert.equal(200, app.runtimeWorld.lobjects[1].transform.x)
+        Assert.equal(document, app.document); Assert.equal(level, app.level)
+        Assert.equal(bytes, require("editor.LevelFile").encode(app.level))
+        assert(app:stopPlay()); Assert.equal(nil, app.runtimeWorld); Assert.equal(level, app.level)
+    end)
+end)
+
+add("Asset Shift range handles equal endpoints and forward backward selection", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "ShiftEndpoints"))
+        assert(project:createEntry("Assets", "folder", "A")); assert(project:createEntry("Assets", "folder", "B"))
+        local browser = EditorApp.new(nil, project).assetBrowser
+        local a, b, c = browser.entries[1], browser.entries[2], browser.entries[3]
+        browser.selectionAnchor = b.reference; browser:setSelection({a, b, c}); browser:selectEntry(b, false, true)
+        Assert.equal(1, #browser:getSelectedEntries()); Assert.equal(b.reference, browser.selectedReference)
+        browser.selectionAnchor = a.reference; browser:selectEntry(c, false, true); Assert.equal(3, #browser:getSelectedEntries())
+        browser.selectionAnchor = c.reference; browser:selectEntry(a, false, true); Assert.equal(3, #browser:getSelectedEntries())
+    end)
+end)
+add("Ctrl deselected assets cannot start drags with another selection or an empty selection", function()
+    fixture(function(parent)
+        local project = assert(createSampleProject(parent, "CtrlNoDrag"))
+        assert(project:createEntry("Assets", "prefab", "PF_A")); assert(project:createEntry("Assets", "prefab", "PF_B"))
+        local browser = EditorApp.new(nil, project).assetBrowser
+        browser:setViewMode("list"); browser:setBounds(0, 0, 800, 400)
+        local entries, index = {}, nil
+        for i, entry in ipairs(browser.entries) do
+            if entry.reference:match("%.prefab$") then entries[#entries + 1] = entry; index = index or i end
+        end
+        local bounds = browser:entryBounds(index)
+        local original, drops = love.keyboard.isDown, 0
+        browser.onExternalDrop = function() drops = drops + 1; return true end
+        love.keyboard.isDown = function(key) return key == "lctrl" end
+        local ok, err = pcall(function()
+            for _, selection in ipairs({entries, {entries[1]}}) do
+                browser:setSelection(selection)
+                local _, captured = browser:handleContentMousepressed(bounds.x + 30, bounds.y + 10, 1, 1)
+                Assert.equal(nil, browser.drag); Assert.equal(nil, captured)
+                Assert.equal(#selection - 1, #browser:getSelectedEntries())
+                browser:dragMoved(400, 0); browser:dragReleased(400, 0, 1)
+                Assert.equal(0, drops)
+            end
+        end)
+        love.keyboard.isDown = original
+        assert(ok, err)
+    end)
+end)
+
 return tests

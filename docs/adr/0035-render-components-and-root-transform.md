@@ -2,6 +2,7 @@
 
 - 상태: 채택
 - 후속: Draw·GetLocalBounds·모듈 이름은 [ADR 0036](0036-code-conventions-and-module-names.md)의 draw·getLocalBounds·PascalCase 파일명으로 대체한다.
+- 후속: 부모 오브젝트가 없는 루트만 월드 Transform이며 부모가 있는 루트는 [ADR 0037](0037-object-hierarchy-and-multi-selection.md)의 상대 Transform을 사용한다.
 - 날짜: 2026-10-09
 - 부분 대체: [ADR 0017](0017-components-instance-properties-and-prefab-placement.md)의 Sprite 전용 렌더러
 - 부분 대체: [ADR 0034](0034-component-hierarchy-and-inspector-tree.md)의 독립 Actor Transform·루트 로컬 위치·위치만 합산하는 계층

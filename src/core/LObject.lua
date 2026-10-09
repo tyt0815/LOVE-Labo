@@ -78,6 +78,8 @@ function LObject.new(runtimeId, initialState)
 
     self.runtimeId = runtimeId
     self.authoringId = initialState.authoringId
+    self.name = initialState.name
+    self.children = {}
     self.components, self.componentOrder = {}, {}
 
     -- Definition 해석은 프로젝트 로더가 담당하고 Core에는 구성 결과만 전달한다.
@@ -280,4 +282,20 @@ function LObject:setClass(class, properties, world)
     return self:beginPlay(world)
 end
 
+function LObject:getWorldTransform()
+    local Transform = require("core.Transform")
+    return self.parent and Transform.compose(self.parent:getWorldTransform(), self.transform) or self.transform
+end
+function LObject:attachTo(parent)
+    assert(parent == nil or getmetatable(parent) == LObject, "Parent must be an LObject")
+    assert(not parent or not self.world or not parent.world or self.world == parent.world, "Objects must belong to the same World")
+    local ancestor = parent
+    while ancestor do assert(ancestor ~= self, "Object attachment cycle"); ancestor = ancestor.parent end
+    if self.parent then
+        for i, child in ipairs(self.parent.children) do if child == self then table.remove(self.parent.children, i); break end end
+    end
+    self.parent = parent
+    if parent then parent.children[#parent.children + 1] = self end
+    return self
+end
 return LObject
