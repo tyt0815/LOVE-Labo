@@ -46,7 +46,7 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
     local visiting, nodes, bindings, operations = {}, {}, {}, {}
     local function build(reference, override, path, parent, depth, ancestorRemoved)
         if depth > 64 then return nil, "Prefab hierarchy is too deep" end
-        local key = reference and (project:getAssetId(reference) or reference)
+        local key = reference and (project:getAssetId(reference) or reference) or nil
         if key and key == excludedId then return nil, "Nested Prefab cycle" end
         local definition, err = Definition.resolve(project, reference, loadClass, excludedId)
         if not definition then return nil, err end
@@ -245,7 +245,11 @@ function Hierarchy.duplicateData(project, level, object)
         components[name] = components[name] or {}
         for field, value in pairs(fields) do components[name][field] = value end
     end
-    return {definitionReference = definition.classReference, propertyOverrides = properties, componentOverrides = components}
+    local target, targetError = Definition.inspectorTarget(project, object, definition, level)
+    if not target then return nil, targetError end
+    local referenceFields = {}
+    for name, declaration in pairs(target.class.properties) do if declaration.type == "object" then referenceFields[#referenceFields + 1] = name end end
+    return {definitionReference = definition.classReference, propertyOverrides = properties, componentOverrides = components, referenceFields = referenceFields}
 end
 
 function Hierarchy.prepareReparent(project, level, roots, parent)

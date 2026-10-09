@@ -193,28 +193,27 @@ end
 function EditorApp:prepareInspectedAsset(reference)
     if not reference or not reference:match("^Assets/.+%.prefab$") then return true end
     local id = self.project:getAssetId(reference)
-    if self.prefabDocument and self.prefabDocument.assetId == id then
-        self.inspectedAssetReference, self.inspectorSource = id, "assets"; return true
-    end
     self.inspector:commitEdit(); self:recordHistory()
     self.prefabDocuments = self.prefabDocuments or {}
     local document, err = self.prefabDocuments[id]
     if not document then document, err = require("editor.PrefabDocument").load(self.project, reference) end
     if not document then return false, err end
-    self.prefabDocuments[id] = document
-    self.project.draftAssets = self.prefabDocuments
-    self.prefabDocument = document
-    self.inspectedAssetReference = id
-    self.inspectorSource = "assets"
-    self.histories[document] = self.histories[document] or require("editor.History").new(assert(require("editor.Prefab").encodeData(document.data)))
-    self.prefabEditor = require("editor.PrefabEditor").new(self.project, document, function()
+    local editor = require("editor.PrefabEditor").new(self.project, document, function()
         self.project.draftRevision = (self.project.draftRevision or 0) + 1
         self.instanceInspectorObject = nil
     end, function(path)
-        self.prefabInspectorTarget = assert(self.prefabEditor:target(path))
+        local target, err = self.prefabEditor:target(path)
+        if not target then self.inspector.classInspector.error = err; return false, err end
+        self.prefabInspectorTarget = target
         self:updateInspectorTarget()
     end)
-    self.prefabInspectorTarget = assert(self.prefabEditor:target("root"))
+    local target, targetError = editor:target("root")
+    if not target then return false, targetError end
+    self.prefabDocuments[id] = document
+    self.project.draftAssets = self.prefabDocuments
+    self.prefabDocument, self.prefabEditor, self.prefabInspectorTarget = document, editor, target
+    self.inspectedAssetReference, self.inspectorSource = id, "assets"
+    self.histories[document] = self.histories[document] or require("editor.History").new(assert(require("editor.Prefab").encodeData(document.data)))
     self.prefabEditor.onContext = function(path, x, y) self:showPrefabObjectMenu(path, x, y) end
     return true
 end

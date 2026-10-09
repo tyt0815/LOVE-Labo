@@ -25,6 +25,7 @@
 5. 배치 시 자손을 레벨 authoring 객체로 구체화하고 `prefabRootId`·`prefabNodePath`로 원본 계층에 연결한다. 기존 레벨의 단일 루트 레코드도 로딩 시 확장한다. 생성 자손을 삭제·외부로 분리하면 원래 그룹에 제거 경로를 남긴다. 분리한 가지는 현재 유효 값을 보존한다.
 6. `spawnLObject`는 전체 계층을 구성하고 내부 참조를 연결한 뒤 초기화하며 반환값은 루트다. Play와 독립 게임에서 동일한 생성 레시피를 사용한다. 실제 객체·컴포넌트는 생성마다 새로 만든다.
 7. Prefab Inspector는 오브젝트 계층 → 선택 오브젝트 Parent Class → 오브젝트 프로퍼티 → 컴포넌트 계층 → 선택 컴포넌트 프로퍼티 순이다. 인스턴스는 오브젝트 프로퍼티부터 표시한다. Prefab 루트 Transform과 중복 루트 컴포넌트 Transform은 숨긴다. 컴포넌트 구성 자체는 Lua 코드가 소유한다.
+8. 자손의 `definitionReference` 생략은 부모 원본 참조의 상속 유지이고, 명시적인 `false`는 기본 LObject(None)로 교체한다. JSON null은 필드 생략과 구별되지 않으므로 사용하지 않는다. 일반 프로퍼티·Transform 편집은 참조 필드의 기존 유무를 유지하며 Parent Class 변경만 참조 override를 기록한다. 이 표현은 formatVersion 3의 부분 자손 레코드에 적용한다. 문서 루트의 None은 기존처럼 참조 생략이다. (2026-10-10 보완)
 
 ```text
 PrefabHierarchy --의존--> ObjectDefinition

@@ -65,7 +65,8 @@ function Editor:target(path)
     local proxy = {definitionReference = node.reference, propertyOverrides = Hierarchy.copy(record and record.overrides and record.overrides.properties),
         componentOverrides = Hierarchy.copy(record and record.overrides and record.overrides.components),
         transform = node.parent and Hierarchy.copy(node.transform) or nil}
-    local parentReference = node.parent and node.reference or self.document.data.definitionReference
+    local parentReference = self.document.data.definitionReference
+    if node.parent then parentReference = node.reference end
     local definition, definitionError = Definition.resolve(self.project, parentReference)
     if not definition then return nil, definitionError end
     local inherited, inheritError = self:baseRecipe(node.path)
@@ -120,10 +121,18 @@ function Editor:target(path)
         self.document.data = assert(require("editor.Prefab").decode(text)); self.onChanged()
     end
     local set = target.setOverrides
+    local parentChanged = false
+    target.setParentReference = function(value)
+        proxy.definitionReference, parentChanged = value or nil, true
+    end
     target.setOverrides = function(current, values)
         set(current, values)
         local data = self:record(node.path, true)
-        data.definitionReference = proxy.definitionReference
+        if parentChanged then
+            data.definitionReference = proxy.definitionReference
+            if node.parent and not proxy.definitionReference then data.definitionReference = false end
+            parentChanged = false
+        end
         data.overrides = {properties = next(proxy.propertyOverrides or {}) and Hierarchy.copy(proxy.propertyOverrides) or nil,
             components = next(proxy.componentOverrides or {}) and Hierarchy.copy(proxy.componentOverrides) or nil}
         local bindings = {}
@@ -153,25 +162,32 @@ function Editor:target(path)
     end
     return target
 end
+function Editor:insertChild(reference, name, parentPath)
+    local recipe, err = self:recipe()
+    if not recipe then return false, err end
+    local path = parentPath or self.selected
+    local selected = recipe.byPath[path]
+    if not selected then return false, "Missing child parent" end
+    local parent = self:record(path, true)
+    parent.children = parent.children or {}
+    local ids = {}; for _, child in ipairs(selected.children) do ids[child.path:match("([^/]+)$")] = true end
+    local number = 1; while ids["o" .. number] do number = number + 1 end
+    parent.children[#parent.children + 1] = {id = "o" .. number, name = name, definitionReference = reference,
+        transform = {x = 0, y = 0}, overrides = {}}
+    self.document.data.formatVersion = 3; self.onChanged()
+    return true, nil, path .. "/o" .. number
+end
 function Editor:add(reference, parentPath)
     local template, err = require("project.LObjectTemplate").resolve(self.project, reference)
     if not template then return false, err end
     if not Hierarchy.resolve(self.project, reference, nil, self.document.assetId) then return false, "Nested Prefab cycle" end
-    local parent = self:record(parentPath or self.selected, true)
-    parent.children = parent.children or {}
-    local recipe = assert(self:recipe())
-    local ids = {}; for _, child in ipairs(recipe.byPath[parentPath or self.selected].children) do ids[child.path:match("([^/]+)$")] = true end
-    local number = 1; while ids["o" .. number] do number = number + 1 end
-    parent.children[#parent.children + 1] = {id = "o" .. number, name = template.name, definitionReference = template.reference,
-        transform = {x = 0, y = 0}, overrides = {}}
-    self.document.data.formatVersion = 3; self.onChanged()
-    return true, nil, (parentPath or self.selected) .. "/o" .. number
+    return self:insertChild(template.reference, template.name, parentPath)
 end
 function Editor:addInstance(level, object, parentPath)
     local captured, err = Hierarchy.capture(self.project, level, object)
     if not captured then return false, err end
     local previous = Hierarchy.copy(self.document.data)
-    local ok, addError = self:add(captured.definitionReference, parentPath)
+    local ok, addError = self:insertChild(captured.definitionReference, object.name or "LObject", parentPath)
     if not ok then return false, addError end
     local parent = self:record(parentPath or self.selected, true)
     local node = parent.children[#parent.children]

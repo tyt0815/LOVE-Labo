@@ -169,7 +169,8 @@ function ClassInspector:selectParent(value)
         else class, err = LuaClass.load(self.project, value, self.target.kind) end
         if not class then self.error = err; return false end
     end
-    self.target.data[self.target.referenceField] = value or nil
+    if self.target.setParentReference then self.target.setParentReference(value)
+    else self.target.data[self.target.referenceField] = value or nil end
     self.target:setOverrides(LuaClass.compatibleOverrides(class, self.target:getOverrides()))
     if self.target.reloadTarget then
         local target, reloadError = self.target.reloadTarget()

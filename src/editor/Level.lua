@@ -391,6 +391,12 @@ function Level:duplicateLObjects(objects)
     for _, root in ipairs(roots) do clone(root, root.parentAuthoringId) end
     for oldId, duplicate in pairs(remapped) do
         local source = self:findLObject(oldId)
+        for _, name in ipairs(baked[oldId] and baked[oldId].referenceFields or {}) do
+            local component, field = name:match("^([^.]+)%.(.+)$")
+            local values = component and duplicate.componentOverrides[component] or duplicate.propertyOverrides
+            local value = values and values[field or name]
+            if value and remapped[value] then values[field or name] = remapped[value].authoringId end
+        end
         if source.prefabRootId and remapped[source.prefabRootId] then
             duplicate.prefabRootId, duplicate.prefabNodePath = remapped[source.prefabRootId].authoringId, source.prefabNodePath
         end
