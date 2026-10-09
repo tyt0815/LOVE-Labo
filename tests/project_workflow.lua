@@ -2370,9 +2370,19 @@ add("File and Run menus occupy only the top strip and reuse creation and playbac
         Assert.equal(bar.menu, app.uiRoot.popup)
         local panel = bar.menu.panels[1]
         Assert.equal(bar.HEIGHT, panel.y)
-        Assert.equal(6, #panel.items)
+        Assert.equal("File", bar:buttons()[1].label)
+        Assert.equal("Run", bar:buttons()[2].label)
+        Assert.equal(4, #panel.items)
+        Assert.equal("New", panel.items[1].label)
         for _, item in ipairs(panel.items) do Assert.truthy(not item.label:find("Undo") and not item.label:find("Redo")) end
         app:mousepressed(panel.x + 16, panel.y + 12, 1)
+        Assert.equal(2, #bar.menu.panels)
+        local submenu = bar.menu.panels[2]
+        Assert.equal(panel.x + panel.w - 1, submenu.x)
+        Assert.equal("Class...", submenu.items[1].label)
+        Assert.equal("Prefab...", submenu.items[2].label)
+        Assert.equal("Level...", submenu.items[3].label)
+        app:mousepressed(submenu.x + 16, submenu.y + 12, 1)
         local dialog = app.uiRoot.popup
         Assert.equal("New Lua Class", dialog.options.title)
         dialog.text = "MenuClass"
@@ -2396,6 +2406,8 @@ add("File and Run menus occupy only the top strip and reuse creation and playbac
         app.uiRoot:dismissPopup()
         if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
             app:mousepressed(20, 12, 1)
+            local menuPanel = bar.menu.panels[1]
+            app:mousemoved(menuPanel.x + 16, menuPanel.y + 12, 0, 0)
             local canvas = love.graphics.newCanvas(love.graphics.getDimensions())
             love.graphics.push("all"); love.graphics.setCanvas(canvas); app:draw(); love.graphics.setCanvas()
             local pixels = canvas:newImageData(); pixels:encode("png", "menu-bar-preview.png")

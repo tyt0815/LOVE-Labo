@@ -48,7 +48,7 @@ function Menu:select(depth, index)
     local item = panel.items[index]
     if item.children and item.enabled ~= false then
         local x = panel.x + panel.w - 1
-        if x + WIDTH > love.graphics.getWidth() then x = panel.x - WIDTH + 1 end
+        if x + panel.w > love.graphics.getWidth() then x = panel.x - panel.w + 1 end
         self:addPanel(x, panel.y + PAD + (index - 1) * ROW, item.children)
     end
 end

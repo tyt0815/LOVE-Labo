@@ -24,8 +24,8 @@ function Bar.new(app)
     return self
 end
 function Bar:buttons()
-    return {{label = "파일", name = "file", x = self.x + 8, y = self.y + 3, w = 58, h = 26},
-        {label = "실행", name = "run", x = self.x + 70, y = self.y + 3, w = 58, h = 26}}
+    return {{label = "File", name = "file", x = self.x + 8, y = self.y + 3, w = 58, h = 26},
+        {label = "Run", name = "run", x = self.x + 70, y = self.y + 3, w = 58, h = 26}}
 end
 function Bar:items(name)
     local app = self.app
@@ -37,12 +37,13 @@ function Bar:items(name)
     local project = app.project ~= nil
     local function create(folder, kind) app.assetBrowser:showCreateDialog(folder, kind) end
     return {
-        {label = "새 클래스...", enabled = project and editable, action = function() create("Sources", "lua") end},
-        {label = "새 Prefab...", enabled = project and editable, action = function() create("Assets", "prefab") end},
-        {label = "새 레벨...", enabled = project and editable, action = function() create("Assets", "level") end},
-        {label = "저장", shortcut = "Ctrl+S", enabled = editable, action = function() app:saveInspectedDocument() end},
-        {label = "레벨 다른 이름으로 저장...", enabled = project and editable, action = function() app:showSaveLevelDialog() end},
-        {label = "게임 Export...", shortcut = "Ctrl+Shift+E", enabled = project and editable, action = function() app:showExportDialog() end}}
+        {label = "New", enabled = project and editable, children = {
+            {label = "Class...", action = function() create("Sources", "lua") end},
+            {label = "Prefab...", action = function() create("Assets", "prefab") end},
+            {label = "Level...", action = function() create("Assets", "level") end}}},
+        {label = "Save", shortcut = "Ctrl+S", enabled = editable, action = function() app:saveInspectedDocument() end},
+        {label = "Save Level As...", enabled = project and editable, action = function() app:showSaveLevelDialog() end},
+        {label = "Export Game...", shortcut = "Ctrl+Shift+E", enabled = project and editable, action = function() app:showExportDialog() end}}
 end
 function Bar:openAt(x, y, hover)
     for _, button in ipairs(self:buttons()) do
