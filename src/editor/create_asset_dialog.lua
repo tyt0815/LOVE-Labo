@@ -32,7 +32,7 @@ function Create.show(browser, folder, kind)
                 if parentTree then
                     local parent = parentTree:selection()
                     if not parent or parent.error then return false, parent and parent.error or "Choose a parent" end
-                    if kind == "lua" then options = {scriptKind = parent.kind, parentReference = parent.assetId}
+                    if kind == "lua" then options = {scriptKind = parent.kind, parentReference = parent.assetId or parent.parentReference}
                     else options = {scriptReference = parent.assetId} end
                 end
                 local ok, reference

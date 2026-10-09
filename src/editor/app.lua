@@ -584,9 +584,9 @@ function EditorApp:initializeUI()
         cancel = function() return self.inspector:cancelPointer() end,
         textinput = function(_, text) return self.inspector:textinput(text) end,
         textedited = function(_, text) return self.inspector:textedited(text) end,
-        wheelmoved = function(_, _, _, amount)
+        wheelmoved = function(_, x, y, amount)
             if not self:isPlaying() and self.inspector.classInspector and self.inspector.classInspector.target then
-                self.inspector.classInspector:wheelmoved(amount)
+                self.inspector.classInspector:wheelmoved(amount, x, y)
             end
             return true
         end
@@ -607,6 +607,10 @@ function EditorApp:initializeUI()
     if self.assetBrowser then
         self.inspector.classInspector = require("editor.class_inspector").new(self.project, self.uiRoot)
         self.inspector.classInspector.onCommitEdit = self.inspector.onCommitEdit
+        self.inspector.classInspector.onScopeChanged = function()
+            self.inspector:commitEdit()
+            self:updateInspectorTarget()
+        end
         self.inspector.classInspector.onPick = function(name) return self:beginObjectPick(name) end
         self.inspector.classInspector.isPicking = function(name) return self.objectPick and self.objectPick.name == name end
         self.inspector.classInspector.onFrame = function(value)

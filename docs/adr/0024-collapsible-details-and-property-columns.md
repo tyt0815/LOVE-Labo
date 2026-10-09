@@ -1,6 +1,7 @@
 # 0024. 접기 가능한 Details 그룹과 좌우 프로퍼티 열
 
 - 상태: 채택
+- 후속: 컴포넌트 중첩 그룹 배치는 [ADR 0034](0034-component-hierarchy-and-inspector-tree.md)의 선택 트리로 대체한다.
 - 날짜: 2026-10-09
 - 부분 대체: [ADR 0023](0023-text-edit-and-component-group-layout.md)의 고정 Transform·평면 오브젝트 프로퍼티 목록
 - 확장: [ADR 0012](0012-lua-classes-properties-and-unsaved-levels.md)의 클래스 표시 이름

@@ -1,5 +1,6 @@
 local LObject = {}
 LObject.__index = LObject
+local ROOT_PARENT = {}
 
 local function isPositiveInteger(value)
     return type(value) == "number"
@@ -81,6 +82,8 @@ function LObject.new(runtimeId, initialState)
     local transform, transformError = require("core.transform").copy(initialState.transform)
     if not transform then return nil, transformError end
     self.transform = transform
+    self.rootComponent = self:addComponent("root", require("core.scene_component"))
+    self.rootComponent.isDefaultRoot = true
 
     return self
 end
@@ -90,36 +93,158 @@ function LObject:update(dt)
         local ok, result, err = pcall(self.luaClass.update, self, dt)
         if not ok or result == false then return false, tostring(ok and err or result) end
     end
-    for _, name in ipairs(self.componentOrder) do
+    for _, name in ipairs(self:getComponentOrder()) do
         local component = self.components[name]
         local ok, result, err = pcall(component.Update, component, dt)
         if not ok or result == false then return false, tostring(ok and err or result) end
     end
 end
 
-function LObject:addComponent(name, class, overrides)
+local function detach(component)
+    if component.parent then
+        for i, child in ipairs(component.parent.children) do
+            if child == component then table.remove(component.parent.children, i); break end
+        end
+    end
+    component.parent = nil
+end
+
+function LObject:attachComponent(component, parent)
+    if type(component) == "string" then component = self.components[component] end
+    if type(parent) == "string" then parent = assert(self.components[parent], "Missing parent component") end
+    parent = parent or self.rootComponent
+    assert(component and component.owner == self, "Component must belong to this LObject")
+    assert(component ~= self.rootComponent, "Root cannot be attached below another component")
+    assert(parent and parent.owner == self, "Parent must belong to this LObject")
+    local ancestor = parent
+    while ancestor do assert(ancestor ~= component, "Component attachment cycle"); ancestor = ancestor.parent end
+    detach(component)
+    component.parent = parent
+    parent.children[#parent.children + 1] = component
+    return component
+end
+
+function LObject:getComponentOrder()
+    local order = {}
+    local function visit(component)
+        order[#order + 1] = component.name
+        for _, child in ipairs(component.children) do visit(child) end
+    end
+    if self.rootComponent then visit(self.rootComponent) end
+    return order
+end
+
+local function state(object)
+    -- 사용자 build의 실패로 기존 부착 관계가 반쯤 바뀐 상태를 남기지 않는다.
+    local saved = {components = {}, order = {}, links = {}, root = object.rootComponent, depth = object.componentBuildDepth}
+    for name, component in pairs(object.components) do
+        saved.components[name] = component
+        local children = {}; for _, child in ipairs(component.children) do children[#children + 1] = child end
+        saved.links[component] = {parent = component.parent, children = children}
+    end
+    for _, name in ipairs(object.componentOrder) do saved.order[#saved.order + 1] = name end
+    return saved
+end
+local function restore(object, saved)
+    for name, component in pairs(object.components) do
+        if saved.components[name] ~= component then component.owner, component.parent, component.children = nil, nil, {} end
+    end
+    object.components, object.componentOrder, object.rootComponent, object.componentBuildDepth = saved.components, saved.order, saved.root, saved.depth
+    for component, link in pairs(saved.links) do component.owner, component.parent, component.children = object, link.parent, link.children end
+end
+local function resolveClass(object, class)
+    if type(class) == "string" then
+        assert(object.componentLoader, "Component asset loader is not configured")
+        return assert(object.componentLoader(class, "component"))
+    end
+    return class
+end
+local function beginComponents(object)
+    -- 콜백 안의 루트 교체·추가는 현재 초기화가 끝난 뒤 새 계층에서 처리한다.
+    if object.initializingComponents then return end
+    object.initializingComponents = true
+    local ok, err = pcall(function()
+        while true do
+            local pending
+            for _, name in ipairs(object:getComponentOrder()) do
+                local component = object.components[name]
+                if not component.hasBegunPlay and not component.beginningPlay then pending = component; break end
+            end
+            if not pending then break end
+            pending.beginningPlay = true
+            local called, result, callbackError = pcall(require("core.lobject_component").beginPlayCallback(pending), pending, object.world)
+            pending.beginningPlay = nil
+            if not called then error(result, 0) end
+            assert(result ~= false, callbackError)
+            pending.hasBegunPlay = true
+        end
+    end)
+    object.initializingComponents = nil
+    if not ok then error(err, 0) end
+end
+
+function LObject:addComponent(name, class, overrides, parent)
     assert(type(name) == "string" and name:match("^[%a_][%w_]*$"), "Component name must be an identifier")
     assert(not self.components[name], "Duplicate component name: " .. name)
+    class = resolveClass(self, class)
     local component = class:new(overrides)
     assert(component:isA(require("core.lobject_component")), "Expected LObjectComponent")
-    component.owner, component.name = self, name
-    self.components[name] = component
-    self.componentOrder[#self.componentOrder + 1] = name
-    if self.hasBegunPlay then
-        local result, err = require("core.lobject_component").beginPlayCallback(component)(component, self.world)
-        assert(result ~= false, err)
-    end
+    local saved = state(self)
+    local ok, err = pcall(function()
+        component.owner, component.name = self, name
+        self.components[name] = component
+        self.componentOrder[#self.componentOrder + 1] = name
+        if self.rootComponent and parent ~= ROOT_PARENT then self:attachComponent(component, parent) end
+        if component.build then
+            self.componentBuildDepth = (self.componentBuildDepth or 0) + 1
+            assert(self.componentBuildDepth <= 64, "Component construction is too deep")
+            local result, buildError = component.build(component)
+            self.componentBuildDepth = self.componentBuildDepth - 1
+            assert(result ~= false, buildError)
+        end
+        if self.hasBegunPlay and (self.componentBuildDepth or 0) == 0 and parent ~= ROOT_PARENT then beginComponents(self) end
+    end)
+    if not ok then restore(self, saved); error(err, 0) end
+    return component
+end
+
+function LObject:setRootComponent(name, class, overrides)
+    local saved, old = state(self), self.rootComponent
+    local component = type(name) == "table" and name or self.components[name]
+    local replace = class and old and old.name == name
+    local ok, err = pcall(function()
+        if class then
+            class = resolveClass(self, class)
+            local ancestor = class
+            while ancestor and ancestor ~= require("core.scene_component") do ancestor = ancestor.super end
+            assert(ancestor, "Root class must inherit SceneComponent")
+            if replace then self.components[name] = nil end
+            component = self:addComponent(name, class, overrides, ROOT_PARENT)
+        end
+        assert(component and component.owner == self and component:isA(require("core.scene_component")), "Root must be a SceneComponent of this LObject")
+        if component == old then return end
+        detach(component)
+        self.rootComponent = component
+        if old then
+            if old.isDefaultRoot or replace then
+                local children = {}; for _, child in ipairs(old.children) do children[#children + 1] = child end
+                for _, child in ipairs(children) do self:attachComponent(child, component) end
+                if self.components[old.name] == old then self.components[old.name] = nil end
+                for i, current in ipairs(self.componentOrder) do if current == old.name then table.remove(self.componentOrder, i); break end end
+                old.owner, old.children = nil, {}
+            else self:attachComponent(old, component) end
+        end
+        if self.hasBegunPlay and (self.componentBuildDepth or 0) == 0 then beginComponents(self) end
+    end)
+    if not ok then restore(self, saved); error(err, 0) end
     return component
 end
 
 function LObject:BeginPlay(world)
     self.world = world
-    for _, name in ipairs(self.componentOrder) do
-        local component = self.components[name]
-        local ok, result, err = pcall(require("core.lobject_component").beginPlayCallback(component), component, world)
-        if not ok or result == false then return false, tostring(ok and err or result) end
-    end
     self.hasBegunPlay = true
+    local begun, beginError = pcall(beginComponents, self)
+    if not begun then return false, tostring(beginError) end
     local callback = self.luaClass and (self.luaClass.BeginPlay or self.luaClass.load)
     if callback then
         local ok, result, err = pcall(callback, self, world)

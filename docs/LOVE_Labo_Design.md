@@ -327,6 +327,8 @@ load error containment
 
 정확한 discovery 규칙과 module cache 정책은 구현 시 결정한다.
 
+현재 Component Class도 부모 선택 생성과 Lua 상속을 지원한다. LObject는 기본 SceneComponent 루트를 소유하고 코드의 build에서 자손을 부착하거나 루트를 교체한다. 모든 컴포넌트는 같은 LObject 안에서 이름이 유일하며 기존 이름별 override를 사용한다. SceneComponent 상대 위치는 조상 위치를 합산하고 Actor Transform을 적용한다. Inspector는 객체·컴포넌트 선택 트리와 선택별 프로퍼티 그룹을 표시하며, 선언의 선택적 group으로 클래스 기본 그룹을 분리한다. 상세 계약은 [ADR 0034](adr/0034-component-hierarchy-and-inspector-tree.md)를 따른다.
+
 Project load 실패가 Editor process 전체를 crash시키거나 반쯤 적용된 Project state를 조용히 남겨서는 안 된다.
 
 현재 AI 작업용 CLI는 기존 생성·문서 편집 로직을 호출하고 JSON 결과·종료 코드·revision 검사를 제공한다. GUI와 게임은 `project/`의 공용 클래스·Definition 로직과 `runtime/world_loader`의 초기화 경로를 공유한다. 파일 읽기는 Editor의 외부 프로젝트와 게임 패키지 어댑터로 구분한다. 자세한 계약은 [ADR 0028](adr/0028-agent-cli-and-standalone-game-export.md)을 따른다.

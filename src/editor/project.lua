@@ -334,7 +334,7 @@ function Project:getScriptKind(reference)
 end
 
 function Project:listScripts(kind)
-    if kind ~= "level" and kind ~= "lobject" then return nil, "Unknown script type" end
+    if kind ~= "level" and kind ~= "lobject" and kind ~= "component" then return nil, "Unknown script type" end
     local scripts = {}
     local function visit(folder)
         local entries, err = self:listDirectory(folder)
@@ -369,8 +369,8 @@ function Project:createEntry(folder, kind, name, options)
     if kind == "lua" and not folder:match("^Sources/?") then return false, "Lua scripts belong in Sources" end
     local entries, listError = self:listDirectory(folder)
     if not entries then return false, listError end
-    if kind == "lua" and options.scriptKind ~= "level" and options.scriptKind ~= "lobject" then
-        return false, "Choose Level Script or LObject Script"
+    if kind == "lua" and options.scriptKind ~= "level" and options.scriptKind ~= "lobject" and options.scriptKind ~= "component" then
+        return false, "Choose a Level, LObject or Component parent"
     end
     if (kind == "level" or kind == "prefab") and options.scriptReference ~= nil then
         local rebuilt, rebuildError = self:rebuildAssetIndex()
@@ -386,10 +386,14 @@ function Project:createEntry(folder, kind, name, options)
     end
     local parentId
     if kind == "lua" and options.parentReference then
-        local parent, err = require("project.lua_class").load(self, options.parentReference, options.scriptKind)
-        if not parent then return false, err end
-        parentId = self:getAssetId(self:getAssetReference(options.parentReference))
-        if not parentId then return false, "Parent Class is not registered" end
+        if options.scriptKind == "component" and ({LObjectComponent = true, SceneComponent = true, SpriteComponent = true})[options.parentReference] then
+            parentId = options.parentReference
+        else
+            local parent, err = require("project.lua_class").load(self, options.parentReference, options.scriptKind)
+            if not parent then return false, err end
+            parentId = self:getAssetId(self:getAssetReference(options.parentReference))
+            if not parentId then return false, "Parent Class is not registered" end
+        end
     end
     local fs, createdDirectories, createdFiles = filesystem(), {}, {}
     local function rollback(errorText)
@@ -446,7 +450,8 @@ function Project:createEntry(folder, kind, name, options)
         end
     elseif kind == "lua" then
         ok, createError = writeNew(reference, require(options.scriptKind == "level"
-            and "editor.level_script_template" or "editor.lobject_script_template")(name, parentId))
+            and "editor.level_script_template" or options.scriptKind == "component" and "editor.component_script_template"
+            or "editor.lobject_script_template")(name, parentId))
     elseif kind == "level" then
         local level = options.level or require("editor.level").new()
         assert(level:setScriptReference(self:getAssetId(options.scriptReference) or options.scriptReference))

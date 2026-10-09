@@ -59,7 +59,7 @@ function Inspector:getFieldAtPosition(x, y, windowWidth)
         return nil
     end
 
-    if not self.transformExpanded then return nil end
+    if not self.transformExpanded or self.classInspector and self.classInspector.selectedComponent then return nil end
     for _, field in ipairs(TRANSFORM_ORDER) do
         if UI.contains(x, y, self:fieldRect(field, windowWidth)) then return field end
     end
@@ -150,7 +150,12 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if self.classInspector and self.classInspector.target and not selectedLObject then
         return self.classInspector:mousepressed(x, y, button)
     end
-    if selectedLObject and UI.contains(x, y, {x = windowWidth - self.width + UI.metrics.contentPaddingX, y = TRANSFORM_TOP + (self.y or 0), w = self.width - 2 * UI.metrics.contentPaddingX, h = self.transformExpanded and 32 or PropertyLayout.headerHeight}) and button == 1 then
+    if self.classInspector and self.classInspector.target and (self.classInspector.selectedComponent
+        or self.classInspector.tree and self.classInspector.tree:containsPoint(x, y)) then
+        self:commitEdit(); return self.classInspector:mousepressed(x, y, button)
+    end
+    if self.classInspector then self.classInspector.treeFocused = false end
+    if selectedLObject and UI.contains(x, y, {x = windowWidth - self.width + UI.metrics.contentPaddingX, y = self:getTransformTop(), w = self.width - 2 * UI.metrics.contentPaddingX, h = self.transformExpanded and 32 or PropertyLayout.headerHeight}) and button == 1 then
         self:commitEdit()
         self.transformExpanded = not self.transformExpanded
         if self.classInspector and self.classInspector.target then self.classInspector:layout(windowWidth - self.width, self.width, (self.height or love.graphics.getHeight()) + (self.y or 0), self:getPropertyTop(), self.y) end
@@ -202,11 +207,15 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
 end
 
 function Inspector:fieldRect(field, windowWidth)
-    local _, rect = PropertyLayout.cells(windowWidth - self.width, self.width, TRANSFORM_TOP + (self.y or 0) + 32 + (TRANSFORM_FIELDS[field] - 1) * PropertyLayout.rowHeight)
+    local _, rect = PropertyLayout.cells(windowWidth - self.width, self.width, self:getTransformTop() + 32 + (TRANSFORM_FIELDS[field] - 1) * PropertyLayout.rowHeight)
     return rect
 end
 function Inspector:getPropertyTop()
-    return TRANSFORM_TOP + (self.y or 0) + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.rowHeight or PropertyLayout.headerHeight) + 8
+    if self.classInspector and self.classInspector.selectedComponent and self.classInspector:treeBottom() then return self.classInspector:treeBottom() + 8 end
+    return self:getTransformTop() + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.rowHeight or PropertyLayout.headerHeight) + 8
+end
+function Inspector:getTransformTop()
+    return self.classInspector and self.classInspector:treeBottom() and self.classInspector:treeBottom() + 8 or TRANSFORM_TOP + (self.y or 0)
 end
 function Inspector:mousemoved(x, y, dx)
     if self.classInspector and self.classInspector:isEditing() then return self.classInspector:mousemoved(x, y, dx) end
@@ -251,6 +260,7 @@ end
 function Inspector:keypressed(key)
     if self.classInspector and self.classInspector:isEditing() then return self.classInspector:keypressed(key) end
     if not self:isEditing() then
+        if self.classInspector then return self.classInspector:keypressed(key) end
         return false
     end
     if NumberDrag.modifier(self, key) then return true end
@@ -347,8 +357,8 @@ function Inspector:draw(selectedLObject)
     UI.label(name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY + (self.y or 0), self.width - 2 * UI.metrics.contentPaddingX)
     UI.text(self:instanceKind(selectedLObject), left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY + (self.y or 0), self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
 
-    if selectedLObject.transform then
-        PropertyLayout.group(left, self.width, TRANSFORM_TOP + (self.y or 0), self:getPropertyTop() - TRANSFORM_TOP - (self.y or 0) - 8, "Transform", self.transformExpanded)
+    if selectedLObject.transform and not (self.classInspector and self.classInspector.selectedComponent) then
+        PropertyLayout.group(left, self.width, self:getTransformTop(), self:getPropertyTop() - self:getTransformTop() - 8, "Transform", self.transformExpanded)
         if self.transformExpanded then
             for _, field in ipairs(TRANSFORM_ORDER) do
                 self:drawField(TRANSFORM_LABELS[field], field, self:fieldRect(field, windowWidth).y, selectedLObject, left)

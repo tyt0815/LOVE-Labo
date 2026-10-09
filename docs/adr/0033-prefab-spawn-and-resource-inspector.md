@@ -1,6 +1,7 @@
 # 0033. Prefab 런타임 생성과 리소스 Inspector 입력
 
 - 상태: 채택
+- 후속: 컴포넌트 내부 중첩 Transform 배치는 [ADR 0034](0034-component-hierarchy-and-inspector-tree.md)의 선택별 평면 그룹으로 대체한다.
 - 날짜: 2026-10-09
 - 확장: [ADR 0032](0032-parent-first-creation-and-prefab-inheritance.md)의 Prefab 값 상속·생성 단계
 - 부분 대체: [ADR 0026](0026-resource-property-previews-and-reveal.md)의 이미지 행 높이·리셋 배치

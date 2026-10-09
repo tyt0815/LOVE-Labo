@@ -37,14 +37,22 @@ function Verification.run(args)
         check("class template", assert(FS.read(source)):find("local NewClass = {}", 1, true))
         check("class metadata", FS.info(source .. ".meta"))
         local classId = assert(project:getAssetId("Sources/NewClass.lua"))
+        assert(project:createEntry("Sources", "lua", "Branch", {scriptKind = "component", parentReference = "SceneComponent"}))
+        local branchId = project:getAssetId("Sources/Branch.lua")
+        assert(FS.writeAtomic(assert(project:resolveSourceFile(branchId)), [[
+local Branch = {extends = "SceneComponent", properties = {speed = {type = "number", default = 2, group = "Movement"}}}
+function Branch.build(self) self:addComponent("sprite", require("engine").SpriteComponent) end
+function Branch.BeginPlay(self) self.begun = true end
+return Branch
+]]))
         -- 사용자 프로젝트 코드와 이미지가 패키지 밖에서도 로딩되는지 확인한다.
-        assert(FS.writeAtomic(source, [[-- labo-script: lobject
+        assert(FS.writeAtomic(source, string.format([[-- labo-script: lobject
 local NewClass = {properties = {speed = {type = "number", default = 10},
     target = {type = "object", default = false}, projectile = {type = "prefab", default = false}}}
-function NewClass.build(self) self:addComponent("sprite", require("engine").SpriteComponent) end
+function NewClass.build(self) self:setRootComponent("root", %q) end
 function NewClass.BeginPlay(self) self.begun = true end
 return NewClass
-]]))
+]], branchId)))
         local pixels = love.image.newImageData(16, 16)
         pixels:mapPixel(function() return 0.2, 0.7, 1, 1 end)
         local encoded = pixels:encode("png")
@@ -68,6 +76,12 @@ return NewClass
             png:release(); pixels:release(); canvas:release()
             love.graphics.pop()
         end
+        app.assetBrowser:showCreateDialog("Sources", "lua")
+        local componentDialog = app.uiRoot.popup
+        componentDialog.options.content:choose(componentDialog.options.content.records[branchId])
+        preview("create-component-parent")
+        componentDialog:submit(); app.uiRoot.popup.text = "ChildBranch"; app.uiRoot.popup:submit()
+        check("derived component created", require("project.lua_class").load(project, project:getAssetId("Sources/ChildBranch.lua"), "component").extends == branchId)
         app.assetBrowser:showCreateDialog("Sources", "lua")
         local dialog = app.uiRoot.popup
         dialog.options.content:choose(dialog.options.content.records[classId])
@@ -93,6 +107,13 @@ return NewClass
         local object = assert(app.sceneView.selectedLObject)
         app:updateInspectorTarget()
         local inspector = app.inspector.classInspector
+        check("component hierarchy tree", #inspector.tree.nodes == 3 and inspector.tree.nodes[3].depth == 2)
+        preview("object-properties")
+        inspector:selectComponent("root")
+        local groups = {}; for _, row in ipairs(inspector.rows) do if row.header then groups[row.label] = true end end
+        check("selected component groups", groups.Transform and groups.Movement)
+        preview("component-properties")
+        inspector:selectComponent(nil)
         assert(inspector:setProperty("speed", 42))
         local function dropResource(reference, name)
             local browser = app.assetBrowser

@@ -3,6 +3,7 @@ local Schema = require("core.property_schema")
 local Definition = {}
 
 function Definition.resolve(project, reference, loadClass, excludedId)
+    loadClass = loadClass or LuaClass.loader(project)
     local properties, components = {}, {}
     local class
     local visiting, chain = {}, {}
@@ -32,7 +33,7 @@ function Definition.resolve(project, reference, loadClass, excludedId)
             visiting[key] = nil
         else
             local err
-            class, err = (loadClass or LuaClass.loader(project))(reference, "lobject")
+            class, err = loadClass(reference, "lobject")
             if not class then return nil, err end
         end
         return true
@@ -44,7 +45,7 @@ function Definition.resolve(project, reference, loadClass, excludedId)
         local valid, errorText = LuaClass.values(class, prefab.overrides.properties)
         if not valid then return nil, errorText end
     end
-    return {class = class, properties = properties, components = components, layers = chain}
+    return {class = class, properties = properties, components = components, layers = chain, componentLoader = loadClass}
 end
 
 function Definition.configure(object, definition, propertyOverrides, componentOverrides)
@@ -53,6 +54,7 @@ function Definition.configure(object, definition, propertyOverrides, componentOv
     local values, err = LuaClass.values(definition.class, properties)
     if not values then return false, err end
     object.luaClass, object.properties = definition.class, values
+    object.componentLoader = definition.componentLoader
     if definition.class and definition.class.build then
         local ok, result, buildError = pcall(definition.class.build, object)
         if not ok or result == false then return false, tostring(ok and buildError or result) end
@@ -109,7 +111,7 @@ function Definition.inspectorTarget(project, data, definition, level, label)
     if not ok then return nil, err end
     local schema, componentTypes = {}, {}
     for name, field in pairs(definition.class and definition.class.properties or {}) do
-        schema[name] = {type = field.type, default = object.properties[name]}
+        schema[name] = {type = field.type, default = object.properties[name], group = field.group}
     end
     for _, name in ipairs(object.componentOrder) do
         local component = object.components[name]
@@ -117,7 +119,7 @@ function Definition.inspectorTarget(project, data, definition, level, label)
         componentTypes[name] = component.componentType
         for field, declaration in pairs(getmetatable(component).properties) do
             schema[name .. "." .. field] = {type = declaration.type, default = component.properties[field], component = name, field = field,
-                sceneTransform = scene and (field == "x" or field == "y") or nil}
+                sceneTransform = scene and (field == "x" or field == "y") or nil, group = declaration.group}
         end
     end
     return {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,

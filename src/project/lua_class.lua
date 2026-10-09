@@ -35,10 +35,25 @@ function LuaClass.loader(project)
         local function fail(err) visiting[key] = nil; return nil, err end
         local parent
         if class.extends ~= nil then
-            if not Id.isValid(class.extends) then return fail("extends must be a Lua Class asset ID") end
+            local builtins = kind == "component" and require("engine") or {}
+            parent = builtins[class.extends]
+            if parent and class.extends ~= "LObjectComponent" and class.extends ~= "SceneComponent" and class.extends ~= "SpriteComponent" then parent = nil end
+            if not parent and not Id.isValid(class.extends) then return fail("extends must be a Lua Class asset ID or built-in Component") end
             local parentError
-            parent, parentError = load(class.extends, kind, (depth or 0) + 1)
+            if not parent then parent, parentError = load(class.extends, kind, (depth or 0) + 1) end
             if not parent then return fail(parentError) end
+        end
+        if kind == "component" then
+            parent = parent or require("core.lobject_component")
+            class.componentType = canonical:match("([^/]+)%.lua$")
+            local extended, component = pcall(parent.extend, parent, class)
+            if not extended then return fail(tostring(component)) end
+            for _, name in ipairs({"build", "BeginPlay", "Load", "Update"}) do
+                if component[name] ~= nil and type(component[name]) ~= "function" then return fail(name .. " must be a function") end
+            end
+            classNames[component] = class.componentType
+            loaded[key], visiting[key] = component, nil
+            return component
         end
         local schema = {}
         for name, declaration in pairs(parent and parent.properties or {}) do schema[name] = declaration end
@@ -49,7 +64,8 @@ function LuaClass.loader(project)
                 return fail("Invalid property declaration: " .. tostring(name))
             end
             if schema[name] and schema[name].type ~= declaration.type then return fail("Inherited property type cannot change: " .. name) end
-            schema[name] = {type = declaration.type, default = declaration.default}
+            if declaration.group ~= nil and (type(declaration.group) ~= "string" or declaration.group == "") then return fail("Property group must be a non-empty string") end
+            schema[name] = {type = declaration.type, default = declaration.default, group = declaration.group or schema[name] and schema[name].group}
         end
         for _, name in ipairs({"build", "BeginPlay", "load", "update"}) do
             if class[name] ~= nil and type(class[name]) ~= "function" then return fail(name .. " must be a function") end

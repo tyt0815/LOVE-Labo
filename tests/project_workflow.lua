@@ -2064,59 +2064,37 @@ return {BeginPlay = function(world) world.calls = (world.calls or 0) + 1 end, lo
     end)
 end)
 
-add("Component Inspector groups collapse without changing overrides for instances and Prefabs", function()
+add("Inspector tree selects object or component properties without changing overrides", function()
     fixture(function(parent)
         local project, prefabId = componentProject(parent)
         local app = EditorApp.new(nil, project)
         local object = app.level:addLObject(0, 0, prefabId)
         app.sceneView.selectedLObject, app.activePanel = object, "scene"; app:draw()
         local inspector = app.inspector.classInspector
-        inspector:layout(inspector.left, inspector.width, 1000)
-        Assert.equal(nil, inspector.expanded.sprite)
-        Assert.equal("counter", inspector.rows[1].component)
-        local header
-        for _, row in ipairs(inspector.rows) do
-            Assert.truthy(row.name ~= "sprite.x")
-            if row.component == "sprite" and not row.transformGroup then header = row end
-        end
-        Assert.truthy(header)
-        inspector:mousepressed(inspector.left + 20, inspector.propertyTop + header.offset + 10, 1)
-        Assert.truthy(inspector.expanded.sprite)
+        Assert.equal(nil, inspector.selectedComponent)
+        for _, row in ipairs(inspector.rows) do Assert.truthy(row.name ~= "sprite.x") end
+        local nodeIndex
+        for i, node in ipairs(inspector.tree.nodes) do if node.key == "sprite" then nodeIndex = i end end
+        app:mousepressed(inspector.tree.x + 80, inspector.tree.y + (nodeIndex - 1) * 26 + 13, 1)
+        Assert.equal("sprite", inspector.selectedComponent)
+        for _, row in ipairs(inspector.rows) do Assert.truthy(row.name ~= "speed") end
         local rect = inspector:ensurePropertyVisible("sprite.x")
-        Assert.truthy(rect.x > inspector.left + require("editor.ui").metrics.contentPaddingX)
-        local headerIndex, propertyIndex
-        for i, row in ipairs(inspector.rows) do
-            if row.component == "sprite" and not row.transformGroup then headerIndex = i end
-            if row.name == "speed" then propertyIndex = i end
-        end
-        Assert.truthy(headerIndex < propertyIndex)
-        Assert.equal(32 + 32 + 64 + 2 * 32, inspector.rows[headerIndex].groupHeight)
-        inspector:mousepressed(rect.x + 5, rect.y + 5, 1); inspector:textinput("19"); inspector:keypressed("return")
+        app:mousepressed(rect.x + 5, rect.y + 5, 1); app:textinput("19"); app:keypressed("return")
         Assert.equal(19, object.componentOverrides.sprite.x)
-        if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
-            app:draw()
-            inspector:ensurePropertyVisible("sprite.x")
-            local canvas = love.graphics.newCanvas(love.graphics.getDimensions())
-            love.graphics.push("all"); love.graphics.setCanvas(canvas); app:draw(); love.graphics.setCanvas()
-            local pixels = canvas:newImageData(); pixels:encode("png", "component-inspector-preview.png")
-            pixels:release(); canvas:release(); love.graphics.pop()
-            inspector:layout(inspector.left, inspector.width, 1000)
-        end
-        inspector.scroll = 0
-        for _, row in ipairs(inspector.rows) do if row.component == "sprite" and not row.transformGroup then header = row end end
-        inspector:mousepressed(inspector.left + 20, inspector.propertyTop + header.offset + 10, 1)
-        Assert.equal(false, inspector.expanded.sprite)
+        app:mousepressed(inspector.tree.x + 80, inspector.tree.y + 13, 1)
+        Assert.equal(nil, inspector.selectedComponent)
         Assert.equal(19, object.componentOverrides.sprite.x)
+        Assert.equal(object, app.sceneView.selectedLObject)
         assert(app:inspectAsset("Assets/Actor.prefab"))
-        app.inspector.classInspector:setTarget(app.prefabInspectorTarget)
-        inspector = app.inspector.classInspector
-        inspector:layout(inspector.left or 0, inspector.width or 300, 1000)
-        Assert.equal("sprite", inspector.class.properties["sprite.image"].component)
+        app.activePanel = "assets"; app:updateInspectorTarget()
         inspector:ensurePropertyVisible("sprite.image")
-        Assert.truthy(inspector.expanded.sprite)
+        Assert.equal("sprite", inspector.selectedComponent)
+        Assert.equal(false, inspector:parentVisible())
+        inspector:selectComponent(nil)
+        Assert.equal(true, inspector:parentVisible())
     end)
 end)
-add("Details layout defaults folds groups and aligns property values in the right half", function()
+add("Details tree keeps Transform and property groups aligned and commits folded edits", function()
     fixture(function(parent)
         local project, prefabId = componentProject(parent)
         local app = EditorApp.new(nil, project)
@@ -2124,49 +2102,34 @@ add("Details layout defaults folds groups and aligns property values in the righ
         app.sceneView.selectedLObject, app.activePanel = object, "scene"; app:draw()
         local inspector, properties = app.inspector, app.inspector.classInspector
         Assert.equal(true, inspector.transformExpanded)
-        Assert.equal(true, properties.objectExpanded)
-        Assert.equal(nil, properties.expanded.sprite)
-        local classHeader
-        for _, row in ipairs(properties.rows) do if row.objectGroup then classHeader = row end end
-        Assert.equal("Actor", classHeader.label)
+        Assert.equal("Actor", properties.rows[1].label)
         local left = love.graphics.getWidth() - inspector.width
         local transform = inspector:fieldRect("x", love.graphics.getWidth())
         local speed = properties:ensurePropertyVisible("speed")
         local sprite = properties:ensurePropertyVisible("sprite.x")
         Assert.equal(left + inspector.width / 2 + 4, transform.x)
         Assert.equal(transform.x, speed.x); Assert.equal(transform.x, sprite.x)
-        Assert.equal(32, inspector:fieldRect("y", love.graphics.getWidth()).y - transform.y)
+        Assert.equal(nil, inspector:getFieldAtPosition(transform.x + 3, transform.y + 3, love.graphics.getWidth()))
+        properties:selectComponent(nil)
         local expandedTop = properties.propertyTop
-        app:mousepressed(left + 25, app.menuBar.HEIGHT + 94, 1); app:mousereleased(left + 25, app.menuBar.HEIGHT + 94, 1)
+        local y = inspector:getTransformTop() + 10
+        app:mousepressed(left + 25, y, 1); app:mousereleased(left + 25, y, 1)
         Assert.equal(false, inspector.transformExpanded)
         Assert.truthy(properties.propertyTop < expandedTop)
-        Assert.equal(nil, inspector:getFieldAtPosition(transform.x + 3, transform.y + 3, love.graphics.getWidth()))
         Assert.equal(17, object.transform.x)
-        for _, row in ipairs(properties.rows) do if row.objectGroup then classHeader = row end end
         assert(properties:setProperty("speed", 42))
-        local y = properties.propertyTop + classHeader.offset - properties.scroll + 10
+        local header = properties.rows[1]
+        y = properties.propertyTop + header.offset - properties.scroll + 10
         app:mousepressed(left + 25, y, 1); app:mousereleased(left + 25, y, 1)
-        Assert.equal(false, properties.objectExpanded)
+        Assert.equal(false, properties.groupExpanded[header.groupKey])
         for _, row in ipairs(properties.rows) do Assert.truthy(row.name ~= "speed") end
         Assert.equal(42, object.propertyOverrides.speed)
-        app:mousepressed(left + 25, y, 1); app:mousereleased(left + 25, y, 1)
-        Assert.equal(true, properties.objectExpanded)
         speed = properties:ensurePropertyVisible("speed")
         app:mousepressed(speed.x + 3, speed.y + 3, 1); app:textinput("77")
-        for _, row in ipairs(properties.rows) do if row.objectGroup then classHeader = row end end
-        y = properties.propertyTop + classHeader.offset - properties.scroll + 10
+        header = properties.rows[1]
+        y = properties.propertyTop + header.offset - properties.scroll + 10
         app:mousepressed(left + 25, y, 1)
         Assert.equal(77, object.propertyOverrides.speed)
-        Assert.equal(false, properties:isEditing())
-        app:mousepressed(left + 25, app.menuBar.HEIGHT + 94, 1)
-        Assert.equal(true, inspector.transformExpanded)
-        local _, _, reset = require("editor.ui.property_layout").cells(left, inspector.width, inspector:fieldRect("x", love.graphics.getWidth()).y - 3)
-        app:mousepressed(reset.x + 3, reset.y + 3, 1)
-        Assert.equal(0, object.transform.x); Assert.equal(23, object.transform.y)
-        local data = app.level:toData()
-        Assert.equal(nil, data.lobjects[1].transformExpanded)
-        Assert.equal(nil, data.lobjects[1].objectExpanded)
-        Assert.equal(77, data.lobjects[1].propertyOverrides.speed)
     end)
 end)
 add("Numeric property drag edits defaults and source labels follow moved assets", function()
@@ -3167,7 +3130,7 @@ add("Level and Prefab creation focus the name after their prefixes", function()
         end
     end)
 end)
-add("SceneComponent Transform subgroup folds positions independently of image properties", function()
+add("Selected SceneComponent Transform group folds positions independently of image properties", function()
     fixture(function(parent)
         local project, prefabId = componentProject(parent)
         local app = EditorApp.new(nil, project)
@@ -3180,10 +3143,10 @@ add("SceneComponent Transform subgroup folds positions independently of image pr
         assert(inspector:setProperty("sprite.x", 17))
         local before = assert(require("editor.level_file").encode(app.level))
         local transform
-        for _, row in ipairs(inspector.rows) do if row.transformGroup then transform = row end end
+        for _, row in ipairs(inspector.rows) do if row.header and row.label == "Transform" then transform = row end end
         Assert.equal("Transform", transform.label)
         inspector:mousepressed(inspector.left + 30, inspector.propertyTop + transform.offset + 10, 1)
-        Assert.equal(false, inspector.transformExpanded.sprite)
+        Assert.equal(false, inspector.groupExpanded["component:sprite/Transform"])
         local imageVisible = false
         for _, row in ipairs(inspector.rows) do
             Assert.truthy(row.name ~= "sprite.x" and row.name ~= "sprite.y")
@@ -3192,7 +3155,7 @@ add("SceneComponent Transform subgroup folds positions independently of image pr
         Assert.equal(true, imageVisible)
         Assert.equal(before, assert(require("editor.level_file").encode(app.level)))
         inspector:ensurePropertyVisible("sprite.x")
-        Assert.equal(true, inspector.transformExpanded.sprite)
+        Assert.equal(true, inspector.groupExpanded["component:sprite/Transform"])
         Assert.equal(17, object.componentOverrides.sprite.x)
     end)
 end)
@@ -3220,6 +3183,146 @@ add("Cancelling resource drags preserves prefab Inspector while browsing other r
         Assert.equal(nil, browser.drag); Assert.equal(target, app.inspector.classInspector.target)
         Assert.equal(nil, app.uiRoot.captured)
         Assert.equal(prefabId, app.prefabDocument.assetId)
+    end)
+end)
+add("Component Class creation accepts built-in and asset parents through wizard and CLI", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "ComponentClasses"))
+        local app = EditorApp.new(nil, project)
+        app.assetBrowser:showCreateDialog("Sources", "lua")
+        local tree = app.uiRoot.popup.options.content
+        tree:choose(tree.records["builtin:SpriteComponent"])
+        app.uiRoot.popup:submit()
+        app.uiRoot.popup.text = "Visual"; app.uiRoot.popup:submit()
+        local visualId = assert(project:getAssetId("Sources/Visual.lua"))
+        Assert.equal("component", project:getScriptKind(visualId))
+        local LuaClass = require("project.lua_class")
+        local visual = assert(LuaClass.load(project, visualId, "component")):new()
+        Assert.truthy(visual:isA(require("core.sprite_component")))
+        local result = require("editor.cli").execute({command = "class.create", project = project.rootPath,
+            name = "ChildVisual", parent = visualId})
+        project = assert(Project.open(project.rootPath))
+        Assert.equal(visualId, assert(LuaClass.load(project, result.assetId, "component")).extends)
+        result = require("editor.cli").execute({command = "class.create", project = project.rootPath,
+            name = "Spatial", parent = "SceneComponent"})
+        project = assert(Project.open(project.rootPath))
+        Assert.truthy(assert(LuaClass.load(project, result.assetId, "component")):new():isA(require("core.scene_component")))
+        local prefabTree = require("editor.ui.class_tree").new(project, "prefab")
+        Assert.equal(nil, prefabTree.records[visualId])
+        Assert.equal(false, project:createEntry("Sources", "lua", "Wrong", {scriptKind = "lobject", parentReference = visualId}))
+    end)
+end)
+
+add("Component asset hierarchy and grouped overrides work in Inspector and runtime", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        assert(project:createEntry("Sources", "lua", "Branch", {scriptKind = "component", parentReference = "SceneComponent"}))
+        local branchId = project:getAssetId("Sources/Branch.lua")
+        assert(FS.writeAtomic(assert(project:resolveSourceFile(branchId)), [[
+local Branch = {extends = "SceneComponent", properties = {
+    speed = {type = "number", default = 2, group = "Movement"},
+    title = {type = "string", default = "Branch"}
+}}
+function Branch.build(self) self:addComponent("leaf", require("engine").SpriteComponent, {x = 7}) end
+function Branch.BeginPlay(self) self.begun = true end
+function Branch.Update(self, dt) self.updated = dt end
+return Branch
+]]))
+        assert(FS.writeAtomic(assert(project:resolveSourceFile("Sources/Actor.lua")), string.format([[
+local Actor = {properties = {speed = {type = "number", default = 10, group = "Movement"},
+    title = {type = "string", default = "Actor"}}}
+function Actor.build(self)
+    self:setRootComponent("root", %q, {x = 20})
+end
+return Actor
+]], branchId)))
+        local app = EditorApp.new(nil, project)
+        local owner = app.level:addLObject(100, 200, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = owner, "scene"; app:draw()
+        local inspector = app.inspector.classInspector
+        Assert.equal(3, #inspector.tree.nodes); Assert.equal(2, inspector.tree.nodes[3].depth)
+        local headers = {}; for _, row in ipairs(inspector.rows) do if row.header then headers[row.label] = true end end
+        Assert.truthy(headers.Actor and headers.Movement)
+        local actor = app.sceneView.selectedLObject
+        inspector:selectComponent("root"); app:draw()
+        local tree = inspector.tree
+        app.inspector:mousepressed(tree.x + 100, tree.y + 26 + 10, 1, love.graphics.getWidth(), owner)
+        Assert.equal(true, inspector.treeFocused)
+        assert(app.inspector:keypressed("down")); Assert.equal("leaf", inspector.selectedComponent)
+        assert(app.inspector:keypressed("up")); Assert.equal("root", inspector.selectedComponent)
+        headers = {}; for _, row in ipairs(inspector.rows) do if row.header then headers[row.label] = true end end
+        Assert.truthy(headers.Transform and headers.Branch and headers.Movement)
+        for _, name in ipairs(inspector.names) do Assert.equal("root", inspector.class.properties[name].component) end
+        Assert.equal(actor, app.sceneView.selectedLObject)
+        Assert.equal(nil, app.inspector:getFieldAtPosition(10, 10, love.graphics.getWidth()))
+        assert(inspector:setProperty("root.x", 30)); assert(inspector:setProperty("root.speed", 9))
+        inspector:selectComponent("leaf"); assert(inspector:setProperty("leaf.y", 12))
+        local levelPath = assert(project:resolvePath("Assets/Hierarchy.level"))
+        assert(require("editor.level_document").new(app.level):save(levelPath))
+        local world = assert(require("runtime.world_loader").create(project, assert(require("editor.level_document").load(levelPath)).level:toData()))
+        local runtime = world.lobjects[1]
+        Assert.equal("Branch", runtime.rootComponent.componentType); Assert.equal(true, runtime.rootComponent.begun)
+        Assert.equal(9, runtime.rootComponent.properties.speed)
+        local x, y = runtime.components.leaf:getWorldPosition(); Assert.equal(137, x); Assert.equal(212, y)
+        assert(world:update(0.25)); Assert.equal(0.25, runtime.rootComponent.updated)
+        local spawned = assert(world:SpawnLObject(prefabId)); Assert.equal("root,leaf", table.concat(spawned:getComponentOrder(), ","))
+        inspector:selectComponent(nil); Assert.equal(nil, inspector.selectedComponent)
+        Assert.equal(30, owner.componentOverrides.root.x)
+    end)
+end)
+
+add("Property groups inherit defaults and reject invalid metadata for every class kind", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "PropertyGroups"))
+        for _, kind in ipairs({"lobject", "level", "component"}) do
+            local base, child = "Base" .. kind, "Child" .. kind
+            assert(project:createEntry("Sources", "lua", base, {scriptKind = kind}))
+            local baseId = project:getAssetId("Sources/" .. base .. ".lua")
+            assert(FS.writeAtomic(assert(project:resolveSourceFile(baseId)), 'return {properties = {value = {type = "number", default = 1, group = "Tuning"}}}'))
+            assert(project:createEntry("Sources", "lua", child, {scriptKind = kind, parentReference = baseId}))
+            local childId = project:getAssetId("Sources/" .. child .. ".lua")
+            local code = string.format('return {extends = %q, properties = {value = {type = "number", default = 2}}}', baseId)
+            assert(FS.writeAtomic(assert(project:resolveSourceFile(childId)), code))
+            local LuaClass = require("project.lua_class")
+            Assert.equal("Tuning", assert(LuaClass.load(project, childId, kind)).properties.value.group)
+            assert(FS.writeAtomic(assert(project:resolveSourceFile(childId)), code:gsub('default = 2', 'default = 2, group = false')))
+            Assert.equal(nil, LuaClass.load(project, childId, kind))
+        end
+    end)
+end)
+add("Prefab and instance property errors remain visible outside the component tree", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local owner = app.level:addLObject(0, 0, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = owner, "scene"; app:draw()
+        local inspector = app.inspector.classInspector
+        local function visibleError()
+            local message, position = assert(inspector.error), nil
+            local UI = require("editor.ui")
+            local original = UI.text
+            UI.text = function(text, x, y, ...)
+                if text == message then position = y end
+                return original(text, x, y, ...)
+            end
+            local ok, err = pcall(function() app:draw() end)
+            UI.text = original; assert(ok, err)
+            Assert.truthy(position)
+            Assert.truthy(position >= inspector:treeBottom())
+            Assert.truthy(position >= inspector.propertyTop + inspector.propertyHeight)
+            Assert.truthy(position + 24 <= inspector.propertyBottom + 10)
+        end
+        local rect = inspector:ensurePropertyVisible("sprite.x")
+        inspector:mousepressed(rect.x + 3, rect.y + 3, 1)
+        inspector:textinput("invalid"); Assert.equal(false, inspector:commitEdit())
+        visibleError(); Assert.equal(nil, (owner.componentOverrides or {}).sprite)
+        assert(app:inspectAsset("Assets/Actor.prefab")); app:updateInspectorTarget()
+        rect = inspector:ensurePropertyVisible("sprite.image")
+        Assert.equal(false, inspector:dropAsset({type = "file", reference = "Sources/Actor.lua"}, rect.x + 3, rect.y + 3))
+        visibleError()
+        assert(inspector:setProperty("sprite.x", 4)); app:draw()
+        Assert.equal(nil, inspector.error)
+        Assert.equal(inspector.propertyBottom - inspector.propertyTop, inspector.propertyHeight)
     end)
 end)
 return tests

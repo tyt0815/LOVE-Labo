@@ -33,3 +33,4 @@
 - [0031. 에셋 파일 작업과 문서 기록의 Undo/Redo](adr/0031-asset-operation-history.md)
 - [0032. 부모 선택 생성 창과 Prefab 값 상속](adr/0032-parent-first-creation-and-prefab-inheritance.md)
 - [0033. Prefab 런타임 생성과 리소스 Inspector 입력](adr/0033-prefab-spawn-and-resource-inspector.md)
+- [0034. 컴포넌트 부착 계층과 Inspector 선택 트리](adr/0034-component-hierarchy-and-inspector-tree.md)

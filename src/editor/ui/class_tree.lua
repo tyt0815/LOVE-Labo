@@ -7,10 +7,20 @@ function Tree.new(project, kind)
     local self = setmetatable(Widget.new(), Tree)
     self.project, self.kind, self.expanded, self.scroll = project, kind, {}, 0
     self.records, self.roots = {}, {}
-    for _, base in ipairs(kind == "lua" and {"level", "lobject"} or {kind == "level" and "level" or "lobject"}) do
+    for _, base in ipairs(kind == "lua" and {"level", "lobject", "component"} or {kind == "level" and "level" or "lobject"}) do
         local key = "builtin:" .. base
-        local node = {reference = key, name = base == "level" and "Level" or "LObject", kind = base, children = {}}
+        local node = {reference = key, name = base == "level" and "Level" or base == "component" and "LObjectComponent" or "LObject",
+            kind = base, parentReference = base == "component" and "LObjectComponent" or nil, children = {}}
         self.records[key], self.roots[#self.roots + 1], self.expanded[key] = node, node, true
+    end
+    if kind == "lua" then
+        local parent = self.records["builtin:component"]
+        for _, name in ipairs({"SceneComponent", "SpriteComponent"}) do
+            local node = {reference = "builtin:" .. name, name = name, kind = "component", parentReference = name, children = {}}
+            self.records[node.reference], self.expanded[node.reference] = node, true
+            parent.children[#parent.children + 1] = node
+            parent = node
+        end
     end
     local loader = require("project.lua_class").loader(project)
     for reference, meta in pairs(project.assetMetadata or {}) do
@@ -37,7 +47,10 @@ function Tree.new(project, kind)
             else
                 local class
                 class, node.error = loader(id, script)
-                if class then node.parent = class.extends end
+                if class then
+                    node.parent = class.extends
+                    if script == "component" and self.records["builtin:" .. tostring(node.parent)] then node.parent = "builtin:" .. node.parent end
+                end
             end
             self.records[id] = node
             self.expanded[id] = true

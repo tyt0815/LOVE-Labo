@@ -2810,6 +2810,9 @@ tests[#tests + 1] = {
 for _, test in ipairs(require("tests.project_workflow")) do
     tests[#tests + 1] = test
 end
+for _, test in ipairs(require("tests.component_hierarchy")) do
+    tests[#tests + 1] = test
+end
 for _, test in ipairs(require("tests.ui_tree")) do
     tests[#tests + 1] = test
 end

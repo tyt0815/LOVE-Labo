@@ -11,7 +11,7 @@ local ClassInspector = {}
 ClassInspector.__index = ClassInspector
 
 function ClassInspector.new(project, root)
-    return setmetatable({project = project, root = root, scroll = 0, expanded = {}, transformExpanded = {}, objectExpanded = true, thumbnails = Thumbnail.new(project)}, ClassInspector)
+    return setmetatable({project = project, root = root, scroll = 0, groupExpanded = {}, thumbnails = Thumbnail.new(project)}, ClassInspector)
 end
 
 local function resourceName(reference)
@@ -38,32 +38,57 @@ function ClassInspector:setTarget(target)
     if self.target == target then return end
     self:commitEdit()
     self.target, self.scroll, self.error = target, 0, nil
+    self.selectedComponent, self.tree, self.treeFocused = nil, nil, false
     self:reload()
 end
 
 function ClassInspector:reload()
     self.thumbnails:clear()
-    if not self.target then self.class, self.dropdown, self.names = nil, nil, {}; return end
+    if not self.target then self.class, self.dropdown, self.tree, self.names = nil, nil, nil, {}; return end
     local reference = self.target and self.target.data[self.target.referenceField]
-    self.class, self.error = nil, nil
-    if self.target.class then self.class = self.target.class
-    elseif reference then
-        if self.target.kind == "lobject" then
-            local Definition = require("editor.object_definition")
-            local definition, err = Definition.resolve(self.project, reference, nil, self.target.parentOwnerId)
-            local target
-            if definition then target, err = Definition.inspectorTarget(self.project, {}, definition, nil, "Prefab") end
-            if target then self.class = target.class else self.error = err end
-        else self.class, self.error = LuaClass.load(self.project, reference, self.target.kind) end
+    self.class, self.preview, self.error = nil, nil, nil
+    if self.target.class then self.class, self.preview = self.target.class, self.target.preview
+    elseif self.target.kind == "lobject" then
+        local Definition = require("editor.object_definition")
+        local definition, err = Definition.resolve(self.project, reference, nil, self.target.parentOwnerId)
+        local target
+        if definition then target, err = Definition.inspectorTarget(self.project, {}, definition, nil, "Prefab") end
+        if target then self.class, self.preview = target.class, target.preview else self.error = err end
+    elseif reference then self.class, self.error = LuaClass.load(self.project, reference, self.target.kind) end
+    if not self.preview then self.selectedComponent = nil end
+    self.allNames = {}
+    for name in pairs(self.class and self.class.properties or {}) do self.allNames[#self.allNames + 1] = name end
+    table.sort(self.allNames)
+    local oldTree = self.tree
+    self.tree = nil
+    if self.preview then
+        if self.selectedComponent and not self.preview.components[self.selectedComponent] then self.selectedComponent = nil end
+        local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
+        self.tree = require("editor.ui.component_tree").new(self.preview, label, function(component) self:selectComponent(component) end)
+        if oldTree then self.tree.expanded, self.tree.scroll = oldTree.expanded, oldTree.scroll end
+        self.tree:reveal(self.selectedComponent)
     end
-    self.names = {}
-    for name in pairs(self.class and self.class.properties or {}) do self.names[#self.names + 1] = name end
-    table.sort(self.names)
     self:rebuildRows()
     self.dropdown = Dropdown.new(self.root, {}, reference or false, function(value) return self:selectParent(value) end)
     self.dropdown.hint = "Choose a Parent Class. None: use the built-in Level or LObject."
     self:updateOptions()
 end
+
+function ClassInspector:selectComponent(component)
+    self:commitEdit()
+    assert(not component or self.preview and self.preview.components[component], "Missing Inspector component")
+    self.selectedComponent, self.scroll = component, 0
+    if self.tree then self.tree:reveal(component) end
+    self:rebuildRows()
+    if self.onScopeChanged then self.onScopeChanged() end
+    return true
+end
+
+function ClassInspector:treeBottom()
+    if not self.tree then return nil end
+    return (self.top or 0) + 100 + UI.metrics.contentPaddingY + math.min(156, math.max(26, #self.tree.nodes * 26))
+end
+function ClassInspector:parentVisible() return self.target and not self.target.hideParent and not self.selectedComponent end
 
 function ClassInspector:updateOptions()
     local options = {{label = "None", value = false}}
@@ -212,7 +237,7 @@ end
 function ClassInspector:assetDropTarget(entry, x, y)
     if not self.target then return false, nil, "No editable Inspector target" end
     local name, rect, kind
-    if not self.target.hideParent and self.dropdown:containsPoint(x, y) then
+    if self:parentVisible() and self.dropdown:containsPoint(x, y) then
         rect = {x = self.dropdown.x, y = self.dropdown.y, w = self.dropdown.width, h = self.dropdown.height}
         kind = "parent"
     elseif y >= self.propertyTop and y < self.propertyTop + self.propertyHeight then
@@ -298,60 +323,41 @@ function ClassInspector:choices(name, value)
     return dropdown
 end
 
--- 컴포넌트 헤더와 프로퍼티의 높이가 달라 스크롤을 픽셀 단위로 관리한다.
+-- 선택 대상의 그룹은 같은 깊이로 배치하고, 이미지 행을 포함해 픽셀 단위로 스크롤한다.
 function ClassInspector:rebuildRows()
-    local groups, groupNames, rows, objectRows = {}, {}, {}, {}
-    local function propertyRow(name)
-        return {name = name, height = PropertyLayout.rowHeight * (self.class.properties[name].type == "image" and 2 or 1)}
+    local groups, groupNames, rows = {}, {}, {}
+    self.names = {}
+    local defaultGroup = self.selectedComponent and self.class.componentTypes[self.selectedComponent]
+        or self.class and (self.class.className or LuaClass.name(self.class)) or "LObject"
+    for _, name in ipairs(self.allNames or {}) do
+        local declaration = self.class.properties[name]
+        if declaration.component == self.selectedComponent then
+            self.names[#self.names + 1] = name
+            local group = declaration.group or defaultGroup
+            if not groups[group] then groups[group] = {}; groupNames[#groupNames + 1] = group end
+            groups[group][#groups[group] + 1] = name
+        end
     end
-    for component in pairs(self.class and self.class.componentTypes or {}) do
-        groups[component] = {}; groupNames[#groupNames + 1] = component
-    end
-    for _, name in ipairs(self.names or {}) do
-        local component = self.class.properties[name].component
-        if component then
-            if not groups[component] then groups[component] = {}; groupNames[#groupNames + 1] = component end
-            groups[component][#groups[component] + 1] = name
-        else objectRows[#objectRows + 1] = propertyRow(name) end
-    end
-    table.sort(groupNames)
-    for _, component in ipairs(groupNames) do
-        local header = {component = component, header = true, label = component .. " (" .. self.class.componentTypes[component] .. ")", height = PropertyLayout.headerHeight}
+    if #groupNames == 0 and self.class then groups[defaultGroup] = {}; groupNames[1] = defaultGroup end
+    table.sort(groupNames, function(a, b)
+        if a == b then return false end
+        if a == "Transform" then return true end
+        if b == "Transform" then return false end
+        if a == defaultGroup then return true end
+        if b == defaultGroup then return false end
+        return a < b
+    end)
+    for _, group in ipairs(groupNames) do
+        local key = (self.selectedComponent and "component:" .. self.selectedComponent or "object") .. "/" .. group
+        local header = {header = true, label = group, groupKey = key, height = PropertyLayout.headerHeight, groupHeight = PropertyLayout.headerHeight}
         rows[#rows + 1] = header
-        header.groupHeight = header.height
-        if self.expanded[component] then
-            local transformNames = {}
-            for _, name in ipairs(groups[component]) do
-                if self.class.properties[name].sceneTransform then transformNames[#transformNames + 1] = name end
-            end
-            if #transformNames > 0 then
-                local transform = {header = true, transformGroup = true, component = component, label = "Transform",
-                    height = PropertyLayout.headerHeight, groupHeight = PropertyLayout.headerHeight}
-                rows[#rows + 1] = transform
-                if self.transformExpanded[component] ~= false then
-                    for _, name in ipairs(transformNames) do
-                        local row = propertyRow(name)
-                        rows[#rows + 1] = row; transform.groupHeight = transform.groupHeight + row.height
-                    end
-                end
-                header.groupHeight = header.groupHeight + transform.groupHeight
-            end
-            for _, name in ipairs(groups[component]) do
-                if not self.class.properties[name].sceneTransform then
-                    local row = propertyRow(name)
-                    rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height
-                end
+        if self.groupExpanded[key] ~= false then
+            for _, name in ipairs(groups[group]) do
+                local row = {name = name, height = PropertyLayout.rowHeight * (self.class.properties[name].type == "image" and 2 or 1)}
+                rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height
             end
         end
         rows[#rows + 1] = {gap = true, height = 8}
-    end
-    if self.class then
-        local header = {header = true, objectGroup = true, label = self.class.className or LuaClass.name(self.class) or (self.target.kind == "level" and "Level" or "LObject"), height = PropertyLayout.headerHeight}
-        rows[#rows + 1] = header
-        header.groupHeight = header.height
-        if self.objectExpanded then
-            for _, row in ipairs(objectRows) do rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height end
-        end
     end
     local offset = 0
     for _, row in ipairs(rows) do row.offset = offset; offset = offset + row.height end
@@ -362,9 +368,10 @@ end
 
 function ClassInspector:ensurePropertyVisible(name)
     local declaration = assert(self.class.properties[name], "Missing property " .. name)
-    if declaration.component then self.expanded[declaration.component] = true end
-    if declaration.sceneTransform then self.transformExpanded[declaration.component] = true end
-    if not declaration.component then self.objectExpanded = true end
+    if declaration.component ~= self.selectedComponent then self:selectComponent(declaration.component) end
+    local group = declaration.group or (self.selectedComponent and self.class.componentTypes[self.selectedComponent]
+        or self.class.className or LuaClass.name(self.class) or "LObject")
+    self.groupExpanded[(self.selectedComponent and "component:" .. self.selectedComponent or "object") .. "/" .. group] = true
     self:rebuildRows()
     for _, row in ipairs(self.rows) do
         if row.name == name then
@@ -378,9 +385,16 @@ function ClassInspector:layout(left, width, height, propertyTop, top)
     self.left, self.width = left, width
     self.top = top or self.top or 0
     if not self.dropdown then return end
-    self.dropdown:setBounds(left + width / 2 + 4, self.top + 100 + UI.metrics.contentPaddingY, math.max(0, width / 2 - UI.metrics.contentPaddingX - 34), 28)
-    self.propertyTop = propertyTop or (self.top + (self.target.instance and 334 or 170) + UI.metrics.contentPaddingY)
-    self.propertyHeight = math.max(0, height - self.propertyTop - 10)
+    if self.tree then
+        self.tree:setBounds(left + UI.metrics.contentPaddingX, self.top + 100 + UI.metrics.contentPaddingY,
+            width - 2 * UI.metrics.contentPaddingX, self:treeBottom() - self.top - 100 - UI.metrics.contentPaddingY)
+    end
+    local parentTop = self:treeBottom() and self:treeBottom() + 8 or self.top + 100 + UI.metrics.contentPaddingY
+    self.dropdown:setBounds(left + width / 2 + 4, parentTop, math.max(0, width / 2 - UI.metrics.contentPaddingX - 34), 28)
+    self.propertyTop = propertyTop or (self.tree and (self:treeBottom() + (self:parentVisible() and 48 or 8))
+        or self.top + 170 + UI.metrics.contentPaddingY)
+    self.propertyBottom = height - 10
+    self.propertyHeight = math.max(0, self.propertyBottom - self.propertyTop - (self.tree and self.error and 32 or 0))
     self:rebuildRows()
 end
 
@@ -393,28 +407,28 @@ function ClassInspector:targetKind()
 end
 function ClassInspector:draw()
     self.thumbnails:beginFrame()
+    local propertyHeight = math.max(0, self.propertyBottom - self.propertyTop - (self.tree and self.error and 32 or 0))
+    if propertyHeight ~= self.propertyHeight then self.propertyHeight = propertyHeight; self:rebuildRows() end
     if not self.target.instance then
         local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
         if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
         UI.label(label, self.left + UI.metrics.contentPaddingX, (self.top or 0) + 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
         UI.text(self:targetKind() .. "  |  Ctrl+S: Save", self.left + UI.metrics.contentPaddingX, (self.top or 0) + 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
-        if not self.target.hideParent then
-            UI.label("Parent Class", self.left + UI.metrics.contentPaddingX + 12, (self.top or 0) + 106 + UI.metrics.contentPaddingY, self.width / 2 - UI.metrics.contentPaddingX - 20)
+        if self:parentVisible() then
+            UI.label("Parent Class", self.left + UI.metrics.contentPaddingX + 12, self.dropdown.y + 6, self.width / 2 - UI.metrics.contentPaddingX - 20)
             self.dropdown:draw()
             UI.browseButton(self:parentBrowseRect(), self.dropdown.value ~= false)
         end
     end
-    if self.error then UI.text(self.error, self.left + UI.metrics.contentPaddingX, (self.top or 0) + 138 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("error")) end
+    if self.tree then self.tree:draw() end
+    if self.error and not self.tree then UI.text(self.error, self.left + UI.metrics.contentPaddingX, (self.top or 0) + 138 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("error")) end
     love.graphics.push("all")
     love.graphics.intersectScissor(self.left, self.propertyTop, self.width, self.propertyHeight)
     for _, row in ipairs(self.rows) do
         local name = row.name
         local y = self.propertyTop + row.offset - self.scroll
         if row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
-            local expanded = row.transformGroup and self.transformExpanded[row.component] ~= false
-                or row.objectGroup and self.objectExpanded or not row.transformGroup and not row.objectGroup and self.expanded[row.component]
-            local inset = row.transformGroup and 8 or 0
-            PropertyLayout.group(self.left + inset, self.width - 2 * inset, y, row.groupHeight, row.label, expanded)
+            PropertyLayout.group(self.left, self.width, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false)
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             PropertyLayout.separators(self.left, self.width, y, row.height)
             local declaration = self.class.properties[name]
@@ -454,13 +468,24 @@ function ClassInspector:draw()
         end
     end
     love.graphics.pop()
+    if self.error and self.tree then
+        local rect = {x = self.left + UI.metrics.contentPaddingX, y = self.propertyTop + self.propertyHeight + 4,
+            w = self.width - 2 * UI.metrics.contentPaddingX, h = 24}
+        UI.text(self.error, rect.x, rect.y, rect.w, Theme.color("error"))
+        UI.hint(rect, self.error)
+    end
 end
 
 function ClassInspector:mousepressed(x, y, button)
     if button ~= 1 then return true end
+    if self.tree and self.tree:containsPoint(x, y) then
+        self.treeFocused = true
+        self:commitEdit(); return self.tree:dispatch("mousepressed", x, y, button)
+    end
+    self.treeFocused = false
     local dropdown = self.dropdown
-    if not self.target.hideParent and UI.contains(x, y, self:parentBrowseRect()) then return self:reveal(dropdown.value) end
-    if not self.target.hideParent and dropdown:containsPoint(x, y) then
+    if self:parentVisible() and UI.contains(x, y, self:parentBrowseRect()) then return self:reveal(dropdown.value) end
+    if self:parentVisible() and dropdown:containsPoint(x, y) then
         self:commitEdit()
         self:updateOptions()
         return dropdown:dispatch("mousepressed", x, y, button)
@@ -471,9 +496,7 @@ function ClassInspector:mousepressed(x, y, button)
         local top = self.propertyTop + row.offset - self.scroll
         if row.header and y >= top and y < top + row.height then
             self:commitEdit()
-            if row.transformGroup then self.transformExpanded[row.component] = self.transformExpanded[row.component] == false
-            elseif row.objectGroup then self.objectExpanded = not self.objectExpanded
-            else self.expanded[row.component] = not self.expanded[row.component] end
+            self.groupExpanded[row.groupKey] = self.groupExpanded[row.groupKey] == false
             self:rebuildRows()
             return true
         end
@@ -555,7 +578,12 @@ function ClassInspector:cancelPointer()
     Edit.release(self); return true
 end
 function ClassInspector:keypressed(key)
-    if not self.editing then return false end
+    if not self.editing then
+        if self.treeFocused and self.tree and (key == "up" or key == "down" or key == "left" or key == "right") then
+            return self.tree:dispatch("keypressed", key)
+        end
+        return false
+    end
     if NumberDrag.modifier(self, key) then return true end
     if IME.handlesKey(self, key) then return true end
     if IME.endsComposition(key) then self.text, self.replace = IME.finish(self, self.text, self.replace) end
@@ -574,8 +602,12 @@ function ClassInspector:textedited(text)
     IME.edited(self, text)
     return true
 end
-function ClassInspector:wheelmoved(amount)
+function ClassInspector:wheelmoved(amount, x, y)
     self:commitEdit()
+    if self.tree and x and self.tree:hitTest(x, y) then
+        self.tree:dispatch("wheelmoved", x, y, amount)
+        return
+    end
     self.scroll = math.floor(math.max(0, math.min(self.maxScroll or 0, self.scroll - amount * PropertyLayout.rowHeight)))
 end
 return ClassInspector

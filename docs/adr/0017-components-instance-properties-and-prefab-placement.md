@@ -1,6 +1,7 @@
 # 0017. 컴포넌트 구성·인스턴스 프로퍼티와 Prefab 배치
 
 - 상태: 채택
+- 후속: 평면 부착·상대 위치·계층 제외 범위는 [ADR 0034](0034-component-hierarchy-and-inspector-tree.md)로 부분 대체한다.
 - 날짜: 2026-10-09
 - 확장: [ADR 0012](0012-lua-classes-properties-and-unsaved-levels.md)의 프로퍼티 선언·런타임 분리, [ADR 0013](0013-browser-drag-moves-and-asset-colors.md)의 드래그 전달
 

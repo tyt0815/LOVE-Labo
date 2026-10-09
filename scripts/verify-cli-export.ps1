@@ -17,6 +17,16 @@ function Invoke-LaboRequest($taskRequest) {
 }
 $taskCreated = Invoke-LaboRequest @{command = 'project.create'; parent = $taskDirectory; name = 'AgentGame'}
 $taskProject = $taskCreated.project
+$taskComponent = Invoke-LaboRequest @{command = 'class.create'; project = $taskProject; name = 'Visual'; parent = 'SpriteComponent'}
+$taskComponentCode = @'
+-- labo-script: component
+local Visual = {extends = "SpriteComponent", properties = {strength = {type = "number", default = 5, group = "Appearance"}}}
+function Visual.BeginPlay(self) self.owner.properties.componentBegun = true end
+function Visual.Update(self, dt) self.owner.properties.componentTicks = (self.owner.properties.componentTicks or 0) + 1 end
+return Visual
+'@
+[IO.File]::WriteAllText((Join-Path $taskProject 'Sources\Visual.lua'), $taskComponentCode, $taskUtf8)
+$taskChildComponent = Invoke-LaboRequest @{command = 'class.create'; project = $taskProject; name = 'ChildVisual'; parent = $taskComponent.assetId}
 $taskClass = Invoke-LaboRequest @{command = 'class.create'; project = $taskProject; name = 'NewClass'; type = 'lobject'}
 # 생성은 CLI로, 게임 동작 코드는 에이전트와 동일하게 프로젝트 소스에 작성한다.
 $taskCode = @'
@@ -29,7 +39,10 @@ local NewClass = {properties = {
     target = {type = "object", default = false},
     projectile = {type = "prefab", default = false}
 }}
-function NewClass.build(self) self:addComponent("sprite", Engine.SpriteComponent) end
+function NewClass.build(self)
+    local mount = self:addComponent("mount", Engine.SceneComponent, {x = 10})
+    mount:addComponent("sprite", "__COMPONENT_ID__", {y = 3})
+end
 function NewClass.BeginPlay(self, world)
     self.properties.started = true
     if self.properties.projectile ~= false then
@@ -39,6 +52,7 @@ end
 function NewClass.update(self, dt) self.properties.ticks = (self.properties.ticks or 0) + 1 end
 return NewClass
 '@
+$taskCode = $taskCode.Replace('__COMPONENT_ID__', $taskChildComponent.assetId)
 [IO.File]::WriteAllText((Join-Path $taskProject 'Sources\NewClass.lua'), $taskCode, $taskUtf8)
 Add-Type -AssemblyName System.Drawing
 $taskBitmap = New-Object Drawing.Bitmap(16, 16)
@@ -79,6 +93,7 @@ $taskGameReport = Get-Content -LiteralPath $taskGameReportPath -Raw -Encoding UT
 if ($taskGameProcess.ExitCode -ne 0 -or -not $taskGameReport.ok -or $taskGameReport.editorLoaded) { throw "Exported game failed: $($taskGameReport.error)" }
 if ($taskGameReport.objects -ne 3 -or $taskGameReport.properties[0].speed -ne 42 -or $taskGameReport.properties[0].enabled -ne $false `
     -or -not $taskGameReport.properties[0].started -or $taskGameReport.properties[0].ticks -ne 1 `
+    -or -not $taskGameReport.properties[0].componentBegun -or $taskGameReport.properties[0].componentTicks -ne 1 `
     -or $taskGameReport.properties[0].target.instance -ne $taskSecond.data.authoringId `
     -or $taskGameReport.properties[1].speed -ne 25 -or $taskGameReport.properties[2].speed -ne 25 `
     -or -not $taskGameReport.properties[2].started -or $taskGameReport.properties[2].ticks -ne 1) { throw 'Exported game state does not match CLI edits' }

@@ -17,7 +17,8 @@ Actor.properties = {
 
 -- 에디터에서도 실행되므로 게임 동작 없이 구성만 선언한다.
 function Actor.build(self)
-    self:addComponent("sprite", Engine.SpriteComponent, {x = 0, y = 0})
+    local mount = self:addComponent("mount", Engine.SceneComponent, {x = 20, y = 0})
+    mount:addComponent("sprite", Engine.SpriteComponent, {x = 0, y = 0})
 end
 
 function Actor.BeginPlay(self, world)
@@ -35,24 +36,62 @@ end
 return Actor
 ```
 
-Inspector에서 `> sprite (SpriteComponent)` 헤더를 눌러 펼친 다음 `image`에서 Assets의 이미지를 선택하거나 파일을 해당 필드로 드래그한다. 이미지를 외부에서 추가했다면 Asset Browser의 Refresh를 누른다. 내부 `Transform` 그룹의 `X/Y`는 LObject 위치에 대한 상대 좌표이며 코드·저장에는 `x/y`를 쓴다. 컴포넌트는 기본적으로 접혀 있고 내부 Transform은 펼침이며 접기 상태는 저장 데이터에 포함하지 않는다. `target` 옆 스포이드를 누르고 같은 레벨의 인스턴스를 Scene View에서 클릭한다. 찾기 버튼은 대상을 프레이밍하고 리셋은 기본 참조(None)로 복원한다. 숫자·문자열은 입력 후 Enter, boolean은 버튼으로 수정한다. 각 필드의 되돌리기 화살표 아이콘(↺)은 Prefab/클래스 기본값으로 복원한다.
+Inspector 위쪽 계층 트리에서 `sprite (SpriteComponent)`를 선택한 다음 `image`에서 Assets의 이미지를 선택하거나 파일을 해당 필드로 드래그한다. 이미지를 외부에서 추가했다면 Asset Browser의 Refresh를 누른다. 선택한 SceneComponent의 `Transform` 그룹은 부모 계층에 대한 상대 위치를 `X/Y`로 표시하며 코드·저장에는 `x/y`를 쓴다. 트리와 프로퍼티 그룹은 기본 펼침이며 접기·선택 상태는 저장 데이터에 포함하지 않는다. 객체 노드를 선택하면 객체의 Actor Transform과 클래스 프로퍼티가 나타난다. `target` 옆 스포이드를 누르고 같은 레벨의 인스턴스를 Scene View에서 클릭한다. 찾기 버튼은 대상을 프레이밍하고 리셋은 기본 참조(None)로 복원한다. 숫자·문자열은 입력 후 Enter, boolean은 버튼으로 수정한다. 각 필드의 되돌리기 화살표 아이콘(↺)은 Prefab/클래스 기본값으로 복원한다.
 
 `projectile`에는 다른 Prefab을 드롭다운 또는 드래그로 지정한다. 이미지·Prefab 참조·Parent Class의 찾기 버튼은 에셋 폴더를 열고 현재 리소스를 선택한다. 이 탐색과 드래그는 편집 중인 Inspector 대상을 바꾸지 않는다. 이미지 행은 두 줄이며 리셋은 드롭다운 오른쪽, 찾기는 아래에 있다. Prefab 런타임 생성은 [SpawnLObject 사용법](runtime-spawn.md)을 참고한다.
 
 Prefab에서 바꾼 값은 인스턴스의 기본값이 된다. 인스턴스의 변경값은 레벨에 따로 저장된다. 객체·컴포넌트 복제는 값 테이블을 공유하지 않으며, 다른 인스턴스 참조는 같은 대상을 유지한다. 순환 참조도 가능하다. 참조한 객체를 삭제하면 Missing으로 표시되며 참조를 수정하기 전까지 Play 시작이 실패한다. 참조는 같은 레벨 내에서만 사용한다. Prefab의 object 필드는 None으로 두고 배치한 인스턴스에서 대상을 지정한다.
 
-Inspector는 **Transform → 컴포넌트 그룹 → 클래스 이름 그룹** 순이다. 세 그룹 모두 접고 펼칠 수 있으며 기본적으로 Transform·클래스는 펼침, 컴포넌트는 접힘이다. `Actor.lua`의 오브젝트 프로퍼티는 `Actor` 그룹에 표시한다. 각 행은 왼쪽 절반에 이름, 오른쪽 절반에 값과 초기값 복원 아이콘을 둔다. 펼친 그룹은 하나의 배경 박스와 테두리로 범위를 표시한다. 복원 아이콘은 기본적으로 기호만 보인다. 텍스트 필드는 마우스 클릭·좌우/Home/End로 커서를 옮기고, 드래그·Shift 이동으로 선택한 문자만 입력·붙여넣기로 교체한다. 한글 조합도 커서 위치에 삽입된다.
+Inspector는 **계층 트리 → 선택 대상의 프로퍼티 그룹** 순이다. 트리에는 Prefab 또는 인스턴스, 루트, 자손·손자 컴포넌트를 들여써서 표시한다. 트리 선택은 뷰포트의 객체 선택을 유지한다. `Actor.lua`의 기본 오브젝트 프로퍼티는 `Actor` 그룹, SpriteComponent의 기본 프로퍼티는 `SpriteComponent` 그룹에 표시한다. 각 그룹은 같은 깊이이고 기본 펼침이다. 각 행은 왼쪽 절반에 이름, 오른쪽 절반에 값과 초기값 복원 아이콘을 둔다. 펼친 그룹은 하나의 배경 박스와 테두리로 범위를 표시한다. 복원 아이콘은 기본적으로 기호만 보인다. 텍스트 필드는 마우스 클릭·좌우/Home/End로 커서를 옮기고, 드래그·Shift 이동으로 선택한 문자만 입력·붙여넣기로 교체한다. 한글 조합도 커서 위치에 삽입된다.
+
+프로퍼티 선언에 `group = "Movement"`를 추가하면 별도 그룹에 표시한다. 객체·레벨·컴포넌트 모두 같은 문법을 쓰며 부모의 지정 그룹은 자식에서 생략하면 상속한다. 그룹 이름은 비어 있지 않은 문자열이어야 한다. SceneComponent의 x/y는 기본 `Transform` 그룹이다.
+
+```lua
+Actor.properties.speed = {type = "number", default = 100, group = "Movement"}
+Actor.properties.title = {type = "string", default = "Actor"} -- Actor 그룹
+```
 
 ```text
 LObjectComponent
 └─ SceneComponent        (상속: 상대 위치)
    └─ SpriteComponent    (상속: 이미지)
 
-LObject ── 소유 ── 이름별 Component 인스턴스
+LObject ── 소유 ── root (SceneComponent)
+                   └─ mount (SceneComponent)
+                      └─ sprite (SpriteComponent)
 Scene/Game View ── 의존 ── SpriteRenderer
 ```
 
 사용자 컴포넌트도 코드를 통해 만들 수 있다. 저장·편집할 값만 `properties`에 선언하고 임시 상태는 일반 필드로 둔다.
+
+기본 루트는 이름이 `root`인 SceneComponent다. `addComponent`의 네 번째 인자에 같은 객체의 부모 컴포넌트 또는 이름을 지정하고, 생략하면 현재 루트에 부착한다. `component:addComponent(...)`는 해당 컴포넌트 아래에 부착하고 `child:attachTo(parent)`로 재부착한다. 이름은 LObject 전체에서 유일해야 하며 순환·다른 객체로의 부착은 거절한다. SceneComponent 조상의 상대 위치를 합산한 뒤 Actor Transform을 적용한다. 일반 LObjectComponent는 위치 계산에 참여하지 않는다.
+
+```lua
+-- Actor.build(self)에서 기본 루트를 SpriteComponent로 교체한다.
+self:setRootComponent("root", Engine.SpriteComponent)
+local arm = self:addComponent("arm", Engine.SceneComponent, {x = 20}, self.rootComponent)
+local hand = arm:addComponent("hand", Engine.SpriteComponent, {x = 10})
+hand:attachTo(self.rootComponent)
+-- 이미 부착한 SceneComponent를 루트로 지정할 수도 있다.
+-- self:setRootComponent(arm)
+```
+
+루트는 SceneComponent 계열이어야 한다. 기본 루트를 교체하면 기존 자식들을 새 루트로 옮기고 기본 루트를 제거한다. 사용자 루트를 다른 이름의 루트로 바꾸면 기존 루트는 새 루트의 자식으로 남는다. 같은 이름으로 교체하면 기존 루트를 제거하고 자식들을 옮긴다. 컴포넌트 구성은 코드에 두고 기존 이름별 override만 저장한다. 컴포넌트 자체의 회전·스케일은 아직 추가하지 않았으며 Actor 회전·스케일을 계층 전체에 적용한다.
+
+**File → New → Lua Class** 또는 Asset Browser 우클릭 생성에서 LObjectComponent·SceneComponent·SpriteComponent 또는 사용자 Component Class를 부모로 선택한다. Component Class는 일반 테이블을 반환하며 `extends`에 내장 부모 이름 또는 Component Class 에셋 ID를 지정한다. 생략하면 LObjectComponent다. 별도 `extend` 호출은 로더가 처리한다. 예를 들어 `Sources/Visual.lua`:
+
+```lua
+-- labo-script: component
+local Visual = {
+    extends = "SpriteComponent",
+    properties = {opacity = {type = "number", default = 1, group = "Appearance"}},
+}
+function Visual.BeginPlay(self, world) self.elapsed = 0 end
+function Visual.Update(self, dt) self.elapsed = self.elapsed + dt end
+return Visual
+```
+
+LObject의 build에서 `self:addComponent("visual", "<Visual의 실제 에셋 ID>")`로 부착하거나 `self:setRootComponent("root", "<Visual의 실제 에셋 ID>")`로 루트를 교체한다. 실제 ID는 `.lua.meta` 또는 CLI 응답을 사용한다. Component Class의 선택적 `build(self)`에서 `self:addComponent(...)`로 자손을 구성할 수 있다. 기존처럼 코드 안에서 Core 프로토타입을 직접 확장해도 된다:
 
 ```lua
 local Counter = Engine.LObjectComponent:extend({
