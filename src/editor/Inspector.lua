@@ -7,7 +7,7 @@ local NumberDrag = require("editor.ui.NumberDrag")
 local Inspector = {}
 Inspector.__index = Inspector
 
-local DEFAULT_WIDTH = 300
+local DEFAULT_WIDTH = 400
 
 local TRANSFORM_ORDER = {"x", "y", "rotationX", "rotationY", "rotation", "scaleX", "scaleY"}
 local TRANSFORM_FIELDS = {}
