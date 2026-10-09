@@ -200,6 +200,9 @@ end
 function Project:readAsset(reference)
     local path, err = self:resolveAssetFile(reference)
     if not path then return nil, err end
+    local id = self:getAssetId(self:getAssetReference(reference))
+    local draft = self.draftAssets and self.draftAssets[id]
+    if draft and draft:isDirty() then return require("editor.Prefab").encodeData(draft.data) end
     return filesystem().read(path)
 end
 

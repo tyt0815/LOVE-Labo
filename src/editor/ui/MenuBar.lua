@@ -42,6 +42,7 @@ function Bar:items(name)
             {label = "Prefab...", action = function() create("Assets", "prefab") end},
             {label = "Level...", action = function() create("Assets", "level") end}}},
         {label = "Save", shortcut = "Ctrl+S", enabled = editable, action = function() app:saveInspectedDocument() end},
+        {label = "Save All", shortcut = "Ctrl+Shift+S", enabled = editable, action = function() app:saveAllDocuments() end},
         {label = "Save Level As...", enabled = project and editable, action = function() app:showSaveLevelDialog() end},
         {label = "Export Game...", shortcut = "Ctrl+Shift+E", enabled = project and editable, action = function() app:showExportDialog() end}}
 end

@@ -1,6 +1,7 @@
 # 0033. Prefab 런타임 생성과 리소스 Inspector 입력
 
 - 상태: 채택
+- 후속: 생성 템플릿·리소스 지정·찾기 동작은 [ADR 0039](0039-lobject-templates-and-resource-picking.md)로 부분 대체한다.
 - 후속: SpawnLObject·BeginPlay 및 모듈 표기는 [ADR 0036](0036-code-conventions-and-module-names.md)으로 대체한다.
 - 후속: 컴포넌트 내부 중첩 Transform 배치는 [ADR 0034](0034-component-hierarchy-and-inspector-tree.md)의 선택별 평면 그룹으로 대체한다.
 - 날짜: 2026-10-09

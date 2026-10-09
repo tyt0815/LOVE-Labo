@@ -33,7 +33,7 @@ Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\
 | `prefab get/set` | `--project`, `--prefab` | 프로퍼티·컴포넌트 기본 override 조회/수정 |
 | `level create` | `--project`, `--name`, 선택 `--class` | 레벨 생성 |
 | `level get/set` | `--project`, 선택 `--level` | 레벨 데이터와 선언 프로퍼티 조회/수정 |
-| `instance add` | `--project`, `--prefab`, 선택 `--level`, `--x`, `--y`, `--parent` | 레벨에 배치. 부모 authoring ID 지정 시 X/Y는 부모 기준 상대값이다. |
+| `instance add` | `--project`, `--template` (호환: `--prefab`), 선택 `--level`, `--x`, `--y`, `--parent` | LObject Lua 클래스 또는 Prefab을 레벨에 배치. 부모 authoring ID 지정 시 X/Y는 부모 기준 상대값이다. |
 | `instance get/set` | `--project`, `--instance`, 선택 `--level` | 인스턴스 조회/수정 |
 | `instance reparent` | `--project`, `--instance`, 선택 `--level`, `--parent` | 월드 위치를 유지하며 부모 변경. `--parent` 생략 또는 JSON `false`는 최상위로 분리한다. |
 | `export` | `--project`, 선택 `--level`, `--output` | 독립 실행 게임 `.love` 생성 |
@@ -70,7 +70,7 @@ Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\
 
 ## 게임 Export
 
-GUI에서는 **Ctrl+Shift+E**로 현재 레벨을 `.love`로 Export한다. Inspector 편집 값은 확정하며 Prefab에 미저장 변경이 있으면 먼저 저장하도록 안내한다. CLI에서는 기본 레벨이나 지정한 `--level`을 사용한다.
+GUI에서는 **Ctrl+Shift+E**로 현재 레벨을 `.love`로 Export한다. Inspector 편집 값은 확정하며 미저장 Prefab 초안도 패키지에 포함하여 Play와 같은 값으로 실행한다. Export는 편집용 원본 파일을 저장하거나 dirty 상태를 변경하지 않는다. CLI에서는 디스크의 기본 레벨이나 지정한 `--level`을 사용한다.
 
 게임 패키지에는 `core/`, `project/`, `runtime/`, 공개 `Engine.lua`, 프로젝트 Sources·Assets, ID/경로/종류 매니페스트와 게임 전용 `main.lua`·`conf.lua`만 포함한다. 에디터·테스트·사용자 설정은 포함하지 않는다. 편집용 메타데이터 파일은 복사하지 않고 매니페스트에서 ID 매핑을 유지한다. 초기 Export는 의존 에셋만 추려내지 않고 등록된 프로젝트 파일 전체를 담는다.
 

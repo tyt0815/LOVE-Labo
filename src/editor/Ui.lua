@@ -116,6 +116,21 @@ function Ui.button(label, rect, active, hint, flat)
         math.max(0, rect.w - padding * 2), nil, false, "center")
 end
 
+function Ui.checkbox(rect, checked)
+    love.graphics.push("all")
+    Theme.setColor("input")
+    love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 2, 2)
+    Theme.setColor(checked and "focus" or "border")
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1, 2, 2)
+    if checked then
+        love.graphics.setLineWidth(2)
+        love.graphics.line(rect.x + 3, rect.y + rect.h * 0.5,
+            rect.x + rect.w * 0.45, rect.y + rect.h - 3, rect.x + rect.w - 3, rect.y + 3)
+    end
+    love.graphics.pop()
+end
+
 function Ui.resetButton(rect)
     Ui.button("", rect, false, "Reset to default.", true)
     love.graphics.push("all")
@@ -143,8 +158,8 @@ function Ui.browseButton(rect, enabled, hint)
     love.graphics.pop()
 end
 
-function Ui.eyedropperButton(rect, active)
-    Ui.button("", rect, active, "Pick an instance in the viewport. Esc: cancel.", true)
+function Ui.eyedropperButton(rect, active, hint)
+    Ui.button("", rect, active, hint or "Pick a compatible asset or instance. Esc / right click: cancel.", true)
     love.graphics.push("all")
     Theme.setColor("textMuted")
     love.graphics.setLineWidth(1.5)

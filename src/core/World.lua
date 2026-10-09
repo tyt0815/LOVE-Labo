@@ -49,9 +49,9 @@ function World:addLObject(initialState)
     return lobject
 end
 
-function World:spawnLObject(prefab, transform, overrides)
-    if not self.spawnLObjectFactory then return nil, "World has no Prefab loader" end
-    return self.spawnLObjectFactory(prefab, transform, overrides)
+function World:spawnLObject(template, transform, overrides)
+    if not self.spawnLObjectFactory then return nil, "World has no LObjectTemplate loader" end
+    return self.spawnLObjectFactory(template, transform, overrides)
 end
 
 function World:openLevel(reference)

@@ -21,7 +21,10 @@ function Dialog.new(root, options)
     self.confirm = { x = self.cancel.x - Ui.METRICS.buttonGap - confirmWidth, y = self.cancel.y, w = confirmWidth, h = 30 }
     if options.onBack then self.back = {x = box.x + 16, y = self.cancel.y, w = Ui.buttonWidth("Back"), h = 30} end
     self.choicesRect = { x = box.x + 16, y = box.y + 140, w = box.w - 32, h = 150 }
-    self.selected, self.choiceScroll = options.choices and #options.choices > 0 and 1 or nil, 0
+    self.selected, self.choiceScroll = not options.listOnly and options.choices and #options.choices > 0 and 1 or nil, 0
+    if options.checkboxes then
+        for _, choice in ipairs(options.choices) do if choice.checked == nil then choice.checked = true end end
+    end
     if options.content then
         options.content:setBounds(box.x + 16, box.y + (options.input and 140 or 82), box.w - 32, options.input and 190 or 248)
         options.content:clampScroll()
@@ -40,7 +43,12 @@ end
 function Dialog:submit()
     self.text, self.replace = Ime.finish(self, self.text, self.replace)
     local choice = self.selected and self.options.choices[self.selected]
-    local ok, err = self.options.onConfirm(self.text, choice and choice.value)
+    local checked
+    if self.options.checkboxes then
+        checked = {}
+        for _, item in ipairs(self.options.choices) do if item.checked then checked[#checked + 1] = item.value end end
+    end
+    local ok, err = self.options.onConfirm(self.text, choice and choice.value, checked)
     if ok then
         -- 다음 단계가 새 팝업을 열었으면 그 창을 닫지 않는다.
         if self.root.popup == self then self.root:dismissPopup() end
@@ -70,8 +78,18 @@ function Dialog:dispatch(event, ...)
         elseif key == "tab" and self.options.content and self.options.input then self.contentFocused = not self.contentFocused
         elseif self.contentFocused and self.options.content then self.options.content:dispatch(event, key)
         elseif key == "tab" and self.options.choices then self.choiceFocused = not self.choiceFocused
+        elseif key == "space" and self.options.checkboxes and #self.options.choices > 0 then
+            self.selected = self.selected or 1
+            local choice = self.options.choices[self.selected]
+            choice.checked = not choice.checked
         elseif (key == "up" or key == "down") and self.options.choices and #self.options.choices > 0 then
-            self.selected = math.max(1, math.min(#self.options.choices, (self.selected or 1) + (key == "up" and -1 or 1)))
+            if self.options.listOnly and not self.options.checkboxes then
+                self.choiceScroll = math.max(0, math.min(math.max(0, #self.options.choices - 5),
+                    self.choiceScroll + (key == "up" and -1 or 1)))
+                return true
+            end
+            local initial = key == "up" and #self.options.choices + 1 or 0
+            self.selected = math.max(1, math.min(#self.options.choices, (self.selected or initial) + (key == "up" and -1 or 1)))
             self.choiceScroll = math.max(0, math.min(self.choiceScroll, self.selected - 1))
             self.choiceScroll = math.max(self.choiceScroll, self.selected - 5)
         elseif self.options.input and not self.choiceFocused then self.text, self.replace = Ui.editKey(self.text, key, self.replace, self) end
@@ -93,7 +111,11 @@ function Dialog:dispatch(event, ...)
                 self.options.content:dispatch(event, x, y, button)
             elseif self.options.choices and Ui.contains(x, y, self.choicesRect) then
                 local index = math.floor((y - self.choicesRect.y) / 30) + 1 + self.choiceScroll
-                if self.options.choices[index] then self.selected, self.choiceFocused = index, true end
+                if self.options.choices[index] and self.options.checkboxes then
+                    self.options.choices[index].checked = not self.options.choices[index].checked
+                    self.selected, self.choiceFocused = index, true
+                end
+                if self.options.choices[index] and not self.options.listOnly then self.selected, self.choiceFocused = index, true end
             end
         end
     elseif event == "mousemoved" then Edit.move(self, (...))
@@ -135,12 +157,17 @@ function Dialog:draw()
                     Theme.setColor("selection")
                     love.graphics.rectangle("fill", rect.x + 2, y + 1, rect.w - 4, 28, 3, 3)
                 end
-                Ui.text(choice.label, rect.x + 8, y + 7, rect.w - 16)
-                Ui.hint({x = rect.x, y = y, w = rect.w, h = 30}, "Select " .. choice.label .. ". Enter: confirm.")
+                if self.options.checkboxes then Ui.checkbox({x = rect.x + 8, y = y + 8, w = 14, h = 14}, choice.checked) end
+                local padding = self.options.checkboxes and 30 or 8
+                Ui.text(choice.label, rect.x + padding, y + 7, rect.w - padding - 8)
+                Ui.hint({x = rect.x, y = y, w = rect.w, h = 30}, self.options.listOnly and choice.label
+                    or "Select " .. choice.label .. ". Enter: confirm.")
             end
         end
-        if #self.options.choices == 0 then Ui.text("No matching classes. Create one in Sources.", rect.x + 8, rect.y + 8, rect.w - 16) end
-        Ui.text("Tab: name/class    Up/Down or wheel: select class", box.x + 16, box.y + 294, box.w - 32, Theme.color("textMuted"))
+        if #self.options.choices == 0 then Ui.text(self.options.emptyLabel or "No matching classes. Create one in Sources.", rect.x + 8, rect.y + 8, rect.w - 16) end
+        local hint = self.options.checkboxes and "Click / Space: toggle    Up/Down or wheel: navigate"
+            or self.options.listOnly and "Up/Down or wheel: scroll" or "Tab: name/class    Up/Down or wheel: select class"
+        Ui.text(hint, box.x + 16, box.y + 294, box.w - 32, Theme.color("textMuted"))
     end
     if self.options.content then
         if self.options.input then Ui.text(self.options.contentLabel or "Destination folder", box.x + 16, box.y + 118, box.w - 32) end

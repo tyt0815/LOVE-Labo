@@ -49,7 +49,7 @@ local NewClass = {properties = {
     enabled = {type = "boolean", default = true},
     title = {type = "string", default = "Agent"},
     target = {type = "object", default = false},
-    projectile = {type = "prefab", default = false}
+    projectile = {type = "lobjectTemplate", default = false}
 }}
 function NewClass.build(self)
     local mount = self:addComponent("mount", Engine.SceneComponent, {x = 10})
@@ -120,6 +120,19 @@ $taskArchive = [IO.Compression.ZipFile]::OpenRead($taskGamePath)
 try {
     if (@($taskArchive.Entries | Where-Object { $_.FullName -match '^(editor|tests)/' }).Count) { throw 'Editor or test code included in game export' }
 } finally { $taskArchive.Dispose() }
+invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'projectile'; value = $taskClass.assetId} | Out-Null
+$taskLuaGamePath = Join-Path $taskDirectory 'LuaTemplate.love'
+invokeLaboRequest @{command = 'export'; project = $taskProject; output = $taskLuaGamePath} | Out-Null
+$taskLuaReportPath = Join-Path $taskDirectory 'lua-template-report.json'
+$taskLuaProcess = Start-Process -FilePath (Join-Path $loveDirectory 'lovec.exe') `
+    -ArgumentList @(('"' + $taskLuaGamePath + '"'), '--verify-game', ('"' + $taskLuaReportPath + '"')) `
+    -WorkingDirectory $taskDirectory -WindowStyle Hidden -PassThru
+if (-not $taskLuaProcess.WaitForExit(60000)) { $taskLuaProcess.Kill(); throw 'Lua template verification timed out' }
+$taskLuaReport = Get-Content -LiteralPath $taskLuaReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($taskLuaProcess.ExitCode -ne 0 -or -not $taskLuaReport.ok -or $taskLuaReport.editorLoaded `
+    -or $taskLuaReport.objects -ne 3 -or $taskLuaReport.properties[2].speed -ne 10 `
+    -or -not $taskLuaReport.properties[2].started) { throw 'Standalone Lua template spawn failed' }
+invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'projectile'; value = $taskChildPrefab.assetId} | Out-Null
 # 시작·update·이미지 디코딩 실패도 프로세스 크래시 대신 진단 결과를 반환한다.
 $taskImagePath = Join-Path $taskProject 'Assets\Sprite.png'
 $taskOriginalImage = [IO.File]::ReadAllBytes($taskImagePath)

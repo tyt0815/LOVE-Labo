@@ -81,7 +81,10 @@ function AssetBrowser.new(project)
         end
         return true
     end
-    self.handlers.update = function(_, dt) self:updateDrag(dt) end
+    self.handlers.update = function(_, dt)
+        if self.ping then self.ping.remaining = self.ping.remaining - dt; if self.ping.remaining <= 0 then self.ping = nil end end
+        self:updateDrag(dt)
+    end
     self.hint = "Asset Browser: browse Assets and Sources. Right-click: create or manage files."
     self:refresh()
     return self
@@ -210,13 +213,15 @@ end
 
 -- 파일을 찾아 표시하되 현재 Inspector 편집 대상은 바꾸지 않는다.
 function AssetBrowser:reveal(value)
+    local selected, selection = self.selectedReference, self.selectedReferences
     local reference, err = self.project:getAssetReference(value)
     if not reference then return false, err end
     local _, info = self.project:checkedEntry(reference)
     if not info or info.type ~= "file" then return false, "Resource file is missing" end
     local opened, openError = self:openFolder(reference:match("^(.*)/[^/]+$"))
     if not opened then return false, openError end
-    self.selectedReference = reference
+    self.selectedReference, self.selectedReferences = selected, selection
+    self.ping = {reference = reference, remaining = 1.5}
     for index, entry in ipairs(self.entries) do
         if entry.reference == reference then
             local row = self.viewMode == "list" and index - 1 or math.floor((index - 1) / self:columns())
@@ -326,8 +331,7 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
         end
     else
         local entry = self:getEntryAtPosition(x, y)
-        local deferred = entry and not entry.isLink and (presses or 1) == 1
-        if self.onSelect and not deferred then
+        if self.onSelect then
             local ok, err = self.onSelect(entry and entry.reference)
             if ok == false then self.error = err; return true end
         end
@@ -491,9 +495,7 @@ function AssetBrowser:dragReleased(x, y, button)
             self.error = not moved and moveError or nil
         else self.error = err end
     elseif drag.tree then self:openFolder(drag.entry.reference)
-    elseif self.onSelect then
-        local selected, selectionError = self.onSelect(drag.entry.reference)
-        if selected == false then self.selectedReference, self.error = drag.previousReference, selectionError end
+
     end
     return true
 end
@@ -741,6 +743,10 @@ function AssetBrowser:drawFiles()
     end
     for i = first, last do
         local entry = self.entries[i]
+        if self.ping and self.ping.reference == entry.reference then
+            local rect = self:entryBounds(i); Theme.setColor("focus"); love.graphics.setLineWidth(2)
+            love.graphics.rectangle("line", rect.x + 2, rect.y + 2, math.max(0, rect.w - 4), math.max(0, rect.h - 4), 4, 4)
+        end
         if self.viewMode == "list" then
             local rowY = view.y + (i - 1 - self.fileScroll) * ROW
             if rowY + ROW > view.y and rowY < view.y + view.height then

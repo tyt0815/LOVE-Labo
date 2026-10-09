@@ -66,12 +66,24 @@ function Hierarchy:mousemoved(x, y)
     else drag.target = self:getLObjectAtPosition(x, y) end
     return true
 end
+function Hierarchy:dropParent(objects, target)
+    local roots = self.level:selectionRoots(objects)
+    if target and #roots > 0 then
+        local sameParent = true
+        for _, object in ipairs(roots) do
+            if object.parentAuthoringId ~= target.authoringId then sameParent = false; break end
+        end
+        if sameParent then return nil, true end
+    end
+    return target, false
+end
 function Hierarchy:mousereleased(x, y, button)
     local drag = self.drag; self.drag = nil
     if button == 1 and drag and drag.active and not drag.marquee and self:containsPoint(x, y) then
-        local ok, err = self.level:reparent(drag.objects, self:getLObjectAtPosition(x, y))
+        local parent = self:dropParent(drag.objects, self:getLObjectAtPosition(x, y))
+        local ok, err = self.level:reparent(drag.objects, parent)
         self.error = not ok and err or nil
-        local parent = self:getLObjectAtPosition(x, y); if ok and parent then self.collapsed[parent.authoringId] = nil end
+        if ok and parent then self.collapsed[parent.authoringId] = nil end
     end
     return true
 end
@@ -93,10 +105,13 @@ function Hierarchy:draw(selected)
             if self.sceneView and self.sceneView:isSelected(object) or not self.sceneView and object == selected then Ui.selection(0, rowY, self.width, ROW_HEIGHT) end
             local x = Ui.METRICS.contentPaddingX + row.depth * 16
             Theme.setColor("text")
-            if row.children then love.graphics.print(self.collapsed[object.authoringId] and ">" or "v", x, rowY + 4) end
+            if row.children then Ui.chevron(x + 7, rowY + ROW_HEIGHT / 2, not self.collapsed[object.authoringId]) end
             Ui.text(object.name or "LObject " .. object.authoringId, x + 18, rowY + 4, self.width - x - 24)
             if self.drag and self.drag.active and not self.drag.marquee and self.drag.target == object then
                 Theme.setColor("focus"); love.graphics.rectangle("line", 6, rowY, self.width - 12, ROW_HEIGHT)
+                local _, detach = self:dropParent(self.drag.objects, object)
+                Ui.hint({x = 6, y = rowY, w = self.width - 12, h = ROW_HEIGHT},
+                    detach and "Release to detach from parent." or "Release to attach to this object.")
             end
         end
     end

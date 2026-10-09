@@ -38,11 +38,9 @@ local function setProperty(project, target, name, item)
         for _, object in ipairs(target.level and target.level.lobjects or {}) do if object.authoringId == item then found = true end end
         assert(found, "Object reference must identify an instance in the same level")
     end
-    if declaration.type == "prefab" and item ~= false then
-        local reference = assert(project:getAssetReference(item))
-        assert(reference:match("^Assets/.+%.prefab$"), "Expected a Prefab asset")
-        assert(require("project.ObjectDefinition").resolve(project, item))
-        item = project:getAssetId(reference)
+    if require("core.PropertySchema").isTemplate(declaration.type) and item ~= false then
+        local template = assert(require("project.LObjectTemplate").resolve(project, item))
+        item = template.reference
     end
     local overrides = target:getOverrides()
     overrides[name] = item ~= declaration.default and item or nil
@@ -119,13 +117,12 @@ local function execute(request)
     local level = document.level
     local changed, object, target
     if command == "instance.add" then
-        local prefab = required(request, "prefab")
+        local prefab = request.template or required(request, "prefab")
         local reference = assert(project:getAssetReference(prefab))
-        assert(reference:match("^Assets/.+%.prefab$"), "Expected a Prefab asset")
-        assert(require("project.ObjectDefinition").resolve(project, prefab))
+        assert(require("project.LObjectTemplate").resolve(project, prefab))
         local x, y = tonumber(request.x or 0), tonumber(request.y or 0)
         assert(require("core.Transform").finite(x) and require("core.Transform").finite(y), "Invalid placement coordinates")
-        object = assert(level:addLObject(x, y, project:getAssetId(reference), reference:match("([^/]+)%.prefab$")))
+        object = assert(level:addLObject(x, y, project:getAssetId(reference), reference:match("([^/]+)%.[^.]+$")))
         if request.parent ~= nil and request.parent ~= false then
             local parent = assert(level:findLObject(tonumber(request.parent)), "Parent instance not found")
             object.parentAuthoringId = parent.authoringId
@@ -195,7 +192,7 @@ function Cli.parse(args)
         if item:sub(1, 2) == "--" then
             local key = item:sub(3)
             local allowed = {project = true, parent = true, name = true, folder = true, type = true, class = true,
-                prefab = true, level = true, instance = true, property = true, ["value-json"] = true,
+                prefab = true, template = true, level = true, instance = true, property = true, ["value-json"] = true,
                 x = true, y = true, output = true, revision = true, request = true, result = true, value = true}
             assert(allowed[key], "Unknown option: " .. item)
             assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)

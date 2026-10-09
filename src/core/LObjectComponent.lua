@@ -11,7 +11,7 @@ function Component:extend(definition)
     for name, field in pairs(self.properties) do schema[name] = {type = field.type, default = field.default, group = field.group} end
     for name, field in pairs(definition.properties or {}) do
         assert(type(name) == "string" and name ~= "" and type(field) == "table" and Schema.validValue(field.type, field.default), "Invalid component property")
-        assert(not schema[name] or schema[name].type == field.type, "Inherited component property type cannot change")
+        assert(not schema[name] or schema[name].type == field.type or Schema.isTemplate(schema[name].type) and Schema.isTemplate(field.type), "Inherited component property type cannot change")
         assert(field.group == nil or type(field.group) == "string" and field.group ~= "", "Property group must be a non-empty string")
         schema[name] = {type = field.type, default = field.default, group = field.group or schema[name] and schema[name].group}
     end

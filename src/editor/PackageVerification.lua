@@ -124,27 +124,23 @@ return NewClass
         inspector:selectComponent("sprite")
         check("prefab child Transform editable", inspector.class.properties["sprite.rotation"] and inspector.class.properties["sprite.scaleX"])
         preview("prefab-child-properties")
-        app.activePanel = "scene"; app:updateInspectorTarget()
+        app.activePanel = "scene"; app.inspectorSource = "scene"; app:updateInspectorTarget()
         inspector:selectComponent(nil)
         assert(inspector:setProperty("speed", 42))
-        local function dropResource(reference, name)
+        local function pickResource(reference, name)
             local browser = app.assetBrowser
+            inspector:ensurePropertyVisible(name); assert(app:beginObjectPick(name))
             assert(browser:openFolder(reference:match("^(.*)/[^/]+$")))
             browser.viewMode = "list"; app:updateSceneViewport()
-            local rect = inspector:ensurePropertyVisible(name)
             local index
             for i, entry in ipairs(browser.entries) do if entry.reference == reference then index = i end end
-            assert(index)
-            local x, y = browser.fileSlot.widget.x + 60, browser.fileSlot.widget.y + (index - 1) * 26 + 13
-            app:mousepressed(x, y, 1)
-            app:mousemoved(rect.x + 3, rect.y + 3, rect.x - x, rect.y - y)
-            app:draw()
-            app:mousereleased(rect.x + 3, rect.y + 3, 1)
-            assert(not browser.error, browser.error)
+            local rect = browser:entryBounds(assert(index))
+            app:mousepressed(rect.x + 40, rect.y + 10, 1); app:mousereleased(rect.x + 40, rect.y + 10, 1)
+            assert(not app.objectPick, inspector.error)
         end
-        dropResource("Assets/Sprite.png", "sprite.image")
-        dropResource("Assets/ChildPrefab.prefab", "projectile")
-        check("resource drag drop", object.propertyOverrides.projectile == project:getAssetId("Assets/ChildPrefab.prefab"))
+        pickResource("Assets/Sprite.png", "sprite.image")
+        pickResource("Assets/ChildPrefab.prefab", "projectile")
+        check("resource eyedropper", object.propertyOverrides.projectile == project:getAssetId("Assets/ChildPrefab.prefab"))
         local target = app.level:addLObject(-100, 40, prefabId)
         app:recordHistory()
         assert(app:beginObjectPick("target"))
@@ -155,6 +151,14 @@ return NewClass
         app:draw()
         preview("resource-properties")
         check("external image loaded", app.spriteAssets:image(project:getAssetId("Assets/Sprite.png")) ~= nil)
+        assert(app:saveAllDocuments())
+        check("save all review before writing", app.uiRoot.popup.options.title == "Save All"
+            and #app.uiRoot.popup.options.choices == 1 and app.uiRoot.popup.options.choices[1].checked and app.document:isDirty())
+        preview("save-all-review")
+        local saveDialog = app.uiRoot.popup
+        app:mousepressed(saveDialog.choicesRect.x + 12, saveDialog.choicesRect.y + 10, 1)
+        saveDialog:submit()
+        check("unchecked level remains unsaved", app.document:isDirty() and not app.uiRoot.popup)
         assert(app:saveCurrentDocument(levelPath))
         local reopened = assert(Project.open(project.rootPath))
         local ProjectStart = require("editor.ProjectStart")
@@ -176,6 +180,8 @@ return NewClass
         local world = app.runtimeWorld
         local spawned = assert(world:spawnLObject(world.lobjects[1].properties.projectile, {x = 150, y = 50}))
         check("runtime prefab spawn", #world.lobjects == 3 and spawned.begun and spawned.authoringId == nil)
+        local classSpawned = assert(world:spawnLObject(classId))
+        check("runtime Lua Class spawn", classSpawned.begun and classSpawned.definitionReference == classId)
         app.gameView:draw()
         assert(app:stopPlay())
         local root, child = app.level.lobjects[1], app.level.lobjects[2]

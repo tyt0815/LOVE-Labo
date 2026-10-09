@@ -111,12 +111,10 @@ function Definition.resolveReferences(values, schema, objects, project)
         if declaration.type == "object" and value ~= false then
             if not objects[value] then return false, "Missing LObject reference: " .. tostring(value) end
             values[name] = objects[value]
-        elseif (declaration.type == "image" or declaration.type == "prefab") and value ~= false then
-            if declaration.type == "prefab" then
-                local reference, err = project:getAssetReference(value)
-                if not reference or not reference:match("^Assets/.+%.prefab$") then return false, err or "Expected a Prefab asset" end
-            end
-            local path, err = project:resolveAssetFile(value)
+        elseif (declaration.type == "image" or Schema.isTemplate(declaration.type)) and value ~= false then
+            local path, err
+            if Schema.isTemplate(declaration.type) then path, err = require("project.LObjectTemplate").source(project, value)
+            else path, err = project:resolveAssetFile(value) end
             if not path then return false, err end
             values[name] = project:getAssetId(value) or value
         end

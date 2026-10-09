@@ -1,3 +1,4 @@
+local Schema = require("core.PropertySchema")
 local Ui = require("editor.Ui")
 local Theme = require("editor.Theme")
 local LuaClass = require("editor.LuaClass")
@@ -155,20 +156,26 @@ function ClassInspector:setProperty(name, value)
         if not valid then self.error = err; return false end
         value = valid[declaration.field]
     end
-    if (declaration.type == "image" or declaration.type == "prefab") and value ~= false then
+    if (declaration.type == "image" or Schema.isTemplate(declaration.type)) and value ~= false then
         local reference, err = self.project:getAssetReference(value)
-        local extension = reference and reference:lower():match("%.([^%.]+)$")
-        local allowed = declaration.type == "prefab" and extension == "prefab"
-            or declaration.type == "image" and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension or ""]
-        if not reference or not allowed or not reference:match("^Assets/") then
-            self.error = err or "Expected a " .. declaration.type .. " resource"; return false
+        if not reference then self.error = err; return false end
+        if Schema.isTemplate(declaration.type) then
+            local template
+            template, err = require("project.LObjectTemplate").resolve(self.project, value)
+            if not template then self.error = err; return false end
+        else
+            local extension = reference:lower():match("%.([^%.]+)$")
+            if not reference:match("^Assets/") or not ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension or ""] then
+                self.error = "Expected an image resource"; return false
+            end
+            local ok, result = pcall(function()
+                local path = assert(self.project:resolveAssetFile(value))
+                local bytes = assert(self.project:readAsset(value))
+                local pixels = love.image.newImageData(love.filesystem.newFileData(bytes, path)); pixels:release()
+            end)
+            if not ok then self.error = tostring(result); return false end
         end
-        if declaration.type == "prefab" then
-            local definition
-            definition, err = require("project.ObjectDefinition").resolve(self.project, value)
-            if not definition then self.error = err; return false end
-        end
-        value = self.project:getAssetId(reference)
+        value = self.project:getAssetId(reference) or reference
     elseif declaration.type == "object" and value ~= false then
         local found = false
         for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
@@ -201,9 +208,8 @@ function ClassInspector:isEditing() return self.editing ~= nil end
 
 function ClassInspector:propertyRect(name, top)
     if self.class.properties[name].type == "image" then return self:imageRects(top - 3).selector end
-    if self.class.properties[name].type == "prefab" or self.class.properties[name].type == "object" then
+    if Schema.isTemplate(self.class.properties[name].type) or self.class.properties[name].type == "object" then
         local rect = self:referenceRects(top - 3).selector
-        if self.class.properties[name].type == "object" then rect.w = math.max(0, rect.w - 30) end
         return rect
     end
     local _, rect = PropertyLayout.cells(self.left, self.width, top - 3)
@@ -221,13 +227,14 @@ function ClassInspector:imageRects(top)
     local selectorX = field.x + size + 6
     return {preview = {x = field.x, y = top + (64 - size) / 2, w = size, h = size},
         selector = {x = selectorX, y = top + 3, w = math.max(0, field.x + field.w - selectorX), h = 26},
-        browse = {x = selectorX, y = top + 35, w = 26, h = 26}, reset = reset}
+        assign = {x = selectorX, y = top + 35, w = 26, h = 26},
+        browse = {x = selectorX + 30, y = top + 35, w = 26, h = 26}, reset = reset}
 end
 
 function ClassInspector:referenceRects(top)
     local _, field, reset = PropertyLayout.cells(self.left, self.width, top)
     local right = field.x + field.w
-    return {selector = {x = field.x, y = field.y, w = math.max(0, field.w - 30), h = field.h},
+    return {selector = {x = field.x, y = field.y, w = math.max(0, field.w - 60), h = field.h},
         assign = {x = right - 56, y = field.y, w = 26, h = 26},
         browse = {x = right - 26, y = field.y, w = 26, h = 26}, reset = reset}
 end
@@ -236,6 +243,13 @@ function ClassInspector:parentBrowseRect()
     return {x = self.left + self.width - Ui.METRICS.contentPaddingX - 26, y = self.dropdown.y, w = 26, h = 26}
 end
 
+function ClassInspector:saveRect()
+    return {x = self.left + self.width - Ui.METRICS.contentPaddingX - 64, y = (self.top or 0) + 40 + Ui.METRICS.contentPaddingY, w = 64, h = 26}
+end
+function ClassInspector:parentPickRect()
+    local rect = self:parentBrowseRect()
+    return {x = rect.x - 30, y = rect.y, w = 26, h = 26}
+end
 function ClassInspector:objectLabel(value)
     if value == false then return "None" end
     for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
@@ -243,59 +257,50 @@ function ClassInspector:objectLabel(value)
     end
     return "Missing: " .. tostring(value)
 end
-function ClassInspector:assetDropTarget(entry, x, y)
-    if not self.target then return false, nil, "No editable Inspector target" end
-    local name, rect, kind
-    if self:parentVisible() and self.dropdown:containsPoint(x, y) then
-        rect = {x = self.dropdown.x, y = self.dropdown.y, w = self.dropdown.width, h = self.dropdown.height}
-        kind = "parent"
-    elseif y >= self.propertyTop and y < self.propertyTop + self.propertyHeight then
-        for _, row in ipairs(self.rows) do
-            if row.name then
-                local top = self.propertyTop + row.offset - self.scroll
-                local declaration = self.class.properties[row.name]
-                if (declaration.type == "image" or declaration.type == "prefab") and x >= self.left + self.width / 2
-                    and y >= top and y < top + row.height then
-                    name, kind = row.name, declaration.type
-                    rect = {x = self.left + self.width / 2 + 2, y = top, w = self.width / 2 - 4, h = row.height}
-                    break
-                end
-            end
-        end
-    end
-    if not rect then return false, nil, "Drop on an image, Prefab or Parent Class field" end
-    if entry.type ~= "file" or entry.isLink then return false, rect, "Drop a registered resource file" end
-    local reference, err = self.project:getAssetReference(entry.reference)
-    local id = reference and self.project:getAssetId(reference)
-    if not id then return false, rect, err or "Asset is not registered" end
-    if kind == "parent" then
-        if self.target.kind == "level" then
-            local class
-            class, err = LuaClass.load(self.project, id, "level")
-            if not class then return false, rect, err end
+function ClassInspector:pickCandidate(name, reference, object)
+    if name == "$parent" then
+        reference = reference or object and object.definitionReference
+        if not reference then return nil, "Select a Parent Class asset or an instance with a source" end
+        if self.target.kind == "lobject" then
+            local definition, err = require("project.ObjectDefinition").resolve(self.project, reference, nil, self.target.parentOwnerId)
+            if not definition then return nil, err end
         else
-            local definition
-            definition, err = require("editor.ObjectDefinition").resolve(self.project, id, nil, self.target.parentOwnerId)
-            if not definition then return false, rect, err end
+            local class, err = LuaClass.load(self.project, reference, self.target.kind)
+            if not class then return nil, err end
         end
-    else
-        local extension = reference:lower():match("%.([^%.]+)$")
-        if not reference:match("^Assets/") or not (kind == "prefab" and extension == "prefab"
-            or kind == "image" and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension or ""]) then
-            return false, rect, "Expected a " .. kind .. " resource"
-        end
+        local path, err = self.project:getAssetReference(reference)
+        if not path then return nil, err end
+        return self.project:getAssetId(path) or path
     end
-    return "inspector", rect, nil, name, id
+    local declaration = self.class.properties[name]
+    if not declaration then return nil, "Property no longer exists" end
+    if declaration.type == "object" then
+        if not object or not self.target.level then return nil, "Select an instance in the current level" end
+        for _, current in ipairs(self.target.level.lobjects) do if current == object then return object.authoringId end end
+        return nil, "Instance must belong to the current level"
+    end
+    if Schema.isTemplate(declaration.type) then
+        reference = reference or object and object.definitionReference
+        if not reference then return nil, "Select an LObject Lua Class, Prefab or sourced instance" end
+        local template, err = require("project.LObjectTemplate").resolve(self.project, reference)
+        return template and template.reference or nil, err
+    end
+    if declaration.type == "image" then
+        if not reference then return nil, "Select an image asset" end
+        local path, err = self.project:getAssetReference(reference)
+        local extension = path and path:lower():match("%.([^%.]+)$")
+        if not path or not path:match("^Assets/") or not ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension or ""] then return nil, err or "Select an image asset" end
+        return self.project:getAssetId(path) or path
+    end
+    return nil, "This property cannot be picked"
 end
+function ClassInspector:applyPicked(name, value)
+    if name == "$parent" then return self:selectParent(value) end
+    return self:setProperty(name, value)
+end
+function ClassInspector:assetDropTarget() return false, nil, "Use the eyedropper to assign resources" end
+function ClassInspector:dropAsset() self.error = "Use the eyedropper to assign resources"; return false end
 
-function ClassInspector:dropAsset(entry, x, y)
-    self:commitEdit()
-    local destination, _, err, name, id = self:assetDropTarget(entry, x, y)
-    if not destination then self.error = err; return false, err end
-    local ok
-    if name then ok = self:setProperty(name, id) else ok = self:selectParent(id) end
-    return ok, self.error
-end
 function ClassInspector:choices(name, value)
     local kind = self.class.properties[name].type
     local options = {{label = "None", value = false}}
@@ -303,13 +308,13 @@ function ClassInspector:choices(name, value)
         for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
             options[#options + 1] = {label = "LObject " .. object.authoringId, value = object.authoringId}
         end
-    elseif kind == "image" or kind == "prefab" then
+    elseif kind == "image" or Schema.isTemplate(kind) then
         local references = {}
         for reference in pairs(self.project.assetMetadata or {}) do
-            if reference:match("^Assets/") and reference:lower():match("%.(.*)$") then
+            if reference:lower():match("%.(.*)$") then
                 local extension = reference:lower():match("%.([^%.]+)$")
-                if kind == "image" and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension]
-                    or kind == "prefab" and extension == "prefab" then references[#references + 1] = reference end
+                if kind == "image" and reference:match("^Assets/") and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension]
+                    or Schema.isTemplate(kind) and require("project.LObjectTemplate").source(self.project, reference) then references[#references + 1] = reference end
             end
         end
         table.sort(references)
@@ -407,7 +412,7 @@ function ClassInspector:layout(left, width, height, propertyTop, top)
             width - 2 * Ui.METRICS.contentPaddingX, self:treeBottom() - self.top - 100 - Ui.METRICS.contentPaddingY)
     end
     local parentTop = self:treeBottom() and self:treeBottom() + 8 or self.top + 100 + Ui.METRICS.contentPaddingY
-    self.dropdown:setBounds(left + width / 2 + 4, parentTop, math.max(0, width / 2 - Ui.METRICS.contentPaddingX - 34), 28)
+    self.dropdown:setBounds(left + width / 2 + 4, parentTop, math.max(0, width / 2 - Ui.METRICS.contentPaddingX - 64), 28)
     self.propertyTop = propertyTop or (self.tree and (self:treeBottom() + (self:parentVisible() and 48 or 8))
         or self.top + 170 + Ui.METRICS.contentPaddingY)
     self.propertyBottom = height - 10
@@ -429,11 +434,13 @@ function ClassInspector:draw()
     if not self.target.instance then
         local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
         if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
-        Ui.label(label, self.left + Ui.METRICS.contentPaddingX, (self.top or 0) + 44 + Ui.METRICS.contentPaddingY, self.width - 2 * Ui.METRICS.contentPaddingX)
-        Ui.text(self:targetKind() .. "  |  Ctrl+S: Save", self.left + Ui.METRICS.contentPaddingX, (self.top or 0) + 60 + Ui.METRICS.contentPaddingY, self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
+        if self.onSave then Ui.button("Save", self:saveRect(), false, "Save this document", true) end
+        Ui.label(label, self.left + Ui.METRICS.contentPaddingX, (self.top or 0) + 44 + Ui.METRICS.contentPaddingY, self.width - 2 * Ui.METRICS.contentPaddingX - 68)
+        Ui.text(self:targetKind(), self.left + Ui.METRICS.contentPaddingX, (self.top or 0) + 60 + Ui.METRICS.contentPaddingY, self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
         if self:parentVisible() then
             Ui.label("Parent Class", self.left + Ui.METRICS.contentPaddingX + 12, self.dropdown.y + 6, self.width / 2 - Ui.METRICS.contentPaddingX - 20)
             self.dropdown:draw()
+            Ui.eyedropperButton(self:parentPickRect(), self.isPicking and self.isPicking("$parent"))
             Ui.browseButton(self:parentBrowseRect(), self.dropdown.value ~= false)
         end
     end
@@ -457,13 +464,13 @@ function ClassInspector:draw()
                 rect = imageRects.selector
                 labelRect.y = y + (row.height - love.graphics.getFont():getHeight()) / 2
                 Ui.thumbnail(self:thumbnail(value), imageRects.preview)
+                Ui.eyedropperButton(imageRects.assign, self.isPicking and self.isPicking(name))
                 Ui.browseButton(imageRects.browse, value ~= false)
-            elseif declaration.type == "prefab" or declaration.type == "object" then
+            elseif Schema.isTemplate(declaration.type) or declaration.type == "object" then
                 local actions = self:referenceRects(y)
                 rect = actions.selector
+                Ui.eyedropperButton(actions.assign, self.isPicking and self.isPicking(name))
                 if declaration.type == "object" then
-                    rect.w = math.max(0, rect.w - 30)
-                    Ui.eyedropperButton(actions.assign, self.isPicking and self.isPicking(name))
                     Ui.browseButton(actions.browse, value ~= false, "Frame referenced instance in viewport.")
                 else
                     Ui.browseButton(actions.browse, value ~= false)
@@ -474,7 +481,7 @@ function ClassInspector:draw()
             if declaration.type == "object" then
                 Ui.button("", rect, false, self:objectLabel(value) .. ". Use the eyedropper to pick a target.")
                 Ui.text(self:objectLabel(value), rect.x + 4, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, math.max(0, rect.w - 8))
-            elseif declaration.type == "image" or declaration.type == "prefab" then
+            elseif declaration.type == "image" or Schema.isTemplate(declaration.type) then
                 local choice = self:choices(name, value)
                 choice:setBounds(rect.x, rect.y, rect.w, rect.h)
                 choice:draw()
@@ -494,6 +501,7 @@ function ClassInspector:draw()
 end
 
 function ClassInspector:mousepressed(x, y, button)
+    if button == 1 and not self.target.instance and self.onSave and Ui.contains(x, y, self:saveRect()) then self:commitEdit(); self.onSave(); return true end
     if button ~= 1 then return true end
     if self.tree and self.tree:containsPoint(x, y) then
         self.treeFocused = true
@@ -501,6 +509,14 @@ function ClassInspector:mousepressed(x, y, button)
     end
     self.treeFocused = false
     local dropdown = self.dropdown
+    if self:parentVisible() and Ui.contains(x, y, self:parentPickRect()) then
+        self:commitEdit()
+        if self.onPick then
+            local ok, err = self.onPick("$parent")
+            if not ok then self.error = err end
+        end
+        return true
+    end
     if self:parentVisible() and Ui.contains(x, y, self:parentBrowseRect()) then return self:reveal(dropdown.value) end
     if self:parentVisible() and dropdown:containsPoint(x, y) then
         self:commitEdit()
@@ -522,8 +538,8 @@ function ClassInspector:mousepressed(x, y, button)
         if name and y >= rowTop and y < rowTop + row.height then
             local declaration = self.class.properties[name]
             local actions = declaration.type == "image" and self:imageRects(rowTop)
-                or (declaration.type == "prefab" or declaration.type == "object") and self:referenceRects(rowTop)
-            if actions and declaration.type == "object" and Ui.contains(x, y, actions.assign) then
+                or (Schema.isTemplate(declaration.type) or declaration.type == "object") and self:referenceRects(rowTop)
+            if actions and Ui.contains(x, y, actions.assign) then
                 self:commitEdit()
                 local ok, err
                 if self.onPick then ok, err = self.onPick(name) end
@@ -557,7 +573,7 @@ function ClassInspector:mousepressed(x, y, button)
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
             if declaration.type == "object" then return true end
-            if declaration.type == "image" or declaration.type == "prefab" then
+            if declaration.type == "image" or Schema.isTemplate(declaration.type) then
                 local choice = self:choices(name, value)
                 local rect = self:propertyRect(name, top)
                 choice:setBounds(rect.x, rect.y, rect.w, rect.h)

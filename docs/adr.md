@@ -38,3 +38,5 @@
 - [0036. 코드 컨벤션과 모듈·공개 함수 이름 통일](adr/0036-code-conventions-and-module-names.md)
 - [0037. 오브젝트 계층과 다중 선택](adr/0037-object-hierarchy-and-multi-selection.md)
 - [0038. 프레임 경계의 런타임 레벨 전환](adr/0038-runtime-level-transition.md)
+- [0039. LObject 생성 템플릿과 리소스 스포이드](adr/0039-lobject-templates-and-resource-picking.md)
+- [0040. Prefab 편집 초안과 전체 저장 확인](adr/0040-prefab-drafts-and-save-all-review.md)

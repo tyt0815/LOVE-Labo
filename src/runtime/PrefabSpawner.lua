@@ -3,23 +3,23 @@ local Spawner = {}
 
 function Spawner.bind(project, world, loadClass)
     local depth = 0
+    local loadTemplate = require("project.LObjectTemplate").loader(project, loadClass)
     world.spawnLObjectFactory = function(reference, transform, overrides)
         if depth >= 64 then return nil, "Spawn nesting is too deep" end
         local checkpoint = #world.lobjects
         depth = depth + 1
         local called, object, err = pcall(function()
-            local path, referenceError = project:getAssetReference(reference)
-            if not path or not path:match("^Assets/.+%.prefab$") then return nil, referenceError or "spawnLObject requires a Prefab asset" end
-            local definition, definitionError = Definition.resolve(project, reference, loadClass)
-            if not definition then return nil, definitionError end
+            local template, templateError = loadTemplate(reference)
+            if not template then return nil, templateError end
+            local definition = template.definition
             local initialTransform, transformError = require("core.Transform").copy(transform or {x = 0, y = 0})
             if not initialTransform then return nil, transformError end
             overrides = overrides or {}
             if type(overrides) ~= "table" then return nil, "Spawn overrides must be a table" end
             local instance, createError = require("core.LObject").new(world.nextRuntimeId,
-                {transform = initialTransform, definitionReference = project:getAssetId(path) or reference})
+                {transform = initialTransform, definitionReference = template.reference})
             if not instance then return nil, createError end
-            local base, used = path:match("([^/]+)%.prefab$"), {}
+            local base, used = template.name, {}
             for _, existing in ipairs(world.lobjects) do if existing.name then used[existing.name] = true end end
             local number = 1; while used[base .. " " .. number] do number = number + 1 end
             instance.name = base .. " " .. number

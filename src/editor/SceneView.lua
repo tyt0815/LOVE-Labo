@@ -430,26 +430,23 @@ function SceneView:drawLObjects()
             end
         end
     end
+    if self.ping and self.level:findLObject(self.ping.object.authoringId) == self.ping.object then
+        local rect = self:objectScreenBounds(self.ping.object)
+        Theme.setColor("focus"); love.graphics.setLineWidth(3)
+        love.graphics.rectangle("line", rect.x - 4, rect.y - 4, rect.w + 8, rect.h + 8)
+    end
     Gizmo.draw(self)
 end
 
 function SceneView:drawMouseWorldPosition()
     local mouseX, mouseY = love.mouse.getPosition()
+    if not self:containsPoint(mouseX, mouseY) then return end
     local viewportX, viewportY = self:getViewport()
-
-    Theme.setColor("text")
-
-    if self:containsPoint(mouseX, mouseY) then
-        local worldX, worldY = self:screenToWorld(mouseX, mouseY)
-
-        love.graphics.print(
-            string.format("Mouse: (%.1f, %.1f)", worldX, worldY),
-            viewportX + Ui.METRICS.contentPaddingX,
-            viewportY + 36 + Ui.METRICS.contentPaddingY
-        )
-    else
-        love.graphics.print("Mouse: --", viewportX + Ui.METRICS.contentPaddingX, viewportY + 36 + Ui.METRICS.contentPaddingY)
-    end
+    local worldX, worldY = self:screenToWorld(mouseX, mouseY)
+    local title = string.format("Scene View  %.2fx", self.zoom)
+    Theme.setColor("textMuted")
+    love.graphics.print(string.format("(%.1f, %.1f)", worldX, worldY), viewportX + Ui.METRICS.titlePaddingX + require("editor.Fonts").get(Ui.METRICS.titleFontSize):getWidth(title) + 16,
+        viewportY + Ui.METRICS.titlePaddingY)
 end
 
 function SceneView:draw()
@@ -496,14 +493,6 @@ function SceneView:draw()
         width
     )
     self:drawMouseWorldPosition()
-    love.graphics.print(
-        "W: Move  E: Rotate  R: Scale",
-        viewportX + Ui.METRICS.contentPaddingX,
-        viewportY + 56 + Ui.METRICS.contentPaddingY
-    )
-    love.graphics.print("Ctrl+D: Duplicate  F: Frame  Delete: Delete",
-        viewportX + Ui.METRICS.contentPaddingX, viewportY + 76 + Ui.METRICS.contentPaddingY)
-
     love.graphics.pop()
 end
 

@@ -12,7 +12,7 @@ Actor.properties = {
     title = {type = "string", default = "캐릭터"},
     enabled = {type = "boolean", default = true},
     target = {type = "object", default = false},
-    projectile = {type = "prefab", default = false},
+    projectile = {type = "lobjectTemplate", default = false},
 }
 
 -- 에디터에서도 실행되므로 게임 동작 없이 구성만 선언한다.
@@ -36,9 +36,11 @@ end
 return Actor
 ```
 
-Inspector 위쪽 계층 트리에서 `sprite (SpriteComponent)`를 선택한 다음 `image`에서 Assets의 이미지를 선택하거나 파일을 해당 필드로 드래그한다. 이미지를 외부에서 추가했다면 Asset Browser의 Refresh를 누른다. 선택한 SceneComponent의 `Transform` 그룹은 부모 계층에 대한 상대 위치를 `X/Y`로 표시하며 코드·저장에는 `x/y`를 쓴다. 트리와 프로퍼티 그룹은 기본 펼침이며 접기·선택 상태는 저장 데이터에 포함하지 않는다. 객체 노드를 선택하면 객체의 Actor Transform과 클래스 프로퍼티가 나타난다. `target` 옆 스포이드를 누르고 같은 레벨의 인스턴스를 Scene View에서 클릭한다. 찾기 버튼은 대상을 프레이밍하고 리셋은 기본 참조(None)로 복원한다. 숫자·문자열은 입력 후 Enter, boolean은 버튼으로 수정한다. 각 필드의 되돌리기 화살표 아이콘(↺)은 Prefab/클래스 기본값으로 복원한다.
+Inspector 위쪽 계층 트리에서 `sprite (SpriteComponent)`를 선택한 다음 `image`의 드롭다운 또는 스포이드로 Assets의 이미지를 지정한다. 이미지를 외부에서 추가했다면 Asset Browser의 Refresh를 누른다. 선택한 SceneComponent의 `Transform` 그룹은 부모 계층에 대한 상대 위치를 `X/Y`로 표시하며 코드·저장에는 `x/y`를 쓴다. 트리와 프로퍼티 그룹은 기본 펼침이며 접기·선택 상태는 저장 데이터에 포함하지 않는다. 객체 노드를 선택하면 객체의 Actor Transform과 클래스 프로퍼티가 나타난다. `target` 옆 스포이드를 누르고 같은 레벨의 인스턴스를 Scene View 또는 Hierarchy에서 클릭한다. 찾기 버튼은 대상을 프레이밍하고 리셋은 기본 참조(None)로 복원한다. 숫자·문자열은 입력 후 Enter, boolean은 버튼으로 수정한다. 각 필드의 되돌리기 화살표 아이콘(↺)은 Prefab/클래스 기본값으로 복원한다.
 
-`projectile`에는 다른 Prefab을 드롭다운 또는 드래그로 지정한다. 이미지·Prefab 참조·Parent Class의 찾기 버튼은 에셋 폴더를 열고 현재 리소스를 선택한다. 이 탐색과 드래그는 편집 중인 Inspector 대상을 바꾸지 않는다. 이미지 행은 두 줄이며 리셋은 드롭다운 오른쪽, 찾기는 아래에 있다. Prefab 런타임 생성은 [spawnLObject 사용법](runtime-spawn.md)을 참고한다.
+`projectile`에는 LObject Lua 클래스 또는 Prefab을 드롭다운·스포이드로 지정한다. 스포이드로 인스턴스를 선택하면 직접 원본을 사용한다. 이미지·생성 템플릿·Parent Class의 찾기는 폴더를 열고 잠시 강조하며 선택과 Inspector를 유지한다. 일반 에셋 클릭·드래그는 해당 에셋의 Inspector를 연다. 이미지 행은 두 줄이며 리셋은 드롭다운 오른쪽, 스포이드·찾기는 아래에 있다. 런타임 생성은 [spawnLObject 사용법](runtime-spawn.md)을 참고한다.
+
+Prefab 값 변경은 저장 전에도 배치된 인스턴스의 기본값과 Play에 적용된다. 인스턴스의 개별 override가 우선한다. Inspector 오른쪽 위 Save 또는 Ctrl+S는 현재 문서를 저장한다. File → Save All 또는 Ctrl+Shift+S는 변경된 Prefab·레벨 목록을 기본 체크된 체크박스로 보여주며 확인한 대상만 저장한다. 행 클릭·Space로 체크를 전환한다. 체크 해제·취소는 초안을 유지하고, 체크된 이름 없는 레벨은 확인 후 경로를 입력한다.
 
 Prefab에서 바꾼 값은 인스턴스의 기본값이 된다. 인스턴스의 변경값은 레벨에 따로 저장된다. 객체·컴포넌트 복제는 값 테이블을 공유하지 않으며, 다른 인스턴스 참조는 같은 대상을 유지한다. 순환 참조도 가능하다. 참조한 객체를 삭제하면 Missing으로 표시되며 참조를 수정하기 전까지 Play 시작이 실패한다. 참조는 같은 레벨 내에서만 사용한다. Prefab의 object 필드는 None으로 두고 배치한 인스턴스에서 대상을 지정한다.
 

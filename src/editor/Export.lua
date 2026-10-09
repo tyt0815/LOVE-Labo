@@ -54,7 +54,11 @@ end
     for _, reference in ipairs(references) do
         local path, info = project:checkedEntry(reference)
         if not path or info.type ~= "file" then return false, "Invalid export resource: " .. reference end
-        add("project/" .. reference, assert(Fs.read(path)))
+        local bytes, readError
+        if reference:match("^Assets/") then bytes, readError = project:readAsset(reference)
+        else bytes, readError = Fs.read(path) end
+        if not bytes then return false, "Cannot read export resource " .. reference .. ": " .. tostring(readError) end
+        add("project/" .. reference, bytes)
         metadata[reference] = project.assetMetadata[reference]
     end
     local data = level:toData()

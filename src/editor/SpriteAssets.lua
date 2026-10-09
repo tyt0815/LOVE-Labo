@@ -20,7 +20,7 @@ function Assets:image(reference)
     return ok and image or nil
 end
 function Assets:preview(data)
-    local signature = require("editor.Json").encode(data)
+    local signature = tostring(self.project.draftRevision or 0) .. require("editor.Json").encode(data)
     local cache = self.previews[data]
     if cache and cache.signature == signature then
         cache.object = cache.object or nil

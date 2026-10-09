@@ -20,7 +20,7 @@
 
 1. 레벨 버전 2를 유지하고 인스턴스에 선택적 `name`, `parentAuthoringId`를 저장한다. 누락된 부모·순환은 파일 로드와 Runtime World 생성에서 거절한다. 과거 부모 없는 인스턴스는 그대로 읽으며 이름이 없으면 `LObject ID`로 표시한다.
 2. authoring Level은 부모 ID로 트리 행과 월드 행렬을 계산한다. Runtime LObject는 `parent`와 `children`을 가진다. `attachTo(parent)`는 로컬 Transform을 유지하고 순환을 거절한다. 부모가 있는 LObject의 루트 Transform은 부모 오브젝트에 상대적이며 SceneComponent의 월드 행렬은 이 오브젝트 월드 행렬에서 시작한다.
-3. Hierarchy 드래그와 CLI `instance.reparent`는 월드 위치를 보존한다. 빈 Hierarchy에 드롭하거나 Detach from Parent를 실행하면 최상위로 이동한다. 투영으로 역행렬이 없는 부모는 위치 보존 부착을 거절한다. Hierarchy의 Prefab 드롭은 부모의 로컬 원점에 인스턴스를 만든다.
+3. Hierarchy 드래그와 CLI `instance.reparent`는 월드 위치를 보존한다. 빈 Hierarchy에 드롭하거나 Detach from Parent를 실행하면 최상위로 이동한다. Hierarchy에서 선택된 최상위 객체들이 모두 드롭 대상의 직접 자식이면 같은 부모 위 드롭을 분리 동작으로 처리한다. 같은 부모에 다시 부착하는 무동작 대신 반복 드래그로 부착·분리를 제공한다. 다른 부모 위 드롭은 기존 부착 의미를 유지한다. 투영으로 역행렬이 없는 부모는 위치 보존 부착을 거절한다. Hierarchy의 Prefab 드롭은 부모의 로컬 원점에 인스턴스를 만든다.
 4. SceneView가 Hierarchy·뷰포트의 공용 선택을 소유한다. 빈 영역 드래그는 사각형과 겹치는 항목을 선택하고 Ctrl은 선택 추가·해제를 제공한다. Hierarchy는 Shift 범위 선택도 제공한다. Inspector는 마지막 선택한 객체를 편집한다.
 5. 다중 기즈모 이동은 선택된 최상위 오브젝트에만 적용하여 선택된 자손을 이중 이동하지 않는다. 회전·스케일은 각 최상위 선택의 로컬 Transform에 같은 변화량·배율을 적용한다. 복제·삭제는 각 선택의 자손을 포함하며 중복 처리하지 않는다. 복제 프로퍼티의 기존 객체 참조는 기존 대상을 유지한다.
 6. 에셋 영역 선택은 목록·썸네일의 파일/폴더 영역에 적용한다. 다중 이동·삭제는 한 Undo 명령이고 Rename은 단일 선택에만 제공한다. Inspector 리소스 필드에는 한 에셋만 드롭한다. 여러 Prefab은 계층·뷰포트에 함께 드롭할 수 있다.

@@ -1,11 +1,11 @@
-# Prefab 참조와 런타임 LObject 생성
+# LObject 생성 템플릿과 런타임 생성
 
-`prefab` 프로퍼티는 생성할 원본 Prefab의 에셋 ID를 저장한다. `object` 프로퍼티가 이미 배치된 인스턴스를 가리키는 것과 구분한다. 이름 변경·이동에도 `.meta`의 ID는 유지된다. 기본값은 `false`이며 Inspector의 드롭다운 또는 에셋 드래그로 설정하고 찾기 버튼으로 리소스를 탐색한다. Prefab 상속과 인스턴스 override에도 같은 타입을 사용한다.
+`lobjectTemplate` 프로퍼티는 생성할 LObject Lua 클래스 또는 Prefab의 에셋 ID를 저장한다. 기존 `prefab` 타입도 호환 별칭으로 동작한다. `object`는 이미 배치된 인스턴스를 가리킨다. 기본값은 `false`이며 Inspector의 드롭다운 또는 스포이드로 설정한다. 스포이드는 에셋이나 인스턴스의 직접 원본을 받는다. 찾기는 폴더를 열고 잠시 강조하며 선택과 Inspector를 바꾸지 않는다.
 
 ```lua
 -- labo-script: lobject
 local Spawner = {properties = {
-    projectile = {type = "prefab", default = false},
+    projectile = {type = "lobjectTemplate", default = false},
 }}
 
 function Spawner.beginPlay(self, world)
@@ -32,7 +32,7 @@ local object, err = world:spawnLObject(prefabId, transform, overrides)
 local object, err = require("Engine").spawnLObject(world, prefabId, transform, overrides)
 ```
 
-- `prefabId`: Prefab 에셋 ID. 프로젝트 상대 `.prefab` 경로도 지원하지만 코드의 고정 경로는 이동 시 자동 수정하지 않는다. Lua Class·이미지·`false`는 거절한다.
+- `prefabId`: LObject Lua 클래스 또는 Prefab의 에셋 ID. 프로젝트 상대 `.lua`·`.prefab` 경로도 지원하지만 고정 경로는 이동 시 자동 수정하지 않는다. Level·Component 클래스, 이미지·`false`는 거절한다. Lua 클래스의 기본 생성 정의는 Play 세션 메모리에 캐시하며 파일 에셋을 만들지 않는다. 실제 객체와 컴포넌트는 매번 새로 구성한다.
 - `transform`: 생략하면 원점·회전 0·스케일 1이다. 지정하면 `x/y`는 유한한 숫자로 모두 제공한다. `rotationX/rotationY/rotation`은 도 단위, `scaleX/scaleY`는 양수이며 생략 가능하다.
 - `overrides`: 생략 가능하다. `{properties = {speed = 42}, components = {sprite = {x = 10}}}`처럼 이번 인스턴스의 값만 변경한다. 객체 참조 override는 기존 레벨의 authoring ID를 사용한다.
 - 성공 시 생성된 Runtime LObject, 실패 시 `nil, 오류 문자열`을 반환한다. 실패를 계속 진행할지 `assert`로 게임 오류 경계에 전달할지는 프로젝트 코드에서 결정한다.
