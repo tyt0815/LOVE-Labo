@@ -1,18 +1,41 @@
-local Scene = require("core.lobject_component"):extend({
-    componentType = "SceneComponent",
-    properties = {x = {type = "number", default = 0, group = "Transform"}, y = {type = "number", default = 0, group = "Transform"}}
-})
-function Scene:getRelativePosition()
-    local x, y, current = 0, 0, self
-    while current do
-        if current:isA(Scene) then x, y = x + current.properties.x, y + current.properties.y end
-        current = current.parent
-    end
-    return x, y
+local Base = require("core.lobject_component")
+local Transform = require("core.transform")
+local fields = {}
+for name in pairs(Transform.fields) do fields[name] = {type = "number", default = name:match("^scale") and 1 or 0, group = "Transform"} end
+local Scene = Base:extend({componentType = "SceneComponent", properties = fields})
+function Scene:new(overrides)
+    local component = Base.new(self, overrides)
+    component.transform = assert(Transform.copy(component.properties))
+    -- 기존 properties.x 접근과 Transform API는 같은 값을 읽고 쓴다.
+    for name in pairs(Transform.fields) do component.properties[name] = nil end
+    setmetatable(component.properties, {
+        __index = function(_, name) if Transform.fields[name] then return component.transform[name] end end,
+        __newindex = function(values, name, value)
+            if Transform.fields[name] then
+                local nextTransform = {}; for field in pairs(Transform.fields) do nextTransform[field] = component.transform[field] end
+                nextTransform[name] = value; component:setTransform(nextTransform)
+            else rawset(values, name, value) end
+        end
+    })
+    return component
 end
-function Scene:getWorldPosition()
-    local transform = self.owner and self.owner.transform or {x = 0, y = 0}
-    local x, y = self:getRelativePosition()
-    return require("core.transform").point(transform, x, y)
+function Scene:setTransform(value)
+    local transform = assert(Transform.copy(value))
+    for name in pairs(Transform.fields) do self.transform[name] = transform[name] end
+end
+function Scene:setProperties(values)
+    self:setTransform(values)
+    for name in pairs(getmetatable(self).properties) do if not Transform.fields[name] then self.properties[name] = values[name] end end
+end
+function Scene:getWorldTransform()
+    local parent = self.parent
+    while parent and not parent:isA(Scene) do parent = parent.parent end
+    return parent and Transform.compose(parent:getWorldTransform(), self.transform) or self.transform
+end
+function Scene:getWorldPosition() local world = self:getWorldTransform(); return world.x, world.y end
+function Scene:getRelativePosition()
+    local x, y = self:getWorldPosition()
+    if self.owner then return Transform.inversePoint(self.owner.transform, x, y) end
+    return x, y
 end
 return Scene

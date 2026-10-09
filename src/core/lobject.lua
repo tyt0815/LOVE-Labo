@@ -1,5 +1,12 @@
 local LObject = {}
-LObject.__index = LObject
+LObject.__index = function(self, name)
+    if name == "transform" then return self.rootComponent and self.rootComponent.transform or self.initialTransform end
+    return LObject[name]
+end
+LObject.__newindex = function(self, name, value)
+    if name == "transform" and self.rootComponent then self.rootComponent:setTransform(value)
+    else rawset(self, name, value) end
+end
 local ROOT_PARENT = {}
 
 local function isPositiveInteger(value)
@@ -81,8 +88,10 @@ function LObject.new(runtimeId, initialState)
     -- 공유하지 않도록 Runtime LObject가 자기 Transform을 소유한다.
     local transform, transformError = require("core.transform").copy(initialState.transform)
     if not transform then return nil, transformError end
-    self.transform = transform
+    self.initialTransform = transform
     self.rootComponent = self:addComponent("root", require("core.scene_component"))
+    self.rootComponent:setTransform(transform)
+    self.initialTransform = nil
     self.rootComponent.isDefaultRoot = true
 
     return self
@@ -140,7 +149,8 @@ local function state(object)
     for name, component in pairs(object.components) do
         saved.components[name] = component
         local children = {}; for _, child in ipairs(component.children) do children[#children + 1] = child end
-        saved.links[component] = {parent = component.parent, children = children}
+        saved.links[component] = {parent = component.parent, children = children,
+            transform = component.transform and require("core.transform").copy(component.transform)}
     end
     for _, name in ipairs(object.componentOrder) do saved.order[#saved.order + 1] = name end
     return saved
@@ -150,7 +160,10 @@ local function restore(object, saved)
         if saved.components[name] ~= component then component.owner, component.parent, component.children = nil, nil, {} end
     end
     object.components, object.componentOrder, object.rootComponent, object.componentBuildDepth = saved.components, saved.order, saved.root, saved.depth
-    for component, link in pairs(saved.links) do component.owner, component.parent, component.children = object, link.parent, link.children end
+    for component, link in pairs(saved.links) do
+        component.owner, component.parent, component.children = object, link.parent, link.children
+        if link.transform then component:setTransform(link.transform) end
+    end
 end
 local function resolveClass(object, class)
     if type(class) == "string" then
@@ -223,6 +236,7 @@ function LObject:setRootComponent(name, class, overrides)
         end
         assert(component and component.owner == self and component:isA(require("core.scene_component")), "Root must be a SceneComponent of this LObject")
         if component == old then return end
+        component:setTransform(self.transform)
         detach(component)
         self.rootComponent = component
         if old then
@@ -232,7 +246,10 @@ function LObject:setRootComponent(name, class, overrides)
                 if self.components[old.name] == old then self.components[old.name] = nil end
                 for i, current in ipairs(self.componentOrder) do if current == old.name then table.remove(self.componentOrder, i); break end end
                 old.owner, old.children = nil, {}
-            else self:attachComponent(old, component) end
+            else
+                old:setTransform({x = 0, y = 0})
+                self:attachComponent(old, component)
+            end
         end
         if self.hasBegunPlay and (self.componentBuildDepth or 0) == 0 then beginComponents(self) end
     end)

@@ -1,6 +1,7 @@
 # 0034. 컴포넌트 부착 계층과 Inspector 선택 트리
 
 - 상태: 채택
+- 후속: 위치 합산·루트 로컬 위치·컴포넌트 회전/스케일 제외와 렌더링 관계는 [ADR 0035](0035-render-components-and-root-transform.md)로 부분 대체한다.
 - 날짜: 2026-10-09
 - 부분 대체: [ADR 0017](0017-components-instance-properties-and-prefab-placement.md)의 평면 컴포넌트 소유·상대 위치와 계층 제외 범위
 - 부분 대체: [ADR 0024](0024-collapsible-details-and-property-columns.md)의 컴포넌트 중첩 그룹, [ADR 0033](0033-prefab-spawn-and-resource-inspector.md)의 컴포넌트 내부 Transform 하위 그룹

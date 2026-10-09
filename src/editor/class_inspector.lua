@@ -146,6 +146,14 @@ function ClassInspector:setProperty(name, value)
         self.error = "Invalid value for " .. name
         return false
     end
+    if declaration.sceneTransform then
+        local component = self.preview.components[declaration.component]
+        local transform = require("core.transform").copy(component.transform)
+        transform[declaration.field] = value
+        local valid, err = require("core.transform").copy(transform)
+        if not valid then self.error = err; return false end
+        value = valid[declaration.field]
+    end
     if (declaration.type == "image" or declaration.type == "prefab") and value ~= false then
         local reference, err = self.project:getAssetReference(value)
         local extension = reference and reference:lower():match("%.([^%.]+)$")
@@ -348,6 +356,14 @@ function ClassInspector:rebuildRows()
         return a < b
     end)
     for _, group in ipairs(groupNames) do
+        local rank = {}; for index, field in ipairs(require("core.transform").order) do rank[field] = index end
+        table.sort(groups[group], function(a, b)
+            local left, right = self.class.properties[a], self.class.properties[b]
+            local first, second = left.sceneTransform and rank[left.field], right.sceneTransform and rank[right.field]
+            if first and second then return first < second end
+            if first or second then return first ~= nil and first ~= false end
+            return a < b
+        end)
         local key = (self.selectedComponent and "component:" .. self.selectedComponent or "object") .. "/" .. group
         local header = {header = true, label = group, groupKey = key, height = PropertyLayout.headerHeight, groupHeight = PropertyLayout.headerHeight}
         rows[#rows + 1] = header
@@ -452,7 +468,8 @@ function ClassInspector:draw()
                     UI.browseButton(actions.browse, value ~= false)
                 end
             end
-            UI.text(declaration.sceneTransform and declaration.field:upper() or declaration.field or name, labelRect.x, labelRect.y, labelRect.w)
+            local labels = {x = "X", y = "Y", rotationX = "Rot X°", rotationY = "Rot Y°", rotation = "Rot Z°", scaleX = "Scale X", scaleY = "Scale Y"}
+            UI.text(declaration.sceneTransform and labels[declaration.field] or declaration.field or name, labelRect.x, labelRect.y, labelRect.w)
             UI.hint(labelRect, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
             if declaration.type == "object" then
                 UI.button("", rect, false, self:objectLabel(value) .. ". Use the eyedropper to pick a target.")
@@ -552,7 +569,10 @@ function ClassInspector:mousepressed(x, y, button)
             Edit.begin(self, self.text, true)
             Edit.press(self, self.text, self:propertyRect(name, top), x, true)
             if declaration.type == "number" then
-                NumberDrag.begin(self, self.text, x, {pointerY = y, onChange = function(value) self:setProperty(name, value) end})
+                local scale = declaration.sceneTransform and declaration.field:match("^scale")
+                NumberDrag.begin(self, self.text, x, {pointerY = y, step = scale and 0.01 or 1, minimum = scale and 0.01 or nil,
+                    normalize = declaration.sceneTransform and declaration.field:match("^rotation") and require("core.transform").normalizeRotation or nil,
+                    onChange = function(value) self:setProperty(name, value) end})
             end
             return true, true
         end

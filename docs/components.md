@@ -53,18 +53,40 @@ Actor.properties.title = {type = "string", default = "Actor"} -- Actor 그룹
 
 ```text
 LObjectComponent
-└─ SceneComponent        (상속: 상대 위치)
-   └─ SpriteComponent    (상속: 이미지)
+└─ SceneComponent        (상속: Transform)
+   └─ RenderComponent    (상속: Draw / GetLocalBounds)
+      └─ SpriteComponent (상속: 이미지 렌더링)
 
 LObject ── 소유 ── root (SceneComponent)
                    └─ mount (SceneComponent)
                       └─ sprite (SpriteComponent)
-Scene/Game View ── 의존 ── SpriteRenderer
+Scene/Game View ── 의존 ── Renderer ── 호출 ── RenderComponent.Draw
 ```
 
 사용자 컴포넌트도 코드를 통해 만들 수 있다. 저장·편집할 값만 `properties`에 선언하고 임시 상태는 일반 필드로 둔다.
 
-기본 루트는 이름이 `root`인 SceneComponent다. `addComponent`의 네 번째 인자에 같은 객체의 부모 컴포넌트 또는 이름을 지정하고, 생략하면 현재 루트에 부착한다. `component:addComponent(...)`는 해당 컴포넌트 아래에 부착하고 `child:attachTo(parent)`로 재부착한다. 이름은 LObject 전체에서 유일해야 하며 순환·다른 객체로의 부착은 거절한다. SceneComponent 조상의 상대 위치를 합산한 뒤 Actor Transform을 적용한다. 일반 LObjectComponent는 위치 계산에 참여하지 않는다.
+이미지 외의 렌더링은 RenderComponent를 부모로 하고 `Draw(self, context)`를 구현한다. Draw에서는 컴포넌트의 **로컬 좌표**로 그린다. 공용 Renderer가 부모 Transform·카메라·줌을 적용하고 그래픽 상태를 복원한다. 사용자 Draw는 Scene View에서도 실행되므로 게임 상태를 변경하는 코드는 BeginPlay/Update에 둔다. `context:image(assetId)`로 호스트의 이미지 캐시를 사용할 수 있다. 선택·외곽선을 지원하려면 `GetLocalBounds`에서 로컬 사각형의 x/y/width/height를 반환한다.
+
+```lua
+-- labo-script: component
+local Shape = {extends = "RenderComponent", properties = {
+    size = {type = "number", default = 20},
+}}
+function Shape.Draw(self, context)
+    local size = self.properties.size
+    love.graphics.setColor(1, 0.5, 0.2, 1)
+    love.graphics.rectangle("fill", -size / 2, -size / 2, size, size)
+end
+function Shape.GetLocalBounds(self, context)
+    local size = self.properties.size
+    return -size / 2, -size / 2, size, size
+end
+return Shape
+```
+
+SpriteComponent는 Draw에서 이미지를 중앙 원점에 그리는 구현이다. 이를 상속해 Draw를 재정의할 때 `Visual.super.Draw(self, context)`로 부모 구현을 호출할 수 있다. Draw의 `false` 반환은 표시할 내용 없음, `false, error` 또는 예외는 렌더링 실패이며 호스트에서 처리한다. 반환을 생략하면 그리기를 수행한 것으로 처리한다. GetLocalBounds를 생략하면 영역 클릭·외곽선 없이 기존 원점·Hierarchy 선택을 사용한다.
+
+기본 루트는 이름이 `root`인 SceneComponent다. `addComponent`의 네 번째 인자에 같은 객체의 부모 컴포넌트 또는 이름을 지정하고, 생략하면 현재 루트에 부착한다. `component:addComponent(...)`는 해당 컴포넌트 아래에 부착하고 `child:attachTo(parent)`로 재부착한다. 이름은 LObject 전체에서 유일해야 하며 순환·다른 객체로의 부착은 거절한다. 자손은 SceneComponent 부모의 위치·회전·스케일을 이어받는다. 일반 LObjectComponent는 공간 변환에 참여하지 않는다.
 
 ```lua
 -- Actor.build(self)에서 기본 루트를 SpriteComponent로 교체한다.
@@ -76,9 +98,19 @@ hand:attachTo(self.rootComponent)
 -- self:setRootComponent(arm)
 ```
 
-루트는 SceneComponent 계열이어야 한다. 기본 루트를 교체하면 기존 자식들을 새 루트로 옮기고 기본 루트를 제거한다. 사용자 루트를 다른 이름의 루트로 바꾸면 기존 루트는 새 루트의 자식으로 남는다. 같은 이름으로 교체하면 기존 루트를 제거하고 자식들을 옮긴다. 컴포넌트 구성은 코드에 두고 기존 이름별 override만 저장한다. 컴포넌트 자체의 회전·스케일은 아직 추가하지 않았으며 Actor 회전·스케일을 계층 전체에 적용한다.
+루트는 SceneComponent 계열이어야 한다. 루트 Transform이 곧 인스턴스 Transform이며 `self.transform`은 `self.rootComponent.transform`으로 위임한다. 루트 교체 시 기존 인스턴스 Transform을 유지한다. 기본 루트는 제거하고 기존 자식들을 새 루트로 옮긴다. 사용자 루트를 다른 이름의 루트로 바꾸면 기존 루트는 단위 로컬 Transform의 자식으로 남는다. 같은 이름으로 교체하면 기존 루트를 제거하고 자식들을 옮긴다. 자손은 위치·회전·스케일이 포함된 상대 Transform을 갖는다.
 
-**File → New → Lua Class** 또는 Asset Browser 우클릭 생성에서 LObjectComponent·SceneComponent·SpriteComponent 또는 사용자 Component Class를 부모로 선택한다. Component Class는 일반 테이블을 반환하며 `extends`에 내장 부모 이름 또는 Component Class 에셋 ID를 지정한다. 생략하면 LObjectComponent다. 별도 `extend` 호출은 로더가 처리한다. 예를 들어 `Sources/Visual.lua`:
+Prefab Inspector에서는 **루트 Transform을 숨긴다**. 루트의 이미지·일반 프로퍼티와 자손 Transform은 계속 편집할 수 있다. 인스턴스의 객체 노드와 루트 노드에서는 같은 배치 Transform을 편집하며 레벨의 `transform`에 한 번만 저장한다. 기존 Prefab·인스턴스 `componentOverrides`의 루트 로컬 offset은 더하지 않는다. 이전에 루트 offset으로 이동시켰다면 인스턴스 배치 또는 자손 Transform으로 옮긴다. 기존 파일을 자동 수정하지 않는다.
+
+```lua
+self.rootComponent.transform.x = 100 -- self.transform.x와 같은 값
+self.components.hand.transform.rotation = 45 -- 부모 기준 Z 회전
+self.components.hand.properties.scaleX = 2 -- transform.scaleX와 같은 값
+```
+
+Transform 필드는 `x/y`, `rotationX/rotationY/rotation`(도), `scaleX/scaleY`다. 각도는 setter에서 0 이상 360 미만, 스케일은 양수로 검사한다. Transform을 순회할 때는 `component.transform`을 사용한다. `component.properties`의 Transform 필드는 위임 접근이므로 `pairs(properties)`에는 포함되지 않는다.
+
+**File → New → Lua Class** 또는 Asset Browser 우클릭 생성에서 LObjectComponent·SceneComponent·RenderComponent·SpriteComponent 또는 사용자 Component Class를 부모로 선택한다. Component Class는 일반 테이블을 반환하며 `extends`에 내장 부모 이름 또는 Component Class 에셋 ID를 지정한다. 생략하면 LObjectComponent다. 별도 `extend` 호출은 로더가 처리한다. 예를 들어 `Sources/Visual.lua`:
 
 ```lua
 -- labo-script: component

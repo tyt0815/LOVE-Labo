@@ -1,5 +1,6 @@
 local LuaClass = require("project.lua_class")
 local Schema = require("core.property_schema")
+local Transform = require("core.transform")
 local Definition = {}
 
 function Definition.resolve(project, reference, loadClass, excludedId)
@@ -76,11 +77,20 @@ function Definition.configure(object, definition, propertyOverrides, componentOv
     for name, fields in pairs(components) do
         local component = object.components[name]
         if not component then return false, "Unknown component: " .. name end
-        local merged = require("project.property_data").copy(component.properties)
-        for field, value in pairs(fields) do merged[field] = value end
+        local valid, validationError = Schema.values(getmetatable(component).properties, fields)
+        if not valid then return false, validationError end
+        local merged = {}
+        for field in pairs(getmetatable(component).properties) do merged[field] = component.properties[field] end
+        for field, value in pairs(fields) do
+            -- 루트는 배치 Transform만 사용한다. 기존 컴포넌트 override의 루트 offset은 적용하지 않는다.
+            if component ~= object.rootComponent or not Transform.fields[field] then merged[field] = value end
+        end
         local resolved, fieldError = Schema.values(getmetatable(component).properties, merged)
         if not resolved then return false, fieldError end
-        component.properties = resolved
+        if component:isA(require("core.scene_component")) then
+            local applied, applyError = pcall(component.setProperties, component, resolved)
+            if not applied then return false, tostring(applyError) end
+        else component.properties = resolved end
     end
     return true
 end
@@ -118,8 +128,11 @@ function Definition.inspectorTarget(project, data, definition, level, label)
         local scene = component:isA(require("core.scene_component"))
         componentTypes[name] = component.componentType
         for field, declaration in pairs(getmetatable(component).properties) do
-            schema[name .. "." .. field] = {type = declaration.type, default = component.properties[field], component = name, field = field,
-                sceneTransform = scene and (field == "x" or field == "y") or nil, group = declaration.group}
+            local rootTransform = component == object.rootComponent and Transform.fields[field]
+            if not rootTransform or data.transform then
+                schema[name .. "." .. field] = {type = declaration.type, default = component.properties[field], component = name, field = field,
+                    sceneTransform = scene and Transform.fields[field] or nil, rootTransform = rootTransform or nil, group = declaration.group}
+            end
         end
     end
     return {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,
@@ -127,16 +140,32 @@ function Definition.inspectorTarget(project, data, definition, level, label)
         getOverrides = function(target)
             local result = require("project.property_data").copy(target.data.propertyOverrides)
             for name, fields in pairs(target.data.componentOverrides or {}) do
-                for field, value in pairs(fields) do result[name .. "." .. field] = value end
+                for field, value in pairs(fields) do
+                    if name ~= object.rootComponent.name or not Transform.fields[field] then result[name .. "." .. field] = value end
+                end
+            end
+            if target.data.transform then
+                for field in pairs(Transform.fields) do result[object.rootComponent.name .. "." .. field] = target.data.transform[field] end
             end
             return result
         end,
         setOverrides = function(target, values)
             local properties, components = {}, {}
+            local transform = target.data.transform and assert(Transform.copy(target.data.transform))
             for key, value in pairs(values) do
                 local name, field = key:match("^([^.]+)%.(.+)$")
-                if name then components[name] = components[name] or {}; components[name][field] = value
+                if name == object.rootComponent.name and Transform.fields[field] then
+                    if transform then transform[field] = value end
+                elseif name then components[name] = components[name] or {}; components[name][field] = value
                 else properties[key] = value end
+            end
+            if transform then
+                -- 리셋으로 생략된 루트 필드는 schema 기본값을 사용한다.
+                for field in pairs(Transform.fields) do
+                    local key = object.rootComponent.name .. "." .. field
+                    if values[key] == nil then transform[field] = schema[key].default end
+                end
+                target.data.transform = assert(Transform.copy(transform))
             end
             target.data.propertyOverrides, target.data.componentOverrides = properties, components
         end}

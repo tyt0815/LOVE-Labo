@@ -15,7 +15,7 @@ function Tree.new(project, kind)
     end
     if kind == "lua" then
         local parent = self.records["builtin:component"]
-        for _, name in ipairs({"SceneComponent", "SpriteComponent"}) do
+        for _, name in ipairs({"SceneComponent", "RenderComponent", "SpriteComponent"}) do
             local node = {reference = "builtin:" .. name, name = name, kind = "component", parentReference = name, children = {}}
             self.records[node.reference], self.expanded[node.reference] = node, true
             parent.children[#parent.children + 1] = node

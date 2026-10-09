@@ -33,7 +33,7 @@ function Assets:preview(data)
     return ok and object or nil
 end
 function Assets:draw(object, view, zoom)
-    return require("core.sprite_renderer").draw(object, function(reference) return self:image(reference) end,
+    return require("core.renderer").draw(object, function(reference) return self:image(reference) end,
         function(x, y) return view:worldToScreen(x, y) end, zoom)
 end
 return Assets

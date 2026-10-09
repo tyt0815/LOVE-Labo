@@ -1,4 +1,6 @@
 local Transform = {}
+Transform.fields = {x = true, y = true, rotationX = true, rotationY = true, rotation = true, scaleX = true, scaleY = true}
+Transform.order = {"x", "y", "rotationX", "rotationY", "rotation", "scaleX", "scaleY"}
 function Transform.finite(value)
     return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 end
@@ -26,11 +28,18 @@ function Transform.toData(value)
 end
 -- 로컬 스케일 → X/Y/Z 회전 → XY 직교 투영 순서로 동일한 행렬을 공유한다.
 function Transform.basis(value)
+    if value.a then return value.a, value.b, value.c, value.d end
     local rx, ry, rz = math.rad(value.rotationX or 0), math.rad(value.rotationY or 0), math.rad(value.rotation or 0)
     local cx, sx, cy, sy, cz, sz = math.cos(rx), math.sin(rx), math.cos(ry), math.sin(ry), math.cos(rz), math.sin(rz)
     local scaleX, scaleY = value.scaleX or 1, value.scaleY or 1
     return cz * cy * scaleX, sz * cy * scaleX,
         (cz * sy * sx - sz * cx) * scaleY, (sz * sy * sx + cz * cx) * scaleY
+end
+function Transform.compose(parent, child)
+    local a, b, c, d = Transform.basis(parent)
+    local e, f, g, h = Transform.basis(child)
+    local x, y = Transform.point(parent, child.x, child.y)
+    return {x = x, y = y, a = a * e + c * f, b = b * e + d * f, c = a * g + c * h, d = b * g + d * h}
 end
 function Transform.point(value, x, y)
     local a, b, c, d = Transform.basis(value)

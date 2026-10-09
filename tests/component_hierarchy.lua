@@ -17,10 +17,10 @@ add("Component attachments form a root-first hierarchy and inherit ancestor posi
     local hand = logic:addComponent("hand", Sprite, {x = 5, y = 7})
     owner:addComponent("other", Scene)
     A.equal("root,arm,logic,hand,other", table.concat(owner:getComponentOrder(), ","))
-    local x, y = hand:getWorldPosition(); A.equal(135, x); A.equal(237, y)
+    local x, y = hand:getWorldPosition(); A.equal(35, x); A.equal(237, y)
     owner.transform.rotation = 90
     x, y = hand:getWorldPosition()
-    A.truthy(math.abs(x - 63) < 0.00001); A.truthy(math.abs(y - 235) < 0.00001)
+    A.truthy(math.abs(x + 27) < 0.00001); A.truthy(math.abs(y - 225) < 0.00001)
     hand:attachTo("other"); A.equal(owner.components.other, hand.parent)
     A.equal(0, #logic.children)
 end)
@@ -189,5 +189,74 @@ add("Fractional component tree wheel input keeps rows drawable and clickable", f
         end
     end)
     UI.text = original; assert(ok, err)
+end)
+add("Root Transform is the LObject Transform through both APIs and root replacement", function()
+    local owner = object()
+    A.equal(owner.transform, owner.rootComponent.transform)
+    owner.rootComponent.properties.x = 42; A.equal(42, owner.transform.x)
+    owner.transform.y = -20; A.equal(-20, owner.rootComponent.properties.y)
+    owner.rootComponent.properties.rotation = -30; A.equal(330, owner.transform.rotation)
+    local old = owner.rootComponent
+    local new = owner:setRootComponent("sprite", Sprite, {x = 999, scaleX = 3})
+    A.equal(42, new.transform.x); A.equal(-20, new.transform.y); A.equal(1, new.transform.scaleX)
+    A.equal(nil, old.owner); A.equal(owner.transform, new.transform)
+    owner.transform = {x = 8, y = 9, scaleY = 2}
+    A.equal(8, new.properties.x); A.equal(2, new.properties.scaleY)
+    A.equal(nil, rawget(owner, "transform"))
+end)
+
+add("Descendant Transform composes parent rotation and scale through nonspatial components", function()
+    local owner = object()
+    owner.transform.rotation = 90
+    local branch = owner:addComponent("branch", Scene, {x = 10, rotation = 90, scaleX = 2, scaleY = 3})
+    local logic = branch:addComponent("logic", Component)
+    local leaf = logic:addComponent("leaf", Sprite, {x = 5, y = 2, rotation = 30, scaleX = 0.5})
+    local x, y = leaf:getWorldPosition()
+    A.truthy(math.abs(x - 90) < 0.00001); A.truthy(math.abs(y - 204) < 0.00001)
+    local world = leaf:getWorldTransform()
+    local wx, wy = require("core.transform").point(world, 2, 3)
+    local lx, ly = require("core.transform").inversePoint(world, wx, wy)
+    A.truthy(math.abs(lx - 2) < 0.00001); A.truthy(math.abs(ly - 3) < 0.00001)
+    A.equal(false, pcall(function() leaf.properties.scaleY = 0 end))
+    A.equal(1, leaf.properties.scaleY)
+end)
+
+add("RenderComponent Draw and local bounds work without Sprite-specific dispatch", function()
+    local owner, called = object(), 0
+    owner.transform = {x = 40, y = 50}
+    local Shape = require("engine").RenderComponent:extend({
+        Draw = function(self, context)
+            called = called + 1; A.truthy(context.image)
+            love.graphics.setColor(1, 0, 0, 1); love.graphics.rectangle("fill", -5, -5, 10, 10)
+        end,
+        GetLocalBounds = function() return -5, -5, 10, 10 end
+    })
+    local shape = owner:addComponent("shape", Shape, {x = 10, rotation = 45})
+    A.equal(false, shape:isA(Sprite)); A.truthy(shape:isA(require("engine").RenderComponent))
+    local renderer = require("core.renderer")
+    local canvas = love.graphics.newCanvas(100, 100)
+    love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.clear()
+    assert(renderer.draw(owner, function() error("shape should not load an image") end, function(x, y) return x, y end, 1))
+    love.graphics.setCanvas()
+    local pixels = canvas:newImageData(); local red, _, _, alpha = pixels:getPixel(50, 50)
+    A.equal(1, red); A.equal(1, alpha); A.equal(1, called)
+    pixels:release(); love.graphics.pop(); canvas:release()
+    A.equal(true, renderer.hit(owner, function() end, 50, 50))
+    A.equal(false, renderer.hit(owner, function() end, 60, 50))
+    local corners = 0
+    renderer.outline(owner, function() end, function(x, y) corners = corners + 1; return x, y end)
+    A.equal(4, corners)
+end)
+
+add("Draw failure restores graphics state and reaches the caller error boundary", function()
+    local owner = object()
+    owner:addComponent("broken", require("engine").RenderComponent:extend({Draw = function()
+        love.graphics.setColor(0.1, 0.2, 0.3, 0.4); error("expected Draw failure")
+    end}))
+    love.graphics.push("all"); love.graphics.setColor(1, 1, 1, 1)
+    local ok, err = pcall(require("core.renderer").draw, owner, function() end, function(x, y) return x, y end, 1)
+    local r, g, b, a = love.graphics.getColor(); love.graphics.pop()
+    A.equal(false, ok); A.truthy(err:find("expected Draw failure", 1, true))
+    A.equal(1, r); A.equal(1, g); A.equal(1, b); A.equal(1, a)
 end)
 return tests

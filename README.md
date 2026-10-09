@@ -83,7 +83,7 @@ MyProject/
 
 Inspector는 **Prefab/인스턴스 → 루트 → 자손 컴포넌트** 계층 트리와 선택한 항목의 프로퍼티를 표시한다. 객체를 선택하면 Actor Transform·클래스 프로퍼티, 컴포넌트를 선택하면 해당 컴포넌트 프로퍼티만 나타난다. 기본 루트는 SceneComponent이며 코드의 `setRootComponent`로 교체한다. `addComponent`의 부모 인자 또는 `component:addComponent`로 자손을 부착한다. 프로퍼티는 기본 클래스 이름 그룹에 속하며 선언의 `group = "Movement"`로 별도 그룹을 지정한다. 그룹은 같은 깊이이고 기본 펼침이다. 각 프로퍼티는 왼쪽 절반에 변수 이름, 오른쪽 절반에 값·초기값 복원 아이콘을 표시한다. 복원 아이콘은 평소 기호만 표시하고 마우스를 올리면 배경이 나타난다. 펼친 그룹은 배경 박스·테두리로 전체 범위를 감싼다. 그룹을 접어도 값은 유지되며 편집 중 접으면 입력을 확정한다.
 
-SceneComponent 계열을 트리에서 선택하면 **Transform** 그룹이 상대 위치를 **X / Y**로 표시한다. 조상 SceneComponent의 상대 위치를 합산한 뒤 Actor 회전·스케일·이동을 적용한다. Lua·저장 필드는 기존 `x/y`를 유지한다. 이미지 행·이미지 선택 항목은 두 줄(64px)이고 정사각형 미리보기를 표시한다. 이미지의 리셋은 드롭다운 오른쪽, 찾기는 드롭다운 아래다. 일반 Prefab 참조·Parent Class의 찾기는 드롭다운 오른쪽이다. 인스턴스 참조는 스포이드로 Scene View에서 선택하며 옆 찾기 버튼은 해당 객체를 프레이밍한다. Esc·우클릭·포커스 이탈로 스포이드를 취소하고 리셋으로 기본 참조를 복원한다.
+SceneComponent 계열의 **Transform** 그룹은 X/Y·Rot X/Y/Z·Scale X/Y를 표시한다. 루트 Transform이 곧 인스턴스 Transform이며 LObject.transform은 루트로 위임한다. 자손은 부모의 위치·회전·스케일을 이어받는다. Prefab에서는 루트 Transform을 숨기고 자손 Transform만 편집한다. Lua·저장 필드는 기존 `x/y`를 유지한다. 이미지 행·이미지 선택 항목은 두 줄(64px)이고 정사각형 미리보기를 표시한다. 이미지의 리셋은 드롭다운 오른쪽, 찾기는 드롭다운 아래다. 일반 Prefab 참조·Parent Class의 찾기는 드롭다운 오른쪽이다. 인스턴스 참조는 스포이드로 Scene View에서 선택하며 옆 찾기 버튼은 해당 객체를 프레이밍한다. Esc·우클릭·포커스 이탈로 스포이드를 취소하고 리셋으로 기본 참조를 복원한다.
 
 숫자 입력칸은 편집 전 상태에서 좌우로 드래그하면 값이 실시간으로 증감한다. 일반 숫자·위치·회전은 1px당 1, 스케일과 Scale 스냅은 1px당 0.01이며 Shift는 1/10 감도로 조절한다. 4px 미만의 클릭 흔들림은 무시한다. 숫자 드래그 중에는 상대 마우스 모드로 커서를 숨겨 화면 경계 없이 조절하고, 입력칸의 `|`·문자 선택 하이라이트 없이 테두리만 강조한다. 해제하면 값을 확정하고 Escape·포커스 이탈·팝업 전환은 시작값을 복원한다. 이전 마우스 모드·표시 상태도 복원하며 원래 절대 모드였으면 클릭 위치로 돌아간다. 스냅 설정 저장은 해제 시 한 번만 수행한다. 클릭 후 편집 중인 입력칸에서는 기존 문자 선택 드래그를 유지한다.
 
@@ -134,7 +134,7 @@ Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최�
 
 ## Lua Class 상속과 프로퍼티
 
-컴포넌트와 이미지·객체 참조의 선언 및 편집 예시는 [컴포넌트 사용법](docs/components.md)을 참고한다.
+RenderComponent의 Draw/GetLocalBounds 오버라이드, 루트 Transform과 이미지·객체 참조의 선언 및 편집 예시는 [컴포넌트 사용법](docs/components.md)을 참고한다.
 
 `type = "prefab"`은 Inspector에서 다른 Prefab을 선택하는 참조 프로퍼티다. Lua에서는 `world:SpawnLObject(self.properties.projectile, {x = 100, y = 0})`로 해당 Prefab의 런타임 객체를 만든다. 생성·초기화·오류 계약과 예제는 [Prefab 런타임 생성](docs/runtime-spawn.md)을 참고한다.
 
@@ -165,7 +165,7 @@ return Child
 
 ## 에셋 ID와 메타데이터
 
-인스펙터의 선택 대상 이름과 Parent Class 라벨은 굵게 표시하고, 그룹 제목·프로퍼티 이름은 본문 글꼴로 표시한다. `-- labo-script: component` 또는 `.lua.meta`의 `scriptKind: "component"`도 가져오기·아이콘 분류에서 인식한다. Lua Class 생성 트리에서 내장 LObjectComponent·SceneComponent·SpriteComponent 또는 사용자 Component Class를 부모로 선택할 수 있다. Component Class 에셋 ID는 `addComponent`와 `setRootComponent`에 넘겨 사용한다. Level·Prefab 부모 선택 목록에는 Component Class를 포함하지 않는다.
+인스펙터의 선택 대상 이름과 Parent Class 라벨은 굵게 표시하고, 그룹 제목·프로퍼티 이름은 본문 글꼴로 표시한다. `-- labo-script: component` 또는 `.lua.meta`의 `scriptKind: "component"`도 가져오기·아이콘 분류에서 인식한다. Lua Class 생성 트리에서 내장 LObjectComponent·SceneComponent·RenderComponent·SpriteComponent 또는 사용자 Component Class를 부모로 선택할 수 있다. Component Class 에셋 ID는 `addComponent`와 `setRootComponent`에 넘겨 사용한다. Level·Prefab 부모 선택 목록에는 Component Class를 포함하지 않는다.
 
 Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 둔다. ID는 여기만 원본으로 보관한다. 예를 들어 `StartLevel.lua.meta`는 다음 형태다.
 

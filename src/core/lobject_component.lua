@@ -4,7 +4,7 @@ Component.__index = Component
 
 function Component:extend(definition)
     definition = definition or {}
-    for _, callback in ipairs({"BeginPlay", "Load", "Update"}) do
+    for _, callback in ipairs({"BeginPlay", "Load", "Update", "Draw", "GetLocalBounds"}) do
         assert(definition[callback] == nil or type(definition[callback]) == "function", callback .. " must be a function")
     end
     local schema = {}

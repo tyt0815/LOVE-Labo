@@ -75,7 +75,7 @@ local function execute(request)
         local kind = command:match("^(.-)%.")
         local folder = request.folder or (kind == "class" and "Sources" or "Assets")
         local parent = kind == "class" and request.parent
-        local builtin = ({LObjectComponent = true, SceneComponent = true, SpriteComponent = true})[parent or ""]
+        local builtin = ({LObjectComponent = true, SceneComponent = true, RenderComponent = true, SpriteComponent = true})[parent or ""]
         local options = {scriptKind = request.type or builtin and "component" or (parent and assert(project:getScriptKind(parent))) or "lobject",
             parentReference = parent, scriptReference = request.class}
         local ok, reference = project:createEntry(folder, kind == "class" and "lua" or kind, required(request, "name"), options)

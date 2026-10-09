@@ -327,7 +327,7 @@ load error containment
 
 정확한 discovery 규칙과 module cache 정책은 구현 시 결정한다.
 
-현재 Component Class도 부모 선택 생성과 Lua 상속을 지원한다. LObject는 기본 SceneComponent 루트를 소유하고 코드의 build에서 자손을 부착하거나 루트를 교체한다. 모든 컴포넌트는 같은 LObject 안에서 이름이 유일하며 기존 이름별 override를 사용한다. SceneComponent 상대 위치는 조상 위치를 합산하고 Actor Transform을 적용한다. Inspector는 객체·컴포넌트 선택 트리와 선택별 프로퍼티 그룹을 표시하며, 선언의 선택적 group으로 클래스 기본 그룹을 분리한다. 상세 계약은 [ADR 0034](adr/0034-component-hierarchy-and-inspector-tree.md)를 따른다.
+현재 Component Class도 부모 선택 생성과 Lua 상속을 지원한다. LObject는 기본 SceneComponent 루트를 소유하고 코드의 build에서 자손을 부착하거나 루트를 교체한다. 모든 컴포넌트는 같은 LObject 안에서 이름이 유일하며 기존 이름별 override를 사용한다. Inspector는 객체·컴포넌트 선택 트리와 선택별 프로퍼티 그룹을 표시하며, 선언의 선택적 group으로 클래스 기본 그룹을 분리한다. 부착 계약은 [ADR 0034](adr/0034-component-hierarchy-and-inspector-tree.md), 루트 Transform과 자손 행렬 합성은 [ADR 0035](adr/0035-render-components-and-root-transform.md)를 따른다.
 
 Project load 실패가 Editor process 전체를 crash시키거나 반쯤 적용된 Project state를 조용히 남겨서는 안 된다.
 
@@ -342,6 +342,8 @@ Host는 `love.load`, `love.update`, `love.draw` 같은 top-level LÖVE callback 
 Runtime World는 Level authoring data에서 Runtime LObject를 생성한다.
 
 현재는 `prefab` 참조 프로퍼티를 선택하고 `World:SpawnLObject`로 Prefab 기반 Runtime LObject를 추가할 수 있다. 생성기는 runtime 계층에서 World에 주입하며 Core가 파일 로더나 Editor에 의존하지 않는다. Spawn은 authoring 배치·ID·저장 데이터에 반영하지 않는다. 초기화·실패·Update 순서와 Inspector 리소스 입력은 [ADR 0033](adr/0033-prefab-spawn-and-resource-inspector.md)에 기록한다.
+
+현재 렌더링은 SceneComponent → RenderComponent → SpriteComponent 상속으로 구성한다. 공용 Renderer는 호스트의 카메라·이미지 로더를 사용하고 컴포넌트 Draw를 로컬 좌표계에서 호출한다. GetLocalBounds는 클릭·선택 외곽선의 공용 범위를 제공한다. LObject.transform은 루트 Transform으로 위임하고 자손은 부모 기준 회전·스케일·위치를 합성한다. Prefab 루트 Transform은 Inspector에서 숨기며 인스턴스의 루트 편집은 배치 transform 하나에 저장한다. 상세 계약과 기존 루트 offset 처리 방식은 [ADR 0035](adr/0035-render-components-and-root-transform.md)를 따른다.
 
 ```text
 love.update(dt)

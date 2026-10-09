@@ -55,7 +55,7 @@ function Host.draw()
         attempt(function()
             local width, height = love.graphics.getDimensions()
             for _, object in ipairs(world.lobjects) do
-                require("core.sprite_renderer").draw(object, image, function(x, y) return width / 2 + x, height / 2 + y end, 1)
+                require("core.renderer").draw(object, image, function(x, y) return width / 2 + x, height / 2 + y end, 1)
             end
             return true
         end)

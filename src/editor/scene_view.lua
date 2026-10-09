@@ -144,7 +144,7 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
         local transform = lobject.transform
         if self.spriteAssets then
             local preview = self.spriteAssets:preview(lobject)
-            if preview and require("core.sprite_renderer").hit(preview, function(reference) return self.spriteAssets:image(reference) end, worldX, worldY) then return lobject end
+            if preview and require("core.renderer").hit(preview, function(reference) return self.spriteAssets:image(reference) end, worldX, worldY) then return lobject end
         end
 
         local insideX =
@@ -401,7 +401,7 @@ function SceneView:drawLObjects()
         if preview then
             Theme.setColor("objectSelected")
             love.graphics.setLineWidth(2)
-            require("core.sprite_renderer").outline(preview, function(reference) return self.spriteAssets:image(reference) end,
+            require("core.renderer").outline(preview, function(reference) return self.spriteAssets:image(reference) end,
                 function(x, y) return self:worldToScreen(x, y) end)
         end
     end

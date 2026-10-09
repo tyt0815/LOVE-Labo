@@ -3,5 +3,6 @@ return {
     SpawnLObject = function(world, prefab, transform, overrides) return world:SpawnLObject(prefab, transform, overrides) end,
     LObjectComponent = require("core.lobject_component"),
     SceneComponent = require("core.scene_component"),
+    RenderComponent = require("core.render_component"),
     SpriteComponent = require("core.sprite_component")
 }
