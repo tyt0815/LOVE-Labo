@@ -1028,17 +1028,17 @@ add("creation wizard chooses parent then folder and name for classes levels and 
         app:textinput("EnemyPrefab")
         app:keypressed("return")
         Assert.equal(nil, root.popup)
-        local data = assert(require("editor.json").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/EnemyPrefab.prefab"))))))
+        local data = assert(require("editor.json").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/PF_EnemyPrefab.prefab"))))))
         Assert.equal(project:getAssetId("Sources/Enemy.lua"), data.definitionReference)
         assert(project:deleteEntry("Sources/Enemy.lua"))
         browser:showCreateDialog("Assets", "prefab")
         tree = root.popup.options.content
         Assert.equal(2, #tree.nodes)
-        Assert.truthy(tree.records[project:getAssetId("Assets/EnemyPrefab.prefab")].error)
+        Assert.truthy(tree.records[project:getAssetId("Assets/PF_EnemyPrefab.prefab")].error)
         app:keypressed("return")
         app:keypressed("return")
         Assert.equal(nil, root.popup)
-        Assert.equal(nil, assert(require("editor.prefab").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/NewPrefab.prefab")))))).definitionReference)
+        Assert.equal(nil, assert(require("editor.prefab").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/PF_.prefab")))))).definitionReference)
     end)
 end)
 
@@ -1329,6 +1329,7 @@ add("Inspector identifies assets and keeps the opened level editable", function(
         Assert.equal("Renamed", app.levelInspectorTarget:getDisplayName())
         assert(project:createEntry("Sources", "lua", "Actor", {scriptKind = "lobject"}))
         app.assetBrowser.selectedReference = "Sources/Actor.lua"
+        assert(app.assetBrowser.onSelect("Sources/Actor.lua"))
         app:updateInspectorTarget()
         Assert.equal("Actor", app.inspector.assetSummary.name)
         Assert.equal("LObject Class", app.inspector.assetSummary.kind)
@@ -1412,6 +1413,7 @@ update=function(self,dt) self.transform.x=self.transform.x+self.properties.speed
         local app = EditorApp.new(nil, project)
         local browser = app.assetBrowser
         app:mousepressed(browser.fileSlot.widget.x + 20, browser.fileSlot.widget.y + 20, 1)
+        app:mousereleased(browser.fileSlot.widget.x + 20, browser.fileSlot.widget.y + 20, 1)
         app:draw()
         local inspector = app.inspector.classInspector
         Assert.equal("Prefab", inspector.target.label)
@@ -1902,7 +1904,7 @@ add("Prefab component defaults can be edited and instance reset restores Prefab 
     end)
 end)
 
-add("Instance Inspector routes text and reference dropdown input through the UI", function()
+add("Instance Inspector routes text and eyedropper input through the UI", function()
     fixture(function(parent)
         local project, prefabId = componentProject(parent)
         local app = EditorApp.new(nil, project)
@@ -1928,14 +1930,14 @@ add("Instance Inspector routes text and reference dropdown input through the UI"
         app:textinput("!"); app:keypressed("return")
         Assert.equal("ab!cd", a.propertyOverrides.title)
         x, y = field("target")
-        app:mousepressed(x, y, 1)
-        Assert.truthy(app.uiRoot.popup)
-        app:keypressed("down")
-        app:keypressed("down")
-        app:keypressed("return")
+        local actions = inspector:referenceRects(y - 6)
+        app:mousepressed(actions.assign.x + 3, actions.assign.y + 3, 1)
+        Assert.truthy(app.objectPick)
+        local sx, sy = app.sceneView:worldToScreen(b.transform.x, b.transform.y)
+        app:mousepressed(sx, sy, 1)
         Assert.equal(b.authoringId, a.propertyOverrides.target)
         Assert.equal(nil, app.uiRoot.popup)
-        app:mousepressed(x, y, 1)
+        app:mousepressed(actions.assign.x + 3, actions.assign.y + 3, 1)
         app:keypressed("escape")
         Assert.equal(b.authoringId, a.propertyOverrides.target)
         local spriteX, spriteY = field("sprite.x")
@@ -2075,7 +2077,7 @@ add("Component Inspector groups collapse without changing overrides for instance
         local header
         for _, row in ipairs(inspector.rows) do
             Assert.truthy(row.name ~= "sprite.x")
-            if row.component == "sprite" then header = row end
+            if row.component == "sprite" and not row.transformGroup then header = row end
         end
         Assert.truthy(header)
         inspector:mousepressed(inspector.left + 20, inspector.propertyTop + header.offset + 10, 1)
@@ -2084,11 +2086,11 @@ add("Component Inspector groups collapse without changing overrides for instance
         Assert.truthy(rect.x > inspector.left + require("editor.ui").metrics.contentPaddingX)
         local headerIndex, propertyIndex
         for i, row in ipairs(inspector.rows) do
-            if row.component == "sprite" then headerIndex = i end
+            if row.component == "sprite" and not row.transformGroup then headerIndex = i end
             if row.name == "speed" then propertyIndex = i end
         end
         Assert.truthy(headerIndex < propertyIndex)
-        Assert.equal(32 + 96 + 2 * 32, inspector.rows[headerIndex].groupHeight)
+        Assert.equal(32 + 32 + 64 + 2 * 32, inspector.rows[headerIndex].groupHeight)
         inspector:mousepressed(rect.x + 5, rect.y + 5, 1); inspector:textinput("19"); inspector:keypressed("return")
         Assert.equal(19, object.componentOverrides.sprite.x)
         if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
@@ -2101,7 +2103,7 @@ add("Component Inspector groups collapse without changing overrides for instance
             inspector:layout(inspector.left, inspector.width, 1000)
         end
         inspector.scroll = 0
-        for _, row in ipairs(inspector.rows) do if row.component == "sprite" then header = row end end
+        for _, row in ipairs(inspector.rows) do if row.component == "sprite" and not row.transformGroup then header = row end end
         inspector:mousepressed(inspector.left + 20, inspector.propertyTop + header.offset + 10, 1)
         Assert.equal(false, inspector.expanded.sprite)
         Assert.equal(19, object.componentOverrides.sprite.x)
@@ -2215,7 +2217,7 @@ add("Resource rows show thumbnails and names and reveal without replacing the In
         local rect = inspector:ensurePropertyVisible("sprite.image")
         local imageRow
         for _, row in ipairs(inspector.rows) do if row.name == "sprite.image" then imageRow = row end end
-        Assert.equal(96, imageRow.height)
+        Assert.equal(64, imageRow.height)
         local rects = inspector:imageRects(inspector.propertyTop + imageRow.offset - inspector.scroll)
         Assert.equal(rects.preview.w, rects.preview.h)
         Assert.equal(rects.selector.x, rect.x)
@@ -2223,12 +2225,12 @@ add("Resource rows show thumbnails and names and reveal without replacing the In
         Assert.truthy(inspector:thumbnail(imageId))
         local choices = inspector:choices("sprite.image", false)
         Assert.equal("Sprite.png", choices.options[2].label)
-        Assert.equal(96, choices.rowHeight)
+        Assert.equal(64, choices.rowHeight)
         inspector:mousepressed(rect.x + 3, rect.y + 3, 1)
         choices = inspector.propertyChoice
         Assert.equal(choices.menu, app.uiRoot.popup)
-        Assert.equal(choices.visibleRows * 96 + 6, choices.menu.height)
-        choices.menu:dispatch("mousepressed", choices.menu.x + 10, choices.menu.y + 96 + 10, 1)
+        Assert.equal(choices.visibleRows * 64 + 6, choices.menu.height)
+        choices.menu:dispatch("mousepressed", choices.menu.x + 10, choices.menu.y + 64 + 10, 1)
         Assert.equal(imageId, object.componentOverrides.sprite.image)
         local target, source = inspector.target, app.inspectorSource
         app.assetBrowser.collapsed = true
@@ -2270,9 +2272,9 @@ add("Group headers keep a fixed height and resource reveal scrolls files into vi
         app.sceneView.selectedLObject, app.activePanel = app.level:addLObject(0, 0, prefabId), "scene"; app:draw()
         local inspector = app.inspector.classInspector
         local collapsedHeight
-        for _, row in ipairs(inspector.rows) do if row.component == "sprite" then collapsedHeight = row.height end end
+        for _, row in ipairs(inspector.rows) do if row.component == "sprite" and not row.transformGroup then collapsedHeight = row.height end end
         inspector:ensurePropertyVisible("sprite.image")
-        for _, row in ipairs(inspector.rows) do if row.component == "sprite" then Assert.equal(collapsedHeight, row.height) end end
+        for _, row in ipairs(inspector.rows) do if row.component == "sprite" and not row.transformGroup then Assert.equal(collapsedHeight, row.height) end end
         for i = 1, 25 do assert(project:createEntry("Assets", "prefab", string.format("Item%02d", i))) end
         local browser = app.assetBrowser
         for _, mode in ipairs({"list", "thumbnails"}) do
@@ -2983,6 +2985,241 @@ add("right click folder creation defaults to the clicked folder", function()
         assert(action); action()
         app.uiRoot.popup:submit()
         Assert.equal("Sources/Gameplay", app.uiRoot.popup.options.content.selected)
+    end)
+end)
+add("Prefab properties spawn configured runtime objects without changing authoring data", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local path = assert(project:resolveSourceFile("Sources/Actor.lua"))
+        local code = assert(FS.read(path)):gsub("return Actor", 'Actor.properties.projectile = {type = "prefab", default = false}\nreturn Actor')
+        assert(FS.writeAtomic(path, code))
+        assert(project:createEntry("Assets", "prefab", "Projectile", {scriptReference = prefabId}))
+        local projectile = project:getAssetId("Assets/Projectile.prefab")
+        local app = EditorApp.new(nil, project)
+        local authored = app.level:addLObject(0, 0, prefabId)
+        authored.propertyOverrides = {projectile = projectile}
+        local before = assert(require("editor.level_file").encode(app.level))
+        assert(app:startPlay())
+        local world, owner = app.runtimeWorld, app.runtimeWorld.lobjects[1]
+        Assert.equal(projectile, owner.properties.projectile)
+        local spawned = assert(world:SpawnLObject(owner.properties.projectile, {x = 123, y = -45, rotation = 450},
+            {properties = {speed = 99, target = authored.authoringId}, components = {sprite = {x = 12}}}))
+        Assert.equal(2, spawned.runtimeId); Assert.equal(nil, spawned.authoringId)
+        Assert.equal(123, spawned.transform.x); Assert.equal(90, spawned.transform.rotation)
+        Assert.equal(99, spawned.properties.speed); Assert.equal(owner, spawned.properties.target)
+        Assert.equal(12, spawned.components.sprite.properties.x)
+        Assert.equal(1, spawned.components.counter.properties.count)
+        Assert.equal(world, spawned.world); Assert.equal(true, spawned.hasBegunPlay)
+        local second = assert(require("engine").SpawnLObject(world, projectile))
+        Assert.equal(3, second.runtimeId)
+        assert(world:update(0.5)); Assert.equal(1.5, spawned.components.counter.properties.count)
+        Assert.equal(before, assert(require("editor.level_file").encode(app.level)))
+        app:stopPlay(); Assert.equal(1, #app.level.lobjects)
+        assert(app:startPlay()); Assert.equal(1, #app.runtimeWorld.lobjects)
+    end)
+end)
+
+add("Update spawning defers new object updates and failed BeginPlay rolls back nested spawns", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local path = assert(project:resolveSourceFile("Sources/Actor.lua"))
+        assert(FS.writeAtomic(path, [[local Actor = {properties = {
+            projectile = {type = "prefab", default = false}, fail = {type = "boolean", default = false}}}
+function Actor.BeginPlay(self, world)
+    if self.properties.fail then
+        assert(world:SpawnLObject(self.properties.projectile))
+        error("expected spawn initialization failure")
+    end
+end
+function Actor.update(self, dt)
+    self.calls = (self.calls or 0) + 1
+    if self.properties.projectile ~= false and not self.spawned then
+        self.spawned = assert(self.world:SpawnLObject(self.properties.projectile))
+    end
+end
+return Actor]]))
+        assert(project:createEntry("Assets", "prefab", "Child", {scriptReference = prefabId}))
+        local childId = project:getAssetId("Assets/Child.prefab")
+        local level = require("editor.level").new()
+        level:addLObject(0, 0, prefabId).propertyOverrides = {projectile = childId}
+        local world = assert(require("runtime.world_loader").create(project, level:toData()))
+        assert(world:update(0.1))
+        Assert.equal(2, #world.lobjects); Assert.equal(nil, world.lobjects[2].calls)
+        assert(world:update(0.1)); Assert.equal(1, world.lobjects[2].calls)
+        local count = #world.lobjects
+        local object, err = world:SpawnLObject(prefabId, nil, {properties = {fail = true, projectile = childId}})
+        Assert.equal(nil, object); Assert.truthy(err:find("expected spawn", 1, true))
+        Assert.equal(count, #world.lobjects)
+        local successful = assert(world:SpawnLObject(childId))
+        Assert.equal(5, successful.runtimeId)
+        for _, reference in ipairs({false, project:getAssetId("Sources/Actor.lua"), "missing"}) do
+            object, err = world:SpawnLObject(reference)
+            Assert.equal(nil, object); Assert.truthy(err)
+        end
+        object, err = world:SpawnLObject(childId, {x = math.huge, y = 0})
+        Assert.equal(nil, object); Assert.truthy(err)
+        Assert.equal(count + 1, #world.lobjects)
+    end)
+end)
+
+add("Inspector resource drops validate assets and preserve the edited target", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local source = assert(project:resolveSourceFile("Sources/Actor.lua"))
+        assert(FS.writeAtomic(source, assert(FS.read(source)):gsub("return Actor", 'Actor.properties.projectile = {type = "prefab", default = false}\nreturn Actor')))
+        local pixels = love.image.newImageData(8, 8)
+        local png = pixels:encode("png")
+        assert(FS.writeAtomic(project:resolvePath("Assets/Sprite.png"), png:getString()))
+        pixels:release(); png:release(); assert(project:rebuildAssetIndex())
+        local app = EditorApp.new(nil, project)
+        local owner = app.level:addLObject(0, 0, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = owner, "scene"; app:draw()
+        local inspector, browser = app.inspector.classInspector, app.assetBrowser
+        local function drop(reference, rect)
+            local before = inspector.target
+            assert(browser:openFolder(reference:match("^(.*)/[^/]+$")))
+            browser.viewMode = "list"; app:updateSceneViewport()
+            local index
+            for i, entry in ipairs(browser.entries) do if entry.reference == reference then index = i end end
+            assert(index)
+            local x, y = browser.fileSlot.widget.x + 60, browser.fileSlot.widget.y + (index - 1) * 26 + 13
+            app:mousepressed(x, y, 1)
+            app:mousemoved(rect.x + 3, rect.y + 3, rect.x - x, rect.y - y)
+            app:draw()
+            Assert.equal(before, inspector.target)
+            app:mousereleased(rect.x + 3, rect.y + 3, 1)
+        end
+        local target = inspector.target
+        local rect = inspector:ensurePropertyVisible("sprite.image")
+        local actions = inspector:imageRects(rect.y - 3)
+        Assert.equal(actions.selector.y, actions.reset.y)
+        Assert.truthy(actions.reset.x > actions.selector.x + actions.selector.w)
+        drop("Assets/Sprite.png", actions.selector)
+        Assert.equal(project:getAssetId("Assets/Sprite.png"), owner.componentOverrides.sprite.image)
+        Assert.equal(target, inspector.target)
+        drop("Sources/Actor.lua", actions.selector)
+        Assert.truthy(browser.error)
+        rect = inspector:ensurePropertyVisible("projectile")
+        actions = inspector:referenceRects(rect.y - 3)
+        drop("Assets/Actor.prefab", actions.selector)
+        Assert.equal(prefabId, owner.propertyOverrides.projectile)
+        app:mousepressed(actions.browse.x + 3, actions.browse.y + 3, 1)
+        Assert.equal("Assets/Actor.prefab", browser.selectedReference); Assert.equal(target, inspector.target)
+        assert(app:inspectAsset("Assets/Actor.prefab"))
+        app.activePanel = "assets"; app:updateInspectorTarget()
+        local previous = app.prefabDocument.data.definitionReference
+        Assert.equal(false, inspector:dropAsset({reference = "Assets", type = "directory"}, inspector.dropdown.x + 3, inspector.dropdown.y + 3))
+        Assert.equal(previous, app.prefabDocument.data.definitionReference)
+        assert(project:createEntry("Sources", "lua", "Alternate", {scriptKind = "lobject"}))
+        drop("Sources/Alternate.lua", {x = inspector.dropdown.x, y = inspector.dropdown.y})
+        Assert.equal(project:getAssetId("Sources/Alternate.lua"), app.prefabDocument.data.definitionReference)
+    end)
+end)
+
+add("Eyedropper pick and frame preserve selection and cancel cursor state", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local owner = app.level:addLObject(0, 0, prefabId)
+        local target = app.level:addLObject(180, 80, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = owner, "scene"; app:draw()
+        app:recordHistory()
+        local inspector = app.inspector.classInspector
+        inspector:ensurePropertyVisible("target")
+        local cursor = love.mouse.getCursor()
+        assert(app:beginObjectPick("target"))
+        local x, y = app.sceneView:worldToScreen(target.transform.x, target.transform.y)
+        app:mousepressed(x, y, 1)
+        Assert.equal(target.authoringId, owner.propertyOverrides.target)
+        Assert.equal(owner, app.sceneView.selectedLObject)
+        Assert.equal(nil, app.objectPick); Assert.equal(cursor, love.mouse.getCursor())
+        assert(inspector.onFrame(target.authoringId))
+        Assert.equal(-180 * app.sceneView.zoom, app.sceneView.cameraX)
+        Assert.equal(-80 * app.sceneView.zoom, app.sceneView.cameraY)
+        Assert.equal(owner, app.sceneView.selectedLObject)
+        assert(app:undoRedo(-1))
+        Assert.equal(nil, next(app.level.lobjects[1].propertyOverrides or {}))
+        assert(app:undoRedo(1))
+        Assert.equal(target.authoringId, app.level.lobjects[1].propertyOverrides.target)
+        for _, cancel in ipairs({function() app:keypressed("escape") end,
+            function() app:mousepressed(x, y, 2) end, function() app:focus(false) end}) do
+            assert(app:beginObjectPick("target")); cancel()
+            Assert.equal(nil, app.objectPick); Assert.equal(cursor, love.mouse.getCursor())
+        end
+    end)
+end)
+
+add("Level and Prefab creation focus the name after their prefixes", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "Prefixes"))
+        local app = EditorApp.new(nil, project)
+        for _, kind in ipairs({"level", "prefab"}) do
+            local prefix = kind == "level" and "L_" or "PF_"
+            app.assetBrowser:showCreateDialog("Assets", kind)
+            app.uiRoot.popup:submit()
+            local dialog = app.uiRoot.popup
+            Assert.equal(prefix, dialog.text); Assert.equal(false, dialog.contentFocused)
+            Assert.equal(false, dialog.replace)
+            Assert.equal(#prefix, dialog.editState.cursor); Assert.equal(#prefix, dialog.editState.anchor)
+            app:textinput("Stage"); Assert.equal(prefix .. "Stage", dialog.text)
+            app.uiRoot.popup:submit()
+            Assert.truthy(project:getAssetId("Assets/" .. prefix .. "Stage." .. kind))
+        end
+    end)
+end)
+add("SceneComponent Transform subgroup folds positions independently of image properties", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local object = app.level:addLObject(0, 0, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = object, "scene"; app:draw()
+        local inspector = app.inspector.classInspector
+        inspector:ensurePropertyVisible("sprite.x")
+        Assert.equal(true, inspector.class.properties["sprite.x"].sceneTransform)
+        Assert.equal(nil, inspector.class.properties["counter.count"].sceneTransform)
+        assert(inspector:setProperty("sprite.x", 17))
+        local before = assert(require("editor.level_file").encode(app.level))
+        local transform
+        for _, row in ipairs(inspector.rows) do if row.transformGroup then transform = row end end
+        Assert.equal("Transform", transform.label)
+        inspector:mousepressed(inspector.left + 30, inspector.propertyTop + transform.offset + 10, 1)
+        Assert.equal(false, inspector.transformExpanded.sprite)
+        local imageVisible = false
+        for _, row in ipairs(inspector.rows) do
+            Assert.truthy(row.name ~= "sprite.x" and row.name ~= "sprite.y")
+            if row.name == "sprite.image" then imageVisible = true end
+        end
+        Assert.equal(true, imageVisible)
+        Assert.equal(before, assert(require("editor.level_file").encode(app.level)))
+        inspector:ensurePropertyVisible("sprite.x")
+        Assert.equal(true, inspector.transformExpanded.sprite)
+        Assert.equal(17, object.componentOverrides.sprite.x)
+    end)
+end)
+
+add("Cancelling resource drags preserves prefab Inspector while browsing other roots", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        assert(app:inspectAsset("Assets/Actor.prefab"))
+        app.activePanel = "inspector"; app:updateInspectorTarget()
+        local target = app.inspector.classInspector.target
+        local browser = app.assetBrowser
+        local index
+        for i, node in ipairs(browser.tree) do if node.reference == "Sources" then index = i end end
+        assert(index)
+        local x, y = browser.treeSlot.widget.x + 70, browser.treeSlot.widget.y + (index - 1) * 26 + 13
+        app:mousepressed(x, y, 1); app:mousereleased(x, y, 1); app:draw()
+        Assert.equal("Sources", browser.folder)
+        Assert.equal(target, app.inspector.classInspector.target)
+        browser.viewMode = "list"; app:updateSceneViewport()
+        x, y = browser.fileSlot.widget.x + 60, browser.fileSlot.widget.y + 13
+        app:mousepressed(x, y, 1); app:mousemoved(x + 20, y - 20, 20, -20); app:draw()
+        Assert.equal(target, app.inspector.classInspector.target)
+        app:keypressed("escape"); app:draw()
+        Assert.equal(nil, browser.drag); Assert.equal(target, app.inspector.classInspector.target)
+        Assert.equal(nil, app.uiRoot.captured)
+        Assert.equal(prefabId, app.prefabDocument.assetId)
     end)
 end)
 return tests

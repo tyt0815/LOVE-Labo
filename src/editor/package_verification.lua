@@ -39,7 +39,8 @@ function Verification.run(args)
         local classId = assert(project:getAssetId("Sources/NewClass.lua"))
         -- 사용자 프로젝트 코드와 이미지가 패키지 밖에서도 로딩되는지 확인한다.
         assert(FS.writeAtomic(source, [[-- labo-script: lobject
-local NewClass = {properties = {speed = {type = "number", default = 10}}}
+local NewClass = {properties = {speed = {type = "number", default = 10},
+    target = {type = "object", default = false}, projectile = {type = "prefab", default = false}}}
 function NewClass.build(self) self:addComponent("sprite", require("engine").SpriteComponent) end
 function NewClass.BeginPlay(self) self.begun = true end
 return NewClass
@@ -82,6 +83,9 @@ return NewClass
         dialog.options.content:choose(dialog.options.content.records[prefabId])
         preview("create-prefab-parent")
         dialog:submit()
+        check("prefab name prefix focused", app.uiRoot.popup.text == "PF_" and not app.uiRoot.popup.contentFocused
+            and app.uiRoot.popup.editState.cursor == 3 and app.uiRoot.popup.editState.anchor == 3)
+        preview("prefab-name-prefix")
         app.uiRoot.popup.text = "ChildPrefab"; app.uiRoot.popup:submit()
         check("derived prefab created", require("project.prefab").decode(project:readAsset("Assets/ChildPrefab.prefab")).definitionReference == prefabId)
         local x, y = app.sceneView:worldToScreen(100, 200)
@@ -90,9 +94,33 @@ return NewClass
         app:updateInspectorTarget()
         local inspector = app.inspector.classInspector
         assert(inspector:setProperty("speed", 42))
-        assert(inspector:setProperty("sprite.image", project:getAssetId("Assets/Sprite.png")))
+        local function dropResource(reference, name)
+            local browser = app.assetBrowser
+            assert(browser:openFolder(reference:match("^(.*)/[^/]+$")))
+            browser.viewMode = "list"; app:updateSceneViewport()
+            local rect = inspector:ensurePropertyVisible(name)
+            local index
+            for i, entry in ipairs(browser.entries) do if entry.reference == reference then index = i end end
+            assert(index)
+            local x, y = browser.fileSlot.widget.x + 60, browser.fileSlot.widget.y + (index - 1) * 26 + 13
+            app:mousepressed(x, y, 1)
+            app:mousemoved(rect.x + 3, rect.y + 3, rect.x - x, rect.y - y)
+            app:draw()
+            app:mousereleased(rect.x + 3, rect.y + 3, 1)
+            assert(not browser.error, browser.error)
+        end
+        dropResource("Assets/Sprite.png", "sprite.image")
+        dropResource("Assets/ChildPrefab.prefab", "projectile")
+        check("resource drag drop", object.propertyOverrides.projectile == project:getAssetId("Assets/ChildPrefab.prefab"))
+        local target = app.level:addLObject(-100, 40, prefabId)
+        app:recordHistory()
+        assert(app:beginObjectPick("target"))
+        local targetX, targetY = app.sceneView:worldToScreen(-100, 40)
+        app:mousepressed(targetX, targetY, 1)
+        check("viewport reference eyedropper", object.propertyOverrides.target == target.authoringId and app.sceneView.selectedLObject == object)
         inspector:ensurePropertyVisible("sprite.image")
         app:draw()
+        preview("resource-properties")
         check("external image loaded", app.spriteAssets:image(project:getAssetId("Assets/Sprite.png")) ~= nil)
         assert(app:saveCurrentDocument(levelPath))
         local reopened = assert(Project.open(project.rootPath))
@@ -112,6 +140,9 @@ return NewClass
         app = App.new(document, reopened)
         assert(app:startPlay())
         check("project class BeginPlay", app.runtimeWorld.lobjects[1].begun)
+        local world = app.runtimeWorld
+        local spawned = assert(world:SpawnLObject(world.lobjects[1].properties.projectile, {x = 150, y = 50}))
+        check("runtime prefab spawn", #world.lobjects == 3 and spawned.begun and spawned.authoringId == nil)
         app.gameView:draw()
         assert(app:stopPlay())
         app:draw()

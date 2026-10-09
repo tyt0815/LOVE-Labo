@@ -254,11 +254,15 @@ function SceneView:mousemoved(x, y, dx, dy)
 end
 
 function SceneView:frameSelected()
-    if not self.selectedLObject or not self.selectedLObject.transform then
+    return self:frameLObject(self.selectedLObject)
+end
+
+function SceneView:frameLObject(object)
+    if not object or not object.transform then
         return false
     end
 
-    local transform = self.selectedLObject.transform
+    local transform = object.transform
 
     -- 선택된 LObject의 world 위치가 현재 Scene View 정중앙에 오도록
     -- viewport 위치와 독립적인 camera offset만 조정한다.

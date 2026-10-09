@@ -1,6 +1,7 @@
 # 0026. 리소스 프로퍼티 미리보기와 에셋 위치 찾기
 
 - 상태: 채택
+- 이미지 행 높이·리셋 배치는 [ADR 0033](0033-prefab-spawn-and-resource-inspector.md)으로 대체한다.
 - 날짜: 2026-10-09
 - 확장: [ADR 0024](0024-collapsible-details-and-property-columns.md)의 Details 행 배치
 - 관련: [ADR 0011](0011-asset-ids-metadata-and-path-cache.md)의 안정적인 에셋 ID

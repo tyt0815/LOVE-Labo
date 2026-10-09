@@ -26,10 +26,16 @@ local NewClass = {properties = {
     speed = {type = "number", default = 10},
     enabled = {type = "boolean", default = true},
     title = {type = "string", default = "Agent"},
-    target = {type = "object", default = false}
+    target = {type = "object", default = false},
+    projectile = {type = "prefab", default = false}
 }}
 function NewClass.build(self) self:addComponent("sprite", Engine.SpriteComponent) end
-function NewClass.BeginPlay(self) self.properties.started = true end
+function NewClass.BeginPlay(self, world)
+    self.properties.started = true
+    if self.properties.projectile ~= false then
+        self.spawned = assert(world:SpawnLObject(self.properties.projectile, {x = 20, y = 30}))
+    end
+end
 function NewClass.update(self, dt) self.properties.ticks = (self.properties.ticks or 0) + 1 end
 return NewClass
 '@
@@ -60,6 +66,7 @@ Invoke-LaboRequest @{command = 'instance.set'; project = $taskProject; instance 
 Invoke-LaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'enabled'; value = $false} | Out-Null
 Invoke-LaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'title'; value = 'CLI game'} | Out-Null
 Invoke-LaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'target'; value = $taskSecond.data.authoringId} | Out-Null
+Invoke-LaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'projectile'; value = $taskChildPrefab.assetId} | Out-Null
 Invoke-LaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'sprite.x'; value = 11} | Out-Null
 $taskGamePath = Join-Path $taskDirectory 'Game.love'
 Invoke-LaboRequest @{command = 'export'; project = $taskProject; output = $taskGamePath} | Out-Null
@@ -70,10 +77,11 @@ $taskGameProcess = Start-Process -FilePath (Join-Path $LoveDirectory 'lovec.exe'
 if (-not $taskGameProcess.WaitForExit(60000)) { $taskGameProcess.Kill(); throw 'Exported game verification timed out' }
 $taskGameReport = Get-Content -LiteralPath $taskGameReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($taskGameProcess.ExitCode -ne 0 -or -not $taskGameReport.ok -or $taskGameReport.editorLoaded) { throw "Exported game failed: $($taskGameReport.error)" }
-if ($taskGameReport.objects -ne 2 -or $taskGameReport.properties[0].speed -ne 42 -or $taskGameReport.properties[0].enabled -ne $false `
+if ($taskGameReport.objects -ne 3 -or $taskGameReport.properties[0].speed -ne 42 -or $taskGameReport.properties[0].enabled -ne $false `
     -or -not $taskGameReport.properties[0].started -or $taskGameReport.properties[0].ticks -ne 1 `
     -or $taskGameReport.properties[0].target.instance -ne $taskSecond.data.authoringId `
-    -or $taskGameReport.properties[1].speed -ne 25) { throw 'Exported game state does not match CLI edits' }
+    -or $taskGameReport.properties[1].speed -ne 25 -or $taskGameReport.properties[2].speed -ne 25 `
+    -or -not $taskGameReport.properties[2].started -or $taskGameReport.properties[2].ticks -ne 1) { throw 'Exported game state does not match CLI edits' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $taskArchive = [IO.Compression.ZipFile]::OpenRead($taskGamePath)
 try {

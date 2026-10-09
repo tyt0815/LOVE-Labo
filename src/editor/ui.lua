@@ -132,14 +132,25 @@ function UI.resetButton(rect)
     love.graphics.pop()
 end
 
-function UI.browseButton(rect, enabled)
-    UI.button("", rect, false, "Find resource in Asset Browser.", true)
+function UI.browseButton(rect, enabled, hint)
+    UI.button("", rect, false, hint or "Find resource in Asset Browser.", true)
     love.graphics.push("all")
     Theme.setColor(enabled and "textMuted" or "textDisabled")
     love.graphics.setLineWidth(1.5)
     local x, y = rect.x + rect.w / 2 - 2, rect.y + rect.h / 2 - 2
     love.graphics.circle("line", x, y, 5)
     love.graphics.line(x + 4, y + 4, x + 8, y + 8)
+    love.graphics.pop()
+end
+
+function UI.eyedropperButton(rect, active)
+    UI.button("", rect, active, "Pick an instance in the viewport. Esc: cancel.", true)
+    love.graphics.push("all")
+    Theme.setColor("textMuted")
+    love.graphics.setLineWidth(1.5)
+    local x, y = rect.x + rect.w / 2, rect.y + rect.h / 2
+    love.graphics.line(x - 6, y + 6, x - 4, y + 1, x + 3, y - 6, x + 6, y - 3, x - 1, y + 4, x - 6, y + 6)
+    love.graphics.line(x + 1, y - 6, x + 6, y - 1)
     love.graphics.pop()
 end
 

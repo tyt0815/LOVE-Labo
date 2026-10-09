@@ -12,6 +12,7 @@ Actor.properties = {
     title = {type = "string", default = "캐릭터"},
     enabled = {type = "boolean", default = true},
     target = {type = "object", default = false},
+    projectile = {type = "prefab", default = false},
 }
 
 -- 에디터에서도 실행되므로 게임 동작 없이 구성만 선언한다.
@@ -34,7 +35,9 @@ end
 return Actor
 ```
 
-Inspector에서 `> sprite (SpriteComponent)` 헤더를 눌러 펼친 다음 `image`에서 Assets의 이미지를 선택한다. 이미지를 외부에서 추가했다면 Asset Browser의 Refresh를 누른다. `x/y`는 LObject 위치에 대한 상대 좌표다. 컴포넌트는 기본적으로 접혀 있으며 접기 상태는 저장 데이터에 포함하지 않는다. `target`에서 같은 레벨의 인스턴스를 선택하고, 참조를 지울 때는 None을 선택한다. 숫자·문자열은 입력 후 Enter, boolean은 버튼으로 수정한다. 각 필드의 되돌리기 화살표 아이콘(↺)은 Prefab/클래스 기본값으로 복원한다.
+Inspector에서 `> sprite (SpriteComponent)` 헤더를 눌러 펼친 다음 `image`에서 Assets의 이미지를 선택하거나 파일을 해당 필드로 드래그한다. 이미지를 외부에서 추가했다면 Asset Browser의 Refresh를 누른다. 내부 `Transform` 그룹의 `X/Y`는 LObject 위치에 대한 상대 좌표이며 코드·저장에는 `x/y`를 쓴다. 컴포넌트는 기본적으로 접혀 있고 내부 Transform은 펼침이며 접기 상태는 저장 데이터에 포함하지 않는다. `target` 옆 스포이드를 누르고 같은 레벨의 인스턴스를 Scene View에서 클릭한다. 찾기 버튼은 대상을 프레이밍하고 리셋은 기본 참조(None)로 복원한다. 숫자·문자열은 입력 후 Enter, boolean은 버튼으로 수정한다. 각 필드의 되돌리기 화살표 아이콘(↺)은 Prefab/클래스 기본값으로 복원한다.
+
+`projectile`에는 다른 Prefab을 드롭다운 또는 드래그로 지정한다. 이미지·Prefab 참조·Parent Class의 찾기 버튼은 에셋 폴더를 열고 현재 리소스를 선택한다. 이 탐색과 드래그는 편집 중인 Inspector 대상을 바꾸지 않는다. 이미지 행은 두 줄이며 리셋은 드롭다운 오른쪽, 찾기는 아래에 있다. Prefab 런타임 생성은 [SpawnLObject 사용법](runtime-spawn.md)을 참고한다.
 
 Prefab에서 바꾼 값은 인스턴스의 기본값이 된다. 인스턴스의 변경값은 레벨에 따로 저장된다. 객체·컴포넌트 복제는 값 테이블을 공유하지 않으며, 다른 인스턴스 참조는 같은 대상을 유지한다. 순환 참조도 가능하다. 참조한 객체를 삭제하면 Missing으로 표시되며 참조를 수정하기 전까지 Play 시작이 실패한다. 참조는 같은 레벨 내에서만 사용한다. Prefab의 object 필드는 None으로 두고 배치한 인스턴스에서 대상을 지정한다.
 

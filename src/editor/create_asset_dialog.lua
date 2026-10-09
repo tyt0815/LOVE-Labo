@@ -6,7 +6,7 @@ local Create = {}
 function Create.show(browser, folder, kind)
     local project, root = browser.project, browser.uiRoot
     local titles = {folder = "Folder", level = "Level", prefab = "Prefab", lua = "Lua Class"}
-    local defaults = {folder = "NewFolder", level = "NewLevel", prefab = "NewPrefab", lua = "NewClass"}
+    local defaults = {folder = "NewFolder", level = "L_", prefab = "PF_", lua = "NewClass"}
     local pathRoot = kind == "lua" and "Sources" or kind == "folder" and folder:match("^[^/]+") or "Assets"
     if folder ~= pathRoot and folder:sub(1, #pathRoot + 1) ~= pathRoot .. "/" then folder = pathRoot end
     local state = {folder = folder, name = defaults[kind]}
@@ -45,6 +45,10 @@ function Create.show(browser, folder, kind)
                 return true
             end})
         dialog.error = folders.error
+        -- 접두사를 선택하지 않고 뒤에 이어 입력한다. 폴더 선택 후 Tab으로도 이름에 돌아온다.
+        dialog.contentFocused = false
+        dialog.replace = kind ~= "level" and kind ~= "prefab"
+        require("editor.ui.text_edit").begin(dialog, dialog.text, dialog.replace)
     end
 
     showParent = function()

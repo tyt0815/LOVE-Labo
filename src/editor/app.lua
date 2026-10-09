@@ -79,6 +79,7 @@ function EditorApp:setDocument(document)
     if not document or not document.level then
         return false
     end
+    self:cancelObjectPick()
     local reference = self.project and self.project:referenceForPath(document.path)
     self.documentAssetId = reference and self.project:getAssetId(reference) or nil
 
@@ -87,6 +88,7 @@ function EditorApp:setDocument(document)
     self.runtimeWorld = nil
 
     self.document = document
+    self.inspectedAssetReference = nil
     self.instanceInspectorObject, self.instanceInspectorTarget = nil, nil
     if self.spriteAssets then self.spriteAssets:clear() end
     self.level = document.level
@@ -103,7 +105,7 @@ function EditorApp:setDocument(document)
     self.sceneView:cancelDrag(false)
     self.sceneView.isPanning = false
     self.inspector:cancelEdit()
-    self.levelInspectorTarget = {data = self.level, kind = "level", referenceField = "scriptReference", label = "Level",
+    self.levelInspectorTarget = {data = self.level, level = self.level, kind = "level", referenceField = "scriptReference", label = "Level",
         getDisplayName = function()
             local path = self.documentAssetId and self.project:getAssetReference(self.documentAssetId) or self.document.path
             return path and path:gsub("\\", "/"):match("([^/]+)%.level$") or "Untitled Level"
@@ -134,6 +136,7 @@ function EditorApp:getActiveCenterView()
 end
 
 function EditorApp:startPlay()
+    self:cancelObjectPick()
     if self:isPlaying() then
         return false, "editor is already playing"
     end
@@ -179,12 +182,16 @@ end
 function EditorApp:inspectAsset(reference)
     if not reference or not reference:match("^Assets/.+%.prefab$") then return true end
     local id = self.project:getAssetId(reference)
-    if self.prefabDocument and self.prefabDocument.assetId == id then return true end
+    if self.prefabDocument and self.prefabDocument.assetId == id then
+        self.inspectedAssetReference, self.inspectorSource = id, "assets"; return true
+    end
     self.inspector:commitEdit()
     if self.prefabDocument and self.prefabDocument:isDirty() then return false, "Save the edited Prefab first (Ctrl+S)" end
     local document, err = require("editor.prefab_document").load(self.project, reference)
     if not document then return false, err end
     self.prefabDocument = document
+    self.inspectedAssetReference = id
+    self.inspectorSource = "assets"
     self.histories[document] = require("editor.history").new(assert(require("editor.prefab").encodeData(document.data)))
     self.prefabInspectorTarget = {data = document.data, kind = "lobject", parentOwnerId = document.assetId,
         referenceField = "definitionReference", label = "Prefab",
@@ -239,9 +246,13 @@ end
 
 function EditorApp:updateInspectorTarget()
     if not self.inspector.classInspector then return self.sceneView.selectedLObject end
-    local selected = self.assetBrowser.selectedReference
-    if self.activePanel ~= "inspector" then self.inspectorSource = self.activePanel == "assets" and "assets" or "scene" end
-    local assetSelected = self.inspectorSource == "assets" and selected
+    local dragContext = self.assetBrowser.drag and self.assetDragInspector
+    local selected = self.inspectedAssetReference and self.project:getAssetReference(self.inspectedAssetReference)
+        or self.assetBrowser.selectedReference
+    if dragContext then selected = dragContext.asset end
+    if not dragContext and (self.activePanel == "scene" or self.activePanel == "hierarchy") then self.inspectorSource = "scene" end
+    if not self.inspectorSource then self.inspectorSource = self.activePanel == "assets" and "assets" or "scene" end
+    local assetSelected = (dragContext and dragContext.source or self.inspectorSource) == "assets" and selected
     local prefab = assetSelected and self.prefabDocument
         and selected and self.project:getAssetId(selected) == self.prefabDocument.assetId
     local currentLevelAsset = assetSelected and self.documentAssetId
@@ -596,14 +607,34 @@ function EditorApp:initializeUI()
     if self.assetBrowser then
         self.inspector.classInspector = require("editor.class_inspector").new(self.project, self.uiRoot)
         self.inspector.classInspector.onCommitEdit = self.inspector.onCommitEdit
+        self.inspector.classInspector.onPick = function(name) return self:beginObjectPick(name) end
+        self.inspector.classInspector.isPicking = function(name) return self.objectPick and self.objectPick.name == name end
+        self.inspector.classInspector.onFrame = function(value)
+            for _, object in ipairs(self.level.lobjects) do
+                if object.authoringId == value then return self.sceneView:frameLObject(object) end
+            end
+            return false, "Referenced instance was not found"
+        end
         self.inspector.classInspector.onReveal = function(value)
             self.assetBrowser.collapsed = false
             self:updateSceneViewport()
             return self.assetBrowser:reveal(value)
         end
         self:updateInspectorTarget()
-        self.assetBrowser.onSelect = function(reference) return self:inspectAsset(reference) end
+        self.assetBrowser.onSelect = function(reference)
+            local ok, err = self:inspectAsset(reference)
+            if ok then
+                self.inspectedAssetReference = reference and (self.project:getAssetId(reference) or reference)
+                self.inspectorSource = "assets"
+            end
+            return ok, err
+        end
         self.assetBrowser.externalDropTarget = function(entry, x, y)
+            if self.inspectorWidget:containsPoint(x, y) then
+                if self:isPlaying() then return false, nil, "Stop Play before editing resources" end
+                self:updateInspectorTarget()
+                return self.inspector.classInspector:assetDropTarget(entry, x, y)
+            end
             if not self.sceneView:containsPoint(x, y) then return end
             if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
             if self.viewportControls:containsPoint(x, y) then return false, nil, "Drop outside the viewport controls" end
@@ -611,7 +642,22 @@ function EditorApp:initializeUI()
             local vx, vy, width, height = self.sceneView:getViewport()
             return "scene", {x = vx, y = vy, w = width, h = height}
         end
-        self.assetBrowser.onExternalDrop = function(entry, x, y) return self:placePrefab(entry.reference, x, y) end
+        self.assetBrowser.onExternalDrop = function(entry, x, y, destination)
+            if destination == "inspector" then
+                self.uiRoot.focused = self.inspectorWidget
+                return self.inspector.classInspector:dropAsset(entry, x, y)
+            end
+            return self:placePrefab(entry.reference, x, y)
+        end
+        self.assetBrowser.onEndDrag = function()
+            local context = self.assetDragInspector
+            if not context then return end
+            self.activePanel, self.inspectorSource = "inspector", context.source
+            self.uiRoot.focused = context.focused
+            if context.source == "assets" then self.assetBrowser.selectedReference = context.asset end
+            self.assetDragInspector = nil
+            self:updateInspectorTarget()
+        end
         self.assetBrowser.onRefresh = function()
             self.inspector:commitEdit()
             self.inspector.classInspector:reload()
@@ -683,8 +729,15 @@ function EditorApp:initializeUI()
         while ancestor and not ancestor.panelName do ancestor = ancestor.parent end
         local name = ancestor and ancestor.panelName
         if target == self.menuBar then return end
+        if name == "assets" then
+            -- 클릭은 해제 시 Inspector를 바꾸고, 드래그는 원래 편집 대상을 유지한다.
+            self.assetDragInspector = {asset = self.inspectedAssetReference and self.project:getAssetReference(self.inspectedAssetReference)
+                    or self.assetBrowser.selectedReference,
+                focused = self.uiRoot.focused,
+                source = self.inspectorSource or (self.activePanel == "assets" and "assets" or "scene")}
+        else self.assetDragInspector = nil end
         if name then self.activePanel = name end
-        if name and name ~= "inspector" then self.inspectorSource = name == "assets" and "assets" or "scene" end
+        if name and name ~= "inspector" and name ~= "assets" then self.inspectorSource = "scene" end
         if not self:isPlaying() and name ~= "inspector" then self.inspector:commitEdit() end
         if name ~= "scene" then
             self.sceneView:cancelDrag(false)
@@ -721,10 +774,12 @@ function EditorApp:draw()
 end
 
 function EditorApp:statusText(x, y)
+    if self.objectPick then return "Pick an instance in Scene View. Esc or right click: cancel." end
     local UI = require("editor.ui")
     if self.assetBrowser and self.assetBrowser.drag and self.assetBrowser.drag.active then
         local drag = self.assetBrowser.drag
         return drag.error or (drag.destination == "scene" and "Place Prefab in Scene. Esc: cancel."
+            or drag.destination == "inspector" and "Set Inspector resource. Esc: cancel."
             or "Move to " .. (drag.destination or "") .. ". Esc: cancel.")
     end
     local hint = UI.hoverHint or self.uiRoot:getHint(x, y)
@@ -750,8 +805,43 @@ function EditorApp:drawStatusBar(x, y)
     love.graphics.pop()
 end
 
+function EditorApp:cancelObjectPick()
+    if not self.objectPick then return end
+    love.mouse.setCursor(self.objectPick.cursor)
+    self.objectPick = nil
+end
+
+function EditorApp:beginObjectPick(name)
+    local inspector = self.inspector.classInspector
+    if self:isPlaying() or not inspector or not inspector.target or inspector.target.level ~= self.level then
+        return false, "Pick an instance reference on a level or placed instance"
+    end
+    if self.objectPick then self:cancelObjectPick(); return true end
+    self.inspector:commitEdit()
+    self.uiRoot:cancelCapture()
+    self.objectPick = {target = inspector.target, name = name, cursor = love.mouse.getCursor()}
+    self.pickCursor = self.pickCursor or love.mouse.getSystemCursor("crosshair")
+    love.mouse.setCursor(self.pickCursor)
+    return true
+end
+
 function EditorApp:mousepressed(x, y, button, presses)
     self:updateSceneViewport()
+    if self.objectPick then
+        if button == 2 then self:cancelObjectPick(); return true end
+        if button == 1 and self.sceneView:containsPoint(x, y) and not self.viewportControls:containsPoint(x, y) then
+            local wx, wy = self.sceneView:screenToWorld(x, y)
+            local object = self.sceneView:findLObjectAtWorldPosition(wx, wy)
+            if object then
+                local pick = self.objectPick
+                self:cancelObjectPick()
+                local inspector = self.inspector.classInspector
+                if inspector.target == pick.target then inspector:setProperty(pick.name, object.authoringId) end
+            end
+            return true
+        end
+        self:cancelObjectPick()
+    end
     self.uiRoot:mousepressed(x, y, button, presses)
     self:updateSceneViewport()
 end
@@ -763,11 +853,14 @@ end
 function EditorApp:mousemoved(x, y, dx, dy)
     self:updateSceneViewport()
     self.uiLayout:updateCursor(x, y)
+    if self.objectPick then love.mouse.setCursor(self.pickCursor); return end
     self.uiRoot:mousemoved(x, y, dx, dy)
 end
 
 function EditorApp:focus(focused)
     if focused then return end
+    self:cancelObjectPick()
+    if self.assetBrowser then self.assetBrowser:cancelDrag() end
     self.inspector:cancelPointer()
     if self.viewportControls.numberDrag then self.viewportControls:dispatch("cancel") end
     if self.uiRoot.captured == self.inspectorWidget or self.uiRoot.captured == self.viewportControls then
@@ -807,6 +900,10 @@ function EditorApp:handleSceneKey(key)
 end
 
 function EditorApp:keypressed(key)
+    if self.objectPick then
+        if key == "escape" then self:cancelObjectPick() end
+        return true
+    end
     -- 팝업과 편집 포커스가 입력을 우선 소비한다. 저장·Play는 에디터 전역 명령이다.
     if self.uiRoot.popup then return self.uiRoot:keypressed(key) end
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
@@ -863,6 +960,7 @@ function EditorApp:pushAssetAction(command)
 end
 
 function EditorApp:undoRedo(direction)
+    self:cancelObjectPick()
     if self:isPlaying() then return false end
     self.inspector:mousereleased()
     self.inspector:commitEdit()

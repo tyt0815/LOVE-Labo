@@ -90,7 +90,11 @@ function Definition.resolveReferences(values, schema, objects, project)
         if declaration.type == "object" and value ~= false then
             if not objects[value] then return false, "Missing LObject reference: " .. tostring(value) end
             values[name] = objects[value]
-        elseif declaration.type == "image" and value ~= false then
+        elseif (declaration.type == "image" or declaration.type == "prefab") and value ~= false then
+            if declaration.type == "prefab" then
+                local reference, err = project:getAssetReference(value)
+                if not reference or not reference:match("^Assets/.+%.prefab$") then return false, err or "Expected a Prefab asset" end
+            end
             local path, err = project:resolveAssetFile(value)
             if not path then return false, err end
             values[name] = project:getAssetId(value) or value
@@ -109,9 +113,11 @@ function Definition.inspectorTarget(project, data, definition, level, label)
     end
     for _, name in ipairs(object.componentOrder) do
         local component = object.components[name]
+        local scene = component:isA(require("core.scene_component"))
         componentTypes[name] = component.componentType
         for field, declaration in pairs(getmetatable(component).properties) do
-            schema[name .. "." .. field] = {type = declaration.type, default = component.properties[field], component = name, field = field}
+            schema[name .. "." .. field] = {type = declaration.type, default = component.properties[field], component = name, field = field,
+                sceneTransform = scene and (field == "x" or field == "y") or nil}
         end
     end
     return {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,

@@ -49,6 +49,11 @@ function World:addLObject(initialState)
     return lobject
 end
 
+function World:SpawnLObject(prefab, transform, overrides)
+    if not self._spawnLObject then return nil, "World has no Prefab loader" end
+    return self._spawnLObject(prefab, transform, overrides)
+end
+
 function World:update(dt)
     local valid, validationError =
         validateDeltaTime(dt)
@@ -57,6 +62,8 @@ function World:update(dt)
         return false, validationError
     end
 
+    -- 이번 프레임 중 생성된 객체는 BeginPlay만 즉시 호출하고 다음 프레임부터 Update한다.
+    local count = #self.lobjects
     if self.levelScript and self.levelScript.update then
         local ok, result, err = pcall(self.levelScript.update, self, dt)
         if not ok or result == false then return false, "level script update failed: " .. tostring(ok and err or result) end
@@ -65,7 +72,8 @@ function World:update(dt)
     -- World가 Runtime LObject lifecycle의 호출 순서를 소유한다.
     -- LObject:update()가 false를 명시적으로 반환한 경우만 실패로 취급한다.
     -- 일반적인 Lua callback처럼 nil을 반환하는 update는 정상 완료로 본다.
-    for _, lobject in ipairs(self.lobjects) do
+    for i = 1, count do
+        local lobject = self.lobjects[i]
         local updated, updateError =
             lobject:update(dt)
 

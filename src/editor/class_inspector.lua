@@ -11,7 +11,7 @@ local ClassInspector = {}
 ClassInspector.__index = ClassInspector
 
 function ClassInspector.new(project, root)
-    return setmetatable({project = project, root = root, scroll = 0, expanded = {}, objectExpanded = true, thumbnails = Thumbnail.new(project)}, ClassInspector)
+    return setmetatable({project = project, root = root, scroll = 0, expanded = {}, transformExpanded = {}, objectExpanded = true, thumbnails = Thumbnail.new(project)}, ClassInspector)
 end
 
 local function resourceName(reference)
@@ -121,6 +121,27 @@ function ClassInspector:setProperty(name, value)
         self.error = "Invalid value for " .. name
         return false
     end
+    if (declaration.type == "image" or declaration.type == "prefab") and value ~= false then
+        local reference, err = self.project:getAssetReference(value)
+        local extension = reference and reference:lower():match("%.([^%.]+)$")
+        local allowed = declaration.type == "prefab" and extension == "prefab"
+            or declaration.type == "image" and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension or ""]
+        if not reference or not allowed or not reference:match("^Assets/") then
+            self.error = err or "Expected a " .. declaration.type .. " resource"; return false
+        end
+        if declaration.type == "prefab" then
+            local definition
+            definition, err = require("project.object_definition").resolve(self.project, value)
+            if not definition then self.error = err; return false end
+        end
+        value = self.project:getAssetId(reference)
+    elseif declaration.type == "object" and value ~= false then
+        local found = false
+        for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
+            if object.authoringId == value then found = true end
+        end
+        if not found then self.error = "Instance must belong to the current level"; return false end
+    end
     local overrides = self.target:getOverrides()
     if value == declaration.default then overrides[name] = nil else overrides[name] = value end
     self.target:setOverrides(overrides)
@@ -146,6 +167,11 @@ function ClassInspector:isEditing() return self.editing ~= nil end
 
 function ClassInspector:propertyRect(name, top)
     if self.class.properties[name].type == "image" then return self:imageRects(top - 3).selector end
+    if self.class.properties[name].type == "prefab" or self.class.properties[name].type == "object" then
+        local rect = self:referenceRects(top - 3).selector
+        if self.class.properties[name].type == "object" then rect.w = math.max(0, rect.w - 30) end
+        return rect
+    end
     local _, rect = PropertyLayout.cells(self.left, self.width, top - 3)
     return rect
 end
@@ -156,18 +182,85 @@ function ClassInspector:resetRect(name, top)
     return rect
 end
 function ClassInspector:imageRects(top)
-    local x = self.left + self.width / 2 + 4
-    local available = math.max(0, self.width / 2 - UI.metrics.contentPaddingX - 16)
-    local size = math.min(80, math.max(0, (available - 8) / 2))
-    local selectorX = x + size + 8
-    return {preview = {x = x, y = top + 8, w = size, h = size},
-        selector = {x = selectorX, y = top + 8, w = math.max(0, available - size - 8), h = 26},
-        browse = {x = selectorX, y = top + 40, w = 26, h = 26},
-        reset = {x = selectorX + 30, y = top + 40, w = 26, h = 26}}
+    local _, field, reset = PropertyLayout.cells(self.left, self.width, top)
+    local size = math.min(56, math.max(0, field.w * 0.4))
+    local selectorX = field.x + size + 6
+    return {preview = {x = field.x, y = top + (64 - size) / 2, w = size, h = size},
+        selector = {x = selectorX, y = top + 3, w = math.max(0, field.x + field.w - selectorX), h = 26},
+        browse = {x = selectorX, y = top + 35, w = 26, h = 26}, reset = reset}
+end
+
+function ClassInspector:referenceRects(top)
+    local _, field, reset = PropertyLayout.cells(self.left, self.width, top)
+    local right = field.x + field.w
+    return {selector = {x = field.x, y = field.y, w = math.max(0, field.w - 30), h = field.h},
+        assign = {x = right - 56, y = field.y, w = 26, h = 26},
+        browse = {x = right - 26, y = field.y, w = 26, h = 26}, reset = reset}
 end
 
 function ClassInspector:parentBrowseRect()
-    return {x = self.dropdown.x, y = self.dropdown.y + self.dropdown.height + 4, w = 26, h = 26}
+    return {x = self.left + self.width - UI.metrics.contentPaddingX - 26, y = self.dropdown.y, w = 26, h = 26}
+end
+
+function ClassInspector:objectLabel(value)
+    if value == false then return "None" end
+    for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
+        if object.authoringId == value then return object.name or "LObject " .. tostring(value) end
+    end
+    return "Missing: " .. tostring(value)
+end
+function ClassInspector:assetDropTarget(entry, x, y)
+    if not self.target then return false, nil, "No editable Inspector target" end
+    local name, rect, kind
+    if not self.target.hideParent and self.dropdown:containsPoint(x, y) then
+        rect = {x = self.dropdown.x, y = self.dropdown.y, w = self.dropdown.width, h = self.dropdown.height}
+        kind = "parent"
+    elseif y >= self.propertyTop and y < self.propertyTop + self.propertyHeight then
+        for _, row in ipairs(self.rows) do
+            if row.name then
+                local top = self.propertyTop + row.offset - self.scroll
+                local declaration = self.class.properties[row.name]
+                if (declaration.type == "image" or declaration.type == "prefab") and x >= self.left + self.width / 2
+                    and y >= top and y < top + row.height then
+                    name, kind = row.name, declaration.type
+                    rect = {x = self.left + self.width / 2 + 2, y = top, w = self.width / 2 - 4, h = row.height}
+                    break
+                end
+            end
+        end
+    end
+    if not rect then return false, nil, "Drop on an image, Prefab or Parent Class field" end
+    if entry.type ~= "file" or entry.isLink then return false, rect, "Drop a registered resource file" end
+    local reference, err = self.project:getAssetReference(entry.reference)
+    local id = reference and self.project:getAssetId(reference)
+    if not id then return false, rect, err or "Asset is not registered" end
+    if kind == "parent" then
+        if self.target.kind == "level" then
+            local class
+            class, err = LuaClass.load(self.project, id, "level")
+            if not class then return false, rect, err end
+        else
+            local definition
+            definition, err = require("editor.object_definition").resolve(self.project, id, nil, self.target.parentOwnerId)
+            if not definition then return false, rect, err end
+        end
+    else
+        local extension = reference:lower():match("%.([^%.]+)$")
+        if not reference:match("^Assets/") or not (kind == "prefab" and extension == "prefab"
+            or kind == "image" and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension or ""]) then
+            return false, rect, "Expected a " .. kind .. " resource"
+        end
+    end
+    return "inspector", rect, nil, name, id
+end
+
+function ClassInspector:dropAsset(entry, x, y)
+    self:commitEdit()
+    local destination, _, err, name, id = self:assetDropTarget(entry, x, y)
+    if not destination then self.error = err; return false, err end
+    local ok
+    if name then ok = self:setProperty(name, id) else ok = self:selectParent(id) end
+    return ok, self.error
 end
 function ClassInspector:choices(name, value)
     local kind = self.class.properties[name].type
@@ -176,12 +269,13 @@ function ClassInspector:choices(name, value)
         for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
             options[#options + 1] = {label = "LObject " .. object.authoringId, value = object.authoringId}
         end
-    elseif kind == "image" then
+    elseif kind == "image" or kind == "prefab" then
         local references = {}
         for reference in pairs(self.project.assetMetadata or {}) do
             if reference:match("^Assets/") and reference:lower():match("%.(.*)$") then
                 local extension = reference:lower():match("%.([^%.]+)$")
-                if ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension] then references[#references + 1] = reference end
+                if kind == "image" and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension]
+                    or kind == "prefab" and extension == "prefab" then references[#references + 1] = reference end
             end
         end
         table.sort(references)
@@ -192,7 +286,7 @@ function ClassInspector:choices(name, value)
     if not found then options[#options + 1] = {label = "Missing: " .. resourceName(value), value = value} end
     local dropdown = Dropdown.new(self.root, options, value, function(selected) return self:setProperty(name, selected) end)
     if kind == "image" then
-        dropdown.rowHeight, dropdown.menuWidth = PropertyLayout.rowHeight * 3, 300
+        dropdown.rowHeight, dropdown.menuWidth = PropertyLayout.rowHeight * 2, 300
         dropdown.beginMenuDraw = function() self.thumbnails:beginFrame() end
         dropdown.drawOption = function(option, rect, active)
             UI.button("", rect, active, "Select " .. option.label .. ". Enter: apply.")
@@ -208,7 +302,7 @@ end
 function ClassInspector:rebuildRows()
     local groups, groupNames, rows, objectRows = {}, {}, {}, {}
     local function propertyRow(name)
-        return {name = name, height = PropertyLayout.rowHeight * (self.class.properties[name].type == "image" and 3 or 1)}
+        return {name = name, height = PropertyLayout.rowHeight * (self.class.properties[name].type == "image" and 2 or 1)}
     end
     for component in pairs(self.class and self.class.componentTypes or {}) do
         groups[component] = {}; groupNames[#groupNames + 1] = component
@@ -226,9 +320,27 @@ function ClassInspector:rebuildRows()
         rows[#rows + 1] = header
         header.groupHeight = header.height
         if self.expanded[component] then
+            local transformNames = {}
             for _, name in ipairs(groups[component]) do
-                local row = propertyRow(name)
-                rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height
+                if self.class.properties[name].sceneTransform then transformNames[#transformNames + 1] = name end
+            end
+            if #transformNames > 0 then
+                local transform = {header = true, transformGroup = true, component = component, label = "Transform",
+                    height = PropertyLayout.headerHeight, groupHeight = PropertyLayout.headerHeight}
+                rows[#rows + 1] = transform
+                if self.transformExpanded[component] ~= false then
+                    for _, name in ipairs(transformNames) do
+                        local row = propertyRow(name)
+                        rows[#rows + 1] = row; transform.groupHeight = transform.groupHeight + row.height
+                    end
+                end
+                header.groupHeight = header.groupHeight + transform.groupHeight
+            end
+            for _, name in ipairs(groups[component]) do
+                if not self.class.properties[name].sceneTransform then
+                    local row = propertyRow(name)
+                    rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height
+                end
             end
         end
         rows[#rows + 1] = {gap = true, height = 8}
@@ -251,6 +363,7 @@ end
 function ClassInspector:ensurePropertyVisible(name)
     local declaration = assert(self.class.properties[name], "Missing property " .. name)
     if declaration.component then self.expanded[declaration.component] = true end
+    if declaration.sceneTransform then self.transformExpanded[declaration.component] = true end
     if not declaration.component then self.objectExpanded = true end
     self:rebuildRows()
     for _, row in ipairs(self.rows) do
@@ -265,7 +378,7 @@ function ClassInspector:layout(left, width, height, propertyTop, top)
     self.left, self.width = left, width
     self.top = top or self.top or 0
     if not self.dropdown then return end
-    self.dropdown:setBounds(left + width / 2 + 4, self.top + 100 + UI.metrics.contentPaddingY, math.max(0, width / 2 - UI.metrics.contentPaddingX - 4), 28)
+    self.dropdown:setBounds(left + width / 2 + 4, self.top + 100 + UI.metrics.contentPaddingY, math.max(0, width / 2 - UI.metrics.contentPaddingX - 34), 28)
     self.propertyTop = propertyTop or (self.top + (self.target.instance and 334 or 170) + UI.metrics.contentPaddingY)
     self.propertyHeight = math.max(0, height - self.propertyTop - 10)
     self:rebuildRows()
@@ -298,7 +411,10 @@ function ClassInspector:draw()
         local name = row.name
         local y = self.propertyTop + row.offset - self.scroll
         if row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
-            PropertyLayout.group(self.left, self.width, y, row.groupHeight, row.label, row.objectGroup and self.objectExpanded or not row.objectGroup and self.expanded[row.component])
+            local expanded = row.transformGroup and self.transformExpanded[row.component] ~= false
+                or row.objectGroup and self.objectExpanded or not row.transformGroup and not row.objectGroup and self.expanded[row.component]
+            local inset = row.transformGroup and 8 or 0
+            PropertyLayout.group(self.left + inset, self.width - 2 * inset, y, row.groupHeight, row.label, expanded)
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             PropertyLayout.separators(self.left, self.width, y, row.height)
             local declaration = self.class.properties[name]
@@ -311,10 +427,23 @@ function ClassInspector:draw()
                 labelRect.y = y + (row.height - love.graphics.getFont():getHeight()) / 2
                 UI.thumbnail(self:thumbnail(value), imageRects.preview)
                 UI.browseButton(imageRects.browse, value ~= false)
+            elseif declaration.type == "prefab" or declaration.type == "object" then
+                local actions = self:referenceRects(y)
+                rect = actions.selector
+                if declaration.type == "object" then
+                    rect.w = math.max(0, rect.w - 30)
+                    UI.eyedropperButton(actions.assign, self.isPicking and self.isPicking(name))
+                    UI.browseButton(actions.browse, value ~= false, "Frame referenced instance in viewport.")
+                else
+                    UI.browseButton(actions.browse, value ~= false)
+                end
             end
-            UI.text(declaration.field or name, labelRect.x, labelRect.y, labelRect.w)
+            UI.text(declaration.sceneTransform and declaration.field:upper() or declaration.field or name, labelRect.x, labelRect.y, labelRect.w)
             UI.hint(labelRect, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
-            if declaration.type == "object" or declaration.type == "image" then
+            if declaration.type == "object" then
+                UI.button("", rect, false, self:objectLabel(value) .. ". Use the eyedropper to pick a target.")
+                UI.text(self:objectLabel(value), rect.x + 4, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, math.max(0, rect.w - 8))
+            elseif declaration.type == "image" or declaration.type == "prefab" then
                 local choice = self:choices(name, value)
                 choice:setBounds(rect.x, rect.y, rect.w, rect.h)
                 choice:draw()
@@ -342,7 +471,8 @@ function ClassInspector:mousepressed(x, y, button)
         local top = self.propertyTop + row.offset - self.scroll
         if row.header and y >= top and y < top + row.height then
             self:commitEdit()
-            if row.objectGroup then self.objectExpanded = not self.objectExpanded
+            if row.transformGroup then self.transformExpanded[row.component] = self.transformExpanded[row.component] == false
+            elseif row.objectGroup then self.objectExpanded = not self.objectExpanded
             else self.expanded[row.component] = not self.expanded[row.component] end
             self:rebuildRows()
             return true
@@ -351,8 +481,25 @@ function ClassInspector:mousepressed(x, y, button)
         top = top + 3
         if name and y >= rowTop and y < rowTop + row.height then
             local declaration = self.class.properties[name]
-            if declaration.type == "image" and UI.contains(x, y, self:imageRects(rowTop).browse) then
+            local actions = declaration.type == "image" and self:imageRects(rowTop)
+                or (declaration.type == "prefab" or declaration.type == "object") and self:referenceRects(rowTop)
+            if actions and declaration.type == "object" and UI.contains(x, y, actions.assign) then
+                self:commitEdit()
+                local ok, err
+                if self.onPick then ok, err = self.onPick(name) end
+                if not ok then self.error = err or "Instance picking is unavailable" end
+                return true
+            end
+            if actions and UI.contains(x, y, actions.browse) then
                 local value = self.target:getOverrides()[name]
+                if declaration.type == "object" then
+                    self:commitEdit()
+                    if value == nil then value = declaration.default end
+                    local ok, err
+                    if self.onFrame then ok, err = self.onFrame(value) end
+                    if not ok then self.error = err or "Instance was not found" end
+                    return true
+                end
                 return self:reveal(value == nil and declaration.default or value)
             end
             if UI.contains(x, y, self:resetRect(name, top)) then
@@ -369,7 +516,8 @@ function ClassInspector:mousepressed(x, y, button)
             self:commitEdit()
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
-            if declaration.type == "object" or declaration.type == "image" then
+            if declaration.type == "object" then return true end
+            if declaration.type == "image" or declaration.type == "prefab" then
                 local choice = self:choices(name, value)
                 local rect = self:propertyRect(name, top)
                 choice:setBounds(rect.x, rect.y, rect.w, rect.h)

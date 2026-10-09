@@ -23,7 +23,7 @@ function Loader.bind(project, data, world)
             if not resolved then return false, fieldError end
         end
     end
-    return true, initial
+    return true, initial, loadClass
 end
 
 -- 검증 단계에서는 build·참조 해석까지만 수행하고 BeginPlay를 실행하지 않는다.
@@ -39,14 +39,15 @@ function Loader.prepare(project, data)
     world.properties, err = LuaClass.values(class, data.propertyOverrides)
     if not world.properties then return nil, err end
     world.levelPropertySchema = class and class.properties
-    local ok, initial = Loader.bind(project, data, world)
+    local ok, initial, loadClass = Loader.bind(project, data, world)
     if not ok then return nil, initial end
-    return world, class, initial
+    return world, class, initial, loadClass
 end
 
 function Loader.create(project, data)
-    local world, class, initial = Loader.prepare(project, data)
+    local world, class, initial, loadClass = Loader.prepare(project, data)
     if not world then return nil, class end
+    require("runtime.prefab_spawner").bind(project, world, loadClass)
     for _, object in ipairs(initial) do
         local ok, err = object:BeginPlay(world)
         if not ok then return nil, err end

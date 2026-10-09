@@ -321,10 +321,12 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
         end
     else
         local entry = self:getEntryAtPosition(x, y)
-        if self.onSelect then
+        local deferred = entry and not entry.isLink and (presses or 1) == 1
+        if self.onSelect and not deferred then
             local ok, err = self.onSelect(entry and entry.reference)
             if ok == false then self.error = err; return true end
         end
+        local previousReference = self.selectedReference
         self.selectedReference = entry and entry.reference or nil
         if entry and entry.type == "directory" and not entry.isLink and (presses or 1) >= 2 then
             self:openFolder(entry.reference)
@@ -332,7 +334,7 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
             local opened, err = self.onOpenFile(entry.reference)
             if opened == false then self.error = err end
         elseif entry and not entry.isLink and (presses or 1) == 1 then
-            self.drag = {entry = entry, x = x, y = y, startX = x, startY = y}
+            self.drag = {entry = entry, x = x, y = y, startX = x, startY = y, previousReference = previousReference}
             return true, true
         end
     end
@@ -357,7 +359,9 @@ function AssetBrowser:contentHint(x, y)
 end
 
 function AssetBrowser:cancelDrag()
+    local drag = self.drag
     self.drag = nil
+    if drag and drag.active and self.onEndDrag then self.onEndDrag() end
     if self.uiRoot.captured == self.fileSlot.widget or self.uiRoot.captured == self.treeSlot.widget then
         self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
     end
@@ -443,11 +447,15 @@ function AssetBrowser:dragReleased(x, y, button)
     if drag.active then
         if destination then
             local moved, moveError
-            if destination == "scene" then moved, moveError = self.onExternalDrop(drag.entry, x, y)
+            if destination == "scene" or destination == "inspector" then moved, moveError = self.onExternalDrop(drag.entry, x, y, destination)
             else moved, moveError = self:moveEntry(drag.entry, destination) end
             self.error = not moved and moveError or nil
         else self.error = err end
-    elseif drag.tree then self:openFolder(drag.entry.reference) end
+    elseif drag.tree then self:openFolder(drag.entry.reference)
+    elseif self.onSelect then
+        local selected, selectionError = self.onSelect(drag.entry.reference)
+        if selected == false then self.selectedReference, self.error = drag.previousReference, selectionError end
+    end
     return true
 end
 
@@ -489,7 +497,7 @@ function AssetBrowser:drawDragOverlay()
     Theme.setColor("border")
     love.graphics.rectangle("line", x, y, width, 54, 4, 4)
     UI.label(drag.entry.name, x + 8, y + 7, width - 16)
-    UI.text(drag.error or (drag.destination == "scene" and "Place Prefab in Scene" or "Move to " .. (drag.destination or "")), x + 8, y + 29, width - 16,
+    UI.text(drag.error or (drag.destination == "scene" and "Place Prefab in Scene" or drag.destination == "inspector" and "Set Inspector resource" or "Move to " .. (drag.destination or "")), x + 8, y + 29, width - 16,
         Theme.color(drag.destination and "textMuted" or "error"))
     love.graphics.pop()
 end

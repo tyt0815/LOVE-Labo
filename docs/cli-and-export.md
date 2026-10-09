@@ -39,6 +39,8 @@ CLI가 만든 클래스 파일에 게임 코드를 직접 작성한다. Sprite �
 
 수정 명령에는 `--property`와 값이 필요하다. 이름은 `speed`, `sprite.x`, `sprite.image` 또는 `transform.x`, `transform.rotationX`, `transform.rotationY`, `transform.rotation`, `transform.scaleX` 등이다. `--value-json`은 숫자·불리언 등 JSON 값을 받는다. 문자열은 `--value`로 그대로 전달할 수 있다. 다른 인스턴스 참조는 같은 레벨의 authoring ID이며 해제 값은 JSON `false`이다. 이미지는 에셋 ID 또는 경로를 사용하며 실제 이미지 디코딩도 검사한다.
 
+`type = "prefab"` 프로퍼티도 `prefab set`·`instance set`·`level set`으로 수정한다. 값은 Prefab ID·상대 경로 또는 해제용 JSON `false`이고, ID로 정규화하며 해당 에셋의 부모 체인을 검증한다. 게임 소스에서 이 값을 [SpawnLObject](runtime-spawn.md)에 넘겨 런타임 객체를 만들 수 있다.
+
 ## JSON 요청과 응답
 
 복잡한 문자열·한글·쉘 인용 문제를 피하려면 에이전트가 UTF-8 JSON 요청 파일을 작성하는 방식이 적절하다.

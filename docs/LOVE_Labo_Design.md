@@ -339,6 +339,8 @@ Host는 `love.load`, `love.update`, `love.draw` 같은 top-level LÖVE callback 
 
 Runtime World는 Level authoring data에서 Runtime LObject를 생성한다.
 
+현재는 `prefab` 참조 프로퍼티를 선택하고 `World:SpawnLObject`로 Prefab 기반 Runtime LObject를 추가할 수 있다. 생성기는 runtime 계층에서 World에 주입하며 Core가 파일 로더나 Editor에 의존하지 않는다. Spawn은 authoring 배치·ID·저장 데이터에 반영하지 않는다. 초기화·실패·Update 순서와 Inspector 리소스 입력은 [ADR 0033](adr/0033-prefab-spawn-and-resource-inspector.md)에 기록한다.
+
 ```text
 love.update(dt)
 → Host

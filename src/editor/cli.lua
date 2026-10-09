@@ -38,6 +38,12 @@ local function setProperty(project, target, name, item)
         for _, object in ipairs(target.level and target.level.lobjects or {}) do if object.authoringId == item then found = true end end
         assert(found, "Object reference must identify an instance in the same level")
     end
+    if declaration.type == "prefab" and item ~= false then
+        local reference = assert(project:getAssetReference(item))
+        assert(reference:match("^Assets/.+%.prefab$"), "Expected a Prefab asset")
+        assert(require("project.object_definition").resolve(project, item))
+        item = project:getAssetId(reference)
+    end
     local overrides = target:getOverrides()
     overrides[name] = item ~= declaration.default and item or nil
     -- false도 기본값과 다르면 명시적인 override이다.
