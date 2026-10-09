@@ -29,3 +29,4 @@
 - [0027. Windows 에디터 패키징과 외부 설정](adr/0027-windows-editor-packaging.md)
 - [0028. AI 작업 CLI와 독립 게임 Export의 공용 로딩 계층](adr/0028-agent-cli-and-standalone-game-export.md)
 - [0029. 제품 소스와 번들 리소스를 src로 통합](adr/0029-product-source-directory.md)
+- [0030. 파일·실행 메뉴와 문서 Undo/Redo](adr/0030-file-run-menu-and-document-history.md)

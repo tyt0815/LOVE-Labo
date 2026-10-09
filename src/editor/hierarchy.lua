@@ -17,8 +17,9 @@ function Hierarchy.new(level, width)
 end
 
 function Hierarchy:containsPoint(x, y)
-    return x >= 0 and x < self.width and y >= 0
-        and (not self.height or y < self.height)
+    local top = self.y or 0
+    return x >= 0 and x < self.width and y >= top
+        and (not self.height or y < top + self.height)
 end
 
 function Hierarchy:getLObjectAtPosition(x, y)
@@ -26,6 +27,7 @@ function Hierarchy:getLObjectAtPosition(x, y)
         return nil
     end
 
+    y = y - (self.y or 0)
     if y < HEADER_HEIGHT then
         return nil
     end
@@ -37,20 +39,21 @@ end
 function Hierarchy:draw(selectedLObject)
     local _, height = love.graphics.getDimensions()
     height = self.height or height
+    local top = self.y or 0
 
     love.graphics.push("all")
-    love.graphics.setScissor(0, 0, self.width, height)
+    love.graphics.setScissor(0, top, self.width, height)
 
     local UI = require("editor.ui")
-    UI.panel(0, 0, self.width, height)
-    UI.panelHeading("Hierarchy", 0, 0, self.width)
-    love.graphics.intersectScissor(6, 6, self.width - 12, math.max(0, height - 12))
+    UI.panel(0, top, self.width, height)
+    UI.panelHeading("Hierarchy", 0, top, self.width)
+    love.graphics.intersectScissor(6, top + 6, self.width - 12, math.max(0, height - 12))
 
     if self.level then
         for i, lobject in ipairs(self.level.lobjects) do
-            local rowY = HEADER_HEIGHT + (i - 1) * ROW_HEIGHT
+            local rowY = top + HEADER_HEIGHT + (i - 1) * ROW_HEIGHT
 
-            if rowY >= height then
+            if rowY >= top + height then
                 break
             end
 

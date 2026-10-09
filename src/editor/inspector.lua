@@ -121,11 +121,13 @@ function Inspector:commitEdit()
         and ((field ~= "scaleX" and field ~= "scaleY") or value > 0) then
         lobject.transform[field] = field:match("^rotation") and require("core.transform").normalizeRotation(value) or value
         self:clearEditState()
+        if self.onCommitEdit then self.onCommitEdit() end
         return true
     end
 
     -- 유효한 숫자가 아니면 authoring data는 변경하지 않고 편집만 종료한다.
     self:clearEditState()
+    if self.onCommitEdit then self.onCommitEdit() end
     return false
 end
 
@@ -148,10 +150,10 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if self.classInspector and self.classInspector.target and not selectedLObject then
         return self.classInspector:mousepressed(x, y, button)
     end
-    if selectedLObject and UI.contains(x, y, {x = windowWidth - self.width + UI.metrics.contentPaddingX, y = TRANSFORM_TOP, w = self.width - 2 * UI.metrics.contentPaddingX, h = self.transformExpanded and 32 or PropertyLayout.headerHeight}) and button == 1 then
+    if selectedLObject and UI.contains(x, y, {x = windowWidth - self.width + UI.metrics.contentPaddingX, y = TRANSFORM_TOP + (self.y or 0), w = self.width - 2 * UI.metrics.contentPaddingX, h = self.transformExpanded and 32 or PropertyLayout.headerHeight}) and button == 1 then
         self:commitEdit()
         self.transformExpanded = not self.transformExpanded
-        if self.classInspector and self.classInspector.target then self.classInspector:layout(windowWidth - self.width, self.width, self.height or love.graphics.getHeight(), self:getPropertyTop()) end
+        if self.classInspector and self.classInspector.target then self.classInspector:layout(windowWidth - self.width, self.width, (self.height or love.graphics.getHeight()) + (self.y or 0), self:getPropertyTop(), self.y) end
         return true
     end
     if selectedLObject and self.classInspector and self.classInspector.target and y >= self:getPropertyTop() then
@@ -200,11 +202,11 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
 end
 
 function Inspector:fieldRect(field, windowWidth)
-    local _, rect = PropertyLayout.cells(windowWidth - self.width, self.width, TRANSFORM_TOP + 32 + (TRANSFORM_FIELDS[field] - 1) * PropertyLayout.rowHeight)
+    local _, rect = PropertyLayout.cells(windowWidth - self.width, self.width, TRANSFORM_TOP + (self.y or 0) + 32 + (TRANSFORM_FIELDS[field] - 1) * PropertyLayout.rowHeight)
     return rect
 end
 function Inspector:getPropertyTop()
-    return TRANSFORM_TOP + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.rowHeight or PropertyLayout.headerHeight) + 8
+    return TRANSFORM_TOP + (self.y or 0) + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.rowHeight or PropertyLayout.headerHeight) + 8
 end
 function Inspector:mousemoved(x, y, dx)
     if self.classInspector and self.classInspector:isEditing() then return self.classInspector:mousemoved(x, y, dx) end
@@ -305,32 +307,32 @@ function Inspector:draw(selectedLObject)
     local left = windowWidth - self.width
 
     love.graphics.push("all")
-    love.graphics.intersectScissor(left, 0, self.width, windowHeight)
+    love.graphics.intersectScissor(left, self.y or 0, self.width, windowHeight)
 
     local UI = require("editor.ui")
-    UI.panel(left, 0, self.width, windowHeight)
-    UI.panelHeading("Inspector", left, 0, self.width)
+    UI.panel(left, self.y or 0, self.width, windowHeight)
+    UI.panelHeading("Inspector", left, self.y or 0, self.width)
 
     if self.assetSummary then
-        UI.label(self.assetSummary.name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
-        UI.text(self.assetSummary.kind, left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
-        UI.text(self.assetSummary.reference, left + UI.metrics.contentPaddingX, 86 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+        UI.label(self.assetSummary.name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY + (self.y or 0), self.width - 2 * UI.metrics.contentPaddingX)
+        UI.text(self.assetSummary.kind, left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY + (self.y or 0), self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+        UI.text(self.assetSummary.reference, left + UI.metrics.contentPaddingX, 86 + UI.metrics.contentPaddingY + (self.y or 0), self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
         local hint = self.assetSummary.kind == "Level" and "Double-click to edit level"
             or self.assetSummary.kind == "Folder" and "Double-click to browse" or "Read-only asset information"
-        UI.text(hint, left + UI.metrics.contentPaddingX, 110 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+        UI.text(hint, left + UI.metrics.contentPaddingX, 110 + UI.metrics.contentPaddingY + (self.y or 0), self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
         love.graphics.pop()
         return
     end
 
     if not selectedLObject then
         if self.classInspector and self.classInspector.target then
-            self.classInspector:layout(left, self.width, windowHeight)
+            self.classInspector:layout(left, self.width, windowHeight + (self.y or 0), nil, self.y)
             self.classInspector:draw()
             love.graphics.pop()
             return
         end
         Theme.setColor("textMuted")
-        love.graphics.print("No selection", left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY)
+        love.graphics.print("No selection", left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY + (self.y or 0))
         love.graphics.pop()
         return
     end
@@ -342,11 +344,11 @@ function Inspector:draw(selectedLObject)
 
     local name = type(selectedLObject.name) == "string" and selectedLObject.name ~= "" and selectedLObject.name
         or displayId and "LObject " .. displayId or "LObject"
-    UI.label(name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
-    UI.text(self:instanceKind(selectedLObject), left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+    UI.label(name, left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY + (self.y or 0), self.width - 2 * UI.metrics.contentPaddingX)
+    UI.text(self:instanceKind(selectedLObject), left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY + (self.y or 0), self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
 
     if selectedLObject.transform then
-        PropertyLayout.group(left, self.width, TRANSFORM_TOP, self:getPropertyTop() - TRANSFORM_TOP - 8, "Transform", self.transformExpanded)
+        PropertyLayout.group(left, self.width, TRANSFORM_TOP + (self.y or 0), self:getPropertyTop() - TRANSFORM_TOP - (self.y or 0) - 8, "Transform", self.transformExpanded)
         if self.transformExpanded then
             for _, field in ipairs(TRANSFORM_ORDER) do
                 self:drawField(TRANSFORM_LABELS[field], field, self:fieldRect(field, windowWidth).y, selectedLObject, left)
@@ -354,7 +356,7 @@ function Inspector:draw(selectedLObject)
         end
     end
     if self.classInspector and self.classInspector.target then
-        self.classInspector:layout(left, self.width, windowHeight, self:getPropertyTop())
+        self.classInspector:layout(left, self.width, windowHeight + (self.y or 0), self:getPropertyTop(), self.y)
         self.classInspector:draw()
     end
 

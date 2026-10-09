@@ -116,7 +116,9 @@ function ClassInspector:commitEdit()
     self.editing = nil
     local declaration = self.class.properties[name]
     local value = declaration.type == "number" and tonumber(text) or text
-    return self:setProperty(name, value)
+    local updated = self:setProperty(name, value)
+    if self.onCommitEdit then self.onCommitEdit() end
+    return updated
 end
 
 function ClassInspector:cancelEdit() NumberDrag.cancel(self); IME.cancel(self); self.editing = nil end
@@ -239,11 +241,12 @@ function ClassInspector:ensurePropertyVisible(name)
     end
 end
 
-function ClassInspector:layout(left, width, height, propertyTop)
+function ClassInspector:layout(left, width, height, propertyTop, top)
     self.left, self.width = left, width
+    self.top = top or self.top or 0
     if not self.dropdown then return end
-    self.dropdown:setBounds(left + width / 2 + 4, 100 + UI.metrics.contentPaddingY, math.max(0, width / 2 - UI.metrics.contentPaddingX - 4), 28)
-    self.propertyTop = propertyTop or ((self.target.instance and 334 or 170) + UI.metrics.contentPaddingY)
+    self.dropdown:setBounds(left + width / 2 + 4, self.top + 100 + UI.metrics.contentPaddingY, math.max(0, width / 2 - UI.metrics.contentPaddingX - 4), 28)
+    self.propertyTop = propertyTop or (self.top + (self.target.instance and 334 or 170) + UI.metrics.contentPaddingY)
     self.propertyHeight = math.max(0, height - self.propertyTop - 10)
     self:rebuildRows()
 end
@@ -260,15 +263,15 @@ function ClassInspector:draw()
     if not self.target.instance then
         local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
         if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
-        UI.label(label, self.left + UI.metrics.contentPaddingX, 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
-        UI.text(self:targetKind() .. "  |  Ctrl+S: Save", self.left + UI.metrics.contentPaddingX, 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
+        UI.label(label, self.left + UI.metrics.contentPaddingX, (self.top or 0) + 44 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX)
+        UI.text(self:targetKind() .. "  |  Ctrl+S: Save", self.left + UI.metrics.contentPaddingX, (self.top or 0) + 60 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("textMuted"))
         if not self.target.hideParent then
-            UI.label("Parent Class", self.left + UI.metrics.contentPaddingX + 12, 106 + UI.metrics.contentPaddingY, self.width / 2 - UI.metrics.contentPaddingX - 20)
+            UI.label("Parent Class", self.left + UI.metrics.contentPaddingX + 12, (self.top or 0) + 106 + UI.metrics.contentPaddingY, self.width / 2 - UI.metrics.contentPaddingX - 20)
             self.dropdown:draw()
             UI.browseButton(self:parentBrowseRect(), self.dropdown.value ~= false)
         end
     end
-    if self.error then UI.text(self.error, self.left + UI.metrics.contentPaddingX, 138 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("error")) end
+    if self.error then UI.text(self.error, self.left + UI.metrics.contentPaddingX, (self.top or 0) + 138 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("error")) end
     love.graphics.push("all")
     love.graphics.intersectScissor(self.left, self.propertyTop, self.width, self.propertyHeight)
     for _, row in ipairs(self.rows) do

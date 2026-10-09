@@ -10,6 +10,7 @@ EditorApp.__index = EditorApp
 
 function EditorApp.new(document, project, preferences)
     local self = setmetatable({}, EditorApp)
+    self.histories = setmetatable({}, {__mode = "k"})
 
     self.sceneView = SceneView.new()
     if preferences then
@@ -19,6 +20,8 @@ function EditorApp.new(document, project, preferences)
     self.gameView = GameView.new()
     self.hierarchy = Hierarchy.new()
     self.inspector = Inspector.new()
+    -- 이전 필드의 확정과 다음 필드의 편집 시작 사이에 Undo 경계를 둔다.
+    self.inspector.onCommitEdit = function() self:recordHistory() end
 
     self.project = project
     if project then
@@ -83,6 +86,9 @@ function EditorApp:setDocument(document)
     self.instanceInspectorObject, self.instanceInspectorTarget = nil, nil
     if self.spriteAssets then self.spriteAssets:clear() end
     self.level = document.level
+    if not self.histories[document] then
+        self.histories[document] = require("editor.history").new(assert(require("editor.level_file").encode(self.level)))
+    end
     self.documentReference = nil
 
     self.sceneView.level = self.level
@@ -175,6 +181,7 @@ function EditorApp:inspectAsset(reference)
     local document, err = require("editor.prefab_document").load(self.project, reference)
     if not document then return false, err end
     self.prefabDocument = document
+    self.histories[document] = require("editor.history").new(assert(require("editor.prefab").encodeData(document.data)))
     self.prefabInspectorTarget = {data = document.data, kind = "lobject", referenceField = "definitionReference", label = "Prefab",
         getDisplayName = function()
             local path = self.project:getAssetReference(document.assetId)
@@ -273,7 +280,7 @@ function EditorApp:updateInspectorTarget()
     self.levelInspectorTarget.level = self.level
     self.inspector.classInspector:setTarget(target)
     self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
-        self.inspector.width, love.graphics.getHeight() - self.statusHeight, object and self.inspector:getPropertyTop())
+        self.inspector.width, love.graphics.getHeight() - self.statusHeight, object and self.inspector:getPropertyTop(), self.inspector.y)
     return object
 end
 
@@ -529,7 +536,7 @@ function EditorApp:initializeUI()
             return object and "Select LObject " .. object.authoringId .. ". Delete: remove. Ctrl+D: duplicate."
                 or "Hierarchy: objects in the current level. Click an empty row to inspect the level."
         end,
-        bounds = function(_, _, _, _, height) self.hierarchy.height = height end,
+        bounds = function(_, _, y, _, height) self.hierarchy.height, self.hierarchy.y = height, y end,
         draw = function() self.hierarchy:draw(self.sceneView.selectedLObject) end,
         mousepressed = function(_, x, y, button)
             if not self:isPlaying() and button == 1 then
@@ -540,7 +547,13 @@ function EditorApp:initializeUI()
         keypressed = function(_, key) return self:handleSceneKey(key) end
     })
     local inspector, inspectorWidget = panel("inspector", {
-        bounds = function(_, _, _, _, height) self.inspector.height = height end,
+        bounds = function(_, x, y, width, height)
+            self.inspector.height, self.inspector.y = height, y
+            local inspector = self.inspector.classInspector
+            if inspector and inspector.target then
+                inspector:layout(x, width, y + height, inspector.target.instance and self.inspector:getPropertyTop(), y)
+            end
+        end,
         hint = function() return "Inspector: edit the selected object, level or Prefab. Ctrl+S: save." end,
         draw = function() self.inspector:draw(self:updateInspectorTarget()) end,
         mousepressed = function(_, x, y, button)
@@ -568,6 +581,8 @@ function EditorApp:initializeUI()
         hierarchy = self.canvas:addChild(hierarchy),
         inspector = self.canvas:addChild(inspector)
     }
+    self.menuBar = require("editor.ui.menu_bar").new(self)
+    slots.menu = self.canvas:addChild(self.menuBar, {z = 102})
     if self.statusHeight > 0 then
         self.statusWidget = Widget.new({mousepressed = function() return true end, wheelmoved = function() return true end})
         self.statusWidget.focusable = false
@@ -575,6 +590,7 @@ function EditorApp:initializeUI()
     end
     if self.assetBrowser then
         self.inspector.classInspector = require("editor.class_inspector").new(self.project, self.uiRoot)
+        self.inspector.classInspector.onCommitEdit = self.inspector.onCommitEdit
         self.inspector.classInspector.onReveal = function(value)
             self.assetBrowser.collapsed = false
             self:updateSceneViewport()
@@ -653,6 +669,7 @@ function EditorApp:initializeUI()
         local ancestor = target
         while ancestor and not ancestor.panelName do ancestor = ancestor.parent end
         local name = ancestor and ancestor.panelName
+        if target == self.menuBar then return end
         if name then self.activePanel = name end
         if name and name ~= "inspector" then self.inspectorSource = name == "assets" and "assets" or "scene" end
         if not self:isPlaying() and name ~= "inspector" then self.inspector:commitEdit() end
@@ -781,6 +798,7 @@ function EditorApp:keypressed(key)
     if self.uiRoot.popup then return self.uiRoot:keypressed(key) end
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
     local shiftDown = love.keyboard.isDown("lshift", "rshift")
+    if key == "z" and controlDown and not self:isPlaying() then return self:undoRedo(shiftDown and 1 or -1) end
     if key == "e" and controlDown and shiftDown and not self:isPlaying() then return self:showExportDialog() end
     if key == "s" and controlDown and not shiftDown then return self:saveInspectedDocument() end
     if key == "f5" then
@@ -792,6 +810,61 @@ function EditorApp:keypressed(key)
     if not controlDown and not self.inspector:isEditing() and not self.viewportControls.editing
         and (key == "w" or key == "e" or key == "r") then return self:handleSceneKey(key) end
     return self.uiRoot:keypressed(key)
+end
+
+function EditorApp:recordHistory()
+    if self:isPlaying() or self.inspector:isEditing() or self.sceneView.isDraggingLObject then return end
+    local selected = self.sceneView.selectedLObject
+    local history = self.histories[self.document]
+    history.highWater = math.max(history.highWater or 1, self.level.nextAuthoringId)
+    history:record(assert(require("editor.level_file").encode(self.level)), selected and selected.authoringId)
+    local prefab = self.prefabDocument
+    if prefab then self.histories[prefab]:record(assert(require("editor.prefab").encodeData(prefab.data))) end
+end
+
+function EditorApp:undoRedo(direction)
+    if self:isPlaying() then return false end
+    self.inspector:mousereleased()
+    self.inspector:commitEdit()
+    -- 캡처를 지우기 전에 스냅 드래그의 마우스 상태와 편집 값을 확정한다.
+    self.viewportControls:release()
+    self.viewportControls:commit()
+    self.sceneView:cancelDrag(false)
+    -- 나머지 캡처 소유자도 취소를 받아 내부 드래그 상태를 정리한다.
+    self.uiRoot:cancelCapture()
+    self:recordHistory()
+    local prefab = self.prefabDocument and self.inspector.classInspector
+        and self.inspector.classInspector.target == self.prefabInspectorTarget
+    local document = prefab and self.prefabDocument or self.document
+    local history = self.histories[document]
+    local state = history and history:step(direction)
+    if not state then return false end
+    if prefab then
+        document.data = assert(require("editor.prefab").decode(state.text))
+        self.prefabInspectorTarget.data = document.data
+        self.inspector.classInspector:reload()
+    else
+        document.level = assert(require("editor.level_file").decode(state.text))
+        document.level.nextAuthoringId = math.max(document.level.nextAuthoringId, history.highWater or 1)
+        self:setDocument(document)
+        for _, object in ipairs(self.level.lobjects) do
+            if object.authoringId == state.selection then self.sceneView.selectedLObject = object end
+        end
+        self.activePanel, self.inspectorSource = "scene", "scene"
+        self:updateInspectorTarget()
+    end
+    if self.spriteAssets then self.spriteAssets:clear() end
+    return true
+end
+
+-- 하나의 드래그·필드 편집을 완료한 시점에만 문서 스냅샷을 기록한다.
+for _, name in ipairs({"mousepressed", "mousereleased", "keypressed", "focus"}) do
+    local handler = EditorApp[name]
+    EditorApp[name] = function(self, ...)
+        local result, extra = handler(self, ...)
+        self:recordHistory()
+        return result, extra
+    end
 end
 
 function EditorApp:showExportDialog()

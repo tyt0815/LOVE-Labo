@@ -529,13 +529,13 @@ tests[#tests + 1] = {
         app.sceneView.selectedLObject = first
 
         -- 두 번째 Hierarchy row 클릭.
-        app:mousepressed(20, 64, 1)
+        app:mousepressed(20, app.menuBar.HEIGHT + 64, 1)
 
         Assert.equal(second, app.sceneView.selectedLObject)
         Assert.equal(2, #app.level.lobjects)
 
         -- LObject row가 없는 빈 영역 클릭은 선택 해제.
-        app:mousepressed(20, 120, 1)
+        app:mousepressed(20, app.menuBar.HEIGHT + 120, 1)
 
         Assert.equal(nil, app.sceneView.selectedLObject)
         Assert.equal(2, #app.level.lobjects)
@@ -720,14 +720,14 @@ tests[#tests + 1] = {
         app:updateSceneViewport()
 
         Assert.equal(app.hierarchy.width, app.sceneView.viewportX)
-        Assert.equal(0, app.sceneView.viewportY)
+        Assert.equal(app.menuBar.HEIGHT, app.sceneView.viewportY)
 
         Assert.equal(
             width - app.hierarchy.width - app.inspector.width,
             app.sceneView.viewportWidth
         )
 
-        Assert.equal(height, app.sceneView.viewportHeight)
+        Assert.equal(height - app.menuBar.HEIGHT, app.sceneView.viewportHeight)
     end
 }
 

@@ -6,8 +6,12 @@ function Root.new(canvas)
         captureButton = nil, popup = nil }, Root)
 end
 
-function Root:setPopup(widget)
+function Root:cancelCapture()
     if self.captured then self.captured:dispatch("cancel"); self.captured, self.captureButton = nil, nil end
+end
+
+function Root:setPopup(widget)
+    self:cancelCapture()
     if self.popup and self.popup ~= widget then self.popup:dispatch("dismiss") end
     self.popup = widget
 end

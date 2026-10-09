@@ -20,9 +20,10 @@ end
 
 function Menu:addPanel(x, y, items)
     local width, height = love.graphics.getDimensions()
-    self.panels[#self.panels + 1] = { x = math.max(0, math.min(x, width - WIDTH)),
+    local panelWidth = math.min(width, self.menuWidth or WIDTH)
+    self.panels[#self.panels + 1] = { x = math.max(0, math.min(x, width - panelWidth)),
         y = math.max(0, math.min(y, height - (#items * ROW + PAD * 2))),
-        w = WIDTH, h = #items * ROW + PAD * 2, items = items, selected = 1 }
+        w = panelWidth, h = #items * ROW + PAD * 2, items = items, selected = 1 }
 end
 
 function Menu:at(x, y)
@@ -94,8 +95,10 @@ function Menu:draw()
                 Theme.setColor("selection")
                 love.graphics.rectangle("fill", panel.x + PAD, y, panel.w - PAD * 2, ROW, 3, 3)
             end
-            UI.text(item.label, panel.x + 12, y + 7, panel.w - 38,
+            local shortcutWidth = item.shortcut and love.graphics.getFont():getWidth(item.shortcut) + 16 or 0
+            UI.text(item.label, panel.x + 12, y + 7, panel.w - 38 - shortcutWidth,
                 item.enabled == false and Theme.color("textDisabled") or nil)
+            if item.shortcut then UI.text(item.shortcut, panel.x + panel.w - shortcutWidth - 8, y + 7, shortcutWidth, Theme.color("textMuted"), false, "right") end
             UI.hint({x = panel.x, y = y, w = panel.w, h = ROW},
                 item.enabled == false and item.label .. " is unavailable here." or item.label .. ". Click or press Enter to select.")
             if item.children then UI.text(">", panel.x + panel.w - 22, y + 7) end

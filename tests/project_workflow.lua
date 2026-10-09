@@ -297,7 +297,7 @@ add("editor bottom Assets layout routes inputs without changing lobject selectio
         local width, height = love.graphics.getDimensions()
         local browser = app.assetBrowser
         Assert.equal(width - app.inspector.width, browser.width)
-        Assert.equal(height - app.statusHeight - browser.height, app.sceneView.viewportHeight)
+        Assert.equal(height - app.statusHeight - browser.height - app.menuBar.HEIGHT, app.sceneView.viewportHeight)
         Assert.equal(false, app.hierarchy:containsPoint(10, browser.y + 40))
         Assert.equal(false, app.sceneView:containsPoint(400, browser.y + 40))
         local fileX, fileY = browser.fileSlot.widget.x + require("editor.ui").metrics.contentPaddingX + 4, browser.fileSlot.widget.y + 16
@@ -311,7 +311,7 @@ add("editor bottom Assets layout routes inputs without changing lobject selectio
         local buttons = browser:buttons()
         app:mousepressed(buttons.fold.x + 4, buttons.fold.y + 4, 1)
         Assert.equal(38, browser.height)
-        Assert.equal(height - app.statusHeight - 38, app.hierarchy.height)
+        Assert.equal(height - app.statusHeight - 38 - app.menuBar.HEIGHT, app.hierarchy.height)
         app:mousepressed(buttons.fold.x + 4, browser.y + 12, 1)
         app:mousepressed(400, browser.y + 1, 1)
         app:mousemoved(400, height - 300, 0, -80)
@@ -595,7 +595,7 @@ add("editor shared borders resize panels with pointer capture and preserve cente
         Assert.equal(nil, app.uiRoot.captured)
         local x, y = app.sceneView:worldToScreen(0, 0)
         Assert.equal(app.sceneView.viewportX + app.sceneView.viewportWidth / 2, x)
-        Assert.equal(app.sceneView.viewportHeight / 2, y)
+        Assert.equal(app.sceneView.viewportY + app.sceneView.viewportHeight / 2, y)
     end)
 end)
 
@@ -1705,7 +1705,7 @@ add("global status bar shows live control hints and isolates modal and footer in
         Assert.truthy(hover(refresh.x + 10, refresh.y + 10):find("Rescan", 1, true))
         local width, height = love.graphics.getDimensions()
         Assert.equal(height - app.statusHeight, browser.y + browser.height)
-        Assert.equal(height - app.statusHeight, app.inspector.height)
+        Assert.equal(height - app.statusHeight - app.menuBar.HEIGHT, app.inspector.height)
         Assert.equal(nil, app.uiLayout:edgesAt(width - app.inspector.width, height - 5))
         app:mousepressed(width - app.inspector.width, height - 5, 1)
         Assert.equal(nil, app.uiRoot.captured)
@@ -1962,7 +1962,7 @@ add("Prefab asset selection cannot replace the instance Inspector when editing a
         editSpeed(a, 55)
         app:mousepressed(bx, by, 1); app:mousereleased(bx, by, 1); app:draw()
         Assert.equal(app.prefabInspectorTarget, app.inspector.classInspector.target)
-        app:mousepressed(20, 76, 1)
+        app:mousepressed(20, app.menuBar.HEIGHT + 76, 1)
         Assert.equal(b, app.sceneView.selectedLObject)
         editSpeed(b, 66)
     end)
@@ -2122,7 +2122,7 @@ add("Details layout defaults folds groups and aligns property values in the righ
         Assert.equal(transform.x, speed.x); Assert.equal(transform.x, sprite.x)
         Assert.equal(32, inspector:fieldRect("y", love.graphics.getWidth()).y - transform.y)
         local expandedTop = properties.propertyTop
-        app:mousepressed(left + 25, 94, 1); app:mousereleased(left + 25, 94, 1)
+        app:mousepressed(left + 25, app.menuBar.HEIGHT + 94, 1); app:mousereleased(left + 25, app.menuBar.HEIGHT + 94, 1)
         Assert.equal(false, inspector.transformExpanded)
         Assert.truthy(properties.propertyTop < expandedTop)
         Assert.equal(nil, inspector:getFieldAtPosition(transform.x + 3, transform.y + 3, love.graphics.getWidth()))
@@ -2143,7 +2143,7 @@ add("Details layout defaults folds groups and aligns property values in the righ
         app:mousepressed(left + 25, y, 1)
         Assert.equal(77, object.propertyOverrides.speed)
         Assert.equal(false, properties:isEditing())
-        app:mousepressed(left + 25, 94, 1)
+        app:mousepressed(left + 25, app.menuBar.HEIGHT + 94, 1)
         Assert.equal(true, inspector.transformExpanded)
         local _, _, reset = require("editor.ui.property_layout").cells(left, inspector.width, inspector:fieldRect("x", love.graphics.getWidth()).y - 3)
         app:mousepressed(reset.x + 3, reset.y + 3, 1)
@@ -2356,6 +2356,302 @@ add("Export excludes Editor and invalid source cannot replace an existing game",
         assert(FS.writeAtomic(assert(project:resolveSourceFile("Sources/Actor.lua")), "this is invalid Lua"))
         Assert.equal(false, require("editor.export").write(project, level, output))
         Assert.equal(original, assert(FS.read(output)))
+    end)
+end)
+add("File and Run menus occupy only the top strip and reuse creation and playback actions", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "Menus"))
+        local app = EditorApp.new(nil, project)
+        local bar = app.menuBar
+        Assert.equal(2, #bar:buttons())
+        Assert.equal(bar.HEIGHT, app.sceneView.viewportY)
+        Assert.equal(nil, app.uiLayout:edgesAt(app.hierarchy.width, 10))
+        app:mousepressed(20, 12, 1)
+        Assert.equal(bar.menu, app.uiRoot.popup)
+        local panel = bar.menu.panels[1]
+        Assert.equal(bar.HEIGHT, panel.y)
+        Assert.equal(6, #panel.items)
+        for _, item in ipairs(panel.items) do Assert.truthy(not item.label:find("Undo") and not item.label:find("Redo")) end
+        app:mousepressed(panel.x + 16, panel.y + 12, 1)
+        local dialog = app.uiRoot.popup
+        Assert.equal("New Lua Class", dialog.options.title)
+        dialog.text = "MenuClass"
+        dialog:submit()
+        Assert.truthy(project:getAssetId("Sources/MenuClass.lua"))
+        app:mousepressed(82, 12, 1)
+        panel = bar.menu.panels[1]
+        Assert.equal(true, panel.items[1].enabled)
+        Assert.equal(false, panel.items[2].enabled)
+        app:mousepressed(panel.x + 16, panel.y + 12, 1)
+        Assert.truthy(app:isPlaying())
+        app:mousepressed(82, 12, 1)
+        panel = bar.menu.panels[1]
+        Assert.equal(false, panel.items[1].enabled)
+        Assert.equal(true, panel.items[2].enabled)
+        app:mousepressed(panel.x + 16, panel.y + 42, 1)
+        Assert.equal(false, app:isPlaying())
+        app:mousepressed(20, 12, 1)
+        app:mousemoved(82, 12, 62, 0)
+        Assert.equal("run", bar.active)
+        app.uiRoot:dismissPopup()
+        if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
+            app:mousepressed(20, 12, 1)
+            local canvas = love.graphics.newCanvas(love.graphics.getDimensions())
+            love.graphics.push("all"); love.graphics.setCanvas(canvas); app:draw(); love.graphics.setCanvas()
+            local pixels = canvas:newImageData(); pixels:encode("png", "menu-bar-preview.png")
+            pixels:release(); canvas:release(); love.graphics.pop()
+        end
+    end)
+end)
+
+add("Undo Redo groups numeric gestures and preserves IDs dirty state and branching", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local x, y = app.sceneView:worldToScreen(0, 0)
+        assert(app:placePrefab(prefabId, x, y)); app:recordHistory()
+        local id = app.sceneView.selectedLObject.authoringId
+        local inspector = app.inspector.classInspector
+        local rect = inspector:ensurePropertyVisible("speed")
+        app:mousepressed(rect.x + 5, rect.y + 5, 1)
+        app:mousemoved(rect.x + 15, rect.y + 5, 10, 0)
+        app:mousemoved(rect.x + 25, rect.y + 5, 10, 0)
+        app:mousereleased(rect.x + 25, rect.y + 5, 1)
+        Assert.equal(30, app.level.lobjects[1].propertyOverrides.speed)
+        local keyboard = love.keyboard.isDown
+        love.keyboard.isDown = function(...) for _, key in ipairs({...}) do if key == "lctrl" then return true end end; return false end
+        local ok, err = pcall(function() app:keypressed("z") end)
+        love.keyboard.isDown = keyboard; assert(ok, err)
+        Assert.equal(nil, app.level.lobjects[1].propertyOverrides and app.level.lobjects[1].propertyOverrides.speed)
+        love.keyboard.isDown = function(...) for _, key in ipairs({...}) do if key == "lctrl" or key == "lshift" then return true end end; return false end
+        ok, err = pcall(function() app:keypressed("z") end)
+        love.keyboard.isDown = keyboard; assert(ok, err)
+        Assert.equal(30, app.level.lobjects[1].propertyOverrides.speed)
+        local path = FS.join(project.rootPath, "Assets/Undo.level")
+        assert(app:saveCurrentDocument(path)); Assert.equal(false, app.document:isDirty())
+        assert(app:undoRedo(-1)); Assert.truthy(app.document:isDirty())
+        assert(app:undoRedo(1)); Assert.equal(false, app.document:isDirty())
+        local object = app.level.lobjects[1]
+        app.sceneView.selectedLObject = object
+        app.uiRoot.focused = app.sceneWidget
+        app:keypressed("delete")
+        Assert.equal(0, #app.level.lobjects)
+        assert(app:undoRedo(-1)); Assert.equal(id, app.sceneView.selectedLObject.authoringId)
+        assert(app:undoRedo(-1))
+        inspector = app.inspector.classInspector
+        assert(inspector:setProperty("speed", 99)); app:recordHistory()
+        Assert.equal(false, app:undoRedo(1))
+        assert(app:undoRedo(-1))
+        assert(app:undoRedo(-1)); Assert.equal(0, #app.level.lobjects)
+        assert(app:placePrefab(prefabId, x, y)); app:recordHistory()
+        Assert.truthy(app.level.lobjects[1].authoringId > id)
+        Assert.equal(false, app:undoRedo(1))
+    end)
+end)
+
+add("Prefab Undo is separate from level history and level switching starts a fresh history", function()
+    fixture(function(parent)
+        local project = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        assert(app:inspectAsset("Assets/Actor.prefab"))
+        app.activePanel, app.inspectorSource = "assets", "assets"
+        app.assetBrowser.selectedReference = "Assets/Actor.prefab"; app:updateInspectorTarget()
+        local inspector = app.inspector.classInspector
+        assert(inspector:setProperty("speed", 44)); app:recordHistory()
+        assert(app:undoRedo(-1)); Assert.equal(nil, app.prefabDocument.data.overrides.properties and app.prefabDocument.data.overrides.properties.speed)
+        Assert.equal(false, app.prefabDocument:isDirty())
+        assert(app:undoRedo(1)); Assert.equal(44, app.prefabDocument.data.overrides.properties.speed)
+        assert(app:saveInspectedDocument()); Assert.equal(false, app.prefabDocument:isDirty())
+        assert(app:undoRedo(-1)); Assert.truthy(app.prefabDocument:isDirty())
+        app:setDocument(assert(require("editor.level_document").new()))
+        app.activePanel, app.inspectorSource = "scene", "scene"
+        app.assetBrowser.selectedReference = nil; app:updateInspectorTarget()
+        Assert.equal(false, app:undoRedo(-1))
+    end)
+end)
+
+add("Transform edits can be undone while typing without recording selection or pan", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local x, y = app.sceneView:worldToScreen(0, 0)
+        assert(app:placePrefab(prefabId, x, y)); app:recordHistory()
+        local history = app.histories[app.document]
+        local count = #history.entries
+        app.sceneView.cameraX = 23
+        app:recordHistory(); Assert.equal(count, #history.entries)
+        local rect = app.inspector:fieldRect("x", love.graphics.getWidth())
+        app:mousepressed(rect.x + 5, rect.y + 5, 1)
+        app:textinput("123")
+        assert(app:undoRedo(-1))
+        Assert.equal(0, app.level.lobjects[1].transform.x)
+        assert(app:undoRedo(1))
+        Assert.equal(123, app.level.lobjects[1].transform.x)
+        Assert.equal(23, app.sceneView.cameraX)
+        Assert.equal(count + 1, #history.entries)
+    end)
+end)
+add("Switching Inspector fields without Enter creates separate Undo boundaries", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        for _, mode in ipairs({"transform", "instance", "prefab"}) do
+            local app = EditorApp.new(nil, project)
+            local x, y = app.sceneView:worldToScreen(0, 0)
+            assert(app:placePrefab(prefabId, x, y)); app:recordHistory()
+            if mode == "prefab" then
+                assert(app:inspectAsset("Assets/Actor.prefab"))
+                app.activePanel, app.inspectorSource = "assets", "assets"
+                app.assetBrowser.selectedReference = "Assets/Actor.prefab"; app:updateInspectorTarget()
+            end
+            local function field(name)
+                if mode == "transform" then return app.inspector:fieldRect(name, love.graphics.getWidth()) end
+                return app.inspector.classInspector:ensurePropertyVisible(name)
+            end
+            local function values()
+                if mode == "transform" then return app.level.lobjects[1].transform.x, app.level.lobjects[1].transform.y end
+                local target = app.inspector.classInspector.target
+                local overrides = target:getOverrides()
+                local schema = app.inspector.classInspector.class.properties
+                return overrides.speed or schema.speed.default,
+                    overrides["sprite.x"] or schema["sprite.x"].default
+            end
+            local firstName, secondName = mode == "transform" and "x" or "speed", mode == "transform" and "y" or "sprite.x"
+            local initialFirst, initialSecond = values()
+            local first = field(firstName)
+            app:mousepressed(first.x + 5, first.y + 5, 1); app:mousereleased(first.x + 5, first.y + 5, 1)
+            app:textinput("123")
+            local second = field(secondName)
+            app:mousepressed(second.x + 5, second.y + 5, 1); app:mousereleased(second.x + 5, second.y + 5, 1)
+            Assert.equal(123, (values()))
+            app:textinput("456"); app:keypressed("return")
+            local a, b = values(); Assert.equal(123, a); Assert.equal(456, b)
+            assert(app:undoRedo(-1))
+            a, b = values(); Assert.equal(123, a); Assert.equal(initialSecond, b)
+            assert(app:undoRedo(-1))
+            a, b = values(); Assert.equal(initialFirst, a); Assert.equal(initialSecond, b)
+            assert(app:undoRedo(1)); assert(app:undoRedo(1))
+            a, b = values(); Assert.equal(123, a); Assert.equal(456, b)
+        end
+    end)
+end)
+
+add("Asset summary path and hint follow Inspector menu offset without overlapping kind", function()
+    fixture(function(parent)
+        local project = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        local UI = require("editor.ui")
+        local original = UI.text
+        for _, reference in ipairs({"Sources/Actor.lua", "Sources", "Assets/Other.level"}) do
+            if reference:match("%.level$") then assert(project:createEntry("Assets", "level", "Other")) end
+            app.assetBrowser.selectedReference, app.activePanel, app.inspectorSource = reference, "assets", "assets"
+            app:updateInspectorTarget()
+            local summary, positions = app.inspector.assetSummary, {}
+            UI.text = function(text, x, y, ...)
+                if text == summary.reference then positions.path = y end
+                if text == summary.kind then positions.kind = y end
+                return original(text, x, y, ...)
+            end
+            local ok, err = pcall(function() app.inspector:draw(nil) end)
+            UI.text = original; assert(ok, err)
+            Assert.equal(app.inspector.y + 86 + UI.metrics.contentPaddingY, positions.path)
+            Assert.equal(app.inspector.y + 60 + UI.metrics.contentPaddingY, positions.kind)
+            Assert.truthy(positions.path - positions.kind >= love.graphics.getFont():getHeight())
+        end
+    end)
+end)
+add("Undo and Redo finish snap drag mouse capture even without document history", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "SnapUndo"))
+        for _, available in ipairs({false, true}) do
+            for _, direction in ipairs({-1, 1}) do
+                local saved = 0
+                local app = EditorApp.new(nil, project, {snapSettings = require("editor.snap_settings").copy(),
+                    saveSnapSettings = function() saved = saved + 1; return true end})
+                if available then
+                    app.level:addLObject(0, 0); app:recordHistory()
+                    if direction == 1 then assert(app:undoRedo(-1)) end
+                end
+                local controls = app.viewportControls
+                local rect = controls:snapRects().translate.field
+                local x, y = rect.x + 5, rect.y + 5
+                local relative, visible, grabbed = love.mouse.getRelativeMode(), love.mouse.isVisible(), love.mouse.isGrabbed()
+                local keyboard = love.keyboard.isDown
+                local ok, err = pcall(function()
+                    app:mousepressed(x, y, 1)
+                    Assert.equal(controls, app.uiRoot.captured)
+                    app:mousemoved(x + 12, y, 12, 0)
+                    Assert.truthy(controls.numberDrag.active)
+                    Assert.equal(true, love.mouse.getRelativeMode())
+                    Assert.equal(false, love.mouse.isVisible())
+                    local unit = app.sceneView.snapSettings.translate.unit
+                    love.keyboard.isDown = function(...)
+                        for _, key in ipairs({...}) do
+                            if key == "lctrl" or direction == 1 and key == "lshift" then return true end
+                        end
+                        return false
+                    end
+                    Assert.equal(available, app:keypressed("z"))
+                    love.keyboard.isDown = keyboard
+                    Assert.equal(nil, app.uiRoot.captured)
+                    Assert.equal(nil, app.uiRoot.captureButton)
+                    Assert.equal(nil, controls.numberDrag)
+                    Assert.equal(nil, controls.editing)
+                    Assert.equal(relative, love.mouse.getRelativeMode())
+                    Assert.equal(visible, love.mouse.isVisible())
+                    Assert.equal(grabbed, love.mouse.isGrabbed())
+                    Assert.equal(unit, app.sceneView.snapSettings.translate.unit)
+                    Assert.equal(1, saved)
+                    app:mousereleased(10, love.graphics.getHeight() - 10, 1)
+                    Assert.equal(relative, love.mouse.getRelativeMode())
+                    Assert.equal(visible, love.mouse.isVisible())
+                end)
+                love.keyboard.isDown = keyboard
+                controls:dispatch("cancel")
+                assert(ok, err)
+            end
+        end
+    end)
+end)
+add("Undo Redo cancel all panel resize captures before clearing pointer ownership", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "ResizeUndo"))
+        for _, available in ipairs({false, true}) do
+            for _, direction in ipairs({-1, 1}) do
+                for _, edge in ipairs({"hierarchy", "inspector", "assets"}) do
+                    local app = EditorApp.new(nil, project)
+                    if available then
+                        app.level:addLObject(0, 0); app:recordHistory()
+                        if direction == 1 then assert(app:undoRedo(-1)) end
+                    end
+                    local width = love.graphics.getWidth()
+                    local x, y = app.hierarchy.width, 150
+                    if edge == "inspector" then x = width - app.inspector.width
+                    elseif edge == "assets" then x, y = 450, app.assetBrowser.y end
+                    app:mousepressed(x, y, 1)
+                    Assert.equal(app.uiLayout.resizeWidget, app.uiRoot.captured)
+                    app:mousemoved(x + 20, y - 20, 20, -20)
+                    Assert.truthy(app.uiLayout.drag)
+                    if edge == "assets" then Assert.equal(true, app.isResizingAssets) end
+                    local hierarchy, inspector, assets = app.hierarchy.width, app.inspector.width, app.assetBrowser.height
+                    Assert.equal(available, app:undoRedo(direction))
+                    Assert.equal(nil, app.uiRoot.captured)
+                    Assert.equal(nil, app.uiRoot.captureButton)
+                    Assert.equal(nil, app.uiLayout.drag)
+                    Assert.equal(false, app.isResizingAssets)
+                    Assert.equal(app.uiLayout.cursors.arrow, love.mouse.getCursor())
+                    app:mousereleased(10, 10, 1)
+                    if edge == "hierarchy" then x, y = app.hierarchy.width, 150
+                    elseif edge == "inspector" then x, y = width - app.inspector.width, 150
+                    else x, y = 450, app.assetBrowser.y end
+                    app:mousemoved(x, y, 0, 0)
+                    app:mousemoved(x + 15, y + 15, 15, 15)
+                    Assert.equal(hierarchy, app.hierarchy.width)
+                    Assert.equal(inspector, app.inspector.width)
+                    Assert.equal(assets, app.assetBrowser.height)
+                    Assert.equal(app.uiLayout.cursors.arrow, love.mouse.getCursor())
+                end
+            end
+        end
     end)
 end)
 return tests
