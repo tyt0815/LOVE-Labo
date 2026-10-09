@@ -20,9 +20,7 @@ function NewClass.build(self)
     self.accumulatedDistance = 0
 
     -- SpriteComponent를 루트로 사용한다. 루트 Transform은 인스턴스 Transform과 같다.
-    self:setRootComponent("sprite", Engine.SpriteComponent, {
-        image = "d2a4d283-0dcc-4bae-80cc-d0640503327f",
-    })
+    self:setRootComponent("sprite", Engine.SpriteComponent)
 end
 
 -- Runtime LObject가 생성될 때 초기화하는 동작을 작성한다.

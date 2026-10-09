@@ -1,6 +1,24 @@
 {
   "formatVersion": 2,
-  "lobjects": [],
+  "lobjects": [
+    {
+      "authoringId": 5,
+      "definitionReference": "1a27e6ba-c953-4de1-95ea-fe5e88f0c237",
+      "transform": {
+        "x": -17,
+        "y": 123
+      }
+    },
+    {
+      "authoringId": 6,
+      "definitionReference": "1a27e6ba-c953-4de1-95ea-fe5e88f0c237",
+      "name": "NewPrefab 1",
+      "transform": {
+        "x": -165,
+        "y": -12
+      }
+    }
+  ],
   "propertyOverrides": {},
   "scriptReference": "4c75eb0c-5f45-47c5-af68-50fa976a451d"
 }
