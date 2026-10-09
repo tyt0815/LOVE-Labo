@@ -17,6 +17,10 @@ end
 function love.load(args)
     require("editor.theme").load()
     require("editor.fonts").apply()
+    if hasArg(args, "--verify-package") then
+        require("editor.package_verification").run(args)
+        return
+    end
     if hasArg(args, "--test") then
         local runner = require("tests.runner")
 

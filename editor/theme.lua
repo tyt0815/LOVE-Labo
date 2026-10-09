@@ -51,7 +51,17 @@ end
 Theme.colors, Theme.name = builtIn(), "default"
 
 function Theme.load(readFile)
-    readFile = readFile or love.filesystem.read
+    if not readFile then
+        if love.filesystem.isFused() then
+            -- 배포물의 설정은 작업 디렉터리와 무관하게 실행 파일 옆에서 읽는다.
+            local FS = require("editor.host_filesystem")
+            local directory = love.filesystem.getSourceBaseDirectory()
+            readFile = function(path)
+                local relative = path:gsub("^editor/", "")
+                return FS.read(FS.join(directory, relative))
+            end
+        else readFile = love.filesystem.read end
+    end
     local function read(path)
         local ok, text = pcall(readFile, path)
         return ok and type(text) == "string" and text or nil

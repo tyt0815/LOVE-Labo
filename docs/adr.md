@@ -26,3 +26,4 @@
 - [0024. 접기 가능한 Details 그룹과 좌우 프로퍼티 열](adr/0024-collapsible-details-and-property-columns.md)
 - [0025. 상대 마우스 숫자 드래그와 원본 이름 표시](adr/0025-relative-number-drag-and-source-labels.md)
 - [0026. 리소스 프로퍼티 미리보기와 에셋 위치 찾기](adr/0026-resource-property-previews-and-reveal.md)
+- [0027. Windows 에디터 패키징과 외부 설정](adr/0027-windows-editor-packaging.md)
