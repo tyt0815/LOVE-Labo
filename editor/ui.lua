@@ -132,6 +132,32 @@ function UI.resetButton(rect)
     love.graphics.pop()
 end
 
+function UI.browseButton(rect, enabled)
+    UI.button("", rect, false, "Find resource in Asset Browser.", true)
+    love.graphics.push("all")
+    Theme.setColor(enabled and "textMuted" or "textDisabled")
+    love.graphics.setLineWidth(1.5)
+    local x, y = rect.x + rect.w / 2 - 2, rect.y + rect.h / 2 - 2
+    love.graphics.circle("line", x, y, 5)
+    love.graphics.line(x + 4, y + 4, x + 8, y + 8)
+    love.graphics.pop()
+end
+
+function UI.thumbnail(image, rect)
+    love.graphics.push("all")
+    Theme.setColor("input")
+    love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
+    if image then
+        love.graphics.setColor(1, 1, 1, 1)
+        local w, h = image:getDimensions()
+        local scale = math.min((rect.w - 4) / w, (rect.h - 4) / h)
+        love.graphics.draw(image, rect.x + (rect.w - w * scale) / 2, rect.y + (rect.h - h * scale) / 2, 0, scale, scale)
+    else UI.text("-", rect.x, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, rect.w, Theme.color("textMuted"), false, "center") end
+    Theme.setColor("border")
+    love.graphics.rectangle("line", rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1, 3, 3)
+    love.graphics.pop()
+end
+
 function UI.chevron(x, y, expanded)
     love.graphics.push("all")
     Theme.setColor("textMuted")

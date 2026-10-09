@@ -25,3 +25,4 @@
 - [0023. 공통 텍스트 편집 상태와 컴포넌트 그룹 경계](adr/0023-text-edit-and-component-group-layout.md)
 - [0024. 접기 가능한 Details 그룹과 좌우 프로퍼티 열](adr/0024-collapsible-details-and-property-columns.md)
 - [0025. 상대 마우스 숫자 드래그와 원본 이름 표시](adr/0025-relative-number-drag-and-source-labels.md)
+- [0026. 리소스 프로퍼티 미리보기와 에셋 위치 찾기](adr/0026-resource-property-previews-and-reveal.md)

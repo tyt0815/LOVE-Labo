@@ -9,18 +9,23 @@ function Dropdown.new(root, options, value, onChange)
     self.root, self.options, self.value, self.onChange = root, options, value, onChange
     self.menu = Widget.new({
         draw = function(widget)
+            if self.beginMenuDraw then self.beginMenuDraw() end
             Theme.setColor("surface")
             love.graphics.rectangle("fill", widget.x, widget.y, widget.width, widget.height)
             for row = 1, self.visibleRows do
                 local index = row + self.scroll
                 local option = self.options[index]
-                if option then UI.button(option.label, {x = widget.x + 3, y = widget.y + (row - 1) * 30 + 3,
-                    w = widget.width - 6, h = 28}, index == self.highlight, "Select " .. option.label .. ". Enter: apply.") end
+                if option then
+                    local rect = {x = widget.x + 3, y = widget.y + (row - 1) * (self.rowHeight or 30) + 3,
+                        w = widget.width - 6, h = (self.rowHeight or 30) - 2}
+                    if self.drawOption then self.drawOption(option, rect, index == self.highlight)
+                    else UI.button(option.label, rect, index == self.highlight, "Select " .. option.label .. ". Enter: apply.") end
+                end
             end
         end,
         mousepressed = function(widget, x, y, button)
             if button ~= 1 then return true end
-            local index = math.floor((y - widget.y - 3) / 30) + 1 + self.scroll
+            local index = math.floor((y - widget.y - 3) / (self.rowHeight or 30)) + 1 + self.scroll
             local option = self.options[index]
             if option then self:setValue(option.value) end
             self.root:dismissPopup()
@@ -87,12 +92,13 @@ function Dropdown:dispatch(event, ...)
     if #self.options == 0 then return true end
     self.highlight = 1
     for i, option in ipairs(self.options) do if option.value == self.value then self.highlight = i end end
-    self.visibleRows = math.max(1, math.min(#self.options, 10, math.floor((windowHeight - 16) / 30)))
+    local rowHeight = self.rowHeight or 30
+    self.visibleRows = math.max(1, math.min(#self.options, 10, math.floor((windowHeight - 16) / rowHeight)))
     self.scroll = math.max(0, self.highlight - self.visibleRows)
-    local height = self.visibleRows * 30 + 6
+    local height = self.visibleRows * rowHeight + 6
     local top = self.y + self.height + 2
     if top + height > windowHeight then top = math.max(0, math.min(windowHeight - height, self.y - height - 2)) end
-    local width = self.menuWidth or self.width
+    local width = math.min(love.graphics.getWidth(), self.menuWidth or self.width)
     self.menu:setBounds(math.min(self.x, love.graphics.getWidth() - width), top, width, height)
     self.root:setPopup(self.menu)
     return true

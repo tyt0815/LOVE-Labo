@@ -203,6 +203,34 @@ function AssetBrowser:refresh(keepPopup)
     return opened, err
 end
 
+-- 파일을 찾아 표시하되 현재 Inspector 편집 대상은 바꾸지 않는다.
+function AssetBrowser:reveal(value)
+    local reference, err = self.project:getAssetReference(value)
+    if not reference then return false, err end
+    local _, info = self.project:checkedEntry(reference)
+    if not info or info.type ~= "file" then return false, "Resource file is missing" end
+    local opened, openError = self:openFolder(reference:match("^(.*)/[^/]+$"))
+    if not opened then return false, openError end
+    self.selectedReference = reference
+    for index, entry in ipairs(self.entries) do
+        if entry.reference == reference then
+            local row = self.viewMode == "list" and index - 1 or math.floor((index - 1) / self:columns())
+            local visible = self.viewMode == "list" and math.floor(self.fileSlot.widget.height / ROW)
+                or math.floor((self.fileSlot.widget.height - 8) / CARD_HEIGHT)
+            self.fileScroll = math.max(0, row - math.max(1, visible) + 1)
+            break
+        end
+    end
+    for index, node in ipairs(self.tree) do
+        if node.reference == self.folder then
+            self.treeScroll = math.max(0, index - math.max(1, math.floor(self.treeSlot.widget.height / ROW)))
+            break
+        end
+    end
+    self:clampScroll()
+    return true
+end
+
 function AssetBrowser:goUp()
     if self.folder == "Assets" or self.folder == "Sources" then return false end
     return self:openFolder(self.folder:match("^(.*)/[^/]+$"))
@@ -553,7 +581,7 @@ function AssetBrowser:showCreateDialog(folder, kind)
         choices = {{label = "None", value = false}}
         local scripts
         scripts, listError = self.project:listScripts(kind == "level" and "level" or "lobject")
-        for _, reference in ipairs(scripts or {}) do choices[#choices + 1] = {label = reference, value = reference} end
+        for _, reference in ipairs(scripts or {}) do choices[#choices + 1] = {label = reference:match("([^/]+)$"), value = reference} end
     end
     local titles = {folder = "Folder", level = "Level", prefab = "Prefab", lua = "Lua Class"}
     local dialog = Dialog.new(self.uiRoot, { title = "New " .. titles[kind],

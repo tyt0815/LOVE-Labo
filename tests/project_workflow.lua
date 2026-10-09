@@ -2075,7 +2075,7 @@ add("Component Inspector groups collapse without changing overrides for instance
             if row.name == "speed" then propertyIndex = i end
         end
         Assert.truthy(headerIndex < propertyIndex)
-        Assert.equal(32 + 3 * 32, inspector.rows[headerIndex].groupHeight)
+        Assert.equal(32 + 96 + 2 * 32, inspector.rows[headerIndex].groupHeight)
         inspector:mousepressed(rect.x + 5, rect.y + 5, 1); inspector:textinput("19"); inspector:keypressed("return")
         Assert.equal(19, object.componentOverrides.sprite.x)
         if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
@@ -2181,6 +2181,102 @@ add("Numeric property drag edits defaults and source labels follow moved assets"
         inspector:reload()
         Assert.equal(actorId, project:getAssetId("Sources/NewClass.lua"))
         Assert.equal("NewClass Prefab", inspector:targetKind())
+    end)
+end)
+add("Resource rows show thumbnails and names and reveal without replacing the Inspector target", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        assert(project:createEntry("Assets", "folder", "Images"))
+        local data = love.image.newImageData(32, 20)
+        data:mapPixel(function(x, y) return x / 32, y / 20, 0.7, 1 end)
+        local encoded = data:encode("png")
+        assert(FS.writeAtomic(assert(project:resolvePath("Assets/Images/Sprite.png")), encoded:getString()))
+        encoded:release(); data:release()
+        assert(project:rebuildAssetIndex())
+        local imageId = project:getAssetId("Assets/Images/Sprite.png")
+        local app = EditorApp.new(nil, project)
+        local object = app.level:addLObject(0, 0, prefabId)
+        app.sceneView.selectedLObject, app.activePanel = object, "scene"; app:draw()
+        local inspector = app.inspector.classInspector
+        assert(inspector:setProperty("sprite.image", imageId))
+        local rect = inspector:ensurePropertyVisible("sprite.image")
+        local imageRow
+        for _, row in ipairs(inspector.rows) do if row.name == "sprite.image" then imageRow = row end end
+        Assert.equal(96, imageRow.height)
+        local rects = inspector:imageRects(inspector.propertyTop + imageRow.offset - inspector.scroll)
+        Assert.equal(rects.preview.w, rects.preview.h)
+        Assert.equal(rects.selector.x, rect.x)
+        inspector.thumbnails:beginFrame()
+        Assert.truthy(inspector:thumbnail(imageId))
+        local choices = inspector:choices("sprite.image", false)
+        Assert.equal("Sprite.png", choices.options[2].label)
+        Assert.equal(96, choices.rowHeight)
+        inspector:mousepressed(rect.x + 3, rect.y + 3, 1)
+        choices = inspector.propertyChoice
+        Assert.equal(choices.menu, app.uiRoot.popup)
+        Assert.equal(choices.visibleRows * 96 + 6, choices.menu.height)
+        choices.menu:dispatch("mousepressed", choices.menu.x + 10, choices.menu.y + 96 + 10, 1)
+        Assert.equal(imageId, object.componentOverrides.sprite.image)
+        local target, source = inspector.target, app.inspectorSource
+        app.assetBrowser.collapsed = true
+        inspector:mousepressed(rects.browse.x + 3, rects.browse.y + 3, 1)
+        Assert.equal(false, app.assetBrowser.collapsed)
+        Assert.equal("Assets/Images", app.assetBrowser.folder)
+        Assert.equal("Assets/Images/Sprite.png", app.assetBrowser.selectedReference)
+        Assert.equal(target, inspector.target)
+        Assert.equal(source, app.inspectorSource)
+        Assert.equal(object, app.sceneView.selectedLObject)
+        app:draw(); Assert.equal(target, inspector.target)
+        if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
+            inspector:ensurePropertyVisible("sprite.image")
+            local canvas = love.graphics.newCanvas(love.graphics.getDimensions())
+            love.graphics.push("all"); love.graphics.setCanvas(canvas); app:draw(); love.graphics.setCanvas()
+            local pixels = canvas:newImageData(); pixels:encode("png", "image-property-preview.png")
+            pixels:release(); canvas:release(); love.graphics.pop()
+        end
+        assert(app:inspectAsset("Assets/Actor.prefab"))
+        inspector:setTarget(app.prefabInspectorTarget)
+        inspector:layout(inspector.left, inspector.width, love.graphics.getHeight())
+        Assert.equal("Actor.lua", inspector.dropdown.options[2].label)
+        local browse = inspector:parentBrowseRect()
+        inspector:mousepressed(browse.x + 3, browse.y + 3, 1)
+        Assert.equal("Sources", app.assetBrowser.folder)
+        Assert.equal("Sources/Actor.lua", app.assetBrowser.selectedReference)
+        Assert.equal(app.prefabInspectorTarget, inspector.target)
+        inspector.thumbnails:clear()
+    end)
+end)
+
+add("Group headers keep a fixed height and resource reveal scrolls files into view", function()
+    fixture(function(parent)
+        local Layout = require("editor.ui.property_layout")
+        Assert.equal(Layout.groupHeaderHeight(true, 200), Layout.groupHeaderHeight(false, 32))
+        Assert.equal(32, Layout.headerHeight)
+        local project, prefabId = componentProject(parent)
+        local app = EditorApp.new(nil, project)
+        app.sceneView.selectedLObject, app.activePanel = app.level:addLObject(0, 0, prefabId), "scene"; app:draw()
+        local inspector = app.inspector.classInspector
+        local collapsedHeight
+        for _, row in ipairs(inspector.rows) do if row.component == "sprite" then collapsedHeight = row.height end end
+        inspector:ensurePropertyVisible("sprite.image")
+        for _, row in ipairs(inspector.rows) do if row.component == "sprite" then Assert.equal(collapsedHeight, row.height) end end
+        for i = 1, 25 do assert(project:createEntry("Assets", "prefab", string.format("Item%02d", i))) end
+        local browser = app.assetBrowser
+        for _, mode in ipairs({"list", "thumbnails"}) do
+            browser:setViewMode(mode)
+            assert(browser:reveal(project:getAssetId("Assets/Item25.prefab")))
+            Assert.equal("Assets/Item25.prefab", browser.selectedReference)
+            Assert.truthy(browser.fileScroll > 0)
+            local view = browser.fileSlot.widget
+            local found = false
+            for y = view.y + 9, view.y + view.height - 1, 13 do
+                for x = view.x + 17, view.x + view.width - 1, 28 do
+                    local entry = browser:getEntryAtPosition(x, y)
+                    if entry and entry.reference == browser.selectedReference then found = true end
+                end
+            end
+            Assert.truthy(found)
+        end
     end)
 end)
 return tests

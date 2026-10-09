@@ -646,6 +646,11 @@ function EditorApp:initializeUI()
     end
     if self.assetBrowser then
         self.inspector.classInspector = require("editor.class_inspector").new(self.project, self.uiRoot)
+        self.inspector.classInspector.onReveal = function(value)
+            self.assetBrowser.collapsed = false
+            self:updateSceneViewport()
+            return self.assetBrowser:reveal(value)
+        end
         self:updateInspectorTarget()
         self.assetBrowser.onSelect = function(reference) return self:inspectAsset(reference) end
         self.assetBrowser.externalDropTarget = function(entry, x, y)

@@ -6,11 +6,32 @@ local IME = require("editor.ui.ime")
 local Edit = require("editor.ui.text_edit")
 local PropertyLayout = require("editor.ui.property_layout")
 local NumberDrag = require("editor.ui.number_drag")
+local Thumbnail = require("editor.asset_thumbnail")
 local ClassInspector = {}
 ClassInspector.__index = ClassInspector
 
 function ClassInspector.new(project, root)
-    return setmetatable({project = project, root = root, scroll = 0, expanded = {}, objectExpanded = true}, ClassInspector)
+    return setmetatable({project = project, root = root, scroll = 0, expanded = {}, objectExpanded = true, thumbnails = Thumbnail.new(project)}, ClassInspector)
+end
+
+local function resourceName(reference)
+    return tostring(reference):match("([^/]+)$") or tostring(reference)
+end
+
+function ClassInspector:thumbnail(value)
+    if not value then return nil end
+    local reference = self.project:getAssetReference(value)
+    if not reference then return nil end
+    return self.thumbnails:get({type = "file", name = resourceName(reference), reference = reference})
+end
+
+function ClassInspector:reveal(value)
+    self:commitEdit()
+    if value and self.onReveal then
+        local ok, err = self.onReveal(value)
+        if not ok then self.error = err end
+    end
+    return true
 end
 
 function ClassInspector:setTarget(target)
@@ -21,6 +42,7 @@ function ClassInspector:setTarget(target)
 end
 
 function ClassInspector:reload()
+    self.thumbnails:clear()
     if not self.target then self.class, self.dropdown, self.names = nil, nil, {}; return end
     local reference = self.target and self.target.data[self.target.referenceField]
     self.class, self.error = nil, nil
@@ -49,10 +71,10 @@ function ClassInspector:updateOptions()
     local found = not current
     for _, reference in ipairs(scripts or {}) do
         local id = self.project:getAssetId(reference) or reference
-        options[#options + 1] = {label = reference, value = id}
+        options[#options + 1] = {label = resourceName(reference), value = id}
         if id == current or reference == current then found = true; self.dropdown.value = id end
     end
-    if not found then options[#options + 1] = {label = "Missing: " .. current, value = current} end
+    if not found then options[#options + 1] = {label = "Missing: " .. resourceName(current), value = current} end
     self.dropdown.options = options
     if err then self.error = err end
 end
@@ -101,13 +123,29 @@ function ClassInspector:cancelEdit() NumberDrag.cancel(self); IME.cancel(self); 
 function ClassInspector:isEditing() return self.editing ~= nil end
 
 function ClassInspector:propertyRect(name, top)
+    if self.class.properties[name].type == "image" then return self:imageRects(top - 3).selector end
     local _, rect = PropertyLayout.cells(self.left, self.width, top - 3)
     return rect
 end
 
 function ClassInspector:resetRect(name, top)
+    if self.class.properties[name].type == "image" then return self:imageRects(top - 3).reset end
     local _, _, rect = PropertyLayout.cells(self.left, self.width, top - 3)
     return rect
+end
+function ClassInspector:imageRects(top)
+    local x = self.left + self.width / 2 + 4
+    local available = math.max(0, self.width / 2 - UI.metrics.contentPaddingX - 16)
+    local size = math.min(80, math.max(0, (available - 8) / 2))
+    local selectorX = x + size + 8
+    return {preview = {x = x, y = top + 8, w = size, h = size},
+        selector = {x = selectorX, y = top + 8, w = math.max(0, available - size - 8), h = 26},
+        browse = {x = selectorX, y = top + 40, w = 26, h = 26},
+        reset = {x = selectorX + 30, y = top + 40, w = 26, h = 26}}
+end
+
+function ClassInspector:parentBrowseRect()
+    return {x = self.dropdown.x, y = self.dropdown.y + self.dropdown.height + 4, w = 26, h = 26}
 end
 function ClassInspector:choices(name, value)
     local kind = self.class.properties[name].type
@@ -125,17 +163,31 @@ function ClassInspector:choices(name, value)
             end
         end
         table.sort(references)
-        for _, reference in ipairs(references) do options[#options + 1] = {label = reference, value = self.project:getAssetId(reference) or reference} end
+        for _, reference in ipairs(references) do options[#options + 1] = {label = resourceName(reference), value = self.project:getAssetId(reference) or reference} end
     end
     local found = false
     for _, option in ipairs(options) do if option.value == value then found = true end end
-    if not found then options[#options + 1] = {label = "Missing: " .. tostring(value), value = value} end
-    return Dropdown.new(self.root, options, value, function(selected) return self:setProperty(name, selected) end)
+    if not found then options[#options + 1] = {label = "Missing: " .. resourceName(value), value = value} end
+    local dropdown = Dropdown.new(self.root, options, value, function(selected) return self:setProperty(name, selected) end)
+    if kind == "image" then
+        dropdown.rowHeight, dropdown.menuWidth = PropertyLayout.rowHeight * 3, 300
+        dropdown.beginMenuDraw = function() self.thumbnails:beginFrame() end
+        dropdown.drawOption = function(option, rect, active)
+            UI.button("", rect, active, "Select " .. option.label .. ". Enter: apply.")
+            local size = math.min(80, rect.h - 12)
+            UI.thumbnail(self:thumbnail(option.value), {x = rect.x + 6, y = rect.y + 6, w = size, h = size})
+            UI.text(option.label, rect.x + size + 16, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, math.max(0, rect.w - size - 22))
+        end
+    end
+    return dropdown
 end
 
 -- 컴포넌트 헤더와 프로퍼티의 높이가 달라 스크롤을 픽셀 단위로 관리한다.
 function ClassInspector:rebuildRows()
     local groups, groupNames, rows, objectRows = {}, {}, {}, {}
+    local function propertyRow(name)
+        return {name = name, height = PropertyLayout.rowHeight * (self.class.properties[name].type == "image" and 3 or 1)}
+    end
     for component in pairs(self.class and self.class.componentTypes or {}) do
         groups[component] = {}; groupNames[#groupNames + 1] = component
     end
@@ -144,23 +196,28 @@ function ClassInspector:rebuildRows()
         if component then
             if not groups[component] then groups[component] = {}; groupNames[#groupNames + 1] = component end
             groups[component][#groups[component] + 1] = name
-        else objectRows[#objectRows + 1] = {name = name, height = PropertyLayout.rowHeight} end
+        else objectRows[#objectRows + 1] = propertyRow(name) end
     end
     table.sort(groupNames)
     for _, component in ipairs(groupNames) do
-        local header = {component = component, header = true, label = component .. " (" .. self.class.componentTypes[component] .. ")", height = self.expanded[component] and #groups[component] > 0 and 32 or 26}
+        local header = {component = component, header = true, label = component .. " (" .. self.class.componentTypes[component] .. ")", height = PropertyLayout.headerHeight}
         rows[#rows + 1] = header
+        header.groupHeight = header.height
         if self.expanded[component] then
-            for _, name in ipairs(groups[component]) do rows[#rows + 1] = {name = name, height = PropertyLayout.rowHeight} end
+            for _, name in ipairs(groups[component]) do
+                local row = propertyRow(name)
+                rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height
+            end
         end
-        header.groupHeight = header.height + (self.expanded[component] and #groups[component] * PropertyLayout.rowHeight or 0)
         rows[#rows + 1] = {gap = true, height = 8}
     end
     if self.class then
-        local header = {header = true, objectGroup = true, label = self.class.className or LuaClass.name(self.class) or (self.target.kind == "level" and "Level" or "LObject"), height = self.objectExpanded and #objectRows > 0 and 32 or 26}
+        local header = {header = true, objectGroup = true, label = self.class.className or LuaClass.name(self.class) or (self.target.kind == "level" and "Level" or "LObject"), height = PropertyLayout.headerHeight}
         rows[#rows + 1] = header
-        if self.objectExpanded then for _, row in ipairs(objectRows) do rows[#rows + 1] = row end end
-        header.groupHeight = header.height + (self.objectExpanded and #objectRows * PropertyLayout.rowHeight or 0)
+        header.groupHeight = header.height
+        if self.objectExpanded then
+            for _, row in ipairs(objectRows) do rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height end
+        end
     end
     local offset = 0
     for _, row in ipairs(rows) do row.offset = offset; offset = offset + row.height end
@@ -199,6 +256,7 @@ function ClassInspector:targetKind()
     return self.target.label
 end
 function ClassInspector:draw()
+    self.thumbnails:beginFrame()
     if not self.target.instance then
         local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
         if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
@@ -207,6 +265,7 @@ function ClassInspector:draw()
         if not self.target.hideParent then
             UI.label("Parent Class", self.left + UI.metrics.contentPaddingX + 12, 106 + UI.metrics.contentPaddingY, self.width / 2 - UI.metrics.contentPaddingX - 20)
             self.dropdown:draw()
+            UI.browseButton(self:parentBrowseRect(), self.dropdown.value ~= false)
         end
     end
     if self.error then UI.text(self.error, self.left + UI.metrics.contentPaddingX, 138 + UI.metrics.contentPaddingY, self.width - 2 * UI.metrics.contentPaddingX, Theme.color("error")) end
@@ -218,11 +277,18 @@ function ClassInspector:draw()
         if row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             PropertyLayout.group(self.left, self.width, y, row.groupHeight, row.label, row.objectGroup and self.objectExpanded or not row.objectGroup and self.expanded[row.component])
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
-            PropertyLayout.separators(self.left, self.width, y)
+            PropertyLayout.separators(self.left, self.width, y, row.height)
             local declaration = self.class.properties[name]
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
             local labelRect, rect = PropertyLayout.cells(self.left, self.width, y)
+            if declaration.type == "image" then
+                local imageRects = self:imageRects(y)
+                rect = imageRects.selector
+                labelRect.y = y + (row.height - love.graphics.getFont():getHeight()) / 2
+                UI.thumbnail(self:thumbnail(value), imageRects.preview)
+                UI.browseButton(imageRects.browse, value ~= false)
+            end
             UI.text(declaration.field or name, labelRect.x, labelRect.y, labelRect.w)
             UI.hint(labelRect, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
             if declaration.type == "object" or declaration.type == "image" then
@@ -241,6 +307,7 @@ end
 function ClassInspector:mousepressed(x, y, button)
     if button ~= 1 then return true end
     local dropdown = self.dropdown
+    if not self.target.hideParent and UI.contains(x, y, self:parentBrowseRect()) then return self:reveal(dropdown.value) end
     if not self.target.hideParent and dropdown:containsPoint(x, y) then
         self:commitEdit()
         self:updateOptions()
@@ -257,9 +324,14 @@ function ClassInspector:mousepressed(x, y, button)
             self:rebuildRows()
             return true
         end
+        local rowTop = top
         top = top + 3
-        if name and y >= top and y < top + 26 then
+        if name and y >= rowTop and y < rowTop + row.height then
             local declaration = self.class.properties[name]
+            if declaration.type == "image" and UI.contains(x, y, self:imageRects(rowTop).browse) then
+                local value = self.target:getOverrides()[name]
+                return self:reveal(value == nil and declaration.default or value)
+            end
             if UI.contains(x, y, self:resetRect(name, top)) then
                 self:commitEdit()
                 return self:setProperty(name, declaration.default)
