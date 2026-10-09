@@ -32,6 +32,7 @@
 7. Prefab 스키마와 Inspector에서는 루트 Transform을 제외한다. 루트 이미지·일반 프로퍼티는 편집 가능하다. 자손의 Transform은 Prefab·인스턴스 모두 편집한다. 인스턴스 객체 노드의 Actor Transform과 루트 노드의 Transform은 같은 배치 데이터를 편집한다. 루트 필드의 변경은 레벨 transform에 저장하고 componentOverrides에는 중복 저장하지 않으며 기존 Undo/Redo를 사용한다.
 8. 레벨·Prefab 버전은 유지한다. 저장된 루트 Transform componentOverride는 이전 로컬 offset 계약으로 읽되 적용하지 않는다. 루트의 새 위치는 레벨 transform 또는 SpawnLObject transform으로 지정한다. 자손 컴포넌트 override는 기존 이름별 계약으로 유지한다. 기존 파일은 자동 덮어쓰지 않는다.
 
+   기본 `root`를 `sprite`처럼 다른 이름의 루트로 교체해 `root` 컴포넌트가 사라진 경우에도, 기존 `root` override가 Transform 필드만 포함하면 같은 무시 규칙을 적용한다. 현재 `root`가 존재하면 원래 이름의 컴포넌트를 사용하며, 사라진 `root`의 일반 프로퍼티와 다른 미등록 컴포넌트는 오류로 거절한다.
 
 ## 관계
 

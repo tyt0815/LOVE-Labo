@@ -259,4 +259,36 @@ add("draw failure restores graphics state and reaches the caller error boundary"
     A.equal(false, ok); A.truthy(err:find("expected draw failure", 1, true))
     A.equal(1, r); A.equal(1, g); A.equal(1, b); A.equal(1, a)
 end)
+add("Renamed sprite roots ignore legacy root Transform overrides in Prefab layers and instances", function()
+    local Definition = require("project.ObjectDefinition")
+    local legacy = {overrides = {components = {root = {x = 116, y = 20, rotation = 45}}}}
+    local class = {build = function(self) self:setRootComponent("sprite", Sprite) end}
+    local owner = object()
+    assert(Definition.configure(owner, {class = class, properties = {}, components = legacy.overrides.components, layers = {legacy}}, nil, {root = {x = 300}, sprite = {image = false}}))
+    A.equal(nil, owner.components.root); A.equal(owner.components.sprite, owner.rootComponent)
+    A.equal(100, owner.transform.x); A.equal(200, owner.transform.y); A.equal(0, owner.transform.rotation)
+end)
+add("Missing component compatibility accepts only legacy root Transform fields", function()
+    local Definition = require("project.ObjectDefinition")
+    local class = {build = function(self) self:setRootComponent("sprite", Sprite) end}
+    for _, overrides in ipairs({{root = {image = false}}, {removed = {x = 116}}}) do
+        for _, layers in ipairs({false, true}) do
+            local definition = {class = class, properties = {}, components = layers and overrides or {}}
+            if layers then definition.layers = {{overrides = {components = overrides}}} end
+            local ok, err = Definition.configure(object(), definition, nil, not layers and overrides or nil)
+            A.equal(false, ok); A.truthy(err:find("Unknown component", 1, true))
+        end
+    end
+    local ok, err = Definition.configure(object(), {class = class, properties = {}, components = {root = {x = "invalid"}}})
+    A.equal(false, ok); A.truthy(err)
+end)
+add("Existing root named child overrides still apply to that component", function()
+    local owner = object()
+    assert(require("project.ObjectDefinition").configure(owner, {properties = {}, components = {root = {x = 116}}, class = {build = function(self)
+        self:setRootComponent("sprite", Sprite)
+        self:addComponent("root", Scene)
+    end}}))
+    A.equal(116, owner.components.root.transform.x); A.equal(100, owner.rootComponent.transform.x)
+end)
+
 return tests

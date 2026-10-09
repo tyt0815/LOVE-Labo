@@ -3,6 +3,15 @@ local Schema = require("core.PropertySchema")
 local Transform = require("core.Transform")
 local Definition = {}
 
+local function componentForOverrides(object, name, fields)
+    local component = object.components[name]
+    if component or name ~= "root" then return component end
+    -- 기본 root를 다른 이름의 루트로 교체한 프로젝트에도 과거 루트 offset 무시 규칙을 적용한다.
+    -- 일반 프로퍼티나 삭제된 다른 컴포넌트까지 새 루트로 연결하지 않는다.
+    for field in pairs(fields) do if not Transform.FIELDS[field] then return nil end end
+    return object.rootComponent
+end
+
 function Definition.resolve(project, reference, loadClass, excludedId)
     loadClass = loadClass or LuaClass.loader(project)
     local properties, components = {}, {}
@@ -63,7 +72,7 @@ function Definition.configure(object, definition, propertyOverrides, componentOv
     -- 구성 함수는 한 번만 실행하고 각 부모 단계의 컴포넌트 값도 같은 스키마로 검사한다.
     for _, layer in ipairs(definition.layers or {}) do
         for name, fields in pairs(layer.overrides.components or {}) do
-            local component = object.components[name]
+            local component = componentForOverrides(object, name, fields)
             if not component then return false, "Unknown component: " .. name end
             local valid, errorText = Schema.values(getmetatable(component).properties, fields)
             if not valid then return false, errorText end
@@ -75,7 +84,7 @@ function Definition.configure(object, definition, propertyOverrides, componentOv
         for field, value in pairs(fields) do components[name][field] = value end
     end
     for name, fields in pairs(components) do
-        local component = object.components[name]
+        local component = componentForOverrides(object, name, fields)
         if not component then return false, "Unknown component: " .. name end
         local valid, validationError = Schema.values(getmetatable(component).properties, fields)
         if not valid then return false, validationError end
