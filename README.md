@@ -2,11 +2,13 @@
 
 LÖVE 11.5 + LuaJIT을 사용하는 2D 제작 에디터다. 현재 외부 프로젝트 생성·탐색은 Windows에서 지원한다.
 
+제품 코드와 번들 리소스는 `src/`, 개발 테스트·샘플 프로젝트는 `tests/`, 문서는 `docs/`, 자동화는 `scripts/`, 생성된 배포물은 `build/`에 둔다. 패키징·CLI·게임 Export 사용법은 [패키징](docs/packaging.md)과 [CLI·Export](docs/cli-and-export.md)를 참고한다.
+
 ## 실행
 
 ```powershell
-love .
-love . --test
+love src
+love src --test
 ```
 
 시작하면 프로젝트 시작 화면이 표시된다.
@@ -14,8 +16,8 @@ love . --test
 개발 중 특정 프로젝트를 바로 열려면 `--project` 뒤에 프로젝트 폴더 경로를 지정한다. 상대 경로는 명령을 실행한 작업 폴더를 기준으로 해석한다.
 
 ```powershell
-love . --project "tests/TestProject"
-love . --project "C:\Projects\TestProject"
+love src --project "tests/TestProject"
+love src --project "C:\Projects\TestProject"
 ```
 
 프로젝트 열기에 실패하거나 경로를 빠뜨리면 시작 화면에서 오류를 표시한다. `--test`를 함께 지정하면 자동화 테스트만 실행한다.
@@ -123,7 +125,7 @@ Lua 첫 줄의 `-- labo-script: level` 또는 `-- labo-script: lobject`는 최�
 
 ## Lua Class 상속과 프로퍼티
 
-컴포넌트와 이미지·객체 참조의 선언 및 편집 예시는 [컴포넌트 사용법](components.md)을 참고한다.
+컴포넌트와 이미지·객체 참조의 선언 및 편집 예시는 [컴포넌트 사용법](docs/components.md)을 참고한다.
 
 클래스는 일반 Lua 테이블을 반환한다. `extends`에는 같은 종류의 부모 `.lua.meta`의 `id`를 기록한다. ID를 사용하므로 부모 파일 이동·이름 변경에도 상속이 유지된다. 생략한 함수와 프로퍼티는 부모에게서 물려받으며, 자식 함수에서 `Child.super.BeginPlay(world)`처럼 부모 함수를 명시적으로 호출할 수 있다. 순환 상속·다른 종류의 부모·잘못된 선언은 오류다.
 
@@ -170,9 +172,9 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 
 ## 에디터 테마
 
-에디터 글꼴은 동봉된 나눔스퀘어 라운드를 사용한다. 본문은 Regular 14px, 패널 제목·라벨은 실제 Bold 파일을 사용한다. 썸네일과 작은 Lua 표식도 같은 글꼴이며 시스템 설치·OS 글꼴 경로에 의존하지 않는다. 원본 글꼴과 저작권·라이선스는 [editor/fonts](editor/fonts/README.md)에 보관한다. 보기·부모 선택 드롭다운은 텍스트 오른쪽에 구분선과 별도 화살표를 표시한다.
+에디터 글꼴은 동봉된 나눔스퀘어 라운드를 사용한다. 본문은 Regular 14px, 패널 제목·라벨은 실제 Bold 파일을 사용한다. 썸네일과 작은 Lua 표식도 같은 글꼴이며 시스템 설치·OS 글꼴 경로에 의존하지 않는다. 원본 글꼴과 저작권·라이선스는 [src/editor/fonts](src/editor/fonts/README.md)에 보관한다. 보기·부모 선택 드롭다운은 텍스트 오른쪽에 구분선과 별도 화살표를 표시한다.
 
-테마는 게임 프로젝트와 별도로 에디터 소스/설치 폴더에서 관리한다. `editor/settings.json`의 `theme`를 바꾸고 에디터를 재시작하면 적용된다.
+테마는 게임 프로젝트와 별도로 에디터 소스/설치 폴더에서 관리한다. `src/editor/settings.json`의 `theme`를 바꾸고 에디터를 재시작하면 적용된다.
 
 ```json
 {
@@ -181,10 +183,10 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 }
 ```
 
-- `default`: [LÖVE 공식 홈페이지](https://love2d.org/)의 [CSS](https://love2d.org/style/style.css?b)·[박스 SVG](https://love2d.org/style/box.svg)를 참고한 전체 배경·패널 `#B1E3FA`, 뷰포트 배경 `#E0F4FC`, 짙은 제목 `#1B4D68`, 분홍 `#EA316E`·파랑 `#25AAE1` 강조색이다. `editor/theme.lua`에 내장되어 JSON 파일 없이도 동작한다.
+- `default`: [LÖVE 공식 홈페이지](https://love2d.org/)의 [CSS](https://love2d.org/style/style.css?b)·[박스 SVG](https://love2d.org/style/box.svg)를 참고한 전체 배경·패널 `#B1E3FA`, 뷰포트 배경 `#E0F4FC`, 짙은 제목 `#1B4D68`, 분홍 `#EA316E`·파랑 `#25AAE1` 강조색이다. `src/editor/theme.lua`에 내장되어 JSON 파일 없이도 동작한다.
 - `atom-one-light`: [VS Code Atom One Light](https://github.com/akamud/vscode-theme-onelight/blob/master/themes/OneLight.json) 스타일의 밝은 회색 배경, 짙은 글자와 파란 강조색.
 
-색을 직접 바꾸려면 아래처럼 `editor/themes/my-theme.json`을 만들고 설정에서 `"theme": "my-theme"`을 선택한다. 파일의 `colors`는 `#RRGGBB` 또는 알파를 포함한 `#RRGGBBAA` 색을 받는다. 일부 색만 지정해도 나머지는 코드에 내장된 기본 테마를 사용한다. 모든 색 항목은 `atom-one-light.json`을 참고한다.
+색을 직접 바꾸려면 아래처럼 `src/editor/themes/my-theme.json`을 만들고 설정에서 `"theme": "my-theme"`을 선택한다. 파일의 `colors`는 `#RRGGBB` 또는 알파를 포함한 `#RRGGBBAA` 색을 받는다. 일부 색만 지정해도 나머지는 코드에 내장된 기본 테마를 사용한다. 모든 색 항목은 `atom-one-light.json`을 참고한다.
 
 ```json
 {
@@ -217,10 +219,10 @@ Assets·Sources의 일반 파일마다 이름 뒤에 `.meta`를 붙인 JSON을 �
 
 ## 에디터 UI 구성
 
-`editor/ui/`는 위젯 트리와 입력 전달을 관리한다. Core Runtime 및 LObject 생명주기와 분리된다.
+`src/editor/ui/`는 위젯 트리와 입력 전달을 관리한다. Core Runtime 및 LObject 생명주기와 분리된다.
 
 ```text
-editor/ui/
+src/editor/ui/
   widget.lua          # 공통 위젯과 이벤트 처리
   panel.lua           # 자식 위젯·그리기 순서·클리핑
   slot.lua            # 부모 기준 배치 정보
@@ -233,9 +235,9 @@ editor/ui/
   editor_layout.lua   # 에디터 패널 배치·경계선 크기 조절
 ```
 
-기존 `editor/ui.lua`는 텍스트·버튼·입력칸 그리기 도우미로 유지한다. 에디터는 루트의 그리기·입력 메서드를 호출하며, 계층·뷰포트·인스펙터는 각각 Canvas 안의 콘텐츠 위젯으로 연결된다. 에셋 브라우저는 내부에 폴더 트리·경로·파일 영역·드롭다운 슬롯을 가진 Canvas다. 폴더 트리와 경로·파일 목록은 간격을 둔 독립 패널로 표시하며, 파일 목록 패널은 뷰포트 배경색을 공유한다. 내부 모듈명은 `asset_browser.lua`를 유지한다. 확장자별 플러그인 등록 API는 아직 제공하지 않는다.
+기존 `src/editor/ui.lua`는 텍스트·버튼·입력칸 그리기 도우미로 유지한다. 에디터는 루트의 그리기·입력 메서드를 호출하며, 계층·뷰포트·인스펙터는 각각 Canvas 안의 콘텐츠 위젯으로 연결된다. 에셋 브라우저는 내부에 폴더 트리·경로·파일 영역·드롭다운 슬롯을 가진 Canvas다. 폴더 트리와 경로·파일 목록은 간격을 둔 독립 패널로 표시하며, 파일 목록 패널은 뷰포트 배경색을 공유한다. 내부 모듈명은 `asset_browser.lua`를 유지한다. 확장자별 플러그인 등록 API는 아직 제공하지 않는다.
 ## 패널 여백 조절
 
 일반 버튼의 폭은 텍스트 폭에 `UI.metrics.buttonPaddingX`를 좌우로 더해서 계산한다. 기본은 좌우 각각 10px이며, 버튼 사이 간격은 `buttonGap`(기본 8px)이다. 에셋 브라우저 도구·다이얼로그·프로젝트 시작 화면·인스펙터의 동작 버튼에 적용하며, 드롭다운 메뉴의 선택 행과 입력칸은 목록·필드 폭을 유지한다. 표시와 클릭 영역은 같은 크기를 사용한다.
 
-`editor/ui.lua` 상단의 `UI.metrics`를 수정하고 에디터를 다시 실행하면 공통 패널 여백을 바꿀 수 있습니다. `titlePaddingX`·`titlePaddingY`는 패널 경계에서 제목까지의 좌측·상단 거리, `titleFontSize`는 제목 크기입니다. `contentPaddingX`는 본문 좌측 여백이며, `contentPaddingY`는 제목 아래 콘텐츠에 추가하는 상단 여백입니다. 제목과 본문을 맞추려면 두 X 값을 같게 설정하세요. `selectionPaddingX`·`selectionPaddingY`는 선택 박스의 가로·세로 여백, `selectionRadius`는 모서리 반경입니다. 모든 수치는 픽셀 단위입니다.
+`src/editor/ui.lua` 상단의 `UI.metrics`를 수정하고 에디터를 다시 실행하면 공통 패널 여백을 바꿀 수 있습니다. `titlePaddingX`·`titlePaddingY`는 패널 경계에서 제목까지의 좌측·상단 거리, `titleFontSize`는 제목 크기입니다. `contentPaddingX`는 본문 좌측 여백이며, `contentPaddingY`는 제목 아래 콘텐츠에 추가하는 상단 여백입니다. 제목과 본문을 맞추려면 두 X 값을 같게 설정하세요. `selectionPaddingX`·`selectionPaddingY`는 선택 박스의 가로·세로 여백, `selectionRadius`는 모서리 반경입니다. 모든 수치는 픽셀 단위입니다.

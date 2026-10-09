@@ -7,6 +7,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$taskSource = Join-Path $taskRoot 'src'
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $taskRoot 'build\windows' }
 $taskOutput = [IO.Path]::GetFullPath($OutputDirectory)
 $taskLove = [IO.Path]::GetFullPath($LoveDirectory)
@@ -27,8 +28,8 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 # 배포 대상 목록을 명시하여 테스트·샘플 프로젝트·문서를 제외한다.
 $taskFiles = @('main.lua', 'conf.lua', 'engine.lua')
 foreach ($taskFolder in @('core', 'editor', 'project', 'runtime')) {
-    $taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskRoot $taskFolder) -Recurse -File -Filter '*.lua' |
-        ForEach-Object { $_.FullName.Substring($taskRoot.Length + 1).Replace('\', '/') }
+    $taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskSource $taskFolder) -Recurse -File -Filter '*.lua' |
+        ForEach-Object { $_.FullName.Substring($taskSource.Length + 1).Replace('\', '/') }
 }
 $taskFiles += @('editor/fonts/NanumSquareRoundR.ttf', 'editor/fonts/NanumSquareRoundB.ttf', 'editor/fonts/OFL.txt')
 $taskArchivePath = Join-Path $taskOutput 'Labo.love'
@@ -37,7 +38,7 @@ $taskArchive = [IO.Compression.ZipFile]::Open($taskTemporaryArchive, [IO.Compres
 try {
     foreach ($taskRelative in ($taskFiles | Sort-Object -Unique)) {
         [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive,
-            (Join-Path $taskRoot $taskRelative), $taskRelative, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+            (Join-Path $taskSource $taskRelative), $taskRelative, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
     }
 } finally { $taskArchive.Dispose() }
 Move-Item -LiteralPath $taskTemporaryArchive -Destination $taskArchivePath -Force
@@ -57,16 +58,16 @@ Get-ChildItem -LiteralPath $taskLove -Filter '*.dll' -File | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $taskOutput $_.Name) -Force
 }
 Copy-Item -LiteralPath (Join-Path $taskLove 'license.txt') -Destination (Join-Path $taskOutput 'license-love.txt') -Force
-Copy-Item -LiteralPath (Join-Path $taskRoot 'editor/fonts/OFL.txt') -Destination (Join-Path $taskOutput 'license-fonts.txt') -Force
+Copy-Item -LiteralPath (Join-Path $taskSource 'editor/fonts/OFL.txt') -Destination (Join-Path $taskOutput 'license-fonts.txt') -Force
 
 # 다시 패키징해도 사용자가 수정한 설정·테마는 덮어쓰지 않는다.
 $taskSettings = Join-Path $taskOutput 'settings.json'
 if (-not (Test-Path -LiteralPath $taskSettings)) {
-    Copy-Item -LiteralPath (Join-Path $taskRoot 'editor/settings.json') -Destination $taskSettings
+    Copy-Item -LiteralPath (Join-Path $taskSource 'editor/settings.json') -Destination $taskSettings
 }
 $taskThemes = Join-Path $taskOutput 'themes'
 New-Item -ItemType Directory -Path $taskThemes -Force | Out-Null
-Get-ChildItem -LiteralPath (Join-Path $taskRoot 'editor/themes') -Filter '*.json' -File | ForEach-Object {
+Get-ChildItem -LiteralPath (Join-Path $taskSource 'editor/themes') -Filter '*.json' -File | ForEach-Object {
     $taskThemePath = Join-Path $taskThemes $_.Name
     if (-not (Test-Path -LiteralPath $taskThemePath)) { Copy-Item -LiteralPath $_.FullName -Destination $taskThemePath }
 }

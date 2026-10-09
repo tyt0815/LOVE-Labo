@@ -26,6 +26,22 @@ function love.load(args)
         return
     end
     if hasArg(args, "--test") then
+        love.errorhandler = function(message)
+            print(message)
+            return function() return 1 end
+        end
+        -- 가상 파일 시스템 밖의 개발 테스트만 전용 로더로 읽는다.
+        local source = love.filesystem.getSource():gsub("\\", "/")
+        local repository = source:match("^(.*)/src$")
+        assert(repository, "Tests require the repository src directory")
+        local FS = require("editor.host_filesystem")
+        table.insert(package.loaders, 2, function(name)
+            if not name:match("^tests%.[%w_%.]+$") or name:find("..", 1, true) then return "\nNot a repository test module" end
+            local relative = name:gsub("%.", "/") .. ".lua"
+            local text, err = FS.read(FS.join(repository, relative))
+            if not text then return "\n" .. tostring(err) end
+            return assert(loadstring(text, "@" .. relative))
+        end)
         local runner = require("tests.runner")
 
         local _, failed = runner.runAll()

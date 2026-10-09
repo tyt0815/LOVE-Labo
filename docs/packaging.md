@@ -31,7 +31,7 @@ PowerShell과 LÖVE 11.5 Windows 런타임이 필요하다. 저장소 루트에�
 .\build\windows\Labo.exe --project 'D:\Games\MyProject'
 ```
 
-배포된 실행 파일은 작업 디렉터리에 관계없이 실행 파일 옆의 `settings.json`과 `themes/<이름>.json`을 읽는다. 수정 후 재시작하면 반영된다. 설정이 없거나 잘못된 경우 코드에 내장된 기본 테마로 돌아간다. 다시 패키징할 때 기존 외부 설정·테마는 덮어쓰지 않는다. 개발 중에는 기존 `editor/settings.json`, `editor/themes/`를 계속 사용한다.
+배포된 실행 파일은 작업 디렉터리에 관계없이 실행 파일 옆의 `settings.json`과 `themes/<이름>.json`을 읽는다. 수정 후 재시작하면 반영된다. 설정이 없거나 잘못된 경우 코드에 내장된 기본 테마로 돌아간다. 다시 패키징할 때 기존 외부 설정·테마는 덮어쓰지 않는다. 개발 중에는 `src/editor/settings.json`, `src/editor/themes/`를 사용한다. 스크립트는 `src` 내용물을 패키지 루트에 넣으므로 패키지 내부 모듈·리소스 경로는 그대로 유지한다.
 
 스냅 설정은 기존 방식대로 LÖVE 사용자 저장 폴더의 `viewport-settings.json`에 저장한다. 설치 폴더에 쓰기 권한이 없어도 스냅 설정을 저장할 수 있다. LÖVE의 fused 실행에서는 소스 실행과 사용자 저장 폴더 위치가 다를 수 있다.
 
