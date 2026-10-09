@@ -45,11 +45,16 @@ $taskPrefab = Invoke-LaboRequest @{command = 'prefab.create'; project = $taskPro
 $taskInfo = Invoke-LaboRequest @{command = 'project.info'; project = $taskProject}
 $taskImage = $taskInfo.assets.'Assets/Sprite.png'.id
 Invoke-LaboRequest @{command = 'prefab.set'; project = $taskProject; prefab = $taskPrefab.assetId; property = 'sprite.image'; value = $taskImage} | Out-Null
+$taskChildClass = Invoke-LaboRequest @{command = 'class.create'; project = $taskProject; name = 'ChildClass'; parent = $taskClass.assetId}
+$taskChildPrefab = Invoke-LaboRequest @{command = 'prefab.create'; project = $taskProject; name = 'ChildPrefab'; class = $taskPrefab.assetId}
+Invoke-LaboRequest @{command = 'prefab.set'; project = $taskProject; prefab = $taskChildPrefab.assetId; property = 'speed'; value = 25} | Out-Null
+$taskInherited = Invoke-LaboRequest @{command = 'prefab.get'; project = $taskProject; prefab = $taskChildPrefab.assetId}
+if ($taskInherited.values.speed -ne 25 -or $taskInherited.values.'sprite.image' -ne $taskImage) { throw 'Prefab inheritance does not preserve parent values' }
 $taskLevelClass = Invoke-LaboRequest @{command = 'class.create'; project = $taskProject; name = 'NewLevel'; type = 'level'}
 $taskLevel = Invoke-LaboRequest @{command = 'level.create'; project = $taskProject; name = 'NewLevel'; class = $taskLevelClass.assetId}
 Invoke-LaboRequest @{command = 'project.set-default'; project = $taskProject; level = $taskLevel.assetId} | Out-Null
 $taskFirst = Invoke-LaboRequest @{command = 'instance.add'; project = $taskProject; prefab = $taskPrefab.assetId; x = 100; y = 200}
-$taskSecond = Invoke-LaboRequest @{command = 'instance.add'; project = $taskProject; prefab = $taskPrefab.assetId; x = -100; y = -200}
+$taskSecond = Invoke-LaboRequest @{command = 'instance.add'; project = $taskProject; prefab = $taskChildPrefab.assetId; x = -100; y = -200}
 $taskId = $taskFirst.data.authoringId
 Invoke-LaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'speed'; value = 42} | Out-Null
 Invoke-LaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'enabled'; value = $false} | Out-Null
@@ -67,7 +72,8 @@ $taskGameReport = Get-Content -LiteralPath $taskGameReportPath -Raw -Encoding UT
 if ($taskGameProcess.ExitCode -ne 0 -or -not $taskGameReport.ok -or $taskGameReport.editorLoaded) { throw "Exported game failed: $($taskGameReport.error)" }
 if ($taskGameReport.objects -ne 2 -or $taskGameReport.properties[0].speed -ne 42 -or $taskGameReport.properties[0].enabled -ne $false `
     -or -not $taskGameReport.properties[0].started -or $taskGameReport.properties[0].ticks -ne 1 `
-    -or $taskGameReport.properties[0].target.instance -ne $taskSecond.data.authoringId) { throw 'Exported game state does not match CLI edits' }
+    -or $taskGameReport.properties[0].target.instance -ne $taskSecond.data.authoringId `
+    -or $taskGameReport.properties[1].speed -ne 25) { throw 'Exported game state does not match CLI edits' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $taskArchive = [IO.Compression.ZipFile]::OpenRead($taskGamePath)
 try {

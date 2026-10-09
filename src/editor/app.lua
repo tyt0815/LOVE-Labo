@@ -186,7 +186,8 @@ function EditorApp:inspectAsset(reference)
     if not document then return false, err end
     self.prefabDocument = document
     self.histories[document] = require("editor.history").new(assert(require("editor.prefab").encodeData(document.data)))
-    self.prefabInspectorTarget = {data = document.data, kind = "lobject", referenceField = "definitionReference", label = "Prefab",
+    self.prefabInspectorTarget = {data = document.data, kind = "lobject", parentOwnerId = document.assetId,
+        referenceField = "definitionReference", label = "Prefab",
         getDisplayName = function()
             local path = self.project:getAssetReference(document.assetId)
             return path and path:match("([^/]+)%.prefab$") or "Missing Prefab"

@@ -915,7 +915,8 @@ add("browser replaces context menu on right click and hides unavailable creation
         root:keypressed("down")
         root:keypressed("return")
         local dialog = root.popup
-        Assert.equal("Sources", dialog.options.message)
+        Assert.equal("Next", dialog.options.confirmLabel)
+        Assert.equal("Level", dialog.options.message)
         -- 입력·삭제 확인 창의 우클릭은 메뉴 교체 동작에 포함하지 않는다.
         app:mousepressed(x, y, 2)
         Assert.equal(dialog, root.popup)
@@ -982,28 +983,35 @@ add("Level and Prefab allow no class but reject wrong kinds and persist IDs", fu
     end)
 end)
 
-add("creation dialogs choose script type and filter scrollable Level and Prefab sources", function()
+add("creation wizard chooses parent then folder and name for classes levels and prefabs", function()
     fixture(function(parent)
         local project = assert(createSampleProject(parent, "Pickers"))
         local app = EditorApp.new(nil, project)
         local browser, root = app.assetBrowser, app.uiRoot
         browser:showCreateDialog("Sources", "lua")
+        Assert.equal(nil, root.popup.options.input)
+        -- 기존 Level 자식도 트리에 있으므로 내장 LObject를 직접 선택한다.
+        local tree = root.popup.options.content
+        tree:choose(tree.records["builtin:lobject"])
+        app:keypressed("return")
+        Assert.equal("Sources", root.popup.options.content.selected)
+        root.popup.contentFocused = false
         app:textinput("Enemy")
-        app:keypressed("down")
         app:keypressed("return")
         Assert.equal(nil, root.popup)
         Assert.equal("lobject", project:getScriptKind("Sources/Enemy.lua"))
         for i = 1, 8 do assert(project:createEntry("Sources", "lua", "Stage" .. i, {scriptKind = "level"})) end
         browser:showCreateDialog("Assets", "level")
         local dialog = root.popup
-        Assert.equal(10, #dialog.options.choices)
-        Assert.equal(false, dialog.options.choices[1].value)
-        for i = 2, #dialog.options.choices do Assert.equal("level", project:getScriptKind(dialog.options.choices[i].value)) end
-        root:wheelmoved(dialog.choicesRect.x + 5, dialog.choicesRect.y + 5, -2)
-        Assert.truthy(dialog.choiceScroll > 0)
-        local selectedIndex = dialog.choiceScroll + 2
-        root:mousepressed(dialog.choicesRect.x + 5, dialog.choicesRect.y + 35, 1)
-        local reference = dialog.options.choices[selectedIndex].value
+        tree = dialog.options.content
+        Assert.equal(10, #tree.nodes)
+        for _, node in ipairs(tree.nodes) do Assert.equal("level", node.kind) end
+        root:wheelmoved(tree.x + 5, tree.y + 5, -2)
+        Assert.truthy(tree.scroll > 0)
+        local reference = "Sources/Stage8.lua"
+        tree:choose(tree.records[project:getAssetId(reference)])
+        dialog:submit()
+        dialog = root.popup
         root:mousepressed(dialog.field.x + 5, dialog.field.y + 5, 1)
         dialog.replace = true
         app:textinput("SelectedStage")
@@ -1012,17 +1020,22 @@ add("creation dialogs choose script type and filter scrollable Level and Prefab 
         local level = assert(require("editor.level_file").load(assert(project:resolveAssetFile("Assets/SelectedStage.level"))))
         Assert.equal(project:getAssetId(reference), level.scriptReference)
         browser:showCreateDialog("Assets", "prefab")
-        Assert.equal(2, #root.popup.options.choices)
-        Assert.equal("Sources/Enemy.lua", root.popup.options.choices[2].value)
+        tree = root.popup.options.content
+        Assert.equal(2, #tree.nodes)
+        tree:choose(tree.records[project:getAssetId("Sources/Enemy.lua")])
+        root.popup:submit()
+        root.popup.contentFocused = false
         app:textinput("EnemyPrefab")
-        app:keypressed("down")
         app:keypressed("return")
         Assert.equal(nil, root.popup)
         local data = assert(require("editor.json").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/EnemyPrefab.prefab"))))))
         Assert.equal(project:getAssetId("Sources/Enemy.lua"), data.definitionReference)
         assert(project:deleteEntry("Sources/Enemy.lua"))
         browser:showCreateDialog("Assets", "prefab")
-        Assert.equal(1, #root.popup.options.choices)
+        tree = root.popup.options.content
+        Assert.equal(2, #tree.nodes)
+        Assert.truthy(tree.records[project:getAssetId("Assets/EnemyPrefab.prefab")].error)
+        app:keypressed("return")
         app:keypressed("return")
         Assert.equal(nil, root.popup)
         Assert.equal(nil, assert(require("editor.prefab").decode(assert(FS.read(assert(project:resolveAssetFile("Assets/NewPrefab.prefab")))))).definitionReference)
@@ -2384,7 +2397,9 @@ add("File and Run menus occupy only the top strip and reuse creation and playbac
         Assert.equal("Level...", submenu.items[3].label)
         app:mousepressed(submenu.x + 16, submenu.y + 12, 1)
         local dialog = app.uiRoot.popup
-        Assert.equal("New Lua Class", dialog.options.title)
+        Assert.equal("New Lua Class - Parent", dialog.options.title)
+        dialog:submit()
+        dialog = app.uiRoot.popup
         dialog.text = "MenuClass"
         dialog:submit()
         Assert.truthy(project:getAssetId("Sources/MenuClass.lua"))
@@ -2826,6 +2841,148 @@ add("asset index failure rolls back deletion without recording an action", funct
         Assert.equal(id, project:getAssetId("Sources/Actor.lua"))
         Assert.truthy(FS.info(project:resolvePath("Sources/Actor.lua")))
         Assert.equal(0, app.assetActionIndex)
+    end)
+end)
+add("creation wizard preserves folder name and parent when going back and derives class type", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        assert(project:createEntry("Sources", "folder", "Gameplay"))
+        local app = EditorApp.new(nil, project)
+        local browser, root = app.assetBrowser, app.uiRoot
+        browser:showCreateDialog("Sources/Gameplay", "lua")
+        local parents = root.popup.options.content
+        parents:choose(parents.records[project:getAssetId("Sources/Actor.lua")])
+        root.popup:submit()
+        local dialog = root.popup
+        Assert.equal("Sources/Gameplay", dialog.options.content.selected)
+        dialog.text = "DerivedActor"
+        dialog.options.onBack()
+        Assert.equal(parents, root.popup.options.content)
+        root.popup:submit()
+        dialog = root.popup
+        Assert.equal("DerivedActor", dialog.text)
+        Assert.equal("Sources/Gameplay", dialog.options.content.selected)
+        dialog:submit()
+        assert(not root.popup, dialog.error)
+        local id = project:getAssetId("Sources/Gameplay/DerivedActor.lua")
+        local class = assert(require("project.lua_class").load(project, id, "lobject"))
+        Assert.equal(project:getAssetId("Sources/Actor.lua"), class.extends)
+        Assert.equal(class.super.build, class.build)
+        Assert.equal(10, class.properties.speed.default)
+        assert(app:undoRedo(-1)); Assert.equal(nil, project:getAssetId("Sources/Gameplay/DerivedActor.lua"))
+        assert(app:undoRedo(1)); Assert.equal(id, project:getAssetId("Sources/Gameplay/DerivedActor.lua"))
+        browser:showCreateDialog("Assets", "prefab")
+        parents = root.popup.options.content
+        Assert.equal(project:getAssetId("Sources/Actor.lua"), parents.records[prefabId].parent)
+        parents:choose(parents.records[prefabId]); root.popup:submit()
+        root.popup.text = "ChildPrefab"; root.popup:submit()
+        local child = assert(require("project.prefab").decode(assert(project:readAsset("Assets/ChildPrefab.prefab"))))
+        Assert.equal(prefabId, child.definitionReference)
+    end)
+end)
+
+add("Prefab chains merge values per field and reset to immediate parent in Inspector and CLI", function()
+    fixture(function(parent)
+        local project, parentId = componentProject(parent)
+        local Prefab, Definition = require("project.prefab"), require("project.object_definition")
+        local function save(reference, properties, components)
+            local data = assert(Prefab.decode(assert(project:readAsset(reference))))
+            data.overrides = {properties = properties, components = components}
+            assert(FS.writeAtomic(assert(project:resolveAssetFile(reference)), assert(Prefab.encodeData(data))))
+        end
+        save(parentId, {speed = 20, enabled = false}, {sprite = {x = 7, y = 8}})
+        assert(project:createEntry("Assets", "prefab", "Child", {scriptReference = parentId}))
+        local childId = project:getAssetId("Assets/Child.prefab")
+        save(childId, {speed = 0}, {sprite = {y = 12}})
+        assert(project:createEntry("Assets", "prefab", "Grandchild", {scriptReference = childId}))
+        local grandchild = project:getAssetId("Assets/Grandchild.prefab")
+        local definition = assert(Definition.resolve(project, grandchild))
+        Assert.equal(0, definition.properties.speed); Assert.equal(false, definition.properties.enabled)
+        Assert.equal(7, definition.components.sprite.x); Assert.equal(12, definition.components.sprite.y)
+        local app = EditorApp.new(nil, project)
+        assert(app:inspectAsset("Assets/Child.prefab"))
+        app.activePanel = "assets"; app.assetBrowser.selectedReference = "Assets/Child.prefab"
+        app:updateInspectorTarget()
+        local inspector = app.inspector.classInspector
+        Assert.equal(20, inspector.class.properties.speed.default)
+        Assert.equal(7, inspector.class.properties["sprite.x"].default)
+        assert(inspector:setProperty("speed", 20))
+        Assert.equal(nil, app.prefabDocument.data.overrides.properties)
+        assert(inspector:setProperty("sprite.y", 8))
+        Assert.equal(nil, app.prefabDocument.data.overrides.components)
+        assert(app.prefabDocument:save(project))
+        local CLI = require("editor.cli")
+        local function request(command, property, value)
+            return CLI.execute({command = command, project = project.rootPath, prefab = childId, property = property, value = value})
+        end
+        Assert.equal(20, request("prefab.get").values.speed)
+        request("prefab.set", "speed", 10)
+        Assert.equal(10, request("prefab.get").values.speed)
+        local data = assert(Prefab.decode(assert(project:readAsset(childId))))
+        Assert.equal(10, data.overrides.properties.speed)
+        request("prefab.set", "speed", 20)
+        Assert.equal(nil, assert(Prefab.decode(assert(project:readAsset(childId)))).overrides.properties.speed)
+        save(parentId, {speed = 30, enabled = false}, {sprite = {x = 9, y = 8}})
+        definition = assert(Definition.resolve(project, grandchild))
+        Assert.equal(30, definition.properties.speed)
+        Assert.equal(9, definition.components.sprite.x)
+        app.level:addLObject(0, 0, grandchild).propertyOverrides = {speed = 40}
+        assert(app:startPlay())
+        Assert.equal(40, app.runtimeWorld.lobjects[1].properties.speed)
+        Assert.equal(9, app.runtimeWorld.lobjects[1].components.sprite.properties.x)
+        app:stopPlay()
+    end)
+end)
+
+add("Prefab parent selection rejects cycles missing parents and cross-kind references", function()
+    fixture(function(parent)
+        local project, parentId = componentProject(parent)
+        assert(project:createEntry("Assets", "prefab", "Child", {scriptReference = parentId}))
+        local childId = project:getAssetId("Assets/Child.prefab")
+        local app = EditorApp.new(nil, project)
+        assert(app:inspectAsset("Assets/Actor.prefab"))
+        app.activePanel = "assets"; app.assetBrowser.selectedReference = "Assets/Actor.prefab"
+        app:updateInspectorTarget()
+        local inspector = app.inspector.classInspector
+        Assert.equal(false, inspector:selectParent(childId))
+        Assert.equal(project:getAssetId("Sources/Actor.lua"), app.prefabDocument.data.definitionReference)
+        for _, option in ipairs(inspector.dropdown.options) do
+            Assert.truthy(option.value ~= parentId and option.value ~= childId)
+        end
+        local Prefab = require("project.prefab")
+        assert(FS.writeAtomic(assert(project:resolveAssetFile(parentId)), assert(Prefab.encode(childId))))
+        local definition, err = require("project.object_definition").resolve(project, childId)
+        Assert.equal(nil, definition); Assert.truthy(err:find("cycle", 1, true))
+        app.assetBrowser:showCreateDialog("Assets", "prefab")
+        local tree = app.uiRoot.popup.options.content
+        tree:choose(tree.records[childId]); app.uiRoot.popup:submit()
+        Assert.equal("Next", app.uiRoot.popup.options.confirmLabel)
+        Assert.truthy(app.uiRoot.popup.error)
+        app.uiRoot:dismissPopup()
+        assert(project:createEntry("Sources", "lua", "Stage", {scriptKind = "level"}))
+        Assert.equal(false, project:createEntry("Assets", "prefab", "WrongKind", {scriptReference = project:getAssetId("Sources/Stage.lua")}))
+        assert(project:deleteEntry("Assets/Actor.prefab"))
+        definition, err = require("project.object_definition").resolve(project, childId)
+        Assert.equal(nil, definition); Assert.truthy(err)
+    end)
+end)
+add("right click folder creation defaults to the clicked folder", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "RightClickLocation"))
+        assert(project:createEntry("Sources", "folder", "Gameplay"))
+        local app = EditorApp.new(nil, project)
+        local browser = app.assetBrowser
+        browser.expanded.Sources = true; browser:rebuildTree()
+        local index
+        for i, node in ipairs(browser.tree) do if node.reference == "Sources/Gameplay" then index = i end end
+        assert(index)
+        browser:showContextMenu(browser.treeSlot.widget.x + 70, browser.treeSlot.widget.y + (index - 1) * 26 + 13)
+        local menu = app.uiRoot.popup
+        local action
+        for _, item in ipairs(menu.panels[1].items[1].children) do if item.label == "Lua Class" then action = item.action end end
+        assert(action); action()
+        app.uiRoot.popup:submit()
+        Assert.equal("Sources/Gameplay", app.uiRoot.popup.options.content.selected)
     end)
 end)
 return tests

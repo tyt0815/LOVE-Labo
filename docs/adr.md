@@ -31,3 +31,4 @@
 - [0029. 제품 소스와 번들 리소스를 src로 통합](adr/0029-product-source-directory.md)
 - [0030. 파일·실행 메뉴와 문서 Undo/Redo](adr/0030-file-run-menu-and-document-history.md)
 - [0031. 에셋 파일 작업과 문서 기록의 Undo/Redo](adr/0031-asset-operation-history.md)
+- [0032. 부모 선택 생성 창과 Prefab 값 상속](adr/0032-parent-first-creation-and-prefab-inheritance.md)

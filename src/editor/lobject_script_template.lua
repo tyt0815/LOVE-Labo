@@ -20,4 +20,12 @@ end
 
 return __CLASS__
 ]]
-return function(name) return (template:gsub("__CLASS__", require("editor.class_name").fromModule(name, "LObject"))) end
+return function(name, parentId)
+    local className = require("editor.class_name").fromModule(name, "LObject")
+    if parentId then
+        -- 함수가 없는 자식은 부모의 구성·생명주기를 그대로 상속한다.
+        return "-- labo-script: lobject\nlocal " .. className .. " = {}\n" .. className .. ".extends = "
+            .. string.format("%q", parentId) .. "\n" .. className .. ".properties = {}\n\nreturn " .. className .. "\n"
+    end
+    return (template:gsub("__CLASS__", className))
+end

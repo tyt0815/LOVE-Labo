@@ -375,10 +375,21 @@ function Project:createEntry(folder, kind, name, options)
     if (kind == "level" or kind == "prefab") and options.scriptReference ~= nil then
         local rebuilt, rebuildError = self:rebuildAssetIndex()
         if not rebuilt then return false, rebuildError end
-        local required = kind == "level" and "level" or "lobject"
-        local actual, scriptError = self:getScriptKind(options.scriptReference)
-        if not actual then return false, scriptError end
-        if actual ~= required then return false, "Choose a " .. required .. " script" end
+        if kind == "prefab" then
+            local definition, parentError = require("project.object_definition").resolve(self, options.scriptReference)
+            if not definition then return false, parentError end
+        else
+            local actual, scriptError = self:getScriptKind(options.scriptReference)
+            if not actual then return false, scriptError end
+            if actual ~= "level" then return false, "Choose a level script" end
+        end
+    end
+    local parentId
+    if kind == "lua" and options.parentReference then
+        local parent, err = require("project.lua_class").load(self, options.parentReference, options.scriptKind)
+        if not parent then return false, err end
+        parentId = self:getAssetId(self:getAssetReference(options.parentReference))
+        if not parentId then return false, "Parent Class is not registered" end
     end
     local fs, createdDirectories, createdFiles = filesystem(), {}, {}
     local function rollback(errorText)
@@ -435,7 +446,7 @@ function Project:createEntry(folder, kind, name, options)
         end
     elseif kind == "lua" then
         ok, createError = writeNew(reference, require(options.scriptKind == "level"
-            and "editor.level_script_template" or "editor.lobject_script_template")(name))
+            and "editor.level_script_template" or "editor.lobject_script_template")(name, parentId))
     elseif kind == "level" then
         local level = options.level or require("editor.level").new()
         assert(level:setScriptReference(self:getAssetId(options.scriptReference) or options.scriptReference))

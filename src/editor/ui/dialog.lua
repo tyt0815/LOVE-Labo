@@ -19,10 +19,11 @@ function Dialog.new(root, options)
     local confirmWidth = UI.buttonWidth(options.confirmLabel or "Create")
     self.cancel = { x = box.x + box.w - 16 - cancelWidth, y = box.y + box.h - 46, w = cancelWidth, h = 30 }
     self.confirm = { x = self.cancel.x - UI.metrics.buttonGap - confirmWidth, y = self.cancel.y, w = confirmWidth, h = 30 }
+    if options.onBack then self.back = {x = box.x + 16, y = self.cancel.y, w = UI.buttonWidth("Back"), h = 30} end
     self.choicesRect = { x = box.x + 16, y = box.y + 140, w = box.w - 32, h = 150 }
     self.selected, self.choiceScroll = options.choices and #options.choices > 0 and 1 or nil, 0
     if options.content then
-        options.content:setBounds(box.x + 16, box.y + 140, box.w - 32, 190)
+        options.content:setBounds(box.x + 16, box.y + (options.input and 140 or 82), box.w - 32, options.input and 190 or 248)
         options.content:clampScroll()
         for i, node in ipairs(options.content.nodes) do
             if node.reference == options.content.selected then
@@ -40,7 +41,10 @@ function Dialog:submit()
     self.text, self.replace = IME.finish(self, self.text, self.replace)
     local choice = self.selected and self.options.choices[self.selected]
     local ok, err = self.options.onConfirm(self.text, choice and choice.value)
-    if ok then self.root:dismissPopup() else self.error = err or "Operation failed" end
+    if ok then
+        -- 다음 단계가 새 팝업을 열었으면 그 창을 닫지 않는다.
+        if self.root.popup == self then self.root:dismissPopup() end
+    else self.error = err or "Operation failed" end
 end
 
 function Dialog:hitTest()
@@ -63,7 +67,7 @@ function Dialog:dispatch(event, ...)
             self.text, self.replace = IME.finish(self, self.text, self.replace)
         end
         if key == "return" or key == "kpenter" then self:submit()
-        elseif key == "tab" and self.options.content then self.contentFocused = not self.contentFocused
+        elseif key == "tab" and self.options.content and self.options.input then self.contentFocused = not self.contentFocused
         elseif self.contentFocused and self.options.content then self.options.content:dispatch(event, key)
         elseif key == "tab" and self.options.choices then self.choiceFocused = not self.choiceFocused
         elseif (key == "up" or key == "down") and self.options.choices and #self.options.choices > 0 then
@@ -78,8 +82,9 @@ function Dialog:dispatch(event, ...)
                 self.text, self.replace = IME.finish(self, self.text, self.replace)
             end
             if UI.contains(x, y, self.cancel) then self.root:dismissPopup()
+            elseif self.back and UI.contains(x, y, self.back) then self.options.onBack()
             elseif UI.contains(x, y, self.confirm) then self:submit()
-            elseif UI.contains(x, y, self.field) then
+            elseif self.options.input and UI.contains(x, y, self.field) then
                 self.text, self.replace = IME.finish(self, self.text, self.replace)
                 self.choiceFocused, self.contentFocused, self.replace = false, false, false
                 Edit.press(self, self.text, self.field, x, false)
@@ -115,7 +120,7 @@ function Dialog:draw()
     UI.text(self.options.message or "", box.x + 16, box.y + 46, box.w - 32)
     if self.options.input then UI.field(IME.display(self, self.text, self.replace), self.field,
         not self.choiceFocused and not self.contentFocused, self.composition, self)
-    else UI.text(self.options.detail or "", box.x + 16, box.y + 82, box.w - 32) end
+    elseif not self.options.content then UI.text(self.options.detail or "", box.x + 16, box.y + 82, box.w - 32) end
     if self.options.choices then
         UI.text(self.options.choiceLabel or "Class", box.x + 16, box.y + 118, box.w - 32)
         local rect = self.choicesRect
@@ -138,12 +143,13 @@ function Dialog:draw()
         UI.text("Tab: name/class    Up/Down or wheel: select class", box.x + 16, box.y + 294, box.w - 32, Theme.color("textMuted"))
     end
     if self.options.content then
-        UI.text("Destination folder", box.x + 16, box.y + 118, box.w - 32)
+        if self.options.input then UI.text(self.options.contentLabel or "Destination folder", box.x + 16, box.y + 118, box.w - 32) end
         self.options.content:draw()
-        UI.text("Tab: path/tree    Arrows: navigate folders", box.x + 16, box.y + 338, box.w - 32, Theme.color("textMuted"))
+        UI.text(self.options.contentHint or "Tab: path/tree    Arrows: navigate folders", box.x + 16, box.y + 338, box.w - 32, Theme.color("textMuted"))
     end
     if self.error then UI.text(self.error, box.x + 16, box.y + box.h - 74, box.w - 32, Theme.color("error")) end
     UI.button("Cancel", self.cancel)
+    if self.back then UI.button("Back", self.back) end
     UI.button(self.options.confirmLabel or "Create", self.confirm)
 end
 

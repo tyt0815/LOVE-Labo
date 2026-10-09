@@ -14,4 +14,11 @@ end
 
 return __CLASS__
 ]]
-return function(name) return (template:gsub("__CLASS__", require("editor.class_name").fromModule(name, "Level"))) end
+return function(name, parentId)
+    local className = require("editor.class_name").fromModule(name, "Level")
+    if parentId then
+        return "-- labo-script: level\nlocal " .. className .. " = {}\n" .. className .. ".extends = "
+            .. string.format("%q", parentId) .. "\n" .. className .. ".properties = {}\n\nreturn " .. className .. "\n"
+    end
+    return (template:gsub("__CLASS__", className))
+end

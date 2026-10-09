@@ -68,7 +68,9 @@ local function execute(request)
     if command == "class.create" or command == "prefab.create" or command == "level.create" then
         local kind = command:match("^(.-)%.")
         local folder = request.folder or (kind == "class" and "Sources" or "Assets")
-        local options = {scriptKind = request.type or "lobject", scriptReference = request.class}
+        local parent = kind == "class" and request.parent
+        local options = {scriptKind = request.type or (parent and assert(project:getScriptKind(parent))) or "lobject",
+            parentReference = parent, scriptReference = request.class}
         local ok, reference = project:createEntry(folder, kind == "class" and "lua" or kind, required(request, "name"), options)
         assert(ok, reference)
         return basicResult(project, reference)
@@ -88,9 +90,10 @@ local function execute(request)
         local reference = required(request, "prefab")
         local document = assert(require("editor.prefab_document").load(project, reference))
         local bytes = assert(project:readAsset(reference)); checkRevision(request, bytes)
-        local definition = assert(require("project.object_definition").resolve(project, reference))
+        assert(require("project.object_definition").resolve(project, reference))
+        local definition = assert(require("project.object_definition").resolve(project, document.data.definitionReference))
         local proxy = {propertyOverrides = document.data.overrides.properties, componentOverrides = document.data.overrides.components}
-        local target = assert(require("project.object_definition").inspectorTarget(project, proxy, {class = definition.class, properties = {}, components = {}}))
+        local target = assert(require("project.object_definition").inspectorTarget(project, proxy, definition))
         if command == "prefab.set" then
             setProperty(project, target, required(request, "property"), value(request))
             document.data.overrides.properties, document.data.overrides.components = proxy.propertyOverrides, proxy.componentOverrides

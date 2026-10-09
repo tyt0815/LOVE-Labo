@@ -2,26 +2,49 @@ local LuaClass = require("project.lua_class")
 local Schema = require("core.property_schema")
 local Definition = {}
 
-function Definition.resolve(project, reference, loadClass)
+function Definition.resolve(project, reference, loadClass, excludedId)
     local properties, components = {}, {}
-    if reference then
+    local class
+    local visiting, chain = {}, {}
+    local function resolve(current, depth)
+        if not current then return true end
+        if depth > 64 then return nil, "Prefab inheritance is too deep" end
+        local reference = current
         local path, err = project:getAssetReference(reference)
         if not path then return nil, err end
         if path:match("^Assets/.+%.prefab$") then
-            local file, fileError = project:resolveAssetFile(reference)
-            if not file then return nil, fileError end
+            local key = project:getAssetId(path) or path
+            if key == excludedId then return nil, "Prefab inheritance cycle: " .. path end
+            if visiting[key] then return nil, "Prefab inheritance cycle: " .. path end
+            visiting[key] = true
             local bytes, readError = project:readAsset(reference)
             if not bytes then return nil, readError end
             local prefab, prefabError = require("project.prefab").decode(bytes)
             if not prefab then return nil, prefabError end
-            reference = prefab.definitionReference
-            properties, components = prefab.overrides.properties or {}, prefab.overrides.components or {}
+            local ok, parentError = resolve(prefab.definitionReference, depth + 1)
+            if not ok then return nil, parentError end
+            chain[#chain + 1] = prefab
+            for name, value in pairs(prefab.overrides.properties or {}) do properties[name] = value end
+            for name, fields in pairs(prefab.overrides.components or {}) do
+                components[name] = components[name] or {}
+                for field, value in pairs(fields) do components[name][field] = value end
+            end
+            visiting[key] = nil
+        else
+            local err
+            class, err = (loadClass or LuaClass.loader(project))(reference, "lobject")
+            if not class then return nil, err end
         end
+        return true
     end
-    local class, err
-    if reference then class, err = (loadClass or LuaClass.loader(project))(reference, "lobject") end
-    if reference and not class then return nil, err end
-    return {class = class, properties = properties, components = components}
+    local ok, err = resolve(reference, 0)
+    if not ok then return nil, err end
+    -- 각 단계의 잘못된 override도 검사한다. 자식 값으로 덮여 오류가 숨겨지지 않게 한다.
+    for _, prefab in ipairs(chain) do
+        local valid, errorText = LuaClass.values(class, prefab.overrides.properties)
+        if not valid then return nil, errorText end
+    end
+    return {class = class, properties = properties, components = components, layers = chain}
 end
 
 function Definition.configure(object, definition, propertyOverrides, componentOverrides)
@@ -33,6 +56,15 @@ function Definition.configure(object, definition, propertyOverrides, componentOv
     if definition.class and definition.class.build then
         local ok, result, buildError = pcall(definition.class.build, object)
         if not ok or result == false then return false, tostring(ok and buildError or result) end
+    end
+    -- 구성 함수는 한 번만 실행하고 각 부모 단계의 컴포넌트 값도 같은 스키마로 검사한다.
+    for _, layer in ipairs(definition.layers or {}) do
+        for name, fields in pairs(layer.overrides.components or {}) do
+            local component = object.components[name]
+            if not component then return false, "Unknown component: " .. name end
+            local valid, errorText = Schema.values(getmetatable(component).properties, fields)
+            if not valid then return false, errorText end
+        end
     end
     local components = require("project.property_data").copyComponents(definition.components)
     for name, fields in pairs(componentOverrides or {}) do

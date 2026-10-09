@@ -1,0 +1,86 @@
+local FolderTree = require("editor.ui.folder_tree")
+local Widget = require("editor.ui.widget")
+local Tree = setmetatable({}, {__index = FolderTree})
+Tree.__index = Tree
+
+function Tree.new(project, kind)
+    local self = setmetatable(Widget.new(), Tree)
+    self.project, self.kind, self.expanded, self.scroll = project, kind, {}, 0
+    self.records, self.roots = {}, {}
+    for _, base in ipairs(kind == "lua" and {"level", "lobject"} or {kind == "level" and "level" or "lobject"}) do
+        local key = "builtin:" .. base
+        local node = {reference = key, name = base == "level" and "Level" or "LObject", kind = base, children = {}}
+        self.records[key], self.roots[#self.roots + 1], self.expanded[key] = node, node, true
+    end
+    local loader = require("project.lua_class").loader(project)
+    for reference, meta in pairs(project.assetMetadata or {}) do
+        local script = reference:match("^Sources/.+%.lua$") and meta.scriptKind
+        local prefab = kind == "prefab" and reference:match("^Assets/.+%.prefab$")
+        if script and self.records["builtin:" .. script] or prefab then
+            local id = project:getAssetId(reference)
+            local node = {reference = id, assetId = id, path = reference,
+                name = reference:match("([^/]+)$"), kind = prefab and "lobject" or script, children = {}}
+            if prefab then
+                local bytes, err = project:readAsset(id)
+                local data
+                if bytes then data, err = require("project.prefab").decode(bytes) end
+                node.error = err
+                if data then
+                    node.parent = data.definitionReference and project:getAssetId(project:getAssetReference(data.definitionReference))
+                    local definition
+                    definition, node.error = require("project.object_definition").resolve(project, id, loader)
+                    if definition then
+                        local preview
+                        preview, node.error = require("project.object_definition").inspectorTarget(project, {}, definition)
+                    end
+                end
+            else
+                local class
+                class, node.error = loader(id, script)
+                if class then node.parent = class.extends end
+            end
+            self.records[id] = node
+            self.expanded[id] = true
+        end
+    end
+    for key, node in pairs(self.records) do
+        if node.assetId then
+            local parent = not node.error and node.parent and self.records[node.parent]
+                or self.records["builtin:" .. node.kind]
+            parent.children[#parent.children + 1] = node
+        end
+    end
+    local function sort(node)
+        table.sort(node.children, function(a, b)
+            if a.name == b.name then return a.path < b.path end
+            return a.name:lower() < b.name:lower()
+        end)
+        for _, child in ipairs(node.children) do sort(child) end
+    end
+    for _, node in ipairs(self.roots) do sort(node) end
+    self.selected = self.roots[1].reference
+    self:rebuild()
+    return self
+end
+
+function Tree:rebuild()
+    self.nodes = {}
+    local function visit(node, depth)
+        node.depth = depth
+        self.nodes[#self.nodes + 1] = node
+        if self.expanded[node.reference] then
+            for _, child in ipairs(node.children) do visit(child, depth + 1) end
+        end
+    end
+    for _, node in ipairs(self.roots) do visit(node, 0) end
+    self:clampScroll()
+end
+
+function Tree:choose(node)
+    if not node then return end
+    self.selected, self.error = node.reference, node.error
+    if self.onSelect then self.onSelect(node) end
+end
+
+function Tree:selection() return self.records[self.selected] end
+return Tree

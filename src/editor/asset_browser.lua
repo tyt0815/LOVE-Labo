@@ -506,6 +506,7 @@ function AssetBrowser:showContextMenu(x, y)
     else
         entry = self:getEntryAtPosition(x, y)
         self.selectedReference = entry and entry.reference or nil
+        if entry and entry.type == "directory" and not entry.isLink then folder = entry.reference end
     end
     local newItems = {}
     for _, option in ipairs({ {"Folder", "folder"}, {"Level", "level"}, {"Prefab", "prefab"}, {"Lua Class", "lua"} }) do
@@ -578,33 +579,7 @@ function AssetBrowser:moveEntryDirect(entry, destination)
 end
 
 function AssetBrowser:showCreateDialog(folder, kind)
-    local defaults = { folder = "NewFolder", level = "NewLevel", prefab = "NewPrefab", lua = "NewClass" }
-    local choices, listError
-    if kind == "lua" then
-        choices = { {label = "Level Class", value = "level"}, {label = "LObject Class", value = "lobject"} }
-    elseif kind == "level" or kind == "prefab" then
-        choices = {{label = "None", value = false}}
-        local scripts
-        scripts, listError = self.project:listScripts(kind == "level" and "level" or "lobject")
-        for _, reference in ipairs(scripts or {}) do choices[#choices + 1] = {label = reference:match("([^/]+)$"), value = reference} end
-    end
-    local titles = {folder = "Folder", level = "Level", prefab = "Prefab", lua = "Lua Class"}
-    local dialog = Dialog.new(self.uiRoot, { title = "New " .. titles[kind],
-        message = folder, input = true, value = defaults[kind], choices = choices,
-        choiceLabel = kind == "lua" and "Class type" or "Parent Class",
-        onConfirm = function(name, choice)
-            if listError then return false, listError end
-            local options = kind == "lua" and {scriptKind = choice} or {scriptReference = choice or nil}
-            local ok, reference
-            if self.assetOperations then ok, reference = self.assetOperations:create(folder, kind, name, options)
-            else ok, reference = self.project:createEntry(folder, kind, name, options) end
-            if not ok then return false, reference end
-            self:refresh(true)
-            if self.folder ~= folder then self:openFolder(folder) end
-            self.selectedReference = reference
-            return true
-        end })
-    dialog.error = listError
+    return require("editor.create_asset_dialog").show(self, folder, kind)
 end
 
 function AssetBrowser:showDeleteDialog(entry)

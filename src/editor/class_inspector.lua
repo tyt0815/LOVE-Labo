@@ -48,12 +48,13 @@ function ClassInspector:reload()
     self.class, self.error = nil, nil
     if self.target.class then self.class = self.target.class
     elseif reference then
-        self.class, self.error = LuaClass.load(self.project, reference, self.target.kind)
-        if self.class and self.target.kind == "lobject" then
+        if self.target.kind == "lobject" then
             local Definition = require("editor.object_definition")
-            local target, err = Definition.inspectorTarget(self.project, {}, {class = self.class, properties = {}, components = {}}, nil, "Prefab")
-            if target then self.class = target.class else self.class, self.error = nil, err end
-        end
+            local definition, err = Definition.resolve(self.project, reference, nil, self.target.parentOwnerId)
+            local target
+            if definition then target, err = Definition.inspectorTarget(self.project, {}, definition, nil, "Prefab") end
+            if target then self.class = target.class else self.error = err end
+        else self.class, self.error = LuaClass.load(self.project, reference, self.target.kind) end
     end
     self.names = {}
     for name in pairs(self.class and self.class.properties or {}) do self.names[#self.names + 1] = name end
@@ -74,6 +75,20 @@ function ClassInspector:updateOptions()
         options[#options + 1] = {label = resourceName(reference), value = id}
         if id == current or reference == current then found = true; self.dropdown.value = id end
     end
+    if self.target.kind == "lobject" and not self.target.hideParent then
+        local paths = {}
+        for reference in pairs(self.project.assetMetadata or {}) do
+            if reference:match("^Assets/.+%.prefab$") then paths[#paths + 1] = reference end
+        end
+        table.sort(paths)
+        for _, reference in ipairs(paths) do
+            local id = self.project:getAssetId(reference)
+            if require("editor.object_definition").resolve(self.project, id, nil, self.target.parentOwnerId) then
+                options[#options + 1] = {label = resourceName(reference), value = id}
+                if id == current then found = true end
+            end
+        end
+    end
     if not found then options[#options + 1] = {label = "Missing: " .. resourceName(current), value = current} end
     self.dropdown.options = options
     if err then self.error = err end
@@ -82,12 +97,17 @@ end
 function ClassInspector:selectParent(value)
     self:commitEdit()
     local class, err
-    if value then class, err = LuaClass.load(self.project, value, self.target.kind) end
-    if value and not class then self.error = err; return false end
-    if class and self.target.kind == "lobject" then
-        local target, targetError = require("editor.object_definition").inspectorTarget(self.project, {}, {class = class, properties = {}, components = {}}, nil, "Prefab")
-        if not target then self.error = targetError; return false end
-        class = target.class
+    if value then
+        if self.target.kind == "lobject" then
+            local Definition = require("editor.object_definition")
+            local definition
+            definition, err = Definition.resolve(self.project, value, nil, self.target.parentOwnerId)
+            if not definition then self.error = err; return false end
+            local target
+            target, err = Definition.inspectorTarget(self.project, {}, definition, nil, "Prefab")
+            if target then class = target.class end
+        else class, err = LuaClass.load(self.project, value, self.target.kind) end
+        if not class then self.error = err; return false end
     end
     self.target.data[self.target.referenceField] = value or nil
     self.target:setOverrides(LuaClass.compatibleOverrides(class, self.target:getOverrides()))

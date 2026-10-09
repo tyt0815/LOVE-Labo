@@ -201,7 +201,7 @@ Prefab
 → 이미 정의된 authoring data의 기본값 variation
 ```
 
-Prefab inheritance나 복잡한 composition 기능은 실제 필요가 확인되기 전에는 구현하지 않는다.
+현재는 사용자가 요청한 단일 부모 Prefab 상속과 오브젝트·컴포넌트 프로퍼티 값 override를 지원한다. 컴포넌트 구성은 Lua Definition에서만 정하며 부모 변경 전파와 자식 override 유지 규칙은 [ADR 0032](adr/0032-parent-first-creation-and-prefab-inheritance.md)를 따른다. 중첩 인스턴스나 컴포넌트 추가·삭제 등의 복잡한 composition은 구현하지 않는다.
 
 `.prefab`은 사람이 읽고 Git/AI가 다루기 쉬운 text asset을 기본 방향으로 한다.
 
@@ -461,7 +461,7 @@ LÖVE Labo
 범용 Visual Scripting
 깊은 게임 객체 class inheritance
 Generic ECS framework
-Prefab inheritance
+Prefab 중첩 인스턴스 및 컴포넌트 구성 override
 UE급 Level Streaming
 완전한 Hot Reload
 완전한 process/VM sandbox
