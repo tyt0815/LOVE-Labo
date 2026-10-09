@@ -1,5 +1,4 @@
 local Theme = require("editor.theme")
-local World = require("core.world")
 local LevelDocument = require("editor.level_document")
 local SceneView = require("editor.scene_view")
 local GameView = require("editor.game_view")
@@ -134,48 +133,10 @@ function EditorApp:startPlay()
     self.inspector:commitEdit()
     if self.viewportControls then self.viewportControls:commit() end
 
-    local world, worldError =
-        World.fromLevelData(
-            self.level:toData()
-        )
-
-    if not world then
-        self.runtimeError = worldError
-        return false, worldError
-    end
-
-    local levelClass
-    if self.level.scriptReference then
-        if not self.project then
-            self.runtimeError = "Level script requires a project"
-            return false, self.runtimeError
-        end
-        local ok, script, scriptError = pcall(require("editor.project_script").load, self.project, self.level.scriptReference)
-        if not ok then self.runtimeError = tostring(script); return false, self.runtimeError end
-        if not script then self.runtimeError = scriptError; return false, scriptError end
-        local properties, propertyError = require("editor.lua_class").values(script, self.level.propertyOverrides)
-        if not properties then self.runtimeError = propertyError; return false, propertyError end
-        world.properties = properties
-        world.levelPropertySchema = script.properties
-        levelClass = script
-    end
-
-    if not levelClass then
-        local properties, propertyError = require("editor.lua_class").values(nil, self.level.propertyOverrides)
-        if not properties then self.runtimeError = propertyError; return false, propertyError end
-        world.properties = properties
-    end
-    if self.project then
-        local bound, bindError = self:bindRuntimeObjects(world)
-        if not bound then self.runtimeError = bindError; return false, bindError end
-    end
-    if levelClass then
-        local attached, loaded, loadError = pcall(world.setLevelScript, world, levelClass)
-        if not attached then self.runtimeError = tostring(loaded); return false, self.runtimeError end
-        if not loaded then self.runtimeError = loadError; return false, loadError end
-    end
-    self.runtimeError = nil
-    self.runtimeWorld = world
+    local called, world, worldError = pcall(require("runtime.world_loader").create, self.project, self.level:toData())
+    if not called then worldError, world = tostring(world), nil end
+    if not world then self.runtimeError = worldError; return false, worldError end
+    self.runtimeError, self.runtimeWorld = nil, world
 
     -- Play 중 hidden Scene View drag/pan 상태가 남아 있지 않게 정리한다.
     self.sceneView:cancelDrag(false)
@@ -203,38 +164,6 @@ function EditorApp:resolveDocumentReferences()
             object.definitionReference = self.project:getAssetId(object.definitionReference) or object.definitionReference
         end
     end
-end
-
-function EditorApp:bindRuntimeObjects(world)
-    local LuaClass = require("editor.lua_class")
-    local loadClass = LuaClass.loader(self.project)
-    local initialObjects, byId = {}, {}
-    local Definition = require("editor.object_definition")
-    for i, object in ipairs(world.lobjects) do initialObjects[i] = object; byId[object.authoringId] = object end
-    -- 초기 레벨의 배치 객체만 바인딩한다. Lua가 직접 생성한 객체는 자신의 초기화 경로를 사용한다.
-    for i, data in ipairs(self.level.lobjects) do
-        local object = initialObjects[i]
-        local definition, err = Definition.resolve(self.project, data.definitionReference, loadClass)
-        if not definition then return false, err end
-        local configured, configureError = Definition.configure(object, definition, data.propertyOverrides, data.componentOverrides)
-        if not configured then return false, configureError end
-    end
-    local resolved, resolveError = Definition.resolveReferences(world.properties, world.levelPropertySchema, byId, self.project)
-    if not resolved then return false, resolveError end
-    for _, object in ipairs(initialObjects) do
-        local ok, err = Definition.resolveReferences(object.properties, object.luaClass and object.luaClass.properties, byId, self.project)
-        if not ok then return false, err end
-        for _, name in ipairs(object.componentOrder) do
-            local component = object.components[name]
-            local valid, fieldError = Definition.resolveReferences(component.properties, getmetatable(component).properties, byId, self.project)
-            if not valid then return false, fieldError end
-        end
-    end
-    for _, object in ipairs(initialObjects) do
-        local ok, err = object:BeginPlay(world)
-        if not ok then return false, err end
-    end
-    return true
 end
 
 function EditorApp:inspectAsset(reference)
@@ -776,7 +705,7 @@ function EditorApp:statusText(x, y)
     if err then return "Error: " .. err .. (hint and " | " .. hint or "") end
     if hint then return hint end
     return self.assetBrowser and self.assetBrowser.selectedReference
-        or "Double-click a folder or level to open it. Ctrl+S: save. F5: Play / Stop."
+        or "Double-click a folder or level to open it. Ctrl+S: save. F5: Play / Stop. Ctrl+Shift+E: Export."
 end
 
 function EditorApp:drawStatusBar(x, y)
@@ -852,6 +781,7 @@ function EditorApp:keypressed(key)
     if self.uiRoot.popup then return self.uiRoot:keypressed(key) end
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
     local shiftDown = love.keyboard.isDown("lshift", "rshift")
+    if key == "e" and controlDown and shiftDown and not self:isPlaying() then return self:showExportDialog() end
     if key == "s" and controlDown and not shiftDown then return self:saveInspectedDocument() end
     if key == "f5" then
         if self:isPlaying() then return self:stopPlay() end
@@ -862,6 +792,21 @@ function EditorApp:keypressed(key)
     if not controlDown and not self.inspector:isEditing() and not self.viewportControls.editing
         and (key == "w" or key == "e" or key == "r") then return self:handleSceneKey(key) end
     return self.uiRoot:keypressed(key)
+end
+
+function EditorApp:showExportDialog()
+    if not self.project then return false, "Export requires a project" end
+    self.inspector:commitEdit()
+    require("editor.ui.dialog").new(self.uiRoot, {title = "Export Game", input = true,
+        message = "Export the current level as a standalone .love game.",
+        value = require("editor.host_filesystem").join(self.project.rootPath, "Build/Game.love"), confirmLabel = "Export",
+        onConfirm = function(output)
+            if self.prefabDocument and self.prefabDocument:isDirty() then return false, "Save the edited Prefab first (Ctrl+S)" end
+            local called, ok, err = pcall(require("editor.export").write, self.project, self.level, output)
+            if not called then return false, tostring(ok) end
+            return ok, err
+        end})
+    return true
 end
 
 return EditorApp

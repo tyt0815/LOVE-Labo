@@ -15,6 +15,7 @@ PowerShell과 LÖVE 11.5 Windows 런타임이 필요하다. 저장소 루트에�
 ## 결과물
 
 - `build/windows/Labo.exe`: LÖVE 실행 파일과 에디터 `.love` 패키지를 바이트 스트림으로 결합한 Windows 실행 파일
+- `build/windows/Labo-cli.exe`: 같은 에디터 패키지의 콘솔 실행 파일. `--cli`에서 창 없이 JSON을 반환한다.
 - `build/windows/*.dll`: 같은 LÖVE 배포판의 런타임 라이브러리
 - `build/windows/Labo.love`: 실행 파일 생성에 사용한 ZIP 패키지
 - `build/windows/settings.json`, `themes/*.json`: 외부에서 수정 가능한 설정·테마
@@ -45,4 +46,4 @@ PowerShell과 LÖVE 11.5 Windows 런타임이 필요하다. 저장소 루트에�
 
 검증 결과는 출력 폴더 옆 `verification-<고유값>/report.json`에 남고, 화면은 `preview.png`로 저장한다. 실패하거나 60초 안에 종료하지 않으면 스크립트가 오류를 반환한다. 기존 사용자 프로젝트·설정은 수정하지 않는다. 검증 프로젝트를 배포 폴더에 포함하지 않도록 출력 폴더의 부모에 보관한다.
 
-게임 프로젝트 Export와 AI용 생성·편집 CLI는 이번 패키징에 포함하지 않는다.
+AI용 CLI와 게임 `.love` Export 사용법은 [CLI와 게임 Export](cli-and-export.md)를 참고한다.

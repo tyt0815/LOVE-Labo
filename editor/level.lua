@@ -4,20 +4,7 @@ Level.__index = Level
 
 local FORMAT_VERSION = 2
 
-function Level.isValidScriptReference(reference)
-    if reference == nil then return true end
-    if require("editor.asset_id").isValid(reference) then return true end
-    if type(reference) ~= "string" or not reference:match("^Sources/.+%.lua$")
-        or reference:find('[%z\1-\31\\:*?"<>|]') or reference:find("//", 1, true) then
-        return false, "level scriptReference must be a canonical Sources/*.lua reference"
-    end
-    for segment in reference:gmatch("[^/]+") do
-        if segment == "." or segment == ".." or segment:match("[ .]$") then
-            return false, "level scriptReference contains a non-canonical path segment"
-        end
-    end
-    return true
-end
+Level.isValidScriptReference = require("project.reference").validScript
 
 local function isPositiveInteger(value)
     return type(value) == "number"

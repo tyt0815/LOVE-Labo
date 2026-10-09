@@ -15,6 +15,10 @@ end
 -- love.load는 일반 Lua main()이 아니라
 -- LÖVE Runtime이 프로그램 시작 시 한 번 호출하는 callback이다.
 function love.load(args)
+    if hasArg(args, "--cli") then
+        require("editor.cli").run(args)
+        return
+    end
     require("editor.theme").load()
     require("editor.fonts").apply()
     if hasArg(args, "--verify-package") then

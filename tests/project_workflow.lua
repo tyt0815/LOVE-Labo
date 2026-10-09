@@ -128,9 +128,9 @@ add("project open rejects missing malformed and unsupported project data", funct
         Assert.equal(nil, Project.open(parent))
         assert(FS.removeFile(marker))
         assert(FS.createFile(marker, '{"version":1,"name":"Test"}'))
-        Assert.equal(nil, Project.open(parent))
-        assert(FS.mkdir(FS.join(parent, "Assets")))
         Assert.truthy(Project.open(parent))
+        Assert.equal("directory", assert(FS.info(FS.join(parent, "Assets"))).type)
+        Assert.equal("directory", assert(FS.info(FS.join(parent, "Sources"))).type)
     end)
 end)
 
@@ -640,7 +640,7 @@ add("legacy projects keep working without Sources or script metadata", function(
         local app = EditorApp.new(nil, project)
         assert(app.assetBrowser:openFolder("Sources"))
         Assert.equal(0, #app.assetBrowser.entries)
-        Assert.equal(nil, FS.info(FS.join(parent, "Sources")))
+        Assert.equal("directory", assert(FS.info(FS.join(parent, "Sources"))).type)
         Assert.equal(nil, app.level.scriptReference)
         Assert.equal(nil, app.document.path)
         assert(app:startPlay())
@@ -2277,6 +2277,85 @@ add("Group headers keep a fixed height and resource reveal scrolls files into vi
             end
             Assert.truthy(found)
         end
+    end)
+end)
+add("Missing project folders recover but file conflicts and failed startup stay contained", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "Recovery"))
+        assert(FS.removeDirectory(FS.join(project.rootPath, "Assets")))
+        assert(FS.removeDirectory(FS.join(project.rootPath, "Sources")))
+        project = assert(Project.open(project.rootPath))
+        Assert.equal("directory", assert(FS.info(FS.join(project.rootPath, "Assets"))).type)
+        Assert.equal("directory", assert(FS.info(FS.join(project.rootPath, "Sources"))).type)
+        assert(FS.removeDirectory(FS.join(project.rootPath, "Assets")))
+        local conflict = FS.join(project.rootPath, "Assets")
+        assert(FS.createFile(conflict, "preserve me"))
+        Assert.equal(nil, Project.open(project.rootPath))
+        Assert.equal("preserve me", assert(FS.read(conflict)))
+        assert(FS.removeFile(conflict)); assert(Project.open(project.rootPath))
+        local launcher = ProjectStart.new(function() error("simulated startup failure") end)
+        launcher.mode = "open"; launcher:setPath(project.rootPath)
+        Assert.equal(false, launcher:submit())
+        Assert.truthy(launcher.error:find("simulated startup failure", 1, true))
+    end)
+end)
+
+add("CLI property validation revisions and locks prevent partial saves", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        assert(project:createEntry("Assets", "level", "CLI"))
+        local CLI = require("editor.cli")
+        local function request(command, fields)
+            fields = fields or {}; fields.command, fields.project, fields.level = command, project.rootPath, "Assets/CLI.level"
+            return CLI.execute(fields)
+        end
+        local added = request("instance.add", {prefab = prefabId, x = 10, y = 20})
+        local id, oldRevision = added.data.authoringId, added.revision
+        request("instance.set", {instance = id, property = "enabled", value = false, revision = oldRevision})
+        local fetched = request("instance.get", {instance = id})
+        Assert.equal(false, fetched.properties.values.enabled)
+        Assert.truthy(fetched.revision ~= oldRevision)
+        local path = assert(project:resolveAssetFile("Assets/CLI.level"))
+        local original = assert(FS.read(path))
+        for _, fields in ipairs({
+            {instance = id, property = "speed", value = 25, revision = oldRevision},
+            {instance = id, property = "unknown", value = 25},
+            {instance = id, property = "speed", value = "bad"},
+            {instance = id, property = "target", value = 999},
+            {instance = id, property = "sprite.image", value = prefabId},
+            {instance = id, property = "transform.scaleX", value = 0}
+        }) do
+            Assert.equal(false, pcall(request, "instance.set", fields))
+            Assert.equal(original, assert(FS.read(path)))
+            Assert.equal(nil, FS.info(FS.join(project.rootPath, ".labo-cli.lock")))
+        end
+        local lock = FS.join(project.rootPath, ".labo-cli.lock")
+        assert(FS.createFile(lock, "another caller"))
+        Assert.equal(false, pcall(request, "level.get"))
+        Assert.equal("another caller", assert(FS.read(lock)))
+        assert(FS.removeFile(lock))
+        Assert.equal(false, pcall(CLI.parse, {"--cli", "instance", "add", "--typo", "5"}))
+        request("prefab.set", {prefab = prefabId, property = "speed", value = 25})
+        request("prefab.set", {prefab = prefabId, property = "speed", value = 25})
+        Assert.equal(25, request("prefab.get", {prefab = prefabId}).values.speed)
+    end)
+end)
+
+add("Export excludes Editor and invalid source cannot replace an existing game", function()
+    fixture(function(parent)
+        local project, prefabId = componentProject(parent)
+        local level = require("editor.level").new()
+        level:addLObject(0, 0, prefabId)
+        local output = FS.join(project.rootPath, "Build/Game.love")
+        local ok = require("editor.export").write(project, level, output)
+        Assert.truthy(ok)
+        local original = assert(FS.read(output))
+        Assert.equal("PK\3\4", original:sub(1, 4))
+        Assert.truthy(original:find("runtime/host.lua", 1, true))
+        Assert.equal(nil, original:find("editor/app.lua", 1, true))
+        assert(FS.writeAtomic(assert(project:resolveSourceFile("Sources/Actor.lua")), "this is invalid Lua"))
+        Assert.equal(false, require("editor.export").write(project, level, output))
+        Assert.equal(original, assert(FS.read(output)))
     end)
 end)
 return tests

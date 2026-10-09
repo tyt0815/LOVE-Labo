@@ -327,6 +327,8 @@ load error containment
 
 Project load 실패가 Editor process 전체를 crash시키거나 반쯤 적용된 Project state를 조용히 남겨서는 안 된다.
 
+현재 AI 작업용 CLI는 기존 생성·문서 편집 로직을 호출하고 JSON 결과·종료 코드·revision 검사를 제공한다. GUI와 게임은 `project/`의 공용 클래스·Definition 로직과 `runtime/world_loader`의 초기화 경로를 공유한다. 파일 읽기는 Editor의 외부 프로젝트와 게임 패키지 어댑터로 구분한다. 자세한 계약은 [ADR 0028](adr/0028-agent-cli-and-standalone-game-export.md)을 따른다.
+
 Host는 `love.load`, `love.update`, `love.draw` 같은 top-level LÖVE callback lifecycle을 소유한다.
 
 ---
@@ -399,7 +401,7 @@ Plugin API는 실제 확장 요구가 생긴 뒤 최소 extension point부터 �
 
 Exported runtime은 Editor 코드에 의존하지 않고 Project Lua/data/assets를 package 내부에서 읽을 수 있어야 한다.
 
-startup 방식과 packaging 세부사항은 export를 실제 구현할 때 결정한다.
+현재 GUI의 Ctrl+Shift+E와 CLI Export는 독립 `.love`를 생성한다. 게임 전용 Host·Core·공용 Project 모듈·프로젝트 Sources/Assets와 ID 매니페스트만 포함하고 Editor와 테스트는 제외한다. 초기 Export는 등록된 프로젝트 파일 전체를 포함하며 게임 EXE 생성은 이후 범위다. 세부사항은 [ADR 0028](adr/0028-agent-cli-and-standalone-game-export.md)과 [CLI·Export 사용법](cli-and-export.md)을 따른다.
 
 ---
 

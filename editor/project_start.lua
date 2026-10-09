@@ -56,7 +56,8 @@ function ProjectStart:submit()
     end)
     if not ok then self.error = tostring(project); return false, self.error end
     if not project then self.error = err; return false, err end
-    local opened, openError = self.onOpen(project)
+    local called, opened, openError = pcall(self.onOpen, project)
+    if not called then self.error = tostring(opened); return false, self.error end
     if opened == false then self.error = openError; return false, openError end
     self.error = nil
     return true

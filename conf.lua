@@ -1,9 +1,11 @@
 function love.conf(t)
+    local cli = false
+    for _, value in ipairs(arg or {}) do if value == "--cli" then cli = true end end
     t.identity = "love-labo"
     t.version = "11.5"
 
     -- Windows에서도 테스트 출력과 Lua 오류를 보기 쉽게 한다.
-    t.console = not love.filesystem.isFused()
+    t.console = cli or not love.filesystem.isFused()
 
     t.window.title = "LÖVE Labo"
     t.window.width = 1920
@@ -11,4 +13,5 @@ function love.conf(t)
     t.window.resizable = true
     t.window.minwidth = 800
     t.window.minheight = 540
+    if cli then t.window = false; t.modules.audio = false end
 end

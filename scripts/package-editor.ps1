@@ -13,7 +13,7 @@ $taskLove = [IO.Path]::GetFullPath($LoveDirectory)
 if ($taskOutput -eq $taskRoot -or $taskRoot.StartsWith($taskOutput.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
     throw 'OutputDirectory must not be the repository root or its parent.'
 }
-foreach ($taskRequired in @('love.exe', 'love.dll', 'lua51.dll', 'license.txt')) {
+foreach ($taskRequired in @('love.exe', 'lovec.exe', 'love.dll', 'lua51.dll', 'license.txt')) {
     if (-not (Test-Path -LiteralPath (Join-Path $taskLove $taskRequired) -PathType Leaf)) {
         throw "Missing LÖVE runtime file: $taskRequired"
     }
@@ -26,7 +26,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 # 배포 대상 목록을 명시하여 테스트·샘플 프로젝트·문서를 제외한다.
 $taskFiles = @('main.lua', 'conf.lua', 'engine.lua')
-foreach ($taskFolder in @('core', 'editor')) {
+foreach ($taskFolder in @('core', 'editor', 'project', 'runtime')) {
     $taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskRoot $taskFolder) -Recurse -File -Filter '*.lua' |
         ForEach-Object { $_.FullName.Substring($taskRoot.Length + 1).Replace('\', '/') }
 }
@@ -43,14 +43,16 @@ try {
 Move-Item -LiteralPath $taskTemporaryArchive -Destination $taskArchivePath -Force
 
 # 셸의 문자열 변환 없이 실행 파일과 ZIP을 바이트 스트림으로 결합한다.
+foreach ($taskLauncher in @(@('love.exe', 'Labo.exe'), @('lovec.exe', 'Labo-cli.exe'))) {
+    $taskStream = [IO.File]::Create((Join-Path $taskOutput $taskLauncher[1]))
+    try {
+        foreach ($taskPart in @((Join-Path $taskLove $taskLauncher[0]), $taskArchivePath)) {
+            $taskInput = [IO.File]::OpenRead($taskPart)
+            try { $taskInput.CopyTo($taskStream) } finally { $taskInput.Dispose() }
+        }
+    } finally { $taskStream.Dispose() }
+}
 $taskExecutable = Join-Path $taskOutput 'Labo.exe'
-$taskStream = [IO.File]::Create($taskExecutable)
-try {
-    foreach ($taskPart in @((Join-Path $taskLove 'love.exe'), $taskArchivePath)) {
-        $taskInput = [IO.File]::OpenRead($taskPart)
-        try { $taskInput.CopyTo($taskStream) } finally { $taskInput.Dispose() }
-    }
-} finally { $taskStream.Dispose() }
 Get-ChildItem -LiteralPath $taskLove -Filter '*.dll' -File | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $taskOutput $_.Name) -Force
 }

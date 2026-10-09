@@ -139,16 +139,14 @@ function Project.open(rootPath)
     end
     local valid, nameError = Project.isValidName(data.name)
     if not valid then return nil, nameError end
-    local assets, assetsError = fs.info(fs.join(project.rootPath, "Assets"))
-    if not assets or assets.type ~= "directory" or assets.isLink then
-        return nil, assetsError or "Project must contain a regular Assets folder"
-    end
-    local entries, listError = fs.list(fs.join(project.rootPath, "Assets"))
-    if not entries then return nil, listError end
-    local sources, sourcesError = fs.info(fs.join(project.rootPath, "Sources"))
-    if sourcesError then return nil, sourcesError end
-    if sources and (sources.type ~= "directory" or sources.isLink) then
-        return nil, "Sources must be a regular folder"
+    -- 필수 폴더의 누락만 복구한다. 파일·링크와 권한 오류는 덮어쓰지 않는다.
+    local missingFolders = {}
+    for _, name in ipairs({"Assets", "Sources"}) do
+        local path = fs.join(project.rootPath, name)
+        local info, infoError = fs.info(path)
+        if infoError then return nil, infoError end
+        if info and (info.type ~= "directory" or info.isLink) then return nil, name .. " must be a regular folder" end
+        if not info then missingFolders[#missingFolders + 1] = path end
     end
     if data.defaultLevelReference ~= nil then
         if type(data.defaultLevelReference) ~= "string" or (not require("editor.asset_id").isValid(data.defaultLevelReference)
@@ -159,6 +157,10 @@ function Project.open(rootPath)
             local validReference, referenceError = validateReference(data.defaultLevelReference)
             if not validReference then return nil, referenceError end
         end
+    end
+    for _, path in ipairs(missingFolders) do
+        local made, makeError = fs.mkdir(path)
+        if not made then return nil, makeError end
     end
     project.defaultLevelReference = data.defaultLevelReference
     project.name = data.name
@@ -187,6 +189,18 @@ function Project:getAssetId(reference)
     if type(reference) ~= "string" then return nil end
     return self.assetIds and self.assetIds[reference]
         or self.assetIdsByLower and self.assetIdsByLower[reference:lower()]
+end
+
+function Project:readSource(reference)
+    local path, err = self:resolveSourceFile(reference)
+    if not path then return nil, err end
+    return filesystem().read(path)
+end
+
+function Project:readAsset(reference)
+    local path, err = self:resolveAssetFile(reference)
+    if not path then return nil, err end
+    return filesystem().read(path)
 end
 
 function Project:getAssetReference(reference)
