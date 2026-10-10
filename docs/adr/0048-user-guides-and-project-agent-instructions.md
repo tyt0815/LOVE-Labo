@@ -1,6 +1,6 @@
 # 0048. 사용자 가이드 사이트와 새 프로젝트 AI 안내
 
-- 상태: 구현, 공개 배포 대기
+- 상태: 채택·구현·공개 배포 완료
 - 날짜: 2026-10-10
 - 관련: [ADR 0044](0044-expanded-authoring-cli.md), [ADR 0047](0047-level-main-camera-and-default-camera.md)
 
@@ -14,7 +14,7 @@ GitHub Wiki는 별도 저장소라 코드와 문서의 같은 커밋 검토가 �
 
 ## 결정 및 근거
 
-docs/guide에 한국어 가이드를 작성하고 기존 API·CLI·설계 문서와 함께 MkDocs로 빌드한다. URL은 https://tyt0815.github.io/LOVE-Labo/ 이다. docs가 원본이며 build/docs-site는 생성물이다. Actions는 PR strict 빌드와 main push 후 Pages 배포를 구성한다. 공개 배포는 Pages 설정과 push 완료 후 검증한다.
+docs/guide에 한국어 가이드를 작성하고 기존 API·CLI·설계 문서와 함께 MkDocs로 빌드한다. URL은 https://tyt0815.github.io/LOVE-Labo/ 이다. docs가 원본이며 build/docs-site는 생성물이다. Actions는 PR strict 빌드와 main push 후 Pages 배포를 구성한다. GitHub Actions 방식의 Pages 설정을 활성화했고 2026-10-10 첫 공개 배포를 검증했다. 이후 문서 변경도 main push의 strict 빌드와 Pages 배포를 거친다.
 
 --capture-guide는 새 폴더의 예제 프로젝트에서 화면 5장을 캡처한다. updateGuideImages.py는 원본을 보관하고 번호·원 표시 SVG를 만든다. UI 변경 시 주석 좌표도 실제 화면을 보고 갱신한다.
 

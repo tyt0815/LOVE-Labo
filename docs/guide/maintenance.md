@@ -10,7 +10,7 @@ python -m mkdocs build --strict
 python -m mkdocs serve
 ```
 
-기본 테마는 무료 MkDocs readthedocs입니다. 사이드바 목차와 검색을 제공하며 생성 결과는 build/docs-site에 둡니다. 문서 URL은 `https://tyt0815.github.io/LOVE-Labo/`로 구성했으며 공개 배포 확인 전에는 로컬 빌드가 기준입니다.
+기본 테마는 무료 MkDocs readthedocs입니다. 사이드바 목차와 검색을 제공하며 생성 결과는 build/docs-site에 둡니다. 공개 문서는 [LÖVE Labo 사용자 가이드](https://tyt0815.github.io/LOVE-Labo/)에서 확인합니다. 2026-10-10 첫 배포에서 주요 문서·화면 이미지·검색 데이터의 공개 응답을 검증했습니다.
 
 ## 실제 화면 재생성
 
