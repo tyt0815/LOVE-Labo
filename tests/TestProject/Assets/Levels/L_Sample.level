@@ -1,0 +1,19 @@
+{
+  "formatVersion": 2,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "definitionReference": "3440f026-6b29-484a-ab14-8300b725d0c7",
+      "name": "Camera 1",
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  ],
+  "mainCamera": {
+    "authoringId": 1,
+    "component": "camera"
+  },
+  "propertyOverrides": {}
+}
