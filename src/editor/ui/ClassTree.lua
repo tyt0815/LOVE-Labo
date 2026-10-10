@@ -16,13 +16,13 @@ function Tree.new(project, kind)
         self.expanded[key] = kind ~= "lua"
     end
     if kind == "lua" then
-        local parent = self.records["builtin:component"]
-        for _, name in ipairs({"SceneComponent", "RenderComponent", "SpriteComponent"}) do
+        local parents = {SceneComponent = "component", BoundsComponent = "SceneComponent", CameraComponent = "SceneComponent", RectComponent = "BoundsComponent", CanvasComponent = "RectComponent", RenderComponent = "BoundsComponent", SpriteComponent = "RenderComponent", PointerComponent = "BoundsComponent"}
+        for _, name in ipairs({"SceneComponent", "BoundsComponent", "CameraComponent", "RectComponent", "CanvasComponent", "RenderComponent", "SpriteComponent", "PointerComponent"}) do
+            local parent = self.records["builtin:" .. parents[name]]
             local node = {reference = "builtin:" .. name, name = name, kind = "component", parentReference = name, children = {}}
             node.parent = parent.reference
             self.records[node.reference] = node
             parent.children[#parent.children + 1] = node
-            parent = node
         end
     end
     local loader = require("project.LuaClass").loader(project)

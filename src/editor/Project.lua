@@ -390,7 +390,7 @@ function Project:createEntry(folder, kind, name, options)
     end
     local parentId
     if kind == "lua" and options.parentReference then
-        if options.scriptKind == "component" and ({LObjectComponent = true, SceneComponent = true, RenderComponent = true, SpriteComponent = true})[options.parentReference] then
+        if options.scriptKind == "component" and ({LObjectComponent = true, SceneComponent = true, BoundsComponent = true, PointerComponent = true, RenderComponent = true, SpriteComponent = true, CameraComponent = true, RectComponent = true, CanvasComponent = true})[options.parentReference] then
             parentId = options.parentReference
         else
             local parent, err = require("project.LuaClass").load(self, options.parentReference, options.scriptKind)

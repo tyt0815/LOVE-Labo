@@ -37,6 +37,10 @@ function Export.write(project, level, output)
 love.load = host.load
 love.update = host.update
 love.draw = host.draw
+love.mousepressed = host.mousepressed
+love.mousereleased = host.mousereleased
+love.mousemoved = host.mousemoved
+love.focus = host.focus
 ]])
     add("conf.lua", [[function love.conf(t)
 t.version = "11.5"

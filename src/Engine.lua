@@ -4,6 +4,11 @@ return {
     openLevel = function(world, reference) return world:openLevel(reference) end,
     LObjectComponent = require("core.LObjectComponent"),
     SceneComponent = require("core.SceneComponent"),
+    BoundsComponent = require("core.BoundsComponent"),
+    RectComponent = require("core.RectComponent"),
+    CanvasComponent = require("core.CanvasComponent"),
+    CameraComponent = require("core.CameraComponent"),
+    PointerComponent = require("core.PointerComponent"),
     RenderComponent = require("core.RenderComponent"),
     SpriteComponent = require("core.SpriteComponent")
 }

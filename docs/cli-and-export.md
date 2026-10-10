@@ -21,8 +21,11 @@ CLI가 만든 클래스 파일에 게임 코드를 직접 작성한다. Sprite �
 
 ## 명령 계약
 
+`level view --project D:\Games\MyGame --width 800 --height 600 --x 100 --y 50`은 기본 카메라와 Canvas 범위 및 해당 월드 좌표의 화면 위치를 반환한다. `--space screen`은 화면 좌표를 월드 좌표로 변환한다. beginPlay에서 지정하는 카메라 전환까지 검증하려면 런타임을 실행하는 `level pointer`를 사용한다.
 
+`level pointer`에도 `--space screen --width 800 --height 600`을 지정할 수 있다. 이때 X/Y는 뷰포트 좌측 상단을 (0, 0)으로 하는 화면 좌표이며 카메라와 Canvas를 함께 판정한다. 기본 `--space world`는 기존 월드 좌표 입력을 유지한다. width/height 기본값은 1280/720이다. `class create --parent CameraComponent`, `RectComponent`, `CanvasComponent`도 지원하며 일반 컴포넌트처럼 코드로 부착한다. 위치·카메라 zoom·정렬 순서·fillParent는 기존 `instance set`과 `prefab set`으로 수정한다.
 
+게임 클릭을 파일 변경 없이 검증하려면 `level pointer --project D:\Games\MyGame --event down --x 0 --y 0`을 사용한다. X/Y는 월드 좌표이고 버튼 기본값은 1이다. 여러 입력은 `--events-json '[{"kind":"down","x":0,"y":0},{"kind":"up","x":1000,"y":1000}]'`으로 전달한다. JSON 요청에서는 `events` 배열을 사용할 수 있다. 임시 런타임의 beginPlay 이후 입력을 전달하며 update는 자동 실행하지 않는다. 이미지 기반 영역도 판정하며 결과의 `events`에서 소비 여부·대상을, `instances`에서 최종 프로퍼티를 확인한다. 명령이 종료되면 캡처를 해제하고 원본 레벨은 유지한다.
 
 Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\MyGame --name Visual --parent SpriteComponent`. 반환한 에셋 ID를 `LObject:addComponent` 또는 `setRootComponent`에 넘긴다. `--type component`만 지정하면 LObjectComponent를 부모로 생성한다. 사용자 Component Class를 `--parent`로 지정하여 재상속할 수도 있다. 부착 계층과 선택적 프로퍼티 `group` 문법은 [컴포넌트 사용법](components.md)에 설명한다.
 
@@ -31,11 +34,13 @@ Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\
 | `project create` | `--parent`, `--name` | 프로젝트·필수 폴더 생성 |
 | `project info` | `--project` | 에셋 경로·ID·종류, 기본 레벨 조회 |
 | `project set-default` | `--project`, `--level` | 기본 레벨 지정 |
-| `class create` | `--project`, `--name`, 선택 `--type`/`--parent` | `level`/`lobject`/`component` 템플릿과 메타데이터 생성. `--parent`는 부모 Lua ID·경로 또는 내장 LObjectComponent·SceneComponent·RenderComponent·SpriteComponent이며 종류를 자동 결정한다. 지정한 `--type`이 부모와 다르면 거절한다. |
+| `class create` | `--project`, `--name`, 선택 `--type`/`--parent` | `level`/`lobject`/`component` 템플릿과 메타데이터 생성. `--parent`는 부모 Lua ID·경로 또는 내장 LObjectComponent·SceneComponent·BoundsComponent·RectComponent·CanvasComponent·CameraComponent·RenderComponent·SpriteComponent·PointerComponent이며 종류를 자동 결정한다. 지정한 `--type`이 부모와 다르면 거절한다. |
 | `prefab create` | `--project`, `--name`, 선택 `--class` 또는 `--instance`/`--level` | `--class`에 LObject 클래스 또는 부모 Prefab ID·경로를 지정한다. `--instance`는 지정 레벨(생략 시 기본 레벨)의 루트와 자손을 현재 값으로 캡처한다. 외부 객체 참조는 거절한다. |
 | `prefab get/set` | `--project`, `--prefab` | 프로퍼티·컴포넌트 기본 override 조회/수정 |
 | `level create` | `--project`, `--name`, 선택 `--class` | 레벨 생성 |
 | `level get/set` | `--project`, 선택 `--level` | 레벨 데이터와 선언 프로퍼티 조회/수정 |
+| `level pointer` | `--project`, 선택 `--level`, `--event`, `--x`, `--y`, `--button`, `--dx`, `--dy`, `--events-json` | beginPlay를 실행한 임시 런타임에 월드 좌표 포인터 입력을 전달하고 소비 여부·대상·최종 객체 프로퍼티를 반환한다. 레벨 파일은 변경하지 않는다. |
+| `level view` | `--project`, 선택 `--level`, `--width`, `--height`, `--space`, `--x`, `--y` | 카메라·Canvas 범위와 투영 배율을 조회한다. 좌표가 있으면 world→screen 또는 screen→world 변환 결과도 반환한다. beginPlay는 실행하지 않는다. |
 | `instance add` | `--project`, `--template` (호환: `--prefab`), 선택 `--level`, `--x`, `--y`, `--parent` | LObject Lua 클래스 또는 Prefab을 레벨에 배치. 부모 authoring ID 지정 시 X/Y는 부모 기준 상대값이다. |
 | `instance get/set` | `--project`, `--instance`, 선택 `--level` | 인스턴스 조회/수정 |
 | `instance reparent` | `--project`, `--instance`, 선택 `--level`, `--parent` | 월드 위치를 유지하며 부모 변경. `--parent` 생략 또는 JSON `false`는 최상위로 분리한다. |

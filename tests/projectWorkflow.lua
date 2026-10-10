@@ -4865,6 +4865,429 @@ add("Derived Prefab branch removal discards inherited outgoing bindings but reje
     end)
 end)
 
+add("Bounds inheritance and Pointer hit tests reuse transformed Sprite bounds", function()
+    local Engine = require("Engine")
+    local world = require("core.World").new()
+    local object = assert(world:addLObject({transform = {x = 20, y = 30, rotation = 20, scaleX = 2, scaleY = 1.5}}))
+    local mount = object:addComponent("mount", Engine.SceneComponent, {x = 10, rotation = 35})
+    local sprite = mount:addComponent("sprite", Engine.SpriteComponent, {x = 40, scaleX = 2})
+    local pointer = object:addComponent("pointer", Engine.PointerComponent, {boundsSource = "sprite", x = 999})
+    Assert.equal(true, sprite:isA(Engine.BoundsComponent)); Assert.equal(true, pointer:isA(Engine.BoundsComponent))
+    Assert.equal(false, pointer:isA(Engine.RenderComponent))
+    local image = {getWidth = function() return 40 end, getHeight = function() return 20 end}
+    local context = {image = function() return image end}
+    local x, y = require("core.Transform").point(sprite:getWorldTransform(), 5, 4)
+    local hit, localX, localY = pointer:hitTest(context, x, y)
+    Assert.equal(true, hit); Assert.truthy(math.abs(localX - 5) < 0.001); Assert.truthy(math.abs(localY - 4) < 0.001)
+    x, y = require("core.Transform").point(sprite:getWorldTransform(), 25, 0)
+    Assert.equal(false, pointer:hitTest(context, x, y))
+    pointer.properties.boundsSource = ""
+    local transform = object:getWorldTransform()
+    Assert.equal(false, pointer:hitTest(context, transform.x, transform.y))
+    pointer.properties.boundsWidth = 0
+    Assert.equal(false, pointer:hitTest(context, pointer:getWorldPosition()))
+end)
+
+add("Pointer boundsSource respects custom hit tests and still rejects reference cycles", function()
+    local Engine = require("Engine")
+    local world = require("core.World").new()
+    local object = assert(world:addLObject({transform = {x = 20, y = 30}}))
+    local Circle = Engine.RenderComponent:extend({
+        getLocalBounds = function() return -10, -10, 20, 20 end,
+        hitTest = function(self, context, x, y)
+            local localX, localY = require("core.Transform").inversePoint(self:getWorldTransform(), x, y)
+            return localX * localX + localY * localY <= 100, localX, localY
+        end
+    })
+    object:addComponent("circle", Circle)
+    local pointer = object:addComponent("pointer", Engine.PointerComponent, {boundsSource = "circle", blockPointer = true})
+    Assert.equal(false, require("core.Renderer").hit(object, function() end, 29, 39))
+    Assert.equal(false, pointer:hitTest({}, 29, 39))
+    local hit, x, y = pointer:hitTest({}, 23, 34)
+    Assert.equal(true, hit); Assert.equal(3, x); Assert.equal(4, y)
+    local ok, result = world:dispatchPointer("down", 29, 39)
+    Assert.equal(true, ok); Assert.equal(false, result.consumed)
+    local link = object:addComponent("link", Engine.PointerComponent, {boundsSource = "circle"})
+    pointer.properties.boundsSource = "link"
+    Assert.equal(false, pointer:hitTest({}, 29, 39))
+    link.hitTest = function() return true, 7, 8 end
+    hit, x, y = pointer:hitTest({}, 29, 39)
+    Assert.equal(true, hit); Assert.equal(7, x); Assert.equal(8, y)
+    link.properties.boundsSource = "pointer"
+    local valid, err = pcall(pointer.hitTest, pointer, {}, 29, 39)
+    Assert.equal(false, valid); Assert.truthy(err:find("Cyclic", 1, true))
+end)
+
+add("Pointer events propagate front to back consume capture and cancel without editor selection", function()
+    local Pointer = require("core.PointerComponent")
+    local trace = {}
+    local Receiver = Pointer:extend({
+        onPointerDown = function(self, event) trace[#trace + 1] = self.owner.runtimeId .. ":down"; return false end,
+        onPointerMove = function(self, event) self.owner.properties.inside = event.inside end,
+        onPointerUp = function(self, event) trace[#trace + 1] = self.owner.runtimeId .. ":up"; self.owner.properties.inside = event.inside end
+    })
+    local world = require("core.World").new()
+    local back, front = assert(world:addLObject({transform = {x = 0, y = 0}})), assert(world:addLObject({transform = {x = 0, y = 0}}))
+    back.properties, front.properties = {}, {}
+    back:addComponent("pointer", Receiver); local receiver = front:addComponent("pointer", Receiver)
+    local ok, event = world:dispatchPointer("down", 0, 0, 1)
+    Assert.equal(true, ok); Assert.equal(false, event.consumed); Assert.equal("2:down", trace[1]); Assert.equal("1:down", trace[2])
+    receiver.properties.blockPointer = true
+    local ok, event = world:dispatchPointer("down", 0, 0, 1)
+    Assert.equal(true, ok); Assert.equal(true, event.consumed); Assert.equal(1, #event.targets)
+    assert(world:dispatchPointer("move", 1000, 1000)); Assert.equal(false, front.properties.inside)
+    local ok, event = world:dispatchPointer("up", 1000, 1000, 1)
+    Assert.equal(true, ok); Assert.equal(true, event.consumed); Assert.equal("2:up", trace[#trace])
+    Assert.equal(nil, next(world.pointerCaptures))
+    assert(world:dispatchPointer("down", 0, 0, 1)); world:cancelPointer(); Assert.equal(nil, next(world.pointerCaptures))
+    receiver.properties.enabled = false
+    local ok, event = world:dispatchPointer("down", 0, 0, 1)
+    Assert.equal(1, #event.targets); Assert.equal(back.runtimeId, event.targets[1].runtimeId)
+    receiver.properties.enabled = true; receiver.onPointerDown = function() error("expected pointer error") end
+    local ok, err = world:dispatchPointer("down", 0, 0, 1)
+    Assert.equal(false, ok); Assert.truthy(err:find("expected pointer error", 1, true)); Assert.equal(nil, next(world.pointerCaptures))
+    receiver.onPointerDown = nil; receiver.properties.boundsSource = "pointer"
+    local ok, err = world:dispatchPointer("down", 0, 0, 1)
+    Assert.equal(false, ok); Assert.truthy(err:find("Cyclic", 1, true))
+end)
+
+local function createPointerProject(parent)
+    local project = assert(Project.create(parent, "PointerProject"))
+    assert(project:createEntry("Sources", "lua", "Clickable", {scriptKind = "component", parentReference = "PointerComponent"}))
+    local pointer = project:getAssetId("Sources/Clickable.lua")
+    assert(Fs.writeAtomic(assert(project:resolveSourceFile(pointer)), [[
+local Clickable = {extends = "PointerComponent"}
+function Clickable.onPointerDown(self, event)
+    self.owner.properties.clicks = (self.owner.properties.clicks or 0) + 1
+    return true
+end
+function Clickable.onPointerUp(self, event) self.owner.properties.released = true end
+return Clickable
+]]))
+    assert(project:createEntry("Sources", "lua", "Button", {scriptKind = "lobject"}))
+    local button = project:getAssetId("Sources/Button.lua")
+    assert(Fs.writeAtomic(assert(project:resolveSourceFile(button)), string.format([[
+local Button = {properties = {clicks = {type = "number", default = 0}, released = {type = "boolean", default = false}}}
+function Button.build(self) self:addComponent("pointer", %q) end
+return Button
+]], pointer)))
+    assert(project:createEntry("Assets", "prefab", "PF_Button", {scriptReference = button}))
+    assert(project:createEntry("Assets", "level", "L_Pointer"))
+    return project, project:getAssetId("Assets/PF_Button.prefab"), project:getAssetId("Assets/L_Pointer.level")
+end
+
+add("CLI pointer simulation activates custom components returns consumption and leaves level bytes unchanged", function()
+    fixture(function(parent)
+        local project, prefab, level = createPointerProject(parent)
+        local Cli = require("editor.Cli")
+        local function run(command, fields) fields.command, fields.project, fields.level = command, project.rootPath, level; return Cli.execute(fields) end
+        local root = run("instance.add", {template = prefab}).data.authoringId
+        local before = assert(Fs.read(assert(project:resolveAssetFile(level))))
+        local result = run("level.pointer", {events = {{kind = "down", x = 0, y = 0}, {kind = "up", x = 500, y = 500}}})
+        Assert.equal(true, result.events[1].consumed); Assert.equal(root, result.events[1].targets[1].authoringId)
+        Assert.equal(1, result.instances[1].properties.clicks); Assert.equal(true, result.instances[1].properties.released)
+        Assert.equal(before, assert(Fs.read(assert(project:resolveAssetFile(level)))))
+        Assert.equal(false, pcall(run, "level.pointer", {events = {{kind = "unknown", x = 0, y = 0}}}))
+        Assert.equal(before, assert(Fs.read(assert(project:resolveAssetFile(level)))))
+        local parsed = Cli.parse({"--cli", "level", "pointer", "--project", project.rootPath, "--level", "Assets/L_Pointer.level", "--events-json", '[{"kind":"down","x":0,"y":0}]'})
+        Assert.equal(1, Cli.execute(parsed).instances[1].properties.clicks)
+        Assert.equal(nil, Fs.info(Fs.join(project.rootPath, ".labo-cli.lock")))
+    end)
+end)
+
+add("Editor Game View dispatches pointer input captures release outside and contains callback failures", function()
+    fixture(function(parent)
+        local project, prefab = createPointerProject(parent)
+        local app = EditorApp.new(nil, project)
+        local object = app.level:addLObject(15, 20, prefab)
+        app.sceneView:setSelection({object}); app.inspectorSource = "scene"; app:updateInspectorTarget()
+        assert(app:startPlay())
+        local x, y = app.gameView:worldToScreen(15, 20)
+        app:mousepressed(x, y, 1)
+        Assert.equal(1, app.runtimeWorld.lobjects[1].properties.clicks)
+        Assert.equal(app.sceneWidget, app.uiRoot.captured)
+        app:mousereleased(5, 5, 1)
+        Assert.equal(true, app.runtimeWorld.lobjects[1].properties.released)
+        Assert.equal(object, app.sceneView.selectedLObject); Assert.equal(nil, object.propertyOverrides)
+        app:mousepressed(x, y, 1); app:focus(false)
+        Assert.equal(nil, next(app.runtimeWorld.pointerCaptures)); Assert.equal(nil, app.uiRoot.captured)
+        app.runtimeWorld.lobjects[1].components.pointer.onPointerDown = function() error("expected game input failure") end
+        app:mousepressed(x, y, 1)
+        Assert.equal(nil, app.runtimeWorld); Assert.truthy(app.runtimeError:find("expected game input failure", 1, true))
+    end)
+end)
+
+add("Editor Game View retains capture until all consumed buttons release in either order", function()
+    fixture(function(parent)
+        local project, prefab = createPointerProject(parent)
+        local app = EditorApp.new(nil, project)
+        app.level:addLObject(0, 0, prefab)
+        for _, order in ipairs({{2, 1}, {1, 2}}) do
+            assert(app:startPlay())
+            local pointer = app.runtimeWorld.lobjects[1].components.pointer
+            local releases, moves = {}, 0
+            pointer.onPointerUp = function(_, event) releases[#releases + 1] = event.button end
+            pointer.onPointerMove = function(_, event) moves = moves + 1; Assert.equal(false, event.inside) end
+            local x, y = app.gameView:worldToScreen(0, 0)
+            app:mousepressed(x, y, 1); app:mousepressed(x, y, 2)
+            app:mousereleased(5, 5, order[1])
+            Assert.equal(app.sceneWidget, app.uiRoot.captured)
+            Assert.equal(pointer, app.runtimeWorld.pointerCaptures[order[2]])
+            app:mousemoved(5, 5, 1, 1)
+            Assert.equal(1, moves)
+            app:mousereleased(5, 5, order[2])
+            Assert.equal(order[1], releases[1]); Assert.equal(order[2], releases[2])
+            Assert.equal(nil, next(app.runtimeWorld.pointerCaptures))
+            Assert.equal(nil, app.uiRoot.captured); Assert.equal(nil, app.uiRoot.captureButton)
+            app:stopPlay()
+        end
+    end)
+end)
+
+add("Camera viewport projects rotation zoom letterbox and switches only live enabled cameras", function()
+    local Engine, Viewport = require("Engine"), require("core.Viewport")
+    local world = require("core.World").new()
+    local object = assert(world:addLObject({transform = {x = 100, y = 50, rotation = 90}}))
+    local camera = object:addComponent("camera", Engine.CameraComponent, {viewWidth = 400, viewHeight = 200, zoom = 2})
+    local view = Viewport.new(world, 10, 20, 800, 600)
+    Assert.equal(camera, world:getActiveCamera()); Assert.equal(4, view.scale)
+    local x, y = view:worldToScreen(100, 50); Assert.equal(410, x); Assert.equal(320, y)
+    x, y = view:worldToScreen(100, 100); Assert.truthy(math.abs(x - 610) < 0.001); Assert.truthy(math.abs(y - 320) < 0.001)
+    x, y = view:screenToWorld(x, y); Assert.truthy(math.abs(x - 100) < 0.001); Assert.truthy(math.abs(y - 100) < 0.001)
+    Assert.equal(false, view:containsWorldScreen(410, 30))
+    local other = assert(world:addLObject({transform = {x = 0, y = 0}})):addComponent("camera", Engine.CameraComponent)
+    assert(world:setActiveCamera(other)); Assert.equal(other, world:getActiveCamera())
+    other.properties.enabled = false; Assert.equal(camera, world:getActiveCamera())
+    Assert.equal(false, world:setActiveCamera(object.rootComponent)); Assert.equal(false, world:setActiveCamera(false))
+    local foreign = require("core.World").new(); Assert.equal(false, foreign:setActiveCamera(camera))
+    camera.properties.enabled = false; Assert.equal(nil, world:getActiveCamera()); Assert.equal(1, Viewport.new(world, 0, 0, 800, 600).scale)
+    camera.properties.enabled = true; camera.properties.zoom = 0
+    Assert.equal(false, pcall(Viewport.new, world, 0, 0, 800, 600))
+end)
+
+add("Camera heading sums only Z rotation while preserving full inherited position", function()
+    local Engine, Transform = require("Engine"), require("core.Transform")
+    local world = require("core.World").new()
+    local root = assert(world:addLObject({transform = {x = 100, y = 50, rotation = 30, rotationY = 180, scaleX = 2, scaleY = 3}}))
+    root:setRootComponent("camera", Engine.CameraComponent)
+    Assert.equal(30, root.rootComponent:getViewTransform().rotation)
+    local child = assert(world:addLObject({transform = {x = 20, y = 10, rotation = 40, rotationX = 70, scaleX = 3, scaleY = 4}}))
+    child:attachTo(root)
+    local mount = child:addComponent("mount", Engine.SceneComponent, {x = 15, y = 8, rotation = 60, rotationY = 180, scaleX = 2})
+    local camera = mount:addComponent("camera", Engine.CameraComponent, {x = 5, y = 6, rotation = 50, rotationX = 90})
+    local view, worldTransform = camera:getViewTransform(), camera:getWorldTransform()
+    Assert.equal(180, view.rotation); Assert.equal(worldTransform.x, view.x); Assert.equal(worldTransform.y, view.y)
+    Assert.equal(1, view.scaleX); Assert.equal(1, view.scaleY)
+    root.transform.rotationY = 90; child.transform.rotationX = 180; mount.transform.scaleX = 8
+    view, worldTransform = camera:getViewTransform(), camera:getWorldTransform()
+    Assert.equal(180, view.rotation); Assert.equal(worldTransform.x, view.x); Assert.equal(worldTransform.y, view.y)
+    assert(world:setActiveCamera(camera))
+    local viewport = require("core.Viewport").new(world, 0, 0, 1280, 720)
+    local x, y = viewport:worldToScreen(view.x + 10, view.y)
+    Assert.truthy(math.abs(x - 630) < 0.001); Assert.truthy(math.abs(y - 360) < 0.001)
+    x, y = viewport:screenToWorld(x, y)
+    Assert.truthy(math.abs(x - view.x - 10) < 0.001); Assert.truthy(math.abs(y - view.y) < 0.001)
+end)
+
+add("Canvas layout and input stay in screen space across camera and object parent transforms", function()
+    local Engine, Viewport = require("Engine"), require("core.Viewport")
+    local world = require("core.World").new()
+    local cameraObject = assert(world:addLObject({transform = {x = 900, y = 700, rotation = 90}}))
+    local camera = cameraObject:addComponent("camera", Engine.CameraComponent, {zoom = 3})
+    local ui = assert(world:addLObject({transform = {x = 0, y = 0}}))
+    ui:attachTo(cameraObject)
+    ui:setRootComponent("canvas", Engine.CanvasComponent)
+    local panel = ui:addComponent("panel", Engine.RectComponent, {fillParent = true})
+    local sprite = panel:addComponent("sprite", Engine.SpriteComponent, {fillParent = true})
+    local pointer = panel:addComponent("pointer", Engine.PointerComponent, {boundsSource = "sprite", blockPointer = true})
+    local image = {getWidth = function() return 20 end, getHeight = function() return 10 end}
+    local view = Viewport.new(world, 10, 20, 800, 600)
+    local context = view:context(function() return image end)
+    local left, top, width, height = sprite:getBounds(context)
+    Assert.equal(-400, left); Assert.equal(-300, top); Assert.equal(800, width); Assert.equal(600, height)
+    local event
+    pointer.onPointerDown = function(_, value) event = value; return true end
+    assert(view:dispatchPointer(world, "down", 410, 320, 1, 0, 0, context.image))
+    Assert.equal("screen", event.coordinateSpace); Assert.equal(0, event.localX); Assert.equal(0, event.localY)
+    camera.transform.x = -900; camera.properties.zoom = 1
+    view = Viewport.new(world, 10, 20, 800, 600)
+    assert(view:dispatchPointer(world, "up", 410, 320, 1, 0, 0, context.image))
+    assert(view:dispatchPointer(world, "down", 410, 320, 1, 0, 0, context.image))
+    Assert.equal(0, event.localX); Assert.equal(0, event.localY)
+    local child = assert(world:addLObject({transform = {x = 25, y = 15}})); child:attachTo(ui)
+    local childPointer = child:addComponent("pointer", Engine.PointerComponent, {blockPointer = true})
+    local transform = require("core.CoordinateSpace").transform(childPointer)
+    Assert.equal(25, transform.x); Assert.equal(15, transform.y)
+    ui.rootComponent.properties.matchViewport = false
+    left, top, width, height = sprite:getBounds(context); Assert.equal(1280, width); Assert.equal(720, height)
+end)
+
+add("Render and input priorities share source order with screen UI above world", function()
+    local Engine = require("Engine")
+    local world = require("core.World").new()
+    local front = assert(world:addLObject({transform = {x = 0, y = 0}}))
+    local back = assert(world:addLObject({transform = {x = 0, y = 0}}))
+    local Render = Engine.RenderComponent:extend({getLocalBounds = function() return -50, -50, 100, 100 end})
+    local high = front:addComponent("render", Render, {sortingOrder = 10})
+    local highPointer = front:addComponent("pointer", Engine.PointerComponent, {boundsSource = "render", blockPointer = true})
+    local low = back:addComponent("render", Render)
+    local lowPointer = back:addComponent("pointer", Engine.PointerComponent, {boundsSource = "render", blockPointer = true})
+    local entries = require("core.ComponentOrder").entries(world.lobjects, Engine.RenderComponent)
+    Assert.equal(low, entries[1].component); Assert.equal(high, entries[2].component)
+    local ok, result = world:dispatchPointer("down", 0, 0); Assert.equal(true, ok); Assert.equal(front.runtimeId, result.targets[1].runtimeId)
+    lowPointer.properties.inputPriority = 1
+    ok, result = world:dispatchPointer("down", 0, 0); Assert.equal(back.runtimeId, result.targets[1].runtimeId)
+    local ui = assert(world:addLObject({transform = {x = 0, y = 0}}))
+    ui:setRootComponent("canvas", Engine.CanvasComponent)
+    ui:addComponent("pointer", Engine.PointerComponent, {blockPointer = true})
+    ok, result = world:dispatchPointer("down", 0, 0); Assert.equal(ui.runtimeId, result.targets[1].runtimeId)
+end)
+
+add("Runtime renderer uses camera for world and screen Canvas for filled Sprite", function()
+    local Engine, Renderer = require("Engine"), require("core.Renderer")
+    local world = require("core.World").new()
+    local cameraObject = assert(world:addLObject({transform = {x = 100, y = 50}}))
+    cameraObject:addComponent("camera", Engine.CameraComponent, {viewWidth = 400, viewHeight = 200})
+    local points = {}
+    local Shape = Engine.RenderComponent:extend({draw = function(self)
+        local x, y = love.graphics.transformPoint(0, 0)
+        points[#points + 1] = {x, y, self.name}; return true
+    end})
+    cameraObject:addComponent("world", Shape)
+    local ui = assert(world:addLObject({transform = {x = 20, y = 10}}))
+    ui:setRootComponent("canvas", Engine.CanvasComponent)
+    ui:addComponent("screen", Shape)
+    local view = require("core.Viewport").new(world, 10, 20, 800, 600)
+    love.graphics.push("all")
+    local drawn = Renderer.drawWorld(world, function() end, view)
+    love.graphics.pop()
+    Assert.equal(true, drawn[cameraObject]); Assert.equal(true, drawn[ui])
+    Assert.equal("world", points[1][3]); Assert.equal(410, points[1][1]); Assert.equal(320, points[1][2])
+    Assert.equal("screen", points[2][3]); Assert.equal(430, points[2][1]); Assert.equal(330, points[2][2])
+    local panel = ui:addComponent("panel", Engine.RectComponent, {width = 120, height = 60})
+    local sprite = panel:addComponent("sprite", Engine.SpriteComponent, {fillParent = true})
+    local image = love.graphics.newImage(love.image.newImageData(20, 10))
+    love.graphics.push("all"); Renderer.drawWorld(world, function() return image end, view); love.graphics.pop()
+    local x, y, width, height = sprite:getBounds({image = function() return image end})
+    Assert.equal(-60, x); Assert.equal(-30, y); Assert.equal(120, width); Assert.equal(60, height); image:release()
+end)
+
+add("Camera Canvas classes and CLI view screen picking round trip through project data", function()
+    fixture(function(parent)
+        local project, prefab, level = createPointerProject(parent)
+        local Cli = require("editor.Cli")
+        local function run(command, fields)
+            fields = fields or {}; fields.command, fields.project, fields.level = command, project.rootPath, level
+            return Cli.execute(fields)
+        end
+        for _, class in ipairs({"CameraComponent", "CanvasComponent", "RectComponent"}) do
+            local asset = run("class.create", {name = "Custom" .. class, parent = class})
+            assert(project:rebuildAssetIndex())
+            Assert.truthy(require("project.LuaClass").load(project, asset.assetId, "component"))
+        end
+        local cameraClass = run("class.create", {name = "CameraActor", type = "lobject"})
+        run("class.set-source", {class = cameraClass.assetId, source = [[
+local Engine = require("Engine")
+local CameraActor = {}
+function CameraActor.build(self) self:setRootComponent("camera", Engine.CameraComponent, {viewWidth = 400, viewHeight = 200}) end
+return CameraActor
+]]})
+        local camera = run("instance.add", {template = cameraClass.assetId, x = 100, y = 50})
+        run("instance.add", {template = prefab, x = 100, y = 50})
+        local uiClass = run("class.create", {name = "UiActor", type = "lobject"})
+        run("class.set-source", {class = uiClass.assetId, source = string.format([[
+local Engine = require("Engine")
+local UiActor = {properties = {clicks = {type = "number", default = 0}, released = {type = "boolean", default = false}}}
+function UiActor.build(self)
+    self:setRootComponent("canvas", Engine.CanvasComponent)
+    self:addComponent("pointer", %q, {x = 200, y = 0})
+end
+return UiActor
+]], project:getAssetId("Sources/Clickable.lua"))})
+        run("instance.add", {template = uiClass.assetId})
+        local before = assert(Fs.read(assert(project:resolveAssetFile(level))))
+        local view = run("level.view", {width = 800, height = 600, x = 100, y = 50})
+        Assert.equal(camera.data.authoringId, view.camera.authoringId); Assert.equal(2, view.scale)
+        Assert.equal(400, view.projected.x); Assert.equal(300, view.projected.y)
+        Assert.equal(800, view.canvases[1].width); Assert.equal(600, view.canvases[1].height)
+        local events = run("level.pointer", {space = "screen", width = 800, height = 600,
+            events = {{kind = "down", x = 400, y = 300}, {kind = "up", x = 10, y = 10}, {kind = "down", x = 600, y = 300}}})
+        Assert.equal(1, events.instances[2].properties.clicks); Assert.equal(1, events.instances[3].properties.clicks)
+        Assert.equal(before, assert(Fs.read(assert(project:resolveAssetFile(level)))))
+        local parsed = Cli.parse({"--cli", "level", "view", "--project", project.rootPath, "--level", level, "--width", "800", "--height", "600", "--space", "screen", "--x", "400", "--y", "300"})
+        local result = Cli.execute(parsed); Assert.equal(100, result.projected.x); Assert.equal(50, result.projected.y)
+        project = assert(Project.open(project.rootPath))
+        local app = EditorApp.new(nil, project)
+        assert(app:openProjectDocument(assert(project:getAssetReference(level)), true))
+        app:updateSceneViewport(); assert(app:startPlay())
+        local x, y = app.gameView:worldToScreen(100, 50)
+        app:mousepressed(x, y, 1); Assert.equal(1, app.runtimeWorld.lobjects[2].properties.clicks)
+        app:mousereleased(5, 5, 1); app:stopPlay()
+        local preview = app.spriteAssets:preview(app.level.lobjects[1])
+        local points = app.sceneView:getCameraBounds(preview.rootComponent)
+        local ax, ay = app.sceneView:worldToScreen(-100, -50)
+        Assert.equal(ax, points[1]); Assert.equal(ay, points[2]); Assert.equal(8, #points)
+    end)
+end)
+
+add("CLI screen pointer events refresh moved switched and zoomed cameras like Game View", function()
+    fixture(function(parent)
+        local project, prefab, level = createPointerProject(parent)
+        local Cli = require("editor.Cli")
+        local function run(command, fields)
+            fields.command, fields.project, fields.level = command, project.rootPath, level
+            return Cli.execute(fields)
+        end
+        local rig = run("class.create", {name = "CameraRig", type = "lobject"})
+        run("class.set-source", {class = rig.assetId, source = [[
+local Engine = require("Engine")
+local CameraRig = {}
+function CameraRig.build(self)
+    self:addComponent("camera", Engine.CameraComponent, {viewWidth = 400, viewHeight = 200})
+    self:addComponent("other", Engine.CameraComponent, {x = 1000, viewWidth = 400, viewHeight = 200})
+end
+return CameraRig
+]]})
+        run("instance.add", {template = rig.assetId})
+        run("instance.add", {template = prefab, x = 100, y = 0})
+        local changes = {
+            'event.world.lobjects[1].components.camera.transform.x = 1000',
+            'assert(event.world:setActiveCamera(event.world.lobjects[1].components.other))',
+            'event.world.lobjects[1].components.camera.properties.zoom = 2'
+        }
+        for _, change in ipairs(changes) do
+            run("class.set-source", {class = project:getAssetId("Sources/Clickable.lua"), source = string.format([[
+local Clickable = {extends = "PointerComponent", properties = {
+    boundsWidth = {type = "number", default = 20}, boundsX = {type = "number", default = -10}
+}}
+function Clickable.onPointerDown(self, event)
+    self.owner.properties.clicks = self.owner.properties.clicks + 1
+    %s
+    return true
+end
+function Clickable.onPointerUp(self) self.owner.properties.released = true end
+return Clickable
+]], change)})
+            local before = assert(Fs.read(assert(project:resolveAssetFile(level))))
+            local result = run("level.pointer", {space = "screen", width = 400, height = 200, events = {
+                {kind = "down", x = 300, y = 100}, {kind = "up", x = 300, y = 100}, {kind = "down", x = 300, y = 100}
+            }})
+            Assert.equal(true, result.events[1].consumed)
+            Assert.equal(false, result.events[3].consumed)
+            Assert.equal(1, result.instances[2].properties.clicks); Assert.equal(true, result.instances[2].properties.released)
+            Assert.equal(before, assert(Fs.read(assert(project:resolveAssetFile(level)))))
+            local current = assert(Project.open(project.rootPath))
+            local app = EditorApp.new(nil, current)
+            assert(app:openProjectDocument(assert(current:getAssetReference(level)), true))
+            app:updateSceneViewport(); assert(app:startPlay())
+            local x, y = app.gameView:worldToScreen(100, 0)
+            app:mousepressed(x, y, 1); app:mousereleased(x, y, 1); app:mousepressed(x, y, 1)
+            Assert.equal(result.instances[2].properties.clicks, app.runtimeWorld.lobjects[2].properties.clicks)
+            app:stopPlay()
+        end
+    end)
+end)
+
 add("Inspector outer scroll includes object tree and parent while inner trees scroll independently", function()
     fixture(function(parent)
         local project, source = componentProject(parent)

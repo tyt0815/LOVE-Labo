@@ -40,22 +40,33 @@ function GameView:getViewport()
 end
 
 function GameView:worldToScreen(x, y)
-    -- 아직 Runtime Camera가 없으므로 world origin을
-    -- Game View viewport의 중앙에 1:1로 대응시킨다.
-    -- Scene View의 editor camera/zoom은 Runtime에 공유하지 않는다.
     local viewportX, viewportY, width, height = self:getViewport()
-    return viewportX + width * 0.5 + x,
-        viewportY + height * 0.5 + y
+    if width <= 0 or height <= 0 then return viewportX, viewportY end
+    return require("core.Viewport").new(self.world, viewportX, viewportY, width, height):worldToScreen(x, y)
+end
+function GameView:dispatchPointer(world, kind, x, y, button, dx, dy)
+    self.world = world
+    local left, top, width, height = self:getViewport()
+    if width <= 0 or height <= 0 then return true, {consumed = false, targets = {}} end
+    local called, ok, result = pcall(function()
+        return require("core.Viewport").new(world, left, top, width, height):dispatchPointer(world, kind, x, y, button, dx, dy,
+            function(_, reference) return self.spriteAssets and self.spriteAssets:image(reference) end)
+    end)
+    if not called then return false, tostring(ok) end
+    return ok, result
 end
 
 function GameView:drawRuntimeLObjects(world)
     local halfSize =
         RUNTIME_LOBJECT_SIZE * 0.5
 
+    self.world = world
+    local left, top, width, height = self:getViewport()
+    local viewport = require("core.Viewport").new(world, left, top, width, height)
+    local drawn = require("core.Renderer").drawWorld(world, function(reference) return self.spriteAssets and self.spriteAssets:image(reference) end, viewport)
     for _, lobject in ipairs(world.lobjects) do
-        local drawn = self.spriteAssets and self.spriteAssets:draw(lobject, self, 1)
-        if not drawn then
-            local transform = lobject.transform
+        if not drawn[lobject] and #lobject:getComponentOrder() == 1 and lobject.rootComponent.isDefaultRoot then
+            local transform = lobject:getWorldTransform()
             local screenX, screenY = self:worldToScreen(transform.x, transform.y)
             -- 표시할 Sprite가 없는 객체도 위치를 확인할 수 있게 한다.
             Theme.setColor("text")
@@ -66,6 +77,7 @@ function GameView:drawRuntimeLObjects(world)
 end
 
 function GameView:draw(world)
+    self.world = world
     local viewportX,
         viewportY,
         width,
@@ -90,7 +102,8 @@ function GameView:draw(world)
     love.graphics.intersectScissor(viewportX + 12, viewportY + 12, math.max(0, width - 24), math.max(0, height - 24))
 
     if world then
-        self:drawRuntimeLObjects(world)
+        local ok, err = pcall(self.drawRuntimeLObjects, self, world)
+        if not ok then love.graphics.pop(); error(err, 0) end
     end
 
     Theme.setColor("text")

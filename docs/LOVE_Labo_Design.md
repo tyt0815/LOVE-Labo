@@ -349,7 +349,9 @@ Lua의 `world:openLevel(levelReference)`는 대상 World를 준비하고 현재 
 
 `lobjectTemplate` 참조 프로퍼티에 LObject Lua 클래스 또는 Prefab을 선택하고 `World:spawnLObject`로 Runtime LObject 계층을 생성한다. `prefab`은 호환 별칭이다. 반환값은 루트이며 자손과 내부 참조를 구성한 후 초기화한다. 생성기는 runtime 계층에서 World에 주입하며 Core가 파일 로더나 Editor에 의존하지 않는다. Spawn은 authoring 배치·ID·저장 데이터에 반영하지 않는다. 초기 계약은 [ADR 0033](adr/0033-prefab-spawn-and-resource-inspector.md), 확장은 [ADR 0039](adr/0039-lobject-templates-and-resource-picking.md)·[ADR 0042](adr/0042-hierarchy-prefab-definitions.md)를 따른다.
 
-현재 렌더링은 SceneComponent → RenderComponent → SpriteComponent 상속으로 구성한다. 공용 Renderer는 호스트의 카메라·이미지 로더를 사용하고 컴포넌트 draw를 로컬 좌표계에서 호출한다. getLocalBounds는 클릭·선택 외곽선의 공용 범위를 제공한다. LObject.transform은 루트 Transform으로 위임하고 자손은 부모 기준 회전·스케일·위치를 합성한다. Prefab 루트 Transform은 Inspector에서 숨기며 인스턴스의 루트 편집은 배치 transform 하나에 저장한다. 상세 계약과 기존 루트 offset 처리 방식은 [ADR 0035](adr/0035-render-components-and-root-transform.md)를 따른다.
+현재 공간 영역은 SceneComponent → BoundsComponent 상속으로 구성하며, BoundsComponent 아래에 RenderComponent와 PointerComponent를 분리한다. SpriteComponent는 RenderComponent를 상속한다. 공용 Renderer는 호스트의 카메라·이미지 로더를 사용하고 컴포넌트 draw를 로컬 좌표계에서 호출한다. getLocalBounds와 hitTest는 선택 외곽선·게임 포인터 입력의 공용 영역 계약이다. World는 PointerInput으로 게임 입력을 전달하고 Editor Play·독립 실행 호스트·CLI가 같은 소비와 캡처 규칙을 사용한다. LObject.transform은 루트 Transform으로 위임하고 자손은 부모 기준 회전·스케일·위치를 합성한다. Prefab 루트 Transform은 Inspector에서 숨기며 인스턴스의 루트 편집은 배치 transform 하나에 저장한다. 상세 계약은 [ADR 0035](adr/0035-render-components-and-root-transform.md)와 [ADR 0045](adr/0045-bounds-and-game-pointer-components.md)를 따른다.
+
+CameraComponent는 SceneComponent를 상속하며 기준 너비·높이와 zoom으로 런타임 투영을 정한다. CanvasComponent는 RectComponent → BoundsComponent를 상속하여 카메라와 독립된 화면 좌표계와 기준 영역을 제공한다. Bounds.fillParent는 부모 영역을 공유하며 Sprite 크기와 입력 판정에 함께 적용한다. ComponentOrder는 렌더링 sortingOrder와 입력 inputPriority·참조 렌더러 순서를 전역으로 정렬하며 화면 UI를 월드보다 앞에 둔다. Viewport·CoordinateSpace는 Game View와 Export Host의 좌표 변환을 공유하고 에디터는 카메라의 기준 외곽선을 표시한다. 상세 투영·좌표계·정렬 계약은 [ADR 0046](adr/0046-camera-screen-canvas-and-component-order.md)을 따른다.
 
 ```text
 love.update(dt)

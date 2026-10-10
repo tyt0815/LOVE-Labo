@@ -1,5 +1,53 @@
 # 컴포넌트와 Inspector 프로퍼티
 
+## 카메라와 화면 UI
+
+CameraComponent는 SceneComponent를 상속한다. `viewWidth = 1280`, `viewHeight = 720`, `zoom = 1`이 기본이며 기준 범위를 화면에 맞추고 비율이 다르면 여백을 둔다. 카메라 이동과 Z 회전은 게임 화면에 적용하고 에디터 Scene View에는 가시 영역 외곽선을 표시한다. 스케일과 X/Y 기울기는 카메라 투영에 적용하지 않는다.
+
+```lua
+local Engine = require("Engine")
+-- 카메라 오브젝트의 build
+self:setRootComponent("camera", Engine.CameraComponent, {viewWidth = 1280, viewHeight = 720})
+-- beginPlay(world): 필요하면 활성 카메라를 명시적으로 지정한다.
+world:setActiveCamera(self.rootComponent)
+```
+
+첫 번째 enabled 카메라를 자동 사용하며 활성 카메라를 지정하면 이를 우선한다. 카메라가 없으면 기존 원점·배율 1로 표시한다. Canvas 아래에 카메라를 부착하지 않고 월드의 별도 오브젝트로 구성한다.
+
+```lua
+-- UI 오브젝트의 build
+self:setRootComponent("canvas", Engine.CanvasComponent)
+local panel = self:addComponent("panel", Engine.RectComponent, {width = 300, height = 100, x = -200})
+local sprite = panel:addComponent("sprite", Engine.SpriteComponent, {fillParent = true, image = imageAssetId})
+panel:addComponent("pointer", Engine.PointerComponent, {boundsSource = "sprite", blockPointer = true})
+```
+
+Canvas는 화면 중심 (0, 0), 오른쪽·아래 방향이 양수인 픽셀 좌표계다. Canvas 위 조상의 월드 변환과 카메라 투영은 UI에 적용하지 않는다. 같은 Canvas 아래 컴포넌트와 Canvas 루트 오브젝트의 자손은 부모의 UI 변환을 상속한다. `matchViewport = true`는 화면 전체 크기를, false는 width/height를 사용한다. 에디터에서는 지정한 기준 크기로 UI를 편집한다.
+
+RectComponent는 배경을 그리지 않는 사각형 영역이다. `fillParent`를 켠 Bounds 계열은 가장 가까운 Bounds 조상의 사각형을 로컬 영역으로 사용하며 Sprite는 이미지도 그 크기로 맞춘다. 위치·회전·스케일은 유지하므로 정확히 채우려면 기본 로컬 Transform을 사용한다. 자손 클리핑이나 앵커 자동 배치는 현재 제공하지 않는다.
+
+RenderComponent의 `sortingOrder`가 크면 앞에 표시된다. PointerComponent의 `inputPriority`가 크면 먼저 입력을 받는다. 기본값 0에서는 참조한 렌더러의 정렬 순서를 따른다. Canvas UI는 월드보다 앞에 표시되고 먼저 입력을 받는다. 사용자 hitTest에서 화면 UI의 변환을 얻으려면 `context:transform(self)`를 사용하고, 에디터처럼 그 함수가 없는 컨텍스트에서는 `self:getWorldTransform()`을 사용한다.
+
+## 게임 포인터 입력
+
+`PointerComponent`를 상속한 Component Class에서 `onPointerDown(event)`, `onPointerUp(event)`, `onPointerMove(event)`를 구현한다. 콜백이 `true`를 반환하면 뒤쪽 컴포넌트로의 전달을 중단한다. 콜백 없이 막기만 하려면 `blockPointer`를 켠다. `enabled`가 꺼진 컴포넌트에는 전달하지 않는다.
+
+```lua
+-- labo-script: component
+local Clickable = {extends = "PointerComponent"}
+function Clickable.onPointerDown(self, event)
+    self.owner.properties.clicked = true
+    return true
+end
+return Clickable
+```
+
+오브젝트의 `build`에서 `self:addComponent("pointer", Clickable)`로 부착한다. 기본 사각형은 로컬 좌표 (-50, -50), 크기 100×100이며 Inspector의 Bounds 그룹에서 수정한다. Sprite 영역을 그대로 사용하려면 `boundsSource = "sprite"`처럼 **같은 오브젝트의 컴포넌트 이름**을 지정한다. 참조한 컴포넌트의 월드 Transform과 이미지 크기로 판정한다.
+
+이벤트에는 `worldX/worldY`, `localX/localY`, `inside`, `button`, `dx/dy`, `world`가 있다. 소비한 down 이후 move/up은 영역 밖에서도 전달되며 up 또는 포커스 상실로 캡처가 해제된다. 영역 Transform이 역변환 불가능하면 로컬 좌표가 없을 수 있다. Editor Play와 Export 게임에 동일하게 적용하며 에디터 선택 입력은 별도다. [ADR 0045](adr/0045-bounds-and-game-pointer-components.md)에 구조와 소비 계약을 기록한다.
+
+Inspector 제목과 Save는 고정되고 아래 내용은 전체 스크롤된다. 오브젝트·컴포넌트 계층은 내부 스크롤을 우선 사용하며, 모두 보이거나 휠 방향의 끝에 있으면 Inspector 전체 스크롤로 이어진다.
+
 아래 코드를 프로젝트의 LObject Class에 작성하고 이 클래스를 부모로 하는 Prefab을 만든다. Asset Browser에서 Prefab을 Scene View로 드래그하면 배치된다. 배치 인스턴스를 선택하면 위치와 아래 선언한 값들이 Inspector에 표시된다.
 
 ```lua
@@ -56,8 +104,13 @@ Actor.properties.title = {type = "string", default = "Actor"} -- Actor 그룹
 ```text
 LObjectComponent
 └─ SceneComponent        (상속: Transform)
-   └─ RenderComponent    (상속: draw / getLocalBounds)
-      └─ SpriteComponent (상속: 이미지 렌더링)
+   ├─ CameraComponent    (상속: 게임 카메라 설정)
+   └─ BoundsComponent    (상속: getLocalBounds / hitTest)
+      ├─ RectComponent   (상속: 사각형 크기)
+      │  └─ CanvasComponent (상속: 화면 좌표계 루트)
+      ├─ RenderComponent (상속: draw)
+      │  └─ SpriteComponent (상속: 이미지 렌더링)
+      └─ PointerComponent (상속: 게임 포인터 콜백)
 
 LObject ── 소유 ── root (SceneComponent)
                    └─ mount (SceneComponent)

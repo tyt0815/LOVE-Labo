@@ -137,6 +137,12 @@ end
 function EditorApp:isPlaying()
     return self.runtimeWorld ~= nil
 end
+function EditorApp:handleGamePointer(kind, x, y, button, dx, dy)
+    if not self.runtimeWorld then return false end
+    local ok, result = self.gameView:dispatchPointer(self.runtimeWorld, kind, x, y, button, dx, dy)
+    if not ok then self.runtimeError = result; self.runtimeWorld:cancelPointer(); self.runtimeWorld = nil; return false end
+    return true, result
+end
 
 function EditorApp:getActiveCenterView()
     if self:isPlaying() then
@@ -161,6 +167,7 @@ function EditorApp:startPlay()
     if not called then worldError, world = tostring(world), nil end
     if not world then self.runtimeError = worldError; return false, worldError end
     self.runtimeError, self.runtimeWorld = nil, world
+    self.gameView.world = world
 
     -- Play 중 hidden Scene View drag/pan 상태가 남아 있지 않게 정리한다.
     self.sceneView:cancelDrag(false)
@@ -176,6 +183,7 @@ function EditorApp:stopPlay()
     end
 
     -- Runtime 변경을 authoring Level에 write-back하지 않고 통째로 폐기한다.
+    self.runtimeWorld:cancelPointer()
     self.runtimeWorld = nil
 
     return true
@@ -584,7 +592,9 @@ function EditorApp:initializeUI()
             self.gameView:setViewport(x, y, width, height)
         end,
         draw = function()
-            if self:isPlaying() then self.gameView:draw(self.runtimeWorld)
+            if self:isPlaying() then
+                local ok, err = pcall(self.gameView.draw, self.gameView, self.runtimeWorld)
+                if not ok then self.runtimeError = tostring(err); self.runtimeWorld:cancelPointer(); self.runtimeWorld = nil end
             else self.sceneView:draw() end
             if self.runtimeError then
                 require("editor.Ui").text(self.runtimeError, self.sceneView.viewportX + 16, 94,
@@ -592,17 +602,22 @@ function EditorApp:initializeUI()
             end
         end,
         mousepressed = function(_, x, y, button)
-            if self:isPlaying() then return true end
+            if self:isPlaying() then
+                self:handleGamePointer("down", x, y, button)
+                return true, self.runtimeWorld and next(self.runtimeWorld.pointerCaptures or {}) ~= nil
+            end
             if button == 1 or button == 2 then self.inspectorSource = "scene" end
             self.sceneView:mousepressed(x, y, button)
             return true, self.sceneView.isPanning or self.sceneView.isDraggingLObject or self.sceneView.marquee ~= nil or self.sceneView.pointerDrag ~= nil
         end,
-        mousemoved = function(_, ...)
-            if not self:isPlaying() then self.sceneView:mousemoved(...) end
+        mousemoved = function(_, x, y, dx, dy)
+            if self:isPlaying() then self:handleGamePointer("move", x, y, 1, dx, dy)
+            else self.sceneView:mousemoved(x, y, dx, dy) end
             return true
         end,
-        mousereleased = function(_, ...)
-            if not self:isPlaying() then self.sceneView:mousereleased(...) end
+        mousereleased = function(_, x, y, button)
+            if self:isPlaying() then self:handleGamePointer("up", x, y, button)
+            else self.sceneView:mousereleased(x, y, button) end
             return true
         end,
         wheelmoved = function(_, _, _, amount)
@@ -610,7 +625,10 @@ function EditorApp:initializeUI()
             return true
         end,
         keypressed = function(_, key) return self:handleSceneKey(key) end,
-        cancel = function() self.sceneView:cancelDrag(true); self.sceneView.isPanning = false end,
+        cancel = function()
+            if self.runtimeWorld then self.runtimeWorld:cancelPointer() end
+            self.sceneView:cancelDrag(true); self.sceneView.isPanning = false
+        end,
     })
     self.sceneWidget = sceneWidget
     self.viewportControls = require("editor.ui.ViewportControls").new(self.sceneView)
@@ -1010,7 +1028,14 @@ function EditorApp:mousereleased(x, y, button)
         self.objectPick.scrollbar:dispatch("mousereleased", x, y, button); self.objectPick.scrollbar = nil
         return true
     end
+    local gameCaptured = self.uiRoot.captured == self.sceneWidget and self:isPlaying()
     self.uiRoot:mousereleased(x, y, button)
+    if gameCaptured then
+        -- UI의 단일 버튼 캡처보다 런타임의 버튼별 캡처 수명을 우선한다.
+        local pending = self.runtimeWorld and next(self.runtimeWorld.pointerCaptures or {})
+        self.uiRoot.captured = pending and self.sceneWidget or nil
+        self.uiRoot.captureButton = pending
+    end
 end
 
 function EditorApp:mousemoved(x, y, dx, dy)
@@ -1029,6 +1054,7 @@ end
 
 function EditorApp:focus(focused)
     if focused then return end
+    if self.runtimeWorld then self.runtimeWorld:cancelPointer() end
     self:cancelObjectPick()
     if self.assetBrowser then self.assetBrowser:cancelDrag() end
     self.inspector:cancelPointer()

@@ -141,6 +141,20 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
 
     local halfSize = LOBJECT_SIZE * 0.5
 
+    if self.spriteAssets then
+        local previews, sources = {}, {}
+        for _, object in ipairs(self.level.lobjects) do
+            local preview = self.spriteAssets:preview(object)
+            if preview then previews[#previews + 1] = preview; sources[preview] = object end
+        end
+        local entries = require("core.ComponentOrder").entries(previews, require("core.RenderComponent"))
+        local context = {image = function(_, reference) return self.spriteAssets:image(reference) end}
+        for index = #entries, 1, -1 do
+            local component = entries[index].component
+            if component:hitTest(context, worldX, worldY) then return sources[component.owner] end
+        end
+    end
+
     for i = #self.level.lobjects, 1, -1 do
         local lobject = self.level.lobjects[i]
         local transform = self.level:getWorldTransform(lobject)
@@ -413,13 +427,17 @@ function SceneView:drawLObjects()
 
     love.graphics.setLineWidth(2)
 
-    for _, lobject in ipairs(self.level.lobjects) do
-        if self.spriteAssets then
+    if self.spriteAssets then
+        local previews = {}
+        for _, lobject in ipairs(self.level.lobjects) do
             local preview = self.spriteAssets:preview(lobject)
-            if preview then self.spriteAssets:draw(preview, self, self.zoom) end
+            if preview then previews[#previews + 1] = preview end
         end
+        require("core.Renderer").drawObjects(previews, function(reference) return self.spriteAssets:image(reference) end,
+            function(x, y) return self:worldToScreen(x, y) end, self.zoom)
     end
     if self.spriteAssets then
+        self:drawCameraBounds()
         for _, selected in ipairs(self:getSelection()) do
             local preview = self.spriteAssets:preview(selected)
             if preview then
@@ -436,6 +454,34 @@ function SceneView:drawLObjects()
         love.graphics.rectangle("line", rect.x - 4, rect.y - 4, rect.w + 8, rect.h + 8)
     end
     Gizmo.draw(self)
+end
+function SceneView:getCameraBounds(camera)
+    local width, height = camera:getViewSize()
+    local transform, points = camera:getViewTransform(), {}
+    for _, corner in ipairs({{-width / 2, -height / 2}, {width / 2, -height / 2}, {width / 2, height / 2}, {-width / 2, height / 2}}) do
+        local x, y = require("core.Transform").point(transform, corner[1], corner[2])
+        points[#points + 1], points[#points + 2] = self:worldToScreen(x, y)
+    end
+    return points
+end
+function SceneView:drawCameraBounds()
+    local Camera = require("core.CameraComponent")
+    for _, object in ipairs(self.level.lobjects) do
+        local preview = self.spriteAssets:preview(object)
+        if preview then
+            for _, name in ipairs(preview:getComponentOrder()) do
+                local component = preview.components[name]
+                if component:isA(Camera) then
+                    local ok, points = pcall(self.getCameraBounds, self, component)
+                    if ok then
+                        Theme.setColor(self:isSelected(object) and "objectSelected" or "textMuted")
+                        love.graphics.setLineWidth(self:isSelected(object) and 2 or 1)
+                        love.graphics.polygon("line", points)
+                    else self.spriteAssets.error = tostring(points) end
+                end
+            end
+        end
+    end
 end
 
 function SceneView:drawMouseWorldPosition()

@@ -37,7 +37,7 @@ function LuaClass.loader(project)
         if class.extends ~= nil then
             local builtins = kind == "component" and require("Engine") or {}
             parent = builtins[class.extends]
-            if parent and class.extends ~= "LObjectComponent" and class.extends ~= "SceneComponent" and class.extends ~= "RenderComponent" and class.extends ~= "SpriteComponent" then parent = nil end
+            if parent and class.extends ~= "LObjectComponent" and class.extends ~= "SceneComponent" and class.extends ~= "BoundsComponent" and class.extends ~= "PointerComponent" and class.extends ~= "RenderComponent" and class.extends ~= "SpriteComponent" and class.extends ~= "CameraComponent" and class.extends ~= "RectComponent" and class.extends ~= "CanvasComponent" then parent = nil end
             if not parent and not Id.isValid(class.extends) then return fail("extends must be a Lua Class asset ID or built-in Component") end
             local parentError
             if not parent then parent, parentError = load(class.extends, kind, (depth or 0) + 1) end
@@ -48,7 +48,7 @@ function LuaClass.loader(project)
             class.componentType = canonical:match("([^/]+)%.lua$")
             local extended, component = pcall(parent.extend, parent, class)
             if not extended then return fail(tostring(component)) end
-            for _, name in ipairs({"build", "beginPlay", "load", "update", "draw", "getLocalBounds"}) do
+            for _, name in ipairs({"build", "beginPlay", "load", "update", "draw", "getLocalBounds", "hitTest", "onPointerDown", "onPointerUp", "onPointerMove"}) do
                 if component[name] ~= nil and type(component[name]) ~= "function" then return fail(name .. " must be a function") end
             end
             classNames[component] = class.componentType

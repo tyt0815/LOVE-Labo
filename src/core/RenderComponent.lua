@@ -1,4 +1,5 @@
-local Render = require("core.SceneComponent"):extend({componentType = "RenderComponent"})
+local Render = require("core.BoundsComponent"):extend({componentType = "RenderComponent", properties = {
+    sortingOrder = {type = "number", default = 0, group = "Rendering"}
+}})
 function Render:draw(context) return false end
-function Render:getLocalBounds(context) end
 return Render

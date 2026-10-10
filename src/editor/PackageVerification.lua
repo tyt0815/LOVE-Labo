@@ -243,6 +243,51 @@ return NewClass
         inspector:wheelmoved(-4, inspector.left + 3, inspector.propertyTop + 10)
         check("Inspector whole content scroll", inspector.scroll > 0 and inspector.objectTree.y == treeY - inspector.scroll)
         preview("inspector-whole-scroll")
+        assert(project:createEntry("Sources", "lua", "Clickable", {scriptKind = "component", parentReference = "PointerComponent"}))
+        local pointerId = project:getAssetId("Sources/Clickable.lua")
+        assert(Fs.writeAtomic(assert(project:resolveSourceFile(pointerId)), [[
+local Clickable = {extends = "PointerComponent"}
+function Clickable.onPointerDown(self, event) self.owner.properties.clicked = true; return true end
+function Clickable.onPointerUp(self, event) self.owner.properties.released = true end
+return Clickable
+]]))
+        assert(project:createEntry("Sources", "lua", "InputButton", {scriptKind = "lobject"}))
+        local buttonId = project:getAssetId("Sources/InputButton.lua")
+        assert(Fs.writeAtomic(assert(project:resolveSourceFile(buttonId)), string.format([[
+local InputButton = {}
+function InputButton.build(self) self:addComponent("pointer", %q) end
+return InputButton
+]], pointerId)))
+        app.level:addLObject(0, 0, buttonId)
+        app:updateSceneViewport()
+        assert(app:startPlay())
+        local pointerX, pointerY = app.gameView:worldToScreen(0, 0)
+        app:mousepressed(pointerX, pointerY, 1)
+        local receiver = app.runtimeWorld.lobjects[#app.runtimeWorld.lobjects]
+        check("packaged Game View pointer down", receiver.properties.clicked == true)
+        app:mousereleased(5, 5, 1)
+        check("packaged Game View pointer capture", receiver.properties.released == true)
+        app:stopPlay()
+        assert(project:createEntry("Sources", "lua", "CameraActor", {scriptKind = "lobject"}))
+        local cameraId = project:getAssetId("Sources/CameraActor.lua")
+        assert(Fs.writeAtomic(assert(project:resolveSourceFile(cameraId)), [[
+local Engine = require("Engine")
+local CameraActor = {}
+function CameraActor.build(self) self:setRootComponent("camera", Engine.CameraComponent, {viewWidth = 640, viewHeight = 360}) end
+return CameraActor
+]]))
+        local cameraObject = app.level:addLObject(0, 0, cameraId)
+        app.sceneView:setSelection({cameraObject}); app.inspectorSource = "scene"; app:updateInspectorTarget()
+        local cameraPreview = assert(app.spriteAssets:preview(cameraObject))
+        local points = app.sceneView:getCameraBounds(cameraPreview.rootComponent)
+        check("camera outline bounds", #points == 8)
+        preview("camera-outline")
+        assert(app:startPlay())
+        local camera = app.runtimeWorld:getActiveCamera()
+        local cx, cy = app.gameView:worldToScreen(0, 0)
+        local vx, vy, vw, vh = app.gameView:getViewport()
+        check("packaged active camera projection", camera and math.abs(cx - vx - vw / 2) < 0.001 and math.abs(cy - vy - vh / 2) < 0.001)
+        app:draw(); app:stopPlay()
         result.projectDirectory = project.rootPath
         result.theme = require("editor.Theme").name
         local canvas = love.graphics.newCanvas(love.graphics.getDimensions())

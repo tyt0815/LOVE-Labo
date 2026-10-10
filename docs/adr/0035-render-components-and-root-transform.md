@@ -1,6 +1,7 @@
 # 0035. Draw 오버라이드와 루트 Transform 통일
 
 - 상태: 채택
+- 후속: 카메라 투영·화면 Canvas와 전역 정렬은 [ADR 0046](0046-camera-screen-canvas-and-component-order.md)을 따른다.
 - 후속: Draw·GetLocalBounds·모듈 이름은 [ADR 0036](0036-code-conventions-and-module-names.md)의 draw·getLocalBounds·PascalCase 파일명으로 대체한다.
 - 후속: 부모 오브젝트가 없는 루트만 월드 Transform이며 부모가 있는 루트는 [ADR 0037](0037-object-hierarchy-and-multi-selection.md)의 상대 Transform을 사용한다.
 - 날짜: 2026-10-09

@@ -53,6 +53,33 @@ function World:spawnLObject(template, transform, overrides)
     if not self.spawnLObjectFactory then return nil, "World has no LObjectTemplate loader" end
     return self.spawnLObjectFactory(template, transform, overrides)
 end
+function World:dispatchPointer(kind, x, y, button, dx, dy, context)
+    local ok, result = pcall(require("core.PointerInput").dispatch, self, kind, x, y, button, dx, dy, context)
+    if not ok then self:cancelPointer(); return false, "Pointer input failed: " .. tostring(result) end
+    return true, result
+end
+function World:cancelPointer() self.pointerCaptures = {} end
+function World:setActiveCamera(camera)
+    if camera == nil then self.activeCamera = nil; return true end
+    if type(camera) ~= "table" or type(camera.isA) ~= "function" or not camera:isA(require("core.CameraComponent")) then return false, "Expected CameraComponent" end
+    for _, object in ipairs(self.lobjects) do
+        if camera.owner == object and object.components[camera.name] == camera then self.activeCamera = camera; return true end
+    end
+    return false, "Camera must belong to this World"
+end
+function World:getActiveCamera()
+    local first
+    for _, object in ipairs(self.lobjects) do
+        for _, name in ipairs(object:getComponentOrder()) do
+            local component = object.components[name]
+            if component:isA(require("core.CameraComponent")) and component.properties.enabled then
+                if component == self.activeCamera then return component end
+                first = first or component
+            end
+        end
+    end
+    return first
+end
 
 function World:openLevel(reference)
     if not self.openLevelRequest then return false, "World has no Level loader" end

@@ -257,4 +257,70 @@ $taskToolsClass = invokeLaboRequest @{command = 'class.get'; project = $taskProj
 invokeLaboRequest @{command = 'class.set-source'; project = $taskProject; class = $taskClass.assetId; source = $taskToolsClass.source; revision = $taskToolsClass.revision} | Out-Null
 $taskValidation = invokeLaboRequest @{command = 'project.validate'; project = $taskProject}
 if (-not $taskValidation.valid) { throw ($taskValidation.errors | ConvertTo-Json -Depth 8) }
-Write-Output "Cli creation, editing, hierarchy, references, Export and level transition verified: $taskDirectory"
+$taskPointerClass = invokeLaboRequest @{command = 'class.create'; project = $taskProject; name = 'Clickable'; parent = 'PointerComponent'}
+$taskPointerCode = @'
+local Clickable = {extends = "PointerComponent"}
+function Clickable.onPointerDown(self, event) self.owner.properties.clicks = self.owner.properties.clicks + 1; return true end
+function Clickable.onPointerUp(self, event) self.owner.properties.released = true end
+return Clickable
+'@
+invokeLaboRequest @{command = 'class.set-source'; project = $taskProject; class = $taskPointerClass.assetId; source = $taskPointerCode} | Out-Null
+$taskButtonClass = invokeLaboRequest @{command = 'class.create'; project = $taskProject; name = 'InputButton'; type = 'lobject'}
+$taskButtonCode = @'
+local InputButton = {properties = {clicks = {type = "number", default = 0}, released = {type = "boolean", default = false}}}
+function InputButton.build(self) self:addComponent("pointer", "__POINTER_CLASS__") end
+return InputButton
+'@
+invokeLaboRequest @{command = 'class.set-source'; project = $taskProject; class = $taskButtonClass.assetId; source = $taskButtonCode.Replace('__POINTER_CLASS__', $taskPointerClass.assetId)} | Out-Null
+$taskPointerLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Pointer'}
+invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskPointerLevel.assetId; template = $taskButtonClass.assetId} | Out-Null
+$taskPointerResult = invokeLaboRequest @{command = 'level.pointer'; project = $taskProject; level = $taskPointerLevel.assetId; events = @(@{kind = 'down'; x = 0; y = 0}, @{kind = 'up'; x = 1000; y = 1000})}
+if (-not $taskPointerResult.events[0].consumed -or $taskPointerResult.instances[0].properties.clicks -ne 1 -or -not $taskPointerResult.instances[0].properties.released) { throw 'Packaged CLI pointer dispatch failed' }
+$taskPointerGame = Join-Path $taskDirectory 'Pointer.love'
+invokeLaboRequest @{command = 'export'; project = $taskProject; level = $taskPointerLevel.assetId; output = $taskPointerGame} | Out-Null
+$taskPointerReport = Join-Path $taskDirectory 'pointer-report.json'
+$taskPointerProcess = Start-Process -FilePath (Join-Path $loveDirectory 'lovec.exe') `
+    -ArgumentList @(('"' + $taskPointerGame + '"'), '--verify-game', ('"' + $taskPointerReport + '"'), '--verify-pointer') `
+    -WorkingDirectory $taskDirectory -WindowStyle Hidden -PassThru
+if (-not $taskPointerProcess.WaitForExit(60000)) { $taskPointerProcess.Kill(); throw 'Exported pointer input timed out' }
+$taskPointerGameResult = Get-Content -LiteralPath $taskPointerReport -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($taskPointerProcess.ExitCode -ne 0 -or -not $taskPointerGameResult.ok -or $taskPointerGameResult.editorLoaded `
+    -or $taskPointerGameResult.properties[0].clicks -ne 1 -or -not $taskPointerGameResult.properties[0].released) { throw 'Standalone game pointer callbacks failed' }
+$taskCameraClass = invokeLaboRequest @{command = 'class.create'; project = $taskProject; name = 'CameraActor'; type = 'lobject'}
+$taskCameraCode = @'
+local Engine = require("Engine")
+local CameraActor = {}
+function CameraActor.build(self) self:setRootComponent("camera", Engine.CameraComponent, {viewWidth = 400, viewHeight = 200, zoom = 2}) end
+return CameraActor
+'@
+invokeLaboRequest @{command = 'class.set-source'; project = $taskProject; class = $taskCameraClass.assetId; source = $taskCameraCode} | Out-Null
+$taskUiClass = invokeLaboRequest @{command = 'class.create'; project = $taskProject; name = 'UiActor'; type = 'lobject'}
+$taskUiCode = @'
+local Engine = require("Engine")
+local UiActor = {properties = {clicks = {type = "number", default = 0}, released = {type = "boolean", default = false}}}
+function UiActor.build(self)
+    self:setRootComponent("canvas", Engine.CanvasComponent)
+    self:addComponent("pointer", "__POINTER_CLASS__")
+end
+return UiActor
+'@
+invokeLaboRequest @{command = 'class.set-source'; project = $taskProject; class = $taskUiClass.assetId; source = $taskUiCode.Replace('__POINTER_CLASS__', $taskPointerClass.assetId)} | Out-Null
+$taskCameraLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Camera'}
+invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskCameraLevel.assetId; template = $taskCameraClass.assetId; x = 100; y = 50} | Out-Null
+invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskCameraLevel.assetId; template = $taskUiClass.assetId} | Out-Null
+invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskCameraLevel.assetId; template = $taskButtonClass.assetId; x = 100; y = 50} | Out-Null
+$taskView = invokeLaboRequest @{command = 'level.view'; project = $taskProject; level = $taskCameraLevel.assetId; width = 800; height = 600; x = 100; y = 50}
+if ($taskView.scale -ne 4 -or $taskView.projected.x -ne 400 -or $taskView.projected.y -ne 300 -or $taskView.canvases[0].width -ne 800) { throw 'Packaged camera and Canvas query failed' }
+$taskScreenPointer = invokeLaboRequest @{command = 'level.pointer'; project = $taskProject; level = $taskCameraLevel.assetId; space = 'screen'; width = 800; height = 600; x = 400; y = 300}
+if ($taskScreenPointer.instances[1].properties.clicks -ne 1 -or $taskScreenPointer.instances[2].properties.clicks -ne 0) { throw 'Canvas did not consume input above world' }
+$taskCameraGame = Join-Path $taskDirectory 'Camera.love'
+invokeLaboRequest @{command = 'export'; project = $taskProject; level = $taskCameraLevel.assetId; output = $taskCameraGame} | Out-Null
+$taskCameraReport = Join-Path $taskDirectory 'camera-report.json'
+$taskCameraProcess = Start-Process -FilePath (Join-Path $loveDirectory 'lovec.exe') `
+    -ArgumentList @(('"' + $taskCameraGame + '"'), '--verify-game', ('"' + $taskCameraReport + '"'), '--verify-pointer') `
+    -WorkingDirectory $taskDirectory -WindowStyle Hidden -PassThru
+if (-not $taskCameraProcess.WaitForExit(60000)) { $taskCameraProcess.Kill(); throw 'Exported Camera verification timed out' }
+$taskCameraGameResult = Get-Content -LiteralPath $taskCameraReport -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($taskCameraProcess.ExitCode -ne 0 -or -not $taskCameraGameResult.ok -or $taskCameraGameResult.view.x -ne 100 -or $taskCameraGameResult.view.y -ne 50 `
+    -or $taskCameraGameResult.properties[1].clicks -ne 1 -or -not $taskCameraGameResult.properties[1].released -or $taskCameraGameResult.properties[2].clicks -ne 0) { throw 'Standalone Camera and Canvas input failed' }
+Write-Output "Cli, Export, level transition, Camera and screen Canvas verified: $taskDirectory"

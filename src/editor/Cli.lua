@@ -64,7 +64,7 @@ local api = {required = required, absolute = absolute, revision = revision, chec
 local COMMANDS = {"project.create", "project.info", "project.set-default", "project.validate", "class.create", "class.list", "class.get", "class.set-source",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
-    "prefab.child.add", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate",
+    "prefab.child.add", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.pointer", "level.view",
     "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "export"}
 local function execute(request)
     local command = required(request, "command")
@@ -91,7 +91,7 @@ local function execute(request)
         local kind = command:match("^(.-)%.")
         local folder = request.folder or (kind == "class" and "Sources" or "Assets")
         local parent = kind == "class" and request.parent
-        local builtin = ({LObjectComponent = true, SceneComponent = true, RenderComponent = true, SpriteComponent = true})[parent or ""]
+        local builtin = ({LObjectComponent = true, SceneComponent = true, BoundsComponent = true, PointerComponent = true, RenderComponent = true, SpriteComponent = true, CameraComponent = true, RectComponent = true, CanvasComponent = true})[parent or ""]
         local options = {scriptKind = request.type or builtin and "component" or (parent and assert(project:getScriptKind(parent))) or "lobject",
             parentReference = parent, scriptReference = request.class}
         if kind == "prefab" and request.instance then
@@ -191,6 +191,12 @@ local function execute(request)
             else setProperty(project, target, name, item) end
             changed = true
         else assert(command == "instance.get", "Unknown command: " .. command) end
+    elseif command == "level.view" then
+        local result = require("editor.CliView").execute(project, level, request)
+        result.revision = revision(bytes); return result
+    elseif command == "level.pointer" then
+        local result = require("editor.CliPointer").execute(project, level, request)
+        result.revision = revision(bytes); return result
     elseif command == "level.validate" then
         local world = assert(require("runtime.WorldLoader").prepare(project, level:toData()))
         return {valid = true, objects = #world.lobjects, revision = revision(bytes)}
@@ -252,7 +258,8 @@ function Cli.parse(args)
             local allowed = {project = true, parent = true, name = true, folder = true, type = true, class = true,
                 prefab = true, template = true, level = true, instance = true, property = true, ["value-json"] = true,
                 x = true, y = true, output = true, revision = true, request = true, result = true, value = true,
-                asset = true, destination = true, source = true, node = true, instances = true, input = true}
+                asset = true, destination = true, source = true, node = true, instances = true, input = true,
+                event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true}
             assert(allowed[key], "Unknown option: " .. item)
             assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)
             assert(request[key] == nil, "Duplicate option: " .. item)
