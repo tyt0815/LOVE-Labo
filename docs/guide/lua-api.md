@@ -11,7 +11,7 @@
 | BoundsComponent | getLocalBounds(context), getBounds(context), hitTest(context, x, y) |
 | RenderComponent | draw(context), sortingOrder |
 | SpriteComponent | image 참조와 이미지 렌더링 |
-| CameraComponent | viewWidth/viewHeight/zoom/enabled |
+| CameraComponent | viewWidth/viewHeight/zoom |
 | RectComponent / CanvasComponent | 사각형 크기 / 화면 좌표계 루트 |
 | PointerComponent | onPointerDown/up/move, boundsSource, blockPointer, inputPriority |
 
@@ -42,7 +42,7 @@ build는 구성을 선언하며 에디터 프리뷰에서도 실행됩니다. be
 - `world:spawnLObject(template, transform, overrides)`: Class 또는 Prefab에서 생성합니다. [생성 API](../runtime-spawn.md)를 참고하세요.
 - `world:openLevel(reference)`: 다음 프레임 경계에서 레벨을 전환합니다. [레벨 전환](../level-transition.md)을 참고하세요.
 - `world:setActiveCamera(component)`: 같은 World의 CameraComponent를 지정합니다. nil이면 자동 선택으로 돌아갑니다.
-- `world:getActiveCamera()`: 유효한 지정 카메라 또는 첫 번째 enabled 카메라를 반환합니다.
+- `world:getActiveCamera()`: 유효한 지정 카메라 또는 첫 번째 카메라를 반환합니다.
 
 ## 컴포넌트 API
 

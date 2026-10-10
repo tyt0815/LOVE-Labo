@@ -3,6 +3,7 @@
 - 상태: 채택·구현
 - 날짜: 2026-10-10
 - 관련: [ADR 0045](0045-bounds-and-game-pointer-components.md)
+- 카메라 enabled와 선택 계약은 [ADR 0049](0049-camera-selection-without-enabled.md)에서 부분 대체한다.
 - 부분 대체: [ADR 0035](0035-render-components-and-root-transform.md)의 원점 1:1 런타임 표시와 고정 순회 순서
 
 ## 배경과 제약

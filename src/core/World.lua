@@ -72,7 +72,7 @@ function World:getActiveCamera()
     for _, object in ipairs(self.lobjects) do
         for _, name in ipairs(object:getComponentOrder()) do
             local component = object.components[name]
-            if component:isA(require("core.CameraComponent")) and component.properties.enabled then
+            if component:isA(require("core.CameraComponent")) then
                 if component == self.activeCamera then return component end
                 first = first or component
             end

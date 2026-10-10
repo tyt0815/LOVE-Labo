@@ -1,6 +1,5 @@
 local Transform = require("core.Transform")
 local Camera = require("core.SceneComponent"):extend({componentType = "CameraComponent", properties = {
-    enabled = {type = "boolean", default = true, group = "Camera"},
     viewWidth = {type = "number", default = 1280, group = "Camera"},
     viewHeight = {type = "number", default = 720, group = "Camera"},
     zoom = {type = "number", default = 1, group = "Camera"}

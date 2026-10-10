@@ -48,3 +48,4 @@
 - [0046. 카메라 투영과 화면 Canvas를 분리하고 렌더링·입력 순서를 공유한다](adr/0046-camera-screen-canvas-and-component-order.md)
 - [0047. 레벨 Main Camera 저장과 기본 카메라 생성](adr/0047-level-main-camera-and-default-camera.md)
 - [0048. 사용자 가이드 사이트와 새 프로젝트 AI 안내](adr/0048-user-guides-and-project-agent-instructions.md)
+- [0049. 카메라 선택을 Main Camera 지정과 런타임 전환으로 통일한다](adr/0049-camera-selection-without-enabled.md)

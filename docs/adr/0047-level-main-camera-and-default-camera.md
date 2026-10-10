@@ -3,6 +3,7 @@
 - 상태: 채택·구현
 - 날짜: 2026-10-10
 - 관련: [ADR 0046](0046-camera-screen-canvas-and-component-order.md)
+- 비활성 카메라 대체 조건은 [ADR 0049](0049-camera-selection-without-enabled.md)에서 부분 대체한다.
 
 ## 배경과 제약
 

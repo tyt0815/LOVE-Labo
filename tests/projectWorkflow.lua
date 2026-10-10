@@ -5044,7 +5044,7 @@ add("Editor Game View retains capture until all consumed buttons release in eith
     end)
 end)
 
-add("Camera viewport projects rotation zoom letterbox and switches only live enabled cameras", function()
+add("Camera viewport projects rotation zoom letterbox and switches only live cameras", function()
     local Engine, Viewport = require("Engine"), require("core.Viewport")
     local world = require("core.World").new()
     local object = assert(world:addLObject({transform = {x = 100, y = 50, rotation = 90}}))
@@ -5057,11 +5057,15 @@ add("Camera viewport projects rotation zoom letterbox and switches only live ena
     Assert.equal(false, view:containsWorldScreen(410, 30))
     local other = assert(world:addLObject({transform = {x = 0, y = 0}})):addComponent("camera", Engine.CameraComponent)
     assert(world:setActiveCamera(other)); Assert.equal(other, world:getActiveCamera())
-    other.properties.enabled = false; Assert.equal(camera, world:getActiveCamera())
+    Assert.equal(nil, Engine.CameraComponent.properties.enabled)
+    assert(world:setActiveCamera(nil)); Assert.equal(camera, world:getActiveCamera())
     Assert.equal(false, world:setActiveCamera(object.rootComponent)); Assert.equal(false, world:setActiveCamera(false))
     local foreign = require("core.World").new(); Assert.equal(false, foreign:setActiveCamera(camera))
-    camera.properties.enabled = false; Assert.equal(nil, world:getActiveCamera()); Assert.equal(1, Viewport.new(world, 0, 0, 800, 600).scale)
-    camera.properties.enabled = true; camera.properties.zoom = 0
+    assert(world:setActiveCamera(other)); table.remove(world.lobjects, 2)
+    Assert.equal(camera, world:getActiveCamera())
+    table.remove(world.lobjects, 1)
+    Assert.equal(nil, world:getActiveCamera()); Assert.equal(1, Viewport.new(world, 0, 0, 800, 600).scale)
+    world.lobjects[1] = object; camera.properties.zoom = 0
     Assert.equal(false, pcall(Viewport.new, world, 0, 0, 800, 600))
 end)
 
@@ -5378,7 +5382,7 @@ add("Main Camera eyedropper supports multiple components rejects other instances
         assert(app:undoRedo(1)); Assert.equal(second.authoringId, app.level.mainCamera.authoringId)
         local world = assert(require("runtime.WorldLoader").create(project, app.level:toData()))
         Assert.equal(second.authoringId, world:getActiveCamera().owner.authoringId)
-        world:getActiveCamera().properties.enabled = false
+        assert(world:setActiveCamera(nil))
         Assert.equal(1, world:getActiveCamera().owner.authoringId)
         assert(inspector:setProperty("$mainCamera", false)); Assert.equal(nil, app.level.mainCamera)
         Assert.equal(nil, app.level.propertyOverrides["$mainCamera"])
