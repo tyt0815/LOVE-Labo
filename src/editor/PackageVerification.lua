@@ -61,7 +61,7 @@ return NewClass
         assert(project:rebuildAssetIndex())
         assert(project:createEntry("Assets", "prefab", "NewPrefab", {scriptReference = classId}))
         assert(project:createEntry("Sources", "lua", "NewLevel", {scriptKind = "level"}))
-        assert(project:createEntry("Assets", "level", "NewLevel", {scriptReference = project:getAssetId("Sources/NewLevel.lua")}))
+        assert(project:createEntry("Assets", "level", "NewLevel", {empty = true, scriptReference = project:getAssetId("Sources/NewLevel.lua")}))
         local levelPath = assert(project:resolveAssetFile("Assets/NewLevel.level"))
         local App = require("editor.EditorApp")
         local app = App.new(assert(require("editor.LevelDocument").load(levelPath)), project)
@@ -288,6 +288,12 @@ return CameraActor
         local vx, vy, vw, vh = app.gameView:getViewport()
         check("packaged active camera projection", camera and math.abs(cx - vx - vw / 2) < 0.001 and math.abs(cy - vy - vh / 2) < 0.001)
         app:draw(); app:stopPlay()
+        assert(project:createEntry("Assets", "level", "L_DefaultCamera"))
+        assert(app:openProjectDocument("Assets/L_DefaultCamera.level", true))
+        app.sceneView:setSelection({}); app.inspectorSource = "scene"; app:updateInspectorTarget()
+        check("default Camera saved designation", #app.level.lobjects == 1 and app.level.mainCamera.authoringId == 1)
+        check("level Inspector Main Camera", app.inspector.classInspector.class.properties["$mainCamera"] ~= nil)
+        preview("level-main-camera")
         result.projectDirectory = project.rootPath
         result.theme = require("editor.Theme").name
         local canvas = love.graphics.newCanvas(love.graphics.getDimensions())

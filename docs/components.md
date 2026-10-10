@@ -14,6 +14,8 @@ world:setActiveCamera(self.rootComponent)
 
 첫 번째 enabled 카메라를 자동 사용하며 활성 카메라를 지정하면 이를 우선한다. 카메라가 없으면 기존 원점·배율 1로 표시한다. Canvas 아래에 카메라를 부착하지 않고 월드의 별도 오브젝트로 구성한다.
 
+레벨 Inspector의 Main Camera는 기본 활성 카메라를 저장한다. 빈 곳을 클릭하고 스포이드로 카메라 인스턴스를 고른다. 여러 카메라가 있으면 컴포넌트 이름을 선택한다. 구성 시 지정이 먼저 적용되고 beginPlay에서 전환할 수 있다. 새 레벨에는 기본 Camera가 생성·지정된다. 화면 예제는 [카메라 가이드](guide/camera-ui.md)를 참고한다.
+
 ```lua
 -- UI 오브젝트의 build
 self:setRootComponent("canvas", Engine.CanvasComponent)

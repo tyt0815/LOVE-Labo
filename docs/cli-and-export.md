@@ -12,8 +12,8 @@
 .\build\windows\Labo-cli.exe --cli level create --project D:\Games\MyGame --name StartLevel
 .\build\windows\Labo-cli.exe --cli project set-default --project D:\Games\MyGame --level Assets/StartLevel.level
 .\build\windows\Labo-cli.exe --cli instance add --project D:\Games\MyGame --prefab Assets/EnemyPrefab.prefab --x 100 --y 200
-.\build\windows\Labo-cli.exe --cli instance get --project D:\Games\MyGame --instance 1
-.\build\windows\Labo-cli.exe --cli instance set --project D:\Games\MyGame --instance 1 --property transform.x --value-json 120
+.\build\windows\Labo-cli.exe --cli instance get --project D:\Games\MyGame --instance 2
+.\build\windows\Labo-cli.exe --cli instance set --project D:\Games\MyGame --instance 2 --property transform.x --value-json 120
 .\build\windows\Labo-cli.exe --cli export --project D:\Games\MyGame --output D:\Games\MyGame\Build\Game.love
 ```
 
@@ -38,6 +38,7 @@ Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\
 | `prefab create` | `--project`, `--name`, 선택 `--class` 또는 `--instance`/`--level` | `--class`에 LObject 클래스 또는 부모 Prefab ID·경로를 지정한다. `--instance`는 지정 레벨(생략 시 기본 레벨)의 루트와 자손을 현재 값으로 캡처한다. 외부 객체 참조는 거절한다. |
 | `prefab get/set` | `--project`, `--prefab` | 프로퍼티·컴포넌트 기본 override 조회/수정 |
 | `level create` | `--project`, `--name`, 선택 `--class` | 레벨 생성 |
+| `level set-camera` | `--project`, 선택 `--level`, `--instance`, `--component` | Main Camera 지정. 여러 카메라가 있으면 component가 필수이며 instance 생략 또는 false는 Auto다. |
 | `level get/set` | `--project`, 선택 `--level` | 레벨 데이터와 선언 프로퍼티 조회/수정 |
 | `level pointer` | `--project`, 선택 `--level`, `--event`, `--x`, `--y`, `--button`, `--dx`, `--dy`, `--events-json` | beginPlay를 실행한 임시 런타임에 월드 좌표 포인터 입력을 전달하고 소비 여부·대상·최종 객체 프로퍼티를 반환한다. 레벨 파일은 변경하지 않는다. |
 | `level view` | `--project`, 선택 `--level`, `--width`, `--height`, `--space`, `--x`, `--y` | 카메라·Canvas 범위와 투영 배율을 조회한다. 좌표가 있으면 world→screen 또는 screen→world 변환 결과도 반환한다. beginPlay는 실행하지 않는다. |
@@ -53,6 +54,8 @@ Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\
 `type = "prefab"` 프로퍼티도 `prefab set`·`instance set`·`level set`으로 수정한다. 값은 Prefab ID·상대 경로 또는 해제용 JSON `false`이고, ID로 정규화하며 해당 에셋의 부모 체인을 검증한다. 게임 소스에서 이 값을 [spawnLObject](runtime-spawn.md)에 넘겨 런타임 객체를 만들 수 있다.
 
 ## 추가 편집 명령
+
+새 `level create`는 기본 Camera와 Main Camera 지정을 포함한다. Sources/Defaults/Camera.lua를 생성·재사용하고 기존 소스는 덮어쓰지 않는다. 빈 레벨은 `--empty` 또는 JSON `"empty": true`로 명시한다. 기존 레벨 로드·Save As는 카메라를 추가하지 않는다. `level get`의 data.mainCamera는 authoringId와 component 이름이다. `project create`는 AGENTS.md와 Docs/EngineGuide.md도 생성한다. [AI 시작 페이지](guide/ai.md)에 사용 흐름을 설명한다.
 
 `help`는 명령 목록, JSON 요청 예제, Prefab 경로와 다중 선택 입력 안내를 반환한다. 아래 명령도 공통 `--project`를 받는다.
 

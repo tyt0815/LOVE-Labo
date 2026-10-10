@@ -399,7 +399,7 @@ function Project:createEntry(folder, kind, name, options)
             if not parentId then return false, "Parent Class is not registered" end
         end
     end
-    local fs, createdDirectories, createdFiles = filesystem(), {}, {}
+    local fs, createdDirectories, createdFiles, createdReferences = filesystem(), {}, {}, {}
     local function rollback(errorText)
         for i = #createdFiles, 1, -1 do fs.removeFile(createdFiles[i]) end
         for i = #createdDirectories, 1, -1 do fs.removeDirectory(createdDirectories[i]) end
@@ -423,7 +423,7 @@ function Project:createEntry(folder, kind, name, options)
         end
         return true
     end
-    local function writeNew(reference, text)
+    local function writeNew(reference, text, scriptKind)
         local parent = reference:match("^(.*)/[^/]+$")
         local ok, parentError = ensureFolder(parent)
         if not ok then return false, parentError end
@@ -432,10 +432,11 @@ function Project:createEntry(folder, kind, name, options)
         local wrote, writeError = fs.createFile(path, text)
         if not wrote then return false, writeError end
         createdFiles[#createdFiles + 1] = path
-        local meta = require("editor.AssetRegistry").metaText(kind == "lua" and options.scriptKind or nil)
+        local meta, id = require("editor.AssetRegistry").metaText(scriptKind or kind == "lua" and options.scriptKind or nil)
         local saved, metaError = fs.createFile(path .. ".meta", meta)
         if saved then createdFiles[#createdFiles + 1] = path .. ".meta" end
-        return saved, metaError
+        if saved then createdReferences[#createdReferences + 1] = reference end
+        return saved, metaError, id
     end
     local suffix = kind == "level" and ".level" or kind == "prefab" and ".prefab" or kind == "lua" and ".lua" or ""
     if suffix ~= "" then
@@ -457,8 +458,40 @@ function Project:createEntry(folder, kind, name, options)
             and "editor.LevelScriptTemplate" or options.scriptKind == "component" and "editor.ComponentScriptTemplate"
             or "editor.LObjectScriptTemplate")(name, parentId))
     elseif kind == "level" then
+        if fs.info(assert(self:resolvePath(reference))) then return false, "Level file already exists" end
         local level = options.level or require("editor.Level").new()
         assert(level:setScriptReference(self:getAssetId(options.scriptReference) or options.scriptReference))
+        if not options.level and not options.empty then
+            local cameraReference = "Sources/Defaults/Camera.lua"
+            local cameraPath = assert(self:resolvePath(cameraReference))
+            local cameraId, cameraName = nil, "camera"
+            if fs.info(cameraPath) then
+                local indexed, indexError = self:rebuildAssetIndex()
+                if not indexed then return rollback(indexError) end
+                local definition, cameraError = require("project.ObjectDefinition").resolve(self, cameraReference)
+                if not definition then return rollback(cameraError) end
+                local preview = assert(require("core.LObject").new(1, {transform = {x = 0, y = 0}}))
+                local configured, configureError = require("project.ObjectDefinition").configure(preview, definition)
+                if not configured or not preview.rootComponent:isA(require("core.CameraComponent")) then
+                    return rollback(configureError or "Default Camera class must have a CameraComponent root")
+                end
+                cameraId = self:getAssetId(cameraReference)
+                cameraName = preview.rootComponent.name
+            else
+                local saved, cameraError, id = writeNew(cameraReference, [[-- labo-script: lobject
+local Engine = require("Engine")
+local Camera = {}
+function Camera.build(self)
+    self:setRootComponent("camera", Engine.CameraComponent)
+end
+return Camera
+]], "lobject")
+                if not saved then return rollback(cameraError) end
+                cameraId = id
+            end
+            local camera = assert(level:addLObject(0, 0, cameraId, "Camera"))
+            level.mainCamera = {authoringId = camera.authoringId, component = cameraName}
+        end
         local text, encodeError = require("editor.LevelFile").encode(level)
         if not text then return rollback(encodeError) end
         ok, createError = writeNew(reference, text)
@@ -472,7 +505,7 @@ function Project:createEntry(folder, kind, name, options)
     if not ok then return rollback(createError) end
     local rebuilt, rebuildError = self:rebuildAssetIndex(false, true)
     if not rebuilt then return rollback(rebuildError) end
-    return true, reference
+    return true, reference, createdReferences
 end
 
 function Project:deletionEntries(reference)

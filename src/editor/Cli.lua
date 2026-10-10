@@ -64,7 +64,7 @@ local api = {required = required, absolute = absolute, revision = revision, chec
 local COMMANDS = {"project.create", "project.info", "project.set-default", "project.validate", "class.create", "class.list", "class.get", "class.set-source",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
-    "prefab.child.add", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.pointer", "level.view",
+    "prefab.child.add", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.pointer", "level.view", "level.set-camera",
     "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "export"}
 local function execute(request)
     local command = required(request, "command")
@@ -93,7 +93,7 @@ local function execute(request)
         local parent = kind == "class" and request.parent
         local builtin = ({LObjectComponent = true, SceneComponent = true, BoundsComponent = true, PointerComponent = true, RenderComponent = true, SpriteComponent = true, CameraComponent = true, RectComponent = true, CanvasComponent = true})[parent or ""]
         local options = {scriptKind = request.type or builtin and "component" or (parent and assert(project:getScriptKind(parent))) or "lobject",
-            parentReference = parent, scriptReference = request.class}
+            parentReference = parent, scriptReference = request.class, empty = request.empty == true or request.empty == "true"}
         if kind == "prefab" and request.instance then
             local document = assert(require("editor.LevelDocument").load(assert(project:resolveAssetFile(request.level or project.defaultLevelReference))))
             local object = assert(document.level:findLObject(tonumber(request.instance)), "Instance not found")
@@ -191,6 +191,18 @@ local function execute(request)
             else setProperty(project, target, name, item) end
             changed = true
         else assert(command == "instance.get", "Unknown command: " .. command) end
+    elseif command == "level.set-camera" then
+        if request.instance == nil or request.instance == false or request.instance == "None" then level.mainCamera = nil
+        else
+            local candidates = assert(require("project.MainCamera").choices(project, level, level:findLObject(tonumber(request.instance))))
+            local selected
+            for _, candidate in ipairs(candidates) do
+                if candidate.component == request.component or not request.component and #candidates == 1 then selected = candidate end
+            end
+            assert(selected, "Choose a CameraComponent with --component")
+            level.mainCamera = selected
+        end
+        changed = true
     elseif command == "level.view" then
         local result = require("editor.CliView").execute(project, level, request)
         result.revision = revision(bytes); return result
@@ -255,15 +267,20 @@ function Cli.parse(args)
         local item = args[i]
         if item:sub(1, 2) == "--" then
             local key = item:sub(3)
-            local allowed = {project = true, parent = true, name = true, folder = true, type = true, class = true,
-                prefab = true, template = true, level = true, instance = true, property = true, ["value-json"] = true,
-                x = true, y = true, output = true, revision = true, request = true, result = true, value = true,
-                asset = true, destination = true, source = true, node = true, instances = true, input = true,
-                event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true}
-            assert(allowed[key], "Unknown option: " .. item)
-            assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)
-            assert(request[key] == nil, "Duplicate option: " .. item)
-            request[key], i = args[i + 1], i + 2
+            if key == "empty" then
+                assert(request.empty == nil, "Duplicate option: " .. item)
+                request.empty, i = true, i + 1
+            else
+                local allowed = {project = true, parent = true, name = true, folder = true, type = true, class = true,
+                    prefab = true, template = true, level = true, instance = true, property = true, ["value-json"] = true,
+                    x = true, y = true, output = true, revision = true, request = true, result = true, value = true,
+                    asset = true, destination = true, source = true, node = true, instances = true, input = true,
+                    event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true, component = true}
+                assert(allowed[key], "Unknown option: " .. item)
+                assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)
+                assert(request[key] == nil, "Duplicate option: " .. item)
+                request[key], i = args[i + 1], i + 2
+            end
         else positionals[#positionals + 1] = item; i = i + 1 end
     end
     if request.request then

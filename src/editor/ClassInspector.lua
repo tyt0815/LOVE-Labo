@@ -73,6 +73,12 @@ function ClassInspector:reload()
         if definition then target, err = Definition.inspectorTarget(self.project, {}, definition, nil, "Prefab") end
         if target then self.class, self.preview = target.class, target.preview else self.error = err end
     elseif reference then self.class, self.error = LuaClass.load(self.project, reference, self.target.kind) end
+    if self.target.mainCameraDetails then
+        local properties = {}
+        for name, declaration in pairs(self.class and self.class.properties or {}) do properties[name] = declaration end
+        properties["$mainCamera"] = {type = "object", default = false, field = "Main Camera", group = "Camera"}
+        self.class = {properties = properties, className = self.class and (self.class.className or LuaClass.name(self.class)) or "Level"}
+    end
     if not self.preview then self.selectedComponent = nil end
     self.allNames = {}
     for name in pairs(self.class and self.class.properties or {}) do self.allNames[#self.allNames + 1] = name end
@@ -186,6 +192,10 @@ function ClassInspector:selectParent(value)
 end
 
 function ClassInspector:setProperty(name, value)
+    if name == "$mainCamera" and self.target.mainCameraDetails then
+        if value == false then return self.target:setMainCamera(nil) end
+        self.error = "Use the eyedropper to select a camera instance"; return false
+    end
     local declaration = self.class and self.class.properties[name]
     if not declaration or not LuaClass.validValue(declaration.type, value) then
         self.error = "Invalid value for " .. name
@@ -294,10 +304,14 @@ function ClassInspector:parentPickRect()
     local rect = self:parentBrowseRect()
     return {x = rect.x - 30, y = rect.y, w = 26, h = 26}
 end
-function ClassInspector:objectLabel(value)
-    if value == false then return "None" end
+function ClassInspector:objectLabel(value, name)
+    if value == false then return name == "$mainCamera" and "Auto" or "None" end
     for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
-        if object.authoringId == value then return object.name or "LObject " .. tostring(value) end
+        if object.authoringId == value then
+            local label = object.name or "LObject " .. tostring(value)
+            if name == "$mainCamera" then label = label .. " / " .. self.target.data.mainCamera.component end
+            return label
+        end
     end
     return "Missing: " .. tostring(value)
 end
@@ -575,8 +589,8 @@ function ClassInspector:draw()
             Ui.text(declaration.sceneTransform and TRANSFORM_LABELS[declaration.field] or declaration.field or name, labelRect.x, labelRect.y, labelRect.w)
             Ui.hint(labelRect, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
             if declaration.type == "object" then
-                Ui.button("", rect, false, self:objectLabel(value) .. ". Use the eyedropper to pick a target.")
-                Ui.text(self:objectLabel(value), rect.x + 4, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, math.max(0, rect.w - 8))
+                Ui.button("", rect, false, self:objectLabel(value, name) .. ". Use the eyedropper to pick a target.")
+                Ui.text(self:objectLabel(value, name), rect.x + 4, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, math.max(0, rect.w - 8))
             elseif declaration.type == "image" or Schema.isTemplate(declaration.type) then
                 local choice = self:choices(name, value)
                 choice:setBounds(rect.x, rect.y, rect.w, rect.h)

@@ -182,6 +182,7 @@ function Level:toData()
     return {
         formatVersion = FORMAT_VERSION,
         scriptReference = self.scriptReference,
+        mainCamera = require("project.MainCamera").copy(self.mainCamera),
         propertyOverrides = require("editor.PropertyData").copy(self.propertyOverrides),
         lobjects = lobjects
     }
@@ -198,6 +199,8 @@ function Level.fromData(data)
 
     local validScript, scriptError = Level.isValidScriptReference(data.scriptReference)
     if not validScript then return nil, scriptError end
+    local mainCamera, cameraError = require("project.MainCamera").copy(data.mainCamera)
+    if cameraError then return nil, cameraError end
     local overrides, overrideError = require("editor.PropertyData").validate(data.propertyOverrides)
     if not overrides then return nil, overrideError end
 
@@ -239,6 +242,7 @@ function Level.fromData(data)
     local validTree, treeError = level:validateHierarchy()
     if not validTree then return nil, treeError end
     level.scriptReference = data.scriptReference
+    level.mainCamera = mainCamera
     level.propertyOverrides = overrides
 
     -- 저장 시 nextAuthoringId 자체를 직렬화하지 않고,
@@ -357,7 +361,12 @@ function Level:removeLObjects(objects, syncingPrefab)
             end
         end
     end
-    for i = #self.lobjects, 1, -1 do if removed[self.lobjects[i]] then table.remove(self.lobjects, i) end end
+    for i = #self.lobjects, 1, -1 do
+        if removed[self.lobjects[i]] then
+            if self.mainCamera and self.mainCamera.authoringId == self.lobjects[i].authoringId then self.mainCamera = nil end
+            table.remove(self.lobjects, i)
+        end
+    end
     return next(removed) ~= nil
 end
 function Level:duplicateLObjects(objects)

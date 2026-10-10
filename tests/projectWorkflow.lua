@@ -14,7 +14,7 @@ local function createSampleProject(parent, name)
     assert(project:createEntry("Sources", "folder", "Levels"))
     assert(project:createEntry("Sources/Levels", "lua", "StartLevel", {scriptKind = "level"}))
     assert(project:createEntry("Assets", "folder", "Levels"))
-    assert(project:createEntry("Assets/Levels", "level", "StartLevel", {scriptReference = DEFAULT_SCRIPT_REFERENCE}))
+    assert(project:createEntry("Assets/Levels", "level", "StartLevel", {empty = true, scriptReference = DEFAULT_SCRIPT_REFERENCE}))
     local marker = Fs.join(project.rootPath, Project.FILE_NAME)
     local Json = require("editor.Json")
     local data = assert(Json.decode(assert(Fs.read(marker))))
@@ -396,7 +396,7 @@ add("first save cancellation conflicts and failures preserve the unsaved level",
         app:keypressed("escape")
         Assert.equal(nil, app.document.path)
         Assert.truthy(app.document:isDirty())
-        assert(project:createEntry("Assets", "level", "Existing"))
+        assert(project:createEntry("Assets", "level", "Existing", {empty = true}))
         local before = assert(Fs.read(assert(project:resolvePath("Assets/Existing.level"))))
         Assert.equal(false, app:saveNewLevel("Assets/Existing.level"))
         Assert.equal(before, assert(Fs.read(assert(project:resolvePath("Assets/Existing.level")))))
@@ -787,7 +787,7 @@ add("new browser entries select existing scripts and never overwrite files", fun
         Assert.equal(source, assert(Fs.read(assert(project:resolveSourceFile(level.scriptReference)))))
         assert(project:createEntry("Sources", "lua", "Extra", {scriptKind = "level"}))
         Assert.equal(false, project:createEntry("Assets", "lua", "Bad"))
-        Assert.equal(false, project:createEntry("Sources", "level", "Bad"))
+        Assert.equal(false, project:createEntry("Sources", "level", "Bad", {empty = true}))
         for _, name in ipairs({ "../escape", "CON", "bad/name", "trailing." }) do
             Assert.equal(false, project:createEntry("Assets", "folder", name))
         end
@@ -875,7 +875,7 @@ add("browser context menus create entries and delete only after confirmation", f
         browser:showDeleteDialog({reference = "Assets/Temporary", type = "directory"})
         root:keypressed("return")
         Assert.equal(nil, Fs.info(Fs.join(project.rootPath, "Assets/Temporary")))
-        assert(project:createEntry("Assets", "level", "Open", {scriptReference = DEFAULT_SCRIPT_REFERENCE}))
+        assert(project:createEntry("Assets", "level", "Open", {empty = true, scriptReference = DEFAULT_SCRIPT_REFERENCE}))
         assert(app:openProjectDocument("Assets/Open.level"))
         browser:showDeleteDialog({reference = "Assets/Open.level", type = "file"})
         root:keypressed("return")
@@ -956,7 +956,7 @@ add("Level and Prefab allow no class but reject wrong kinds and persist IDs", fu
         assert(project:createEntry("Sources", "lua", "Enemy", {scriptKind = "lobject"}))
         local objectOptions = {scriptReference = "Sources/Enemy.lua"}
         local levelOptions = {scriptReference = DEFAULT_SCRIPT_REFERENCE}
-        assert(project:createEntry("Assets", "level", "Unbound"))
+        assert(project:createEntry("Assets", "level", "Unbound", {empty = true}))
         assert(project:createEntry("Assets", "prefab", "Unbound"))
         Assert.equal(nil, assert(require("editor.LevelFile").load(assert(project:resolveAssetFile("Assets/Unbound.level")))).scriptReference)
         Assert.equal(nil, assert(require("editor.Prefab").decode(assert(Fs.read(assert(project:resolveAssetFile("Assets/Unbound.prefab")))))).definitionReference)
@@ -1021,7 +1021,7 @@ add("creation wizard chooses parent then folder and name for classes levels and 
         Assert.equal(project:getAssetId(reference), level.scriptReference)
         browser:showCreateDialog("Assets", "prefab")
         tree = root.popup.options.content
-        Assert.equal(2, #tree.nodes)
+        Assert.equal(3, #tree.nodes)
         tree:choose(tree.records[project:getAssetId("Sources/Enemy.lua")])
         root.popup:submit()
         root.popup.contentFocused = false
@@ -1033,7 +1033,7 @@ add("creation wizard chooses parent then folder and name for classes levels and 
         assert(project:deleteEntry("Sources/Enemy.lua"))
         browser:showCreateDialog("Assets", "prefab")
         tree = root.popup.options.content
-        Assert.equal(2, #tree.nodes)
+        Assert.equal(3, #tree.nodes)
         Assert.truthy(tree.records[project:getAssetId("Assets/PF_EnemyPrefab.prefab")].error)
         app:keypressed("return")
         app:keypressed("return")
@@ -1525,7 +1525,7 @@ add("drag moves between file and tree views in every direction and keeps IDs", f
         local project = assert(Project.create(parent, "DragViews"))
         for _, name in ipairs({"A", "B"}) do assert(project:createEntry("Assets", "folder", name)) end
         assert(project:createEntry("Assets/A", "folder", "C"))
-        assert(project:createEntry("Assets", "level", "Item"))
+        assert(project:createEntry("Assets", "level", "Item", {empty = true}))
         local id = project:getAssetId("Assets/Item.level")
         local app = EditorApp.new(nil, project)
         local browser = app.assetBrowser
@@ -1562,8 +1562,8 @@ add("drag cancels safely and rejects roots self drops wrong roots and conflicts"
         local project = assert(Project.create(parent, "DragGuards"))
         assert(project:createEntry("Assets", "folder", "A"))
         assert(project:createEntry("Assets/A", "folder", "Child"))
-        assert(project:createEntry("Assets", "level", "Item"))
-        assert(project:createEntry("Assets/A", "level", "Item"))
+        assert(project:createEntry("Assets", "level", "Item", {empty = true}))
+        assert(project:createEntry("Assets/A", "level", "Item", {empty = true}))
         local id = project:getAssetId("Assets/Item.level")
         local app = EditorApp.new(nil, project)
         local browser = app.assetBrowser
@@ -1604,7 +1604,7 @@ add("dragging a source preserves open document references and move failures", fu
         local project = assert(Project.create(parent, "DragSource"))
         assert(project:createEntry("Sources", "folder", "Classes"))
         assert(project:createEntry("Sources", "lua", "Stage", {scriptKind="level"}))
-        assert(project:createEntry("Assets", "level", "Stage", {scriptReference="Sources/Stage.lua"}))
+        assert(project:createEntry("Assets", "level", "Stage", {empty = true, scriptReference="Sources/Stage.lua"}))
         local id = project:getAssetId("Sources/Stage.lua")
         local app = EditorApp.new(nil, project)
         assert(app:openProjectDocument("Assets/Stage.level"))
@@ -1663,7 +1663,7 @@ end)
 add("drag hover expands folders and scrolling refreshes the live drop target", function()
     fixture(function(parent)
         local project = assert(Project.create(parent, "DragHover"))
-        assert(project:createEntry("Assets", "level", "Item"))
+        assert(project:createEntry("Assets", "level", "Item", {empty = true}))
         for i = 1, 24 do assert(project:createEntry("Assets", "folder", string.format("Folder%02d", i))) end
         assert(project:createEntry("Assets/Folder01", "folder", "Nested"))
         local app = EditorApp.new(nil, project)
@@ -2285,7 +2285,7 @@ end)
 add("Cli property validation revisions and locks prevent partial saves", function()
     fixture(function(parent)
         local project, prefabId = componentProject(parent)
-        assert(project:createEntry("Assets", "level", "Cli"))
+        assert(project:createEntry("Assets", "level", "Cli", {empty = true}))
         local Cli = require("editor.Cli")
         local function request(command, fields)
             fields = fields or {}; fields.command, fields.project, fields.level = command, project.rootPath, "Assets/Cli.level"
@@ -2538,7 +2538,7 @@ add("Asset summary path and hint follow Inspector menu offset without overlappin
         local Ui = require("editor.Ui")
         local original = Ui.text
         for _, reference in ipairs({"Sources/Actor.lua", "Sources", "Assets/Other.level"}) do
-            if reference:match("%.level$") then assert(project:createEntry("Assets", "level", "Other")) end
+            if reference:match("%.level$") then assert(project:createEntry("Assets", "level", "Other", {empty = true})) end
             assert(app:inspectAsset(reference))
             app:updateInspectorTarget()
             local summary, positions = app.inspector.assetSummary, {}
@@ -3597,7 +3597,7 @@ add("Editor Play transitions runtime levels and Stop preserves the original auth
     fixture(function(parent)
         local project = assert(createSampleProject(parent, "PlayTransition"))
         assert(project:createEntry("Assets", "prefab", "PF_Next"))
-        assert(project:createEntry("Assets", "level", "L_Next"))
+        assert(project:createEntry("Assets", "level", "L_Next", {empty = true}))
         local Cli = require("editor.Cli")
         Cli.execute({command = "instance.add", project = project.rootPath, level = "Assets/L_Next.level", prefab = "Assets/PF_Next.prefab", x = 200, y = 300})
         local app = EditorApp.new(nil, project); local document, level = app.document, app.level
@@ -4714,7 +4714,7 @@ add("Expanded CLI edits multiple instances and resets values against effective P
             fields = fields or {}; fields.command, fields.project = command, project.rootPath
             local result = Cli.execute(fields); project = assert(Project.open(project.rootPath)); return result
         end
-        local level = run("level.create", {name = "L_Cli"}).assetId
+        local level = run("level.create", {empty = true, name = "L_Cli"}).assetId
         run("project.set-default", {level = level})
         local root = run("instance.add", {prefab = prefab}).data.authoringId
         local child = run("instance.add", {parent = root, x = 10, y = 20}).data.authoringId
@@ -4775,7 +4775,7 @@ add("Expanded CLI edits Prefab descendants bindings inheritance and removed path
         Assert.equal(1, #run("prefab.tree", {prefab = prefab}).nodes)
         local fresh = run("prefab.child.add", {prefab = prefab})
         Assert.truthy(fresh.node ~= child); Assert.equal(2, #fresh.nodes)
-        local level = run("level.create", {name = "L_Source"}).assetId
+        local level = run("level.create", {empty = true, name = "L_Source"}).assetId
         local instance = run("instance.add", {level = level}).data.authoringId
         local copied = run("prefab.child.add", {prefab = prefab, instance = instance, level = level})
         Assert.equal(3, #copied.nodes)
@@ -4972,7 +4972,7 @@ function Button.build(self) self:addComponent("pointer", %q) end
 return Button
 ]], pointer)))
     assert(project:createEntry("Assets", "prefab", "PF_Button", {scriptReference = button}))
-    assert(project:createEntry("Assets", "level", "L_Pointer"))
+    assert(project:createEntry("Assets", "level", "L_Pointer", {empty = true}))
     return project, project:getAssetId("Assets/PF_Button.prefab"), project:getAssetId("Assets/L_Pointer.level")
 end
 
@@ -5323,6 +5323,104 @@ add("Inspector outer scroll includes object tree and parent while inner trees sc
         inspector:mousepressed(inspector.objectTree.x + 30, inspector.top + 20, 2)
         Assert.equal(selected, inspector.objectTree.selected); Assert.equal(nil, app.uiRoot.popup)
         Assert.equal(inspector.top + 8, inspector:saveRect().y)
+    end)
+end)
+
+add("New levels create a reusable Camera class and persist Main Camera while old and empty levels stay unchanged", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "DefaultCamera"))
+        assert(project:createEntry("Assets", "level", "L_First"))
+        local level = assert(require("editor.LevelFile").load(assert(project:resolveAssetFile("Assets/L_First.level"))))
+        Assert.equal(1, #level.lobjects); Assert.equal("Camera 1", level.lobjects[1].name)
+        Assert.equal(1, level.mainCamera.authoringId); Assert.equal("camera", level.mainCamera.component)
+        local world = assert(require("runtime.WorldLoader").create(project, level:toData()))
+        Assert.equal(world.lobjects[1].rootComponent, world:getActiveCamera())
+        Assert.equal(1280, world:getActiveCamera().properties.viewWidth); Assert.equal(720, world:getActiveCamera().properties.viewHeight)
+        local id = level.lobjects[1].definitionReference
+        assert(project:createEntry("Assets", "level", "L_Second"))
+        local nextLevel = assert(require("editor.LevelFile").load(assert(project:resolveAssetFile("Assets/L_Second.level"))))
+        Assert.equal(id, nextLevel.lobjects[1].definitionReference)
+        assert(project:createEntry("Assets", "level", "L_Empty", {empty = true}))
+        local empty = assert(require("editor.LevelFile").load(assert(project:resolveAssetFile("Assets/L_Empty.level"))))
+        Assert.equal(0, #empty.lobjects); Assert.equal(nil, empty.mainCamera)
+        local old = assert(require("editor.LevelFile").decode('{"formatVersion":1,"lobjects":[]}'))
+        Assert.equal(0, #old.lobjects); Assert.equal(nil, old.mainCamera)
+        old.mainCamera = {authoringId = 0, component = "camera"}
+        Assert.equal(nil, require("editor.LevelFile").encode(old))
+    end)
+end)
+
+add("Main Camera eyedropper supports multiple components rejects other instances and participates in Undo", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "CameraDetails"))
+        assert(project:createEntry("Assets", "level", "L_Main"))
+        local app = EditorApp.new(nil, project)
+        assert(app:openProjectDocument("Assets/L_Main.level", true))
+        local source = app.level.lobjects[1].definitionReference
+        local second = app.level:addLObject(150, 0, source)
+        local empty = app.level:addLObject(300, 0)
+        app:updateSceneViewport(); app:updateInspectorTarget()
+        local inspector = app.inspector.classInspector
+        Assert.equal(app.levelInspectorTarget, inspector.target)
+        Assert.equal("Main Camera", inspector.class.properties["$mainCamera"].field)
+        assert(app:beginObjectPick("$mainCamera"))
+        local x, y = app.sceneView:worldToScreen(300, 0); app:pickReferenceAt(x, y)
+        Assert.truthy(inspector.error:find("no CameraComponent", 1, true)); Assert.truthy(app.objectPick)
+        x, y = app.sceneView:worldToScreen(150, 0); app:pickReferenceAt(x, y)
+        Assert.equal(nil, app.objectPick); Assert.equal(second.authoringId, app.level.mainCamera.authoringId)
+        assert(app:undoRedo(-1)); Assert.equal(1, app.level.mainCamera.authoringId)
+        assert(app:undoRedo(1)); Assert.equal(second.authoringId, app.level.mainCamera.authoringId)
+        local world = assert(require("runtime.WorldLoader").create(project, app.level:toData()))
+        Assert.equal(second.authoringId, world:getActiveCamera().owner.authoringId)
+        world:getActiveCamera().properties.enabled = false
+        Assert.equal(1, world:getActiveCamera().owner.authoringId)
+        assert(inspector:setProperty("$mainCamera", false)); Assert.equal(nil, app.level.mainCamera)
+        Assert.equal(nil, app.level.propertyOverrides["$mainCamera"])
+        app.sceneView:setSelection({app.level.lobjects[1]}); app:updateInspectorTarget()
+        app:inspectAsset("Sources/Defaults/Camera.lua")
+        x, y = app.sceneView:worldToScreen(-100, -100); app:mousepressed(x, y, 1); app:mousereleased(x, y, 1)
+        app:draw()
+        Assert.equal(app.levelInspectorTarget, app.inspector.classInspector.target)
+        assert(Fs.writeAtomic(assert(project:resolveSourceFile(source)), [[
+local Engine = require("Engine")
+local Camera = {}
+function Camera.build(self)
+    self:setRootComponent("camera", Engine.CameraComponent)
+    self:addComponent("alternate", Engine.CameraComponent)
+end
+return Camera
+]]))
+        app.spriteAssets:clear(); app:updateInspectorTarget()
+        assert(app:beginObjectPick("$mainCamera"))
+        x, y = app.sceneView:worldToScreen(150, 0); app:pickReferenceAt(x, y)
+        Assert.equal(2, #app.uiRoot.popup.panels[1].items)
+        app.uiRoot.popup.panels[1].items[2].action(); app.uiRoot:dismissPopup()
+        Assert.equal("alternate", app.level.mainCamera.component)
+        app.level:removeLObject(app.level:findLObject(second.authoringId)); Assert.equal(nil, app.level.mainCamera)
+    end)
+end)
+
+add("Level creation Undo includes the generated default Camera source and CLI can select reset or omit it", function()
+    fixture(function(parent)
+        local project = assert(Project.create(parent, "CameraCreation"))
+        local app = EditorApp.new(nil, project)
+        assert(app.assetBrowser.assetOperations:create("Assets", "level", "L_Undo"))
+        local id = project:getAssetId("Sources/Defaults/Camera.lua")
+        assert(app:undoRedo(-1)); Assert.equal(nil, Fs.info(project:resolvePath("Sources/Defaults/Camera.lua")))
+        assert(app:undoRedo(1)); Assert.equal(id, project:getAssetId("Sources/Defaults/Camera.lua"))
+        local Cli = require("editor.Cli")
+        local function run(command, fields) fields.command, fields.project = command, project.rootPath; return Cli.execute(fields) end
+        local asset = run("level.create", {name = "L_CliDefault"})
+        local level = run("level.get", {level = asset.assetId}).data
+        Assert.equal(1, #level.lobjects); Assert.equal(1, level.mainCamera.authoringId)
+        local other = run("instance.add", {level = asset.assetId, template = id, x = 100, y = 50}).data
+        run("level.set-camera", {level = asset.assetId, instance = other.authoringId})
+        local view = run("level.view", {level = asset.assetId}); Assert.equal(other.authoringId, view.camera.authoringId)
+        run("level.set-camera", {level = asset.assetId, instance = false})
+        Assert.equal(nil, run("level.get", {level = asset.assetId}).data.mainCamera)
+        local parsed = Cli.parse({"--cli", "level", "create", "--project", project.rootPath, "--name", "L_CliEmpty", "--empty"})
+        local empty = Cli.execute(parsed)
+        Assert.equal(0, #run("level.get", {level = empty.assetId}).data.lobjects)
     end)
 end)
 

@@ -85,7 +85,7 @@ invokeLaboRequest @{command = 'prefab.set'; project = $taskProject; prefab = $ta
 $taskInherited = invokeLaboRequest @{command = 'prefab.get'; project = $taskProject; prefab = $taskChildPrefab.assetId}
 if ($taskInherited.values.speed -ne 25 -or $taskInherited.values.'sprite.image' -ne $taskImage) { throw 'Prefab inheritance does not preserve parent values' }
 $taskLevelClass = invokeLaboRequest @{command = 'class.create'; project = $taskProject; name = 'NewLevel'; type = 'level'}
-$taskLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'NewLevel'; class = $taskLevelClass.assetId}
+$taskLevel = invokeLaboRequest @{command = 'level.create'; empty = $true; project = $taskProject; name = 'NewLevel'; class = $taskLevelClass.assetId}
 invokeLaboRequest @{command = 'project.set-default'; project = $taskProject; level = $taskLevel.assetId} | Out-Null
 $taskFirst = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; prefab = $taskPrefab.assetId; x = 100; y = 200}
 $taskSecond = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; prefab = $taskChildPrefab.assetId; x = -100; y = -200}
@@ -136,7 +136,7 @@ invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance =
 # 레벨 오브젝트의 자손과 내부 참조를 캡처하여 별도 레벨·독립 게임에서도 복원한다.
 invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskId; property = 'projectile'; value = $false} | Out-Null
 $taskHierarchyPrefab = invokeLaboRequest @{command = 'prefab.create'; project = $taskProject; name = 'PF_Hierarchy'; instance = $taskId}
-$taskHierarchyLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Hierarchy'}
+$taskHierarchyLevel = invokeLaboRequest @{command = 'level.create'; empty = $true; project = $taskProject; name = 'L_Hierarchy'}
 $taskHierarchyRoot = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskHierarchyLevel.assetId; prefab = $taskHierarchyPrefab.assetId; x = 300; y = 400}
 $taskHierarchyData = invokeLaboRequest @{command = 'level.get'; project = $taskProject; level = $taskHierarchyLevel.assetId}
 if ($taskHierarchyData.data.lobjects.Count -ne 2 -or $taskHierarchyData.data.lobjects[1].parentAuthoringId -ne $taskHierarchyRoot.data.authoringId) { throw 'Cli hierarchy materialization failed' }
@@ -201,7 +201,7 @@ try {
     [IO.File]::WriteAllBytes($taskImagePath, $taskOriginalImage)
 }
 # 패키지 안의 다른 레벨을 ID로 읽고 update 프레임 종료 후 World를 교체한다.
-$taskNextLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Next'}
+$taskNextLevel = invokeLaboRequest @{command = 'level.create'; empty = $true; project = $taskProject; name = 'L_Next'}
 invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskNextLevel.assetId; prefab = $taskChildPrefab.assetId; x = 300; y = 400} | Out-Null
 $taskTransitionCode = @'
 local NewLevel = {}
@@ -245,7 +245,7 @@ invokeLaboRequest @{command = 'asset.move'; project = $taskProject; asset = $tas
 $taskToolsCopy = invokeLaboRequest @{command = 'asset.copy'; project = $taskProject; asset = $taskToolsPrefab.assetId; folder = 'Assets/CliTools'; name = 'PF_Copy.prefab'}
 invokeLaboRequest @{command = 'asset.rename'; project = $taskProject; asset = $taskToolsCopy.assetId; name = 'PF_Renamed'} | Out-Null
 invokeLaboRequest @{command = 'asset.delete'; project = $taskProject; asset = $taskToolsCopy.assetId} | Out-Null
-$taskToolsLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Tools'}
+$taskToolsLevel = invokeLaboRequest @{command = 'level.create'; empty = $true; project = $taskProject; name = 'L_Tools'}
 $taskToolsRoot = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskToolsLevel.assetId; template = $taskToolsPrefab.assetId}
 invokeLaboRequest @{command = 'instance.duplicate'; project = $taskProject; level = $taskToolsLevel.assetId; instances = @($taskToolsRoot.data.authoringId)} | Out-Null
 $taskToolsInstances = invokeLaboRequest @{command = 'instance.list'; project = $taskProject; level = $taskToolsLevel.assetId}
@@ -272,7 +272,7 @@ function InputButton.build(self) self:addComponent("pointer", "__POINTER_CLASS__
 return InputButton
 '@
 invokeLaboRequest @{command = 'class.set-source'; project = $taskProject; class = $taskButtonClass.assetId; source = $taskButtonCode.Replace('__POINTER_CLASS__', $taskPointerClass.assetId)} | Out-Null
-$taskPointerLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Pointer'}
+$taskPointerLevel = invokeLaboRequest @{command = 'level.create'; empty = $true; project = $taskProject; name = 'L_Pointer'}
 invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskPointerLevel.assetId; template = $taskButtonClass.assetId} | Out-Null
 $taskPointerResult = invokeLaboRequest @{command = 'level.pointer'; project = $taskProject; level = $taskPointerLevel.assetId; events = @(@{kind = 'down'; x = 0; y = 0}, @{kind = 'up'; x = 1000; y = 1000})}
 if (-not $taskPointerResult.events[0].consumed -or $taskPointerResult.instances[0].properties.clicks -ne 1 -or -not $taskPointerResult.instances[0].properties.released) { throw 'Packaged CLI pointer dispatch failed' }
@@ -305,7 +305,7 @@ end
 return UiActor
 '@
 invokeLaboRequest @{command = 'class.set-source'; project = $taskProject; class = $taskUiClass.assetId; source = $taskUiCode.Replace('__POINTER_CLASS__', $taskPointerClass.assetId)} | Out-Null
-$taskCameraLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Camera'}
+$taskCameraLevel = invokeLaboRequest @{command = 'level.create'; empty = $true; project = $taskProject; name = 'L_Camera'}
 invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskCameraLevel.assetId; template = $taskCameraClass.assetId; x = 100; y = 50} | Out-Null
 invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskCameraLevel.assetId; template = $taskUiClass.assetId} | Out-Null
 invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskCameraLevel.assetId; template = $taskButtonClass.assetId; x = 100; y = 50} | Out-Null
@@ -323,4 +323,20 @@ if (-not $taskCameraProcess.WaitForExit(60000)) { $taskCameraProcess.Kill(); thr
 $taskCameraGameResult = Get-Content -LiteralPath $taskCameraReport -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($taskCameraProcess.ExitCode -ne 0 -or -not $taskCameraGameResult.ok -or $taskCameraGameResult.view.x -ne 100 -or $taskCameraGameResult.view.y -ne 50 `
     -or $taskCameraGameResult.properties[1].clicks -ne 1 -or -not $taskCameraGameResult.properties[1].released -or $taskCameraGameResult.properties[2].clicks -ne 0) { throw 'Standalone Camera and Canvas input failed' }
-Write-Output "Cli, Export, level transition, Camera and screen Canvas verified: $taskDirectory"
+$taskDefaultLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_DefaultCamera'}
+$taskDefaultData = invokeLaboRequest @{command = 'level.get'; project = $taskProject; level = $taskDefaultLevel.assetId}
+if ($taskDefaultData.data.lobjects.Count -ne 1 -or $taskDefaultData.data.mainCamera.component -ne 'camera') { throw 'Default Camera creation failed' }
+$taskDefaultSecond = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskDefaultLevel.assetId; template = $taskDefaultData.data.lobjects[0].definitionReference; x = 100; y = 50}
+invokeLaboRequest @{command = 'level.set-camera'; project = $taskProject; level = $taskDefaultLevel.assetId; instance = $taskDefaultSecond.data.authoringId; component = 'camera'} | Out-Null
+$taskDefaultView = invokeLaboRequest @{command = 'level.view'; project = $taskProject; level = $taskDefaultLevel.assetId}
+if ($taskDefaultView.camera.authoringId -ne $taskDefaultSecond.data.authoringId) { throw 'Saved Main Camera query failed' }
+$taskDefaultGame = Join-Path $taskDirectory 'DefaultCamera.love'
+invokeLaboRequest @{command = 'export'; project = $taskProject; level = $taskDefaultLevel.assetId; output = $taskDefaultGame} | Out-Null
+$taskDefaultReport = Join-Path $taskDirectory 'default-camera-report.json'
+$taskDefaultProcess = Start-Process -FilePath (Join-Path $loveDirectory 'lovec.exe') `
+    -ArgumentList @(('"' + $taskDefaultGame + '"'), '--verify-game', ('"' + $taskDefaultReport + '"')) `
+    -WorkingDirectory $taskDirectory -WindowStyle Hidden -PassThru
+if (-not $taskDefaultProcess.WaitForExit(60000)) { $taskDefaultProcess.Kill(); throw 'Default Camera Export timed out' }
+$taskDefaultResult = Get-Content -LiteralPath $taskDefaultReport -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($taskDefaultProcess.ExitCode -ne 0 -or -not $taskDefaultResult.ok -or $taskDefaultResult.view.x -ne 100 -or $taskDefaultResult.view.y -ne 50) { throw 'Export did not use saved Main Camera' }
+Write-Output "Cli, Export, Camera, Canvas and saved Main Camera verified: $taskDirectory"

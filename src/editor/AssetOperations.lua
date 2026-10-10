@@ -135,16 +135,40 @@ function Operations:refresh(reference)
 end
 function Operations:create(folder, kind, name, options)
     return self:perform(function()
-        local ok, reference = self.project:createEntry(folder, kind, name, options)
+        local ok, reference, created = self.project:createEntry(folder, kind, name, options)
         if not ok then return false, reference end
-        local captured, state = pcall(function() return snapshot(self:livePath(reference)) end)
+        local captured, state = pcall(function()
+            local commands = {}
+            for _, path in ipairs(created and #created > 0 and created or {reference}) do
+                commands[#commands + 1] = {reference = path, snapshot = snapshot(self:livePath(path))}
+            end
+            return commands
+        end)
         if not captured then
-            local removed, err = self.project:deleteEntry(reference)
-            return false, tostring(state) .. (removed and "" or " / rollback failed: " .. tostring(err))
+            for i = #(created or {reference}), 1, -1 do self.project:deleteEntry((created or {reference})[i]) end
+            return false, tostring(state)
         end
-        local command = {reference = reference, snapshot = state}
-        command.undo = function() self:stash(command); self:refresh(reference); return true end
-        command.redo = function() self:restore(command); self:refresh(reference); return true end
+        local command = {reference = reference}
+        command.undo = function()
+            for i = #state, 1, -1 do
+                local saved, err = pcall(self.stash, self, state[i])
+                if not saved then
+                    for j = i + 1, #state do self:restore(state[j]) end
+                    error(err)
+                end
+            end
+            self:refresh(reference); return true
+        end
+        command.redo = function()
+            for i = 1, #state do
+                local restored, err = pcall(self.restore, self, state[i])
+                if not restored then
+                    for j = i - 1, 1, -1 do self:stash(state[j]) end
+                    error(err)
+                end
+            end
+            self:refresh(reference); return true
+        end
         self.app:pushAssetAction(command)
         return true, reference
     end)

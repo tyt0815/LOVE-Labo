@@ -62,6 +62,8 @@ end
 
 -- 검증 단계에서는 build·참조 해석까지만 수행하고 beginPlay를 실행하지 않는다.
 function Loader.prepare(project, data)
+    local _, cameraError = require("project.MainCamera").copy(type(data) == "table" and data.mainCamera)
+    if cameraError then return nil, cameraError end
     local world, err = require("core.World").fromLevelData(data)
     if not world then return nil, err end
     local class
@@ -75,6 +77,8 @@ function Loader.prepare(project, data)
     world.levelPropertySchema = class and class.properties
     local ok, initial, loadClass = Loader.bind(project, data, world)
     if not ok then return nil, initial end
+    local camera = require("project.MainCamera").resolve(world, data.mainCamera)
+    if camera then assert(world:setActiveCamera(camera)) end
     return world, class, initial, loadClass
 end
 
