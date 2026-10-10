@@ -2104,7 +2104,9 @@ add("Details tree keeps Transform and property groups aligned and commits folded
         app.sceneView.selectedLObject, app.activePanel = object, "scene"; app.inspectorSource = "scene"; app:draw()
         local inspector, properties = app.inspector, app.inspector.classInspector
         Assert.equal(true, inspector.transformExpanded)
-        Assert.equal("Transform", properties.rows[1].label)
+        local firstGroup
+        for _, row in ipairs(properties.rows) do if row.header then firstGroup = row.label; break end end
+        Assert.equal("Transform", firstGroup)
         local left = love.graphics.getWidth() - inspector.width
         local transform = inspector:fieldRect("x", love.graphics.getWidth())
         local speed = properties:ensurePropertyVisible("speed")
@@ -4860,6 +4862,44 @@ add("Derived Prefab branch removal discards inherited outgoing bindings but reje
             bindings = {{from = "root/missing", property = "target", to = "root"}}}}))
         local invalid = require("project.PrefabHierarchy").resolve(project, project:getAssetId("Assets/PF_InvalidBindingSource.prefab"))
         Assert.equal(nil, invalid)
+    end)
+end)
+
+add("Inspector outer scroll includes object tree and parent while inner trees scroll independently", function()
+    fixture(function(parent)
+        local project, source = componentProject(parent)
+        local children = {}; for index = 1, 15 do children[index] = {id = "child" .. index, definitionReference = source} end
+        assert(project:createEntry("Assets", "prefab", "PF_WholeScroll", {prefabData = {
+            formatVersion = 3, definitionReference = source, overrides = {}, children = children}}))
+        local app = EditorApp.new(nil, project); assert(app:inspectAsset("Assets/PF_WholeScroll.prefab"))
+        local inspector = app.inspector.classInspector
+        inspector:selectComponent("sprite"); inspector:layout(inspector.left, inspector.width, 500, nil, inspector.top)
+        local objectY, parentY = inspector.objectTree.y, inspector.dropdown.y
+        local x, y = inspector.objectTree.x + 40, inspector.objectTree.y + 30
+        inspector:wheelmoved(-1, x, y)
+        Assert.truthy(inspector.objectTree.scroll > 0); Assert.equal(0, inspector.scroll)
+        local inner = inspector.objectTree.scroll
+        inspector:wheelmoved(-3, inspector.left + 3, inspector.propertyTop + 15)
+        Assert.truthy(inspector.scroll > 0)
+        Assert.equal(objectY - inspector.scroll, inspector.objectTree.y)
+        Assert.equal(parentY - inspector.scroll, inspector.dropdown.y)
+        Assert.equal(inner, inspector.objectTree.scroll)
+        inspector.objectTree.scroll = #inspector.objectTree.nodes - inspector.objectTree.rows
+        local outer = inspector.scroll
+        inspector:wheelmoved(-1, inspector.objectTree.x + 40, inspector.propertyTop + 15)
+        Assert.truthy(inspector.scroll > outer)
+        inspector.scroll = 0; inspector:layoutComponentTree()
+        inspector.objectTree.scroll = 0
+        inspector:wheelmoved(-1, inspector.tree.x + 30, inspector.tree.y + 10)
+        Assert.truthy(inspector.scroll > 0)
+        Assert.equal(0, inspector.tree.scroll)
+        inspector.scroll = inspector.maxScroll; inspector:layoutComponentTree()
+        Assert.equal(inspector.propertyTop + inspector.totalHeight - inspector.scroll, inspector.propertyTop + inspector.propertyHeight)
+        Assert.truthy(inspector.objectTree.y < inspector.propertyTop)
+        local selected = inspector.objectTree.selected
+        inspector:mousepressed(inspector.objectTree.x + 30, inspector.top + 20, 2)
+        Assert.equal(selected, inspector.objectTree.selected); Assert.equal(nil, app.uiRoot.popup)
+        Assert.equal(inspector.top + 8, inspector:saveRect().y)
     end)
 end)
 

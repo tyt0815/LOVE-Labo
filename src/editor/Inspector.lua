@@ -222,7 +222,12 @@ function Inspector:getPropertyTop()
     return self:getTransformTop() + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.ROW_HEIGHT or PropertyLayout.HEADER_HEIGHT) + 8
 end
 function Inspector:getTransformTop()
-    if self.classInspector and self.classInspector.preview then return self.classInspector.propertyTop or TRANSFORM_TOP + (self.y or 0) end
+    if self.classInspector and self.classInspector.preview then
+        for _, row in ipairs(self.classInspector.rows or {}) do
+            if row.header and row.groupKey == "object/Transform" then return self.classInspector.propertyTop + row.offset - self.classInspector.scroll end
+        end
+        return self.classInspector.propertyTop or TRANSFORM_TOP + (self.y or 0)
+    end
     return self.classInspector and self.classInspector:treeBottom() and self.classInspector:treeBottom() + 8 or TRANSFORM_TOP + (self.y or 0)
 end
 function Inspector:mousemoved(x, y, dx)
@@ -356,6 +361,11 @@ function Inspector:draw(selectedLObject)
     end
 
     local index = self:getLObjectIndex(selectedLObject)
+    if self.classInspector and self.classInspector.preview then
+        self.classInspector:layout(left, self.width, windowHeight + (self.y or 0), nil, self.y)
+        self.classInspector:draw()
+        love.graphics.pop(); return
+    end
     local displayId = selectedLObject.authoringId or index
 
     Theme.setColor("text")

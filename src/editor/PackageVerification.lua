@@ -235,6 +235,14 @@ return NewClass
         check("overflow list scrollbars", app.hierarchy.scrollbar.visible and app.assetBrowser.treeScrollbar.visible
             and app.assetBrowser.fileScrollbar.visible and app.inspector.classInspector.objectTree.scrollbar.visible)
         preview("overflow-scrollbars")
+        inspector = app.inspector.classInspector
+        inspector:selectComponent("sprite")
+        inspector.componentTreeHeight = 390
+        app:updateSceneViewport()
+        local treeY = inspector.objectTree.y
+        inspector:wheelmoved(-4, inspector.left + 3, inspector.propertyTop + 10)
+        check("Inspector whole content scroll", inspector.scroll > 0 and inspector.objectTree.y == treeY - inspector.scroll)
+        preview("inspector-whole-scroll")
         result.projectDirectory = project.rootPath
         result.theme = require("editor.Theme").name
         local canvas = love.graphics.newCanvas(love.graphics.getDimensions())

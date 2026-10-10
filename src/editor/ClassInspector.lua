@@ -154,7 +154,7 @@ end
 function ClassInspector:selectParent(value)
     self:commitEdit()
     local snapshot = self.target.getSnapshot and self.target.getSnapshot()
-    local class, err
+    local class, err, parentTarget
     if value then
         if self.target.kind == "lobject" then
             local valid, parentError = require("project.PrefabHierarchy").resolve(self.project, value, nil, self.target.parentOwnerId)
@@ -164,14 +164,14 @@ function ClassInspector:selectParent(value)
             definition, err = Definition.resolve(self.project, value, nil, self.target.parentOwnerId)
             if not definition then self.error = err; return false end
             local target
-            target, err = Definition.inspectorTarget(self.project, {}, definition, nil, "Prefab")
-            if target then class = target.class end
+            target, err = Definition.inspectorTarget(self.project, {transform = self.target.data.transform}, definition, nil, "Prefab")
+            if target then class, parentTarget = target.class, target end
         else class, err = LuaClass.load(self.project, value, self.target.kind) end
         if not class then self.error = err; return false end
     end
     if self.target.setParentReference then self.target.setParentReference(value)
     else self.target.data[self.target.referenceField] = value or nil end
-    self.target:setOverrides(LuaClass.compatibleOverrides(class, self.target:getOverrides()))
+    self.target:setOverrides(LuaClass.compatibleOverrides(class, self.target:getOverrides()), parentTarget)
     if self.target.reloadTarget then
         local target, reloadError = self.target.reloadTarget()
         if not target then
@@ -283,7 +283,7 @@ function ClassInspector:referenceRects(top)
 end
 
 function ClassInspector:parentBrowseRect()
-    return {x = self.left + self.width - Ui.METRICS.contentPaddingX - 26, y = self.dropdown.y, w = 26, h = 26}
+    return {x = self.left + (self.contentWidth or self.width) - Ui.METRICS.contentPaddingX - 26, y = self.dropdown.y, w = 26, h = 26}
 end
 
 function ClassInspector:saveRect()
@@ -385,6 +385,11 @@ end
 function ClassInspector:rebuildRows()
     local rows = {}
     self.names = {}
+    if self.target then
+        rows[#rows + 1] = {summary = true, height = 64}
+        if self.objectTree then rows[#rows + 1] = {objectTree = true, height = self.objectTreeHeight + 12} end
+        if self:parentVisible() then rows[#rows + 1] = {parentClass = true, height = 48} end
+    end
     local function addScope(component)
         local groups, groupNames = {}, {}
         local defaultGroup = component and self.class.componentTypes[component]
@@ -442,6 +447,7 @@ function ClassInspector:rebuildRows()
     self.scroll = math.min(self.scroll, self.maxScroll)
     if self.left then self.scrollbar:layout({x = self.left + self.width - 12, y = self.propertyTop or 0,
         w = Scrollbar.WIDTH, h = self.propertyHeight or 0}, self.totalHeight, self.propertyHeight or 0) end
+    self.contentWidth = self.width and self.width - (self.scrollbar.visible and Scrollbar.WIDTH or 0)
 end
 
 function ClassInspector:ensurePropertyVisible(name)
@@ -466,27 +472,21 @@ function ClassInspector:layout(left, width, height, propertyTop, top)
     self.layoutHeight = height
     self.top = top or self.top or 0
     if not self.dropdown then return end
-    local parentTop = self.top + 100 + Ui.METRICS.contentPaddingY
-    if self.objectTree then
-        local treeHeight = self.objectTreeHeight
-        self.objectTree:setBounds(left + Ui.METRICS.contentPaddingX, parentTop, width - 2 * Ui.METRICS.contentPaddingX, treeHeight)
-        parentTop = parentTop + treeHeight + 12
-    end
-    self.dropdown:setBounds(left + width / 2 + 4, parentTop, math.max(0, width / 2 - Ui.METRICS.contentPaddingX - 64), 28)
-    self.propertyTop = self.preview and (parentTop + (self:parentVisible() and 48 or 0))
-        or propertyTop or self.top + 170 + Ui.METRICS.contentPaddingY
+    self.propertyTop = self.top + 36 + Ui.METRICS.contentPaddingY
     self.propertyBottom = height - 10
     self.propertyHeight = math.max(0, self.propertyBottom - self.propertyTop - (self.error and 32 or 0))
     self:rebuildRows()
     self:layoutComponentTree()
 end
 function ClassInspector:layoutComponentTree()
-    if not self.tree then return end
     for _, row in ipairs(self.rows) do
+        local y = self.propertyTop + row.offset - self.scroll
+        local width = self.width - 2 * Ui.METRICS.contentPaddingX - (self.scrollbar.visible and Scrollbar.WIDTH or 0)
+        if row.objectTree then self.objectTree:setBounds(self.left + Ui.METRICS.contentPaddingX, y, width, self.objectTreeHeight)
+        elseif row.parentClass then self.dropdown:setBounds(self.left + self.width / 2 + 4, y, math.max(0, self.width / 2 - Ui.METRICS.contentPaddingX - 64 - (self.width - (self.contentWidth or self.width))), 28)
+        end
         if row.componentTree then
-            self.tree:setBounds(self.left + Ui.METRICS.contentPaddingX, self.propertyTop + row.offset - self.scroll + 30,
-                self.width - 2 * Ui.METRICS.contentPaddingX, self.componentTreeHeight)
-            return
+            self.tree:setBounds(self.left + Ui.METRICS.contentPaddingX, y + 30, width, self.componentTreeHeight)
         end
     end
 end
@@ -495,6 +495,7 @@ function ClassInspector:treeGrip(tree)
 end
 function ClassInspector:resizeAt(x, y)
     if self.treeResize then return self.treeResize.kind end
+    if y < self.propertyTop or y >= self.propertyTop + self.propertyHeight then return end
     if self.objectTree and Ui.contains(x, y, self:treeGrip(self.objectTree)) then return "object" end
     if self.tree and y >= self.propertyTop and y < self.propertyTop + self.propertyHeight
         and Ui.contains(x, y, self:treeGrip(self.tree)) then return "component" end
@@ -502,6 +503,9 @@ end
 function ClassInspector:isPointerActive()
     return self.treeResize or self.scrollbar.drag or self.tree and self.tree.scrollbar.drag
         or self.objectTree and self.objectTree.scrollbar.drag
+end
+function ClassInspector:treeContains(tree, x, y)
+    return tree and y >= self.propertyTop and y < self.propertyTop + self.propertyHeight and tree:containsPoint(x, y)
 end
 
 function ClassInspector:targetKind()
@@ -513,37 +517,40 @@ function ClassInspector:targetKind()
 end
 function ClassInspector:draw()
     self.thumbnails:beginFrame()
-    local propertyHeight = math.max(0, self.propertyBottom - self.propertyTop - (self.tree and self.error and 32 or 0))
+    local propertyHeight = math.max(0, self.propertyBottom - self.propertyTop - (self.error and 32 or 0))
     if propertyHeight ~= self.propertyHeight then self.propertyHeight = propertyHeight; self:rebuildRows() end
-    if not self.target.instance then
-        local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
-        if self.target.isDirty and self.target:isDirty() then label = label .. " *" end
-        if self.onSave then Ui.button("Save", self:saveRect(), false, "Save this document", true) end
-        Ui.label(label, self.left + Ui.METRICS.contentPaddingX, (self.top or 0) + 44 + Ui.METRICS.contentPaddingY, self.width - 2 * Ui.METRICS.contentPaddingX)
-        Ui.text(self:targetKind(), self.left + Ui.METRICS.contentPaddingX, (self.top or 0) + 60 + Ui.METRICS.contentPaddingY, self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
-        if self:parentVisible() then
-            Ui.label("Parent Class", self.left + Ui.METRICS.contentPaddingX + 12, self.dropdown.y + 6, self.width / 2 - Ui.METRICS.contentPaddingX - 20)
-            self.dropdown:draw()
-            Ui.eyedropperButton(self:parentPickRect(), self.isPicking and self.isPicking("$parent"))
-            Ui.browseButton(self:parentBrowseRect(), self.dropdown.value ~= false)
-        end
-    end
-    if self.objectTree then self.objectTree:draw(); Ui.resizeGrip(self:treeGrip(self.objectTree)) end
+    if not self.target.instance and self.onSave then Ui.button("Save", self:saveRect(), false, "Save this document", true) end
     self:layoutComponentTree()
-    if self.error and not self.tree then Ui.text(self.error, self.left + Ui.METRICS.contentPaddingX, (self.top or 0) + 138 + Ui.METRICS.contentPaddingY, self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("error")) end
     love.graphics.push("all")
     love.graphics.intersectScissor(self.left, self.propertyTop, self.width, self.propertyHeight)
     for _, row in ipairs(self.rows) do
         local name = row.name
         local y = self.propertyTop + row.offset - self.scroll
-        if row.componentTree then
+        if row.summary then
+            local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.data.name or self.target.label
+            local kind = self:targetKind()
+            if self.target.instance then
+                label = self.target.data.name or "LObject " .. tostring(self.target.data.authoringId)
+                local reference = self.target.data.definitionReference and self.project:getAssetReference(self.target.data.definitionReference)
+                kind = (reference and reference:match("([^/]+)%.[^.]+$") or "LObject") .. " Instance"
+            elseif self.target.isDirty and self.target:isDirty() then label = label .. " *" end
+            Ui.label(label, self.left + Ui.METRICS.contentPaddingX, y + 8, self.width - 2 * Ui.METRICS.contentPaddingX)
+            Ui.text(kind, self.left + Ui.METRICS.contentPaddingX, y + 24, self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
+        elseif row.objectTree then
+            self.objectTree:draw(); Ui.resizeGrip(self:treeGrip(self.objectTree))
+        elseif row.parentClass then
+            Ui.label("Parent Class", self.left + Ui.METRICS.contentPaddingX + 12, self.dropdown.y + 6, self.width / 2 - Ui.METRICS.contentPaddingX - 20)
+            self.dropdown:draw()
+            Ui.eyedropperButton(self:parentPickRect(), self.isPicking and self.isPicking("$parent"))
+            Ui.browseButton(self:parentBrowseRect(), self.dropdown.value ~= false)
+        elseif row.componentTree then
             Ui.label("Components", self.left + Ui.METRICS.contentPaddingX, y + 6, self.width - 2 * Ui.METRICS.contentPaddingX)
             self.tree:draw()
             Ui.resizeGrip(self:treeGrip(self.tree))
         elseif row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
-            PropertyLayout.group(self.left, self.width, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false)
+            PropertyLayout.group(self.left, self.contentWidth or self.width, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false)
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
-            PropertyLayout.separators(self.left, self.width, y, row.height)
+            PropertyLayout.separators(self.left, self.width, y, row.height, self.width - (self.contentWidth or self.width))
             local declaration = self.class.properties[name]
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
@@ -582,7 +589,7 @@ function ClassInspector:draw()
     end
     self.scrollbar:draw()
     love.graphics.pop()
-    if self.error and self.tree then
+    if self.error then
         local rect = {x = self.left + Ui.METRICS.contentPaddingX, y = self.propertyTop + self.propertyHeight + 4,
             w = self.width - 2 * Ui.METRICS.contentPaddingX, h = 24}
         Ui.text(self.error, rect.x, rect.y, rect.w, Theme.color("error"))
@@ -597,10 +604,11 @@ function ClassInspector:mousepressed(x, y, button)
             height = resize == "object" and self.objectTreeHeight or self.componentTreeHeight}
         return true, true
     end
-    if button == 2 and self.objectTree and self.objectTree:containsPoint(x, y) then
+    if button == 2 and y >= self.propertyTop and y < self.propertyTop + self.propertyHeight and self.objectTree and self.objectTree:containsPoint(x, y) then
         self:commitEdit(); return self.objectTree:dispatch("mousepressed", x, y, button)
     end
     if button == 1 and not self.target.instance and self.onSave and Ui.contains(x, y, self:saveRect()) then self:commitEdit(); self.onSave(); return true end
+    if y < self.propertyTop or y >= self.propertyTop + self.propertyHeight then self:commitEdit(); return true end
     if button ~= 1 then return true end
     local handled, capture = self.scrollbar:dispatch("mousepressed", x, y, button)
     if handled then self:commitEdit(); return true, capture end
@@ -763,13 +771,18 @@ function ClassInspector:textedited(text)
 end
 function ClassInspector:wheelmoved(amount, x, y)
     self:commitEdit()
+    if y and (y < self.propertyTop or y >= self.propertyTop + self.propertyHeight) then return end
     if self.objectTree and x and self.objectTree:hitTest(x, y) then
-        self.objectTree:dispatch("wheelmoved", x, y, amount); return
+        local previous = self.objectTree.scroll
+        self.objectTree:dispatch("wheelmoved", x, y, amount)
+        if self.objectTree.scroll ~= previous then return end
     end
     if self.tree and x and y >= self.propertyTop and y < self.propertyTop + self.propertyHeight and self.tree:hitTest(x, y) then
+        local previous = self.tree.scroll
         self.tree:dispatch("wheelmoved", x, y, amount)
-        return
+        if self.tree.scroll ~= previous then return end
     end
     self.scroll = math.floor(math.max(0, math.min(self.maxScroll or 0, self.scroll - amount * PropertyLayout.ROW_HEIGHT)))
+    self:layoutComponentTree()
 end
 return ClassInspector

@@ -936,12 +936,14 @@ function EditorApp:pickReferenceAt(x, y)
     local reference, object
     self.assetBrowser:clampScroll(); self.hierarchy:layoutScrollbar()
     local bars = {self.assetBrowser.treeScrollbar, self.assetBrowser.fileScrollbar, self.hierarchy.scrollbar}
-    local tree = self.inspector.classInspector.objectTree
-    if tree then bars[#bars + 1] = tree.scrollbar end
+    local inspector = self.inspector.classInspector
+    local tree = inspector.objectTree
+    if inspector:treeContains(tree, x, y) then bars[#bars + 1] = tree.scrollbar end
+    bars[#bars + 1] = inspector.scrollbar
     for _, bar in ipairs(bars) do
         if bar:dispatch("mousepressed", x, y, 1) then self.objectPick.scrollbar = bar; return end
     end
-    if tree and self.objectPick.kind == "object" and self.inspector.classInspector.target.prefabScope and tree:containsPoint(x, y) then
+    if self.objectPick.kind == "object" and self.inspector.classInspector.target.prefabScope and inspector:treeContains(tree, x, y) then
         local node = tree:nodeAt(x, y)
         object = node and self.inspector.classInspector.target.scopeByPath[node.key]
     elseif self.assetBrowser:containsPoint(x, y) then
@@ -994,7 +996,8 @@ function EditorApp:mousepressed(x, y, button, presses)
         if button == 2 then self:cancelObjectPick(); return true end
         if button == 1 then
             if self.inspectorWidget:containsPoint(x, y) and not (self.objectPick.kind == "object"
-                and self.inspector.classInspector.target.prefabScope and self.inspector.classInspector.objectTree:containsPoint(x, y)) then self:cancelObjectPick()
+                and self.inspector.classInspector.target.prefabScope and self.inspector.classInspector:treeContains(self.inspector.classInspector.objectTree, x, y))
+                and not (self.inspector.classInspector.scrollbar.visible and require("editor.Ui").contains(x, y, self.inspector.classInspector.scrollbar.rect)) then self:cancelObjectPick()
             else self:pickReferenceAt(x, y); return true end
         else return true end
     end

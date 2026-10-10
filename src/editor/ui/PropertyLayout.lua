@@ -7,11 +7,11 @@ function Layout.cells(left, width, top)
     return {x = labelLeft, y = top + 3 + (26 - love.graphics.getFont():getHeight()) / 2, w = math.max(0, split - labelLeft - 8), h = 20},
         {x = split + 4, y = top + 3, w = math.max(0, reset.x - Ui.METRICS.buttonGap - split - 4), h = 26}, reset
 end
-function Layout.separators(left, width, top, height)
+function Layout.separators(left, width, top, height, rightInset)
     love.graphics.push("all")
     Theme.setColor("border")
     love.graphics.setLineWidth(1)
-    local x, right, split = left + Ui.METRICS.contentPaddingX + 0.5, left + width - Ui.METRICS.contentPaddingX - 0.5, left + width / 2 + 0.5
+    local x, right, split = left + Ui.METRICS.contentPaddingX + 0.5, left + width - (rightInset or 0) - Ui.METRICS.contentPaddingX - 0.5, left + width / 2 + 0.5
     love.graphics.line(x, top + 0.5, right, top + 0.5)
     love.graphics.line(split, top + 0.5, split, top + (height or Layout.ROW_HEIGHT) - 0.5)
     love.graphics.pop()
