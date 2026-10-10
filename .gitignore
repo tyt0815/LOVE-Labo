@@ -1,4 +1,6 @@
 .*
+!.github/
+!.github/**
 asset-index.json
 asset-move.json
 build/

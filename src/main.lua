@@ -21,6 +21,10 @@ function love.load(args)
     end
     require("editor.Theme").load()
     require("editor.Fonts").apply()
+    if hasArg(args, "--capture-guide") then
+        require("editor.GuideCapture").run(args)
+        return
+    end
     if hasArg(args, "--verify-package") then
         require("editor.PackageVerification").run(args)
         return

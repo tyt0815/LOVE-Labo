@@ -339,4 +339,5 @@ $taskDefaultProcess = Start-Process -FilePath (Join-Path $loveDirectory 'lovec.e
 if (-not $taskDefaultProcess.WaitForExit(60000)) { $taskDefaultProcess.Kill(); throw 'Default Camera Export timed out' }
 $taskDefaultResult = Get-Content -LiteralPath $taskDefaultReport -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($taskDefaultProcess.ExitCode -ne 0 -or -not $taskDefaultResult.ok -or $taskDefaultResult.view.x -ne 100 -or $taskDefaultResult.view.y -ne 50) { throw 'Export did not use saved Main Camera' }
+if (-not (Test-Path -LiteralPath (Join-Path $taskProject 'AGENTS.md')) -or -not (Test-Path -LiteralPath (Join-Path $taskProject 'Docs\EngineGuide.md'))) { throw 'Project AI instructions are missing' }
 Write-Output "Cli, Export, Camera, Canvas and saved Main Camera verified: $taskDirectory"

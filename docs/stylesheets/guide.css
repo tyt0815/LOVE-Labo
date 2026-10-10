@@ -1,0 +1,5 @@
+.wy-nav-content { max-width: 1080px; }
+.rst-content img, .rst-content object { max-width: 100%; height: auto; }
+.rst-content img.guide-shot { border: 1px solid #d4dce2; border-radius: 8px; }
+.rst-content pre { white-space: pre; }
+.rst-content table td { vertical-align: top; }

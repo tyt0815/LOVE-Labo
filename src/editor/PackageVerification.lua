@@ -293,6 +293,7 @@ return CameraActor
         app.sceneView:setSelection({}); app.inspectorSource = "scene"; app:updateInspectorTarget()
         check("default Camera saved designation", #app.level.lobjects == 1 and app.level.mainCamera.authoringId == 1)
         check("level Inspector Main Camera", app.inspector.classInspector.class.properties["$mainCamera"] ~= nil)
+        check("project agent instructions", Fs.info(Fs.join(project.rootPath, "AGENTS.md")) and Fs.info(Fs.join(project.rootPath, "Docs/EngineGuide.md")))
         preview("level-main-camera")
         result.projectDirectory = project.rootPath
         result.theme = require("editor.Theme").name

@@ -1,0 +1,39 @@
+site_name: LÖVE Labo 사용자 가이드
+site_url: https://tyt0815.github.io/LOVE-Labo/
+repo_url: https://github.com/tyt0815/LOVE-Labo
+edit_uri: edit/main/docs/
+docs_dir: docs
+site_dir: build/docs-site
+theme:
+  name: readthedocs
+  locale: ko
+plugins:
+  - search:
+      lang: en
+markdown_extensions:
+  - admonition
+  - tables
+  - fenced_code
+extra_css:
+  - stylesheets/guide.css
+nav:
+  - 시작: index.md
+  - 사용자 매뉴얼:
+      - 첫 프로젝트와 실행: guide/getting-started.md
+      - 에디터 화면과 선택: guide/editor.md
+      - 클래스와 Prefab: guide/objects.md
+      - 카메라와 화면 UI: guide/camera-ui.md
+      - 저장과 게임 Export: guide/export.md
+  - Lua API:
+      - 개요와 생명주기: guide/lua-api.md
+      - 컴포넌트와 프로퍼티: components.md
+      - 런타임 객체 생성: runtime-spawn.md
+      - 레벨 전환: level-transition.md
+      - 계층 Prefab: hierarchy-prefabs.md
+  - AI 및 CLI:
+      - AI 시작 페이지: guide/ai.md
+      - CLI 명령과 예제: cli-and-export.md
+  - 개발자:
+      - 문서 빌드와 화면 캡처: guide/maintenance.md
+      - 설계 기준: LOVE_Labo_Design.md
+      - 설계 결정: adr.md

@@ -1,5 +1,9 @@
 # LOVE Labo
 
+[사용자 가이드 원본](docs/index.md) · [가이드 사이트](https://tyt0815.github.io/LOVE-Labo/) · [AI 시작 페이지](docs/guide/ai.md)
+
+새 레벨은 기본 Camera와 Main Camera 지정을 포함합니다. 빈 곳을 선택하면 레벨 Inspector에서 Main Camera를 편집합니다. CLI의 빈 레벨 생성은 `level create --empty`를 사용합니다. 문서 사이트의 공개 배포 설정은 [문서 유지보수](docs/guide/maintenance.md)를 참고하세요.
+
 LÖVE 11.5 + LuaJIT을 사용하는 2D 제작 에디터다. 현재 외부 프로젝트 생성·탐색은 Windows에서 지원한다.
 
 제품 코드와 번들 리소스는 `src/`, 개발 테스트·샘플 프로젝트는 `tests/`, 문서는 `docs/`, 자동화는 `scripts/`, 생성된 배포물은 `build/`에 둔다. 패키징·CLI·게임 Export 사용법은 [패키징](docs/packaging.md)과 [CLI·Export](docs/cli-and-export.md)를 참고한다.

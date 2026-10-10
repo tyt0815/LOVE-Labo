@@ -110,14 +110,16 @@ function Project.create(parentPath, name)
         for i = #createdDirectories, 1, -1 do fs.removeDirectory(createdDirectories[i]) end
         return nil, err
     end
-    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Sources") }) do
+    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Sources"), fs.join(root, "Docs") }) do
         local created, err = fs.mkdir(directory)
         if not created then return rollback(err) end
         createdDirectories[#createdDirectories + 1] = directory
     end
-    for _, file in ipairs({
-        { path = fs.join(root, Project.FILE_NAME), text = text }
-    }) do
+    local files = {{path = fs.join(root, Project.FILE_NAME), text = text}}
+    for _, file in ipairs(require("editor.ProjectInstructions").files()) do
+        files[#files + 1] = {path = fs.join(root, file.name), text = file.text}
+    end
+    for _, file in ipairs(files) do
         local created, err = fs.createFile(file.path, file.text)
         if not created then return rollback(err) end
         createdFiles[#createdFiles + 1] = file.path
