@@ -125,8 +125,11 @@ function Editor:target(path)
     target.setParentReference = function(value)
         proxy.definitionReference, parentChanged = value or nil, true
     end
-    target.setOverrides = function(current, values)
-        set(current, values)
+    target.setOverrides = function(current, values, schemaTarget)
+        if schemaTarget then
+            schemaTarget.data = proxy
+            schemaTarget:setOverrides(values)
+        else set(current, values) end
         local data = self:record(node.path, true)
         if parentChanged then
             data.definitionReference = proxy.definitionReference
@@ -139,7 +142,7 @@ function Editor:target(path)
         for _, binding in ipairs(self.document.data.bindings or {}) do
             if binding.from ~= node.path then bindings[#bindings + 1] = binding end
         end
-        for name, declaration in pairs(target.class.properties) do
+        for name, declaration in pairs((schemaTarget or target).class.properties) do
             if declaration.type == "object" then
                 local component, field = name:match("^([^.]+)%.(.+)$")
                 local fields = component and (data.overrides.components or {})[component] or data.overrides.properties
@@ -171,6 +174,10 @@ function Editor:insertChild(reference, name, parentPath)
     local parent = self:record(path, true)
     parent.children = parent.children or {}
     local ids = {}; for _, child in ipairs(selected.children) do ids[child.path:match("([^/]+)$")] = true end
+    for _, removed in ipairs(self.document.data.removedPaths or {}) do
+        local parent, id = removed:match("^(.*)/([^/]+)$")
+        if parent == path then ids[id] = true end
+    end
     local number = 1; while ids["o" .. number] do number = number + 1 end
     parent.children[#parent.children + 1] = {id = "o" .. number, name = name, definitionReference = reference,
         transform = {x = 0, y = 0}, overrides = {}}

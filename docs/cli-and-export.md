@@ -21,6 +21,9 @@ CLI가 만든 클래스 파일에 게임 코드를 직접 작성한다. Sprite �
 
 ## 명령 계약
 
+
+
+
 Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\MyGame --name Visual --parent SpriteComponent`. 반환한 에셋 ID를 `LObject:addComponent` 또는 `setRootComponent`에 넘긴다. `--type component`만 지정하면 LObjectComponent를 부모로 생성한다. 사용자 Component Class를 `--parent`로 지정하여 재상속할 수도 있다. 부착 계층과 선택적 프로퍼티 `group` 문법은 [컴포넌트 사용법](components.md)에 설명한다.
 
 | 명령 | 주요 인자 | 동작 |
@@ -44,7 +47,51 @@ Component Class 생성 예: `Labo-cli.exe --cli class create --project D:\Games\
 
 `type = "prefab"` 프로퍼티도 `prefab set`·`instance set`·`level set`으로 수정한다. 값은 Prefab ID·상대 경로 또는 해제용 JSON `false`이고, ID로 정규화하며 해당 에셋의 부모 체인을 검증한다. 게임 소스에서 이 값을 [spawnLObject](runtime-spawn.md)에 넘겨 런타임 객체를 만들 수 있다.
 
-## JSON 요청과 응답
+## 추가 편집 명령
+
+`help`는 명령 목록, JSON 요청 예제, Prefab 경로와 다중 선택 입력 안내를 반환한다. 아래 명령도 공통 `--project`를 받는다.
+
+| 명령 | 인자·동작 |
+|---|---|
+| `project validate` | 모든 클래스·Prefab·레벨을 검사. `valid`, `checked`, 에셋별 `errors` 반환. 오류가 있어도 진단 요청 자체의 JSON `ok`는 true다. |
+| `class list` | 선택 `--type lobject/level/component` |
+| `class get` | `--class`: 원본 소스, 종류, 스키마, 부모, revision 조회 |
+| `class set-source` | `--class`, `--source`: 전체 Lua 소스를 검증 후 교체. 기존 메타의 클래스 종류는 유지. 긴 코드는 JSON 요청 파일 권장 |
+| `folder create` | `--folder`, `--name` |
+| `asset list` | 선택 `--folder`(기본 Assets): 폴더·파일 목록 |
+| `asset get` | `--asset`: 경로·ID·메타·파일 revision |
+| `asset move` | `--asset`, `--destination`: 이름을 포함한 최종 상대 경로 |
+| `asset rename` | `--asset`, `--name`: 확장자는 자동 유지 |
+| `asset delete` | `--asset`: 폴더면 자손 전체 삭제. 프로젝트 루트·기본 레벨 보호. CLI Undo는 없음 |
+| `asset copy` | `--asset`, 선택 `--folder`, `--name`: 단일 파일 복사·새 ID. 같은 Assets/Sources 루트 안에서 사용 |
+| `asset import` | `--input` 외부 파일 경로, 선택 `--folder`, `--name`: 단일 파일 가져오기. 기존 파일·메타는 덮어쓰지 않음 |
+| `instance list` | 선택 `--level`: 전체 계층의 레코드·깊이·월드 Transform |
+| `instance duplicate/delete` | `--instance` 또는 `--instances 1,2,3`. 선택 루트와 자손에 적용, 부모·자식 동시 선택은 중복 처리하지 않음 |
+| `instance rename` | `--instance`, `--name` |
+| `instance reset` | `--instance`, `--property`: 현재 유효 기본값으로 초기화. `transform.x` 등도 지원 |
+| `level reset` | `--property`: 레벨 선언 기본값으로 초기화 |
+| `level set-parent` | `--parent`: Level Lua ID/경로 또는 `None` |
+| `level validate` | build·참조 구성까지 검사. beginPlay는 실행하지 않음 |
+| `prefab tree` | `--prefab`: 노드 경로·부모·원본·Transform 목록 |
+| `prefab get/set/reset` | `--prefab`, 선택 `--node`(기본 root). set/reset은 `--property` 추가. object 값은 `root/o1` 같은 노드 경로도 지원 |
+| `prefab set-parent` | `--prefab`, 선택 `--node`, `--parent` 또는 `None`. None은 기본 LObject |
+| `prefab child add` | `--prefab`, 선택 `--node`(추가할 부모), `--template`(클래스/Prefab) 또는 `--instance`/`--level`. 원본 생략은 기본 LObject |
+| `prefab child rename` | `--prefab`, `--node`, `--name` |
+| `prefab child remove` | `--prefab`, `--node`: 자손 포함 제거. 계층 밖에서 해당 가지를 참조하면 참조 수정 전까지 거절 |
+
+`instance add`의 원본도 생략하면 기본 LObject가 된다. `instance reparent`는 다중 `instances`도 받으며 부모 생략 또는 JSON false는 분리한다. 다중 IDs는 JSON의 `"instances": [1, 2]`로 전달할 수 있다. Prefab 변경 응답의 `node`는 새로 추가하거나 편집한 경로이고 `nodes`의 가상 ID는 해당 조회에서만 사용한다. 지속적인 참조 입력은 노드 경로를 사용한다.
+
+문서·소스·파일 수정은 선택적인 `revision`을 검사한다. 폴더에는 바이트 revision을 제공하지 않는다. 검증에 실패한 레벨·Prefab·소스 편집은 파일을 저장하지 않는다. GUI에 열린 문서는 먼저 저장하고 닫는다. CLI 명령은 GUI Undo/Redo 기록과 연결되지 않는다. 프로젝트 검증에서는 사용자 클래스의 모듈 로드와 build가 실행되므로 해당 코드 자체의 부수 효과까지 복구한다는 의미는 아니다.
+
+```json
+{"command":"prefab.child.add","project":"D:/Games/MyGame","prefab":"Assets/PF_Enemy.prefab","node":"root","template":"Sources/Weapon.lua"}
+```
+
+```json
+{"command":"prefab.set","project":"D:/Games/MyGame","prefab":"Assets/PF_Enemy.prefab","property":"target","value":"root/o1"}
+```
+
+## JSON 요청과 응답 형식
 
 복잡한 문자열·한글·쉘 인용 문제를 피하려면 에이전트가 UTF-8 JSON 요청 파일을 작성하는 방식이 적절하다.
 

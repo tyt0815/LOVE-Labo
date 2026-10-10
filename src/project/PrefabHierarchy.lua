@@ -43,7 +43,7 @@ end
 
 function Hierarchy.resolve(project, reference, loadClass, excludedId)
     loadClass = loadClass or require("project.LuaClass").loader(project)
-    local visiting, nodes, bindings, operations = {}, {}, {}, {}
+    local visiting, nodes, bindings, operations, removedPaths = {}, {}, {}, {}, {}
     local function build(reference, override, path, parent, depth, ancestorRemoved)
         if depth > 64 then return nil, "Prefab hierarchy is too deep" end
         local key = reference and (project:getAssetId(reference) or reference) or nil
@@ -70,6 +70,7 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
         if key then visiting[key] = (visiting[key] or 0) + 1 end
         children = Hierarchy.mergeChildren(children, override and override.children)
         for _, prefix in ipairs(override and override.removedPaths or {}) do removed[#removed + 1] = path .. prefix:sub(5) end
+        for _, prefix in ipairs(removed) do removedPaths[#removedPaths + 1] = prefix end
         local initial = {x = 0, y = 0}
         for field, value in pairs(override and override.transform or {}) do initial[field] = value end
         local transform, transformError = Transform.copy(initial)
@@ -96,7 +97,10 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
     local paths = {}; for _, node in ipairs(nodes) do paths[node.path] = node end
     local effective = {}
     for _, operation in ipairs(operations) do effective[operation.from .. "|" .. operation.property] = operation.to and operation or nil end
-    for _, binding in pairs(effective) do bindings[#bindings + 1] = binding end
+    -- 제거된 발신 노드의 상속 바인딩은 사라진다. 살아 있는 노드의 끊어진 대상은 오류로 남긴다.
+    for _, binding in pairs(effective) do
+        if paths[binding.from] or not Hierarchy.isRemoved(binding.from, removedPaths) then bindings[#bindings + 1] = binding end
+    end
     for _, binding in ipairs(bindings) do
         if not paths[binding.from] or not paths[binding.to] then return nil, "Missing Prefab object binding" end
     end

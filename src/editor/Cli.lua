@@ -32,6 +32,7 @@ local function setProperty(project, target, name, item)
         local path = assert(project:resolveAssetFile(item))
         local pixels = love.image.newImageData(love.filesystem.newFileData(assert(project:readAsset(item)), path))
         pixels:release()
+        item = project:getAssetId(project:getAssetReference(item)) or item
     end
     if declaration.type == "object" and item ~= false then
         local found = false
@@ -58,16 +59,33 @@ local function properties(target)
     return {schema = target.class.properties, values = values}
 end
 
+local api = {required = required, absolute = absolute, revision = revision, checkRevision = checkRevision,
+    basicResult = basicResult, value = value, setProperty = setProperty, properties = properties}
+local COMMANDS = {"project.create", "project.info", "project.set-default", "project.validate", "class.create", "class.list", "class.get", "class.set-source",
+    "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
+    "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
+    "prefab.child.add", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate",
+    "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "export"}
 local function execute(request)
     local command = required(request, "command")
     if command == "help" then
-        return {commands = {"project.create", "project.info", "project.set-default", "class.create", "prefab.create", "prefab.get", "prefab.set", "level.create", "level.get", "level.set", "instance.add", "instance.get", "instance.set", "instance.reparent", "export"}}
+        return {commands = COMMANDS, requestFormat = "JSON object: command, project, command arguments",
+            propertyValues = "Use value-json for numbers/booleans and value for strings; JSON requests use value directly",
+            prefabNodes = "root or root/<child-id>/...; object references accept node paths",
+            multiSelection = "instances: JSON array or comma-separated --instances; includes descendants",
+            examples = {{command = "project.validate", project = "D:/Games/MyGame"},
+                {command = "instance.duplicate", project = "D:/Games/MyGame", instances = {1, 2}},
+                {command = "prefab.child.add", project = "D:/Games/MyGame", prefab = "Assets/PF_Enemy.prefab", node = "root", template = "Sources/Weapon.lua"}}}
     end
+    local known = false; for _, name in ipairs(COMMANDS) do if name == command then known = true; break end end
+    assert(known, "Unknown command: " .. command)
     if command == "project.create" then
         local project = assert(Project.create(absolute(required(request, "parent")), required(request, "name")))
         return {project = project.rootPath, name = project.name}
     end
     local project = assert(Project.open(absolute(required(request, "project"))))
+    local extra = require("editor.CliAssets").execute(project, request, api)
+    if extra then return extra end
     if command == "project.info" then return {project = project.rootPath, name = project.name, defaultLevel = project.defaultLevelReference, assets = project.assetMetadata} end
     if command == "class.create" or command == "prefab.create" or command == "level.create" then
         local kind = command:match("^(.-)%.")
@@ -97,21 +115,7 @@ local function execute(request)
         return {defaultLevel = data.defaultLevelReference}
     end
     if command:match("^prefab%.") then
-        local reference = required(request, "prefab")
-        local document = assert(require("editor.PrefabDocument").load(project, reference))
-        local bytes = assert(project:readAsset(reference)); checkRevision(request, bytes)
-        assert(require("project.ObjectDefinition").resolve(project, reference))
-        local definition = assert(require("project.ObjectDefinition").resolve(project, document.data.definitionReference))
-        local proxy = {propertyOverrides = document.data.overrides.properties, componentOverrides = document.data.overrides.components}
-        local target = assert(require("project.ObjectDefinition").inspectorTarget(project, proxy, definition))
-        if command == "prefab.set" then
-            setProperty(project, target, required(request, "property"), value(request))
-            document.data.overrides.properties, document.data.overrides.components = proxy.propertyOverrides, proxy.componentOverrides
-            assert(assert(project:readAsset(reference)) == bytes, "Revision conflict: file changed while editing")
-            assert(document:save(project))
-            bytes = assert(project:readAsset(reference))
-        else assert(command == "prefab.get", "Unknown command: " .. command) end
-        local result = properties(target); result.revision = revision(bytes); return result
+        return require("editor.CliPrefab").execute(project, request, api)
     end
     local levelReference = request.level or project.defaultLevelReference
     assert(levelReference, "Missing --level and project has no default level")
@@ -121,31 +125,64 @@ local function execute(request)
     local document = assert(require("editor.LevelDocument").load(levelPath))
     local level = document.level
     level.beforeReparent = function(roots, parent) return require("project.PrefabHierarchy").prepareReparent(project, level, roots, parent) end
+    level.duplicateData = function(object) return require("project.PrefabHierarchy").duplicateData(project, level, object) end
+    local function selected()
+        local ids = request.instances
+        if type(ids) == "string" then local list = {}; for id in ids:gmatch("[^,]+") do list[#list + 1] = assert(tonumber(id), "Invalid instance ID") end; ids = list end
+        ids = ids or {required(request, "instance")}
+        assert(type(ids) == "table" and #ids > 0, "Expected instance IDs")
+        local objects = {}; for _, id in ipairs(ids) do objects[#objects + 1] = assert(level:findLObject(tonumber(id)), "Instance not found") end
+        return objects
+    end
     local changed, object, target
     if command == "instance.add" then
-        local prefab = request.template or required(request, "prefab")
-        local reference = assert(project:getAssetReference(prefab))
-        assert(require("project.LObjectTemplate").resolve(project, prefab))
+        local prefab = request.template or request.prefab
+        local reference
+        if prefab then reference = assert(project:getAssetReference(prefab)); assert(require("project.LObjectTemplate").resolve(project, prefab)) end
         local x, y = tonumber(request.x or 0), tonumber(request.y or 0)
         assert(require("core.Transform").finite(x) and require("core.Transform").finite(y), "Invalid placement coordinates")
-        object = assert(level:addLObject(x, y, project:getAssetId(reference), reference:match("([^/]+)%.[^.]+$")))
+        object = assert(level:addLObject(x, y, project:getAssetId(reference), request.name or reference and reference:match("([^/]+)%.[^.]+$") or "LObject"))
         assert(require("project.PrefabHierarchy").expandAuthoring(project, level, object))
         if request.parent ~= nil and request.parent ~= false then
             local parent = assert(level:findLObject(tonumber(request.parent)), "Parent instance not found")
             object.parentAuthoringId = parent.authoringId
         end
         changed = true
+    elseif command == "instance.list" then
+        local rows = {}
+        for _, row in ipairs(level:treeRows()) do rows[#rows + 1] = {data = row.object, depth = row.depth, worldTransform = level:getWorldTransform(row.object)} end
+        return {revision = revision(bytes), instances = rows}
+    elseif command == "instance.duplicate" then
+        local copies = level:duplicateLObjects(selected())
+        object = copies[1]; changed = true
+    elseif command == "instance.delete" then
+        assert(level:removeLObjects(selected())); changed = true
     elseif command:match("^instance%.") then
-        local id = tonumber(required(request, "instance"))
+        local id = tonumber(request.instance or request.instances and selected()[1].authoringId)
+        assert(id, "Missing --instance")
         for _, candidate in ipairs(level.lobjects) do if candidate.authoringId == id then object = candidate end end
         assert(object, "Instance not found")
-        local definition = assert(require("project.ObjectDefinition").resolve(project, object.definitionReference))
+        local definition = assert(require("project.PrefabHierarchy").authoringDefinition(project, level, object))
         target = assert(require("project.ObjectDefinition").inspectorTarget(project, object, definition, level))
         if command == "instance.reparent" then
             local parent = request.parent ~= nil and request.parent ~= false and assert(level:findLObject(tonumber(request.parent)), "Parent instance not found") or nil
-            assert(level:reparent({object}, parent)); changed = true
-        elseif command == "instance.set" then
-            local name, item = required(request, "property"), value(request)
+            assert(level:reparent(selected(), parent)); changed = true
+        elseif command == "instance.rename" then
+            local name = required(request, "name"); assert(type(name) == "string" and name ~= "", "Invalid instance name")
+            object.name = name; changed = true
+        elseif command == "instance.set" or command == "instance.reset" then
+            local name = required(request, "property")
+            local item
+            if command == "instance.set" then item = value(request)
+            elseif name:match("^transform%.") then
+                local defaults = assert(require("core.Transform").copy({x = 0, y = 0}))
+                if object.prefabRootId and object.prefabRootId ~= object.authoringId then
+                    local root = assert(level:findLObject(object.prefabRootId))
+                    local node = assert(require("project.PrefabHierarchy").resolve(project, root.definitionReference)).byPath[object.prefabNodePath]
+                    if node then defaults = node.transform end
+                end
+                item = defaults[name:match("^transform%.(.+)$")]
+            else item = assert(target.class.properties[name], "Unknown property: " .. name).default end
             local transformField = name:match("^transform%.(.+)$")
             if transformField then
                 assert(object.transform[transformField] ~= nil, "Unknown Transform field")
@@ -154,12 +191,26 @@ local function execute(request)
             else setProperty(project, target, name, item) end
             changed = true
         else assert(command == "instance.get", "Unknown command: " .. command) end
-    elseif command == "level.set" or command == "level.get" then
+    elseif command == "level.validate" then
+        local world = assert(require("runtime.WorldLoader").prepare(project, level:toData()))
+        return {valid = true, objects = #world.lobjects, revision = revision(bytes)}
+    elseif command == "level.set" or command == "level.get" or command == "level.reset" or command == "level.set-parent" then
         local class = level.scriptReference and assert(require("project.LuaClass").load(project, level.scriptReference, "level"))
         target = {class = class or {properties = {}}, level = level,
             getOverrides = function() return require("project.PropertyData").copy(level.propertyOverrides) end,
             setOverrides = function(_, values) level.propertyOverrides = values end}
-        if command == "level.set" then setProperty(project, target, required(request, "property"), value(request)); changed = true end
+        if command == "level.set-parent" then
+            local parent = request.parent; if parent == "None" or parent == false then parent = nil end
+            local nextClass = parent and assert(require("project.LuaClass").load(project, parent, "level"))
+            level.scriptReference = parent and project:getAssetId(project:getAssetReference(parent)) or nil
+            level.propertyOverrides = require("project.LuaClass").compatibleOverrides(nextClass, level.propertyOverrides)
+            target.class = nextClass or {properties = {}}; changed = true
+        elseif command ~= "level.get" then
+            local name = required(request, "property")
+            local item
+            if command == "level.reset" then item = assert(target.class.properties[name], "Unknown property: " .. name).default else item = value(request) end
+            setProperty(project, target, name, item); changed = true
+        end
     elseif command == "export" then
         local ok, result = require("editor.Export").write(project, level, absolute(request.output or Fs.join(project.rootPath, "Build/Game.love")))
         assert(ok, result); return result
@@ -200,7 +251,8 @@ function Cli.parse(args)
             local key = item:sub(3)
             local allowed = {project = true, parent = true, name = true, folder = true, type = true, class = true,
                 prefab = true, template = true, level = true, instance = true, property = true, ["value-json"] = true,
-                x = true, y = true, output = true, revision = true, request = true, result = true, value = true}
+                x = true, y = true, output = true, revision = true, request = true, result = true, value = true,
+                asset = true, destination = true, source = true, node = true, instances = true, input = true}
             assert(allowed[key], "Unknown option: " .. item)
             assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)
             assert(request[key] == nil, "Duplicate option: " .. item)

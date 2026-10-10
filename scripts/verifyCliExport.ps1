@@ -224,4 +224,37 @@ if ($taskTransitionProcess.ExitCode -ne 0 -or -not $taskTransitionReport.ok -or 
     -or $taskTransitionReport.properties[0].speed -ne 25 -or -not $taskTransitionReport.properties[0].started) {
     throw 'Standalone game level transition failed'
 }
+# 패키징된 CLI의 확장 명령을 외부 프로젝트에서 연속 실행한다.
+$taskHelp = & $taskCli --cli help | ConvertFrom-Json
+if (-not $taskHelp.ok -or $taskHelp.result.commands -notcontains 'prefab.child.add' -or $taskHelp.result.commands -notcontains 'class.set-source') { throw 'Extended CLI discovery failed' }
+invokeLaboRequest @{command = 'folder.create'; project = $taskProject; folder = 'Assets'; name = 'CliTools'} | Out-Null
+$taskToolsPrefab = invokeLaboRequest @{command = 'prefab.create'; project = $taskProject; name = 'PF_Tools'; class = $taskClass.assetId}
+$taskToolsChild = invokeLaboRequest @{command = 'prefab.child.add'; project = $taskProject; prefab = $taskToolsPrefab.assetId; template = $taskChildPrefab.assetId}
+invokeLaboRequest @{command = 'prefab.child.rename'; project = $taskProject; prefab = $taskToolsPrefab.assetId; node = $taskToolsChild.node; name = 'Weapon'} | Out-Null
+invokeLaboRequest @{command = 'prefab.set'; project = $taskProject; prefab = $taskToolsPrefab.assetId; node = $taskToolsChild.node; property = 'speed'; value = 77} | Out-Null
+invokeLaboRequest @{command = 'prefab.reset'; project = $taskProject; prefab = $taskToolsPrefab.assetId; node = $taskToolsChild.node; property = 'speed'} | Out-Null
+$taskToolsValues = invokeLaboRequest @{command = 'prefab.get'; project = $taskProject; prefab = $taskToolsPrefab.assetId; node = $taskToolsChild.node}
+if ($taskToolsValues.values.speed -ne 25) { throw 'Nested CLI defaults differ from the Inspector' }
+invokeLaboRequest @{command = 'prefab.set'; project = $taskProject; prefab = $taskToolsPrefab.assetId; property = 'target'; value = $taskToolsChild.node} | Out-Null
+invokeLaboRequest @{command = 'prefab.reset'; project = $taskProject; prefab = $taskToolsPrefab.assetId; property = 'target'} | Out-Null
+invokeLaboRequest @{command = 'prefab.set-parent'; project = $taskProject; prefab = $taskToolsPrefab.assetId; node = $taskToolsChild.node; parent = $false} | Out-Null
+invokeLaboRequest @{command = 'prefab.child.remove'; project = $taskProject; prefab = $taskToolsPrefab.assetId; node = $taskToolsChild.node} | Out-Null
+$taskBuiltinChild = invokeLaboRequest @{command = 'prefab.child.add'; project = $taskProject; prefab = $taskToolsPrefab.assetId}
+if ($taskBuiltinChild.nodes.Count -ne 2 -or $taskBuiltinChild.node -eq $taskToolsChild.node) { throw 'CLI removal path was reused by a new child' }
+invokeLaboRequest @{command = 'asset.move'; project = $taskProject; asset = $taskToolsPrefab.assetId; destination = 'Assets/CliTools/PF_Tools.prefab'} | Out-Null
+$taskToolsCopy = invokeLaboRequest @{command = 'asset.copy'; project = $taskProject; asset = $taskToolsPrefab.assetId; folder = 'Assets/CliTools'; name = 'PF_Copy.prefab'}
+invokeLaboRequest @{command = 'asset.rename'; project = $taskProject; asset = $taskToolsCopy.assetId; name = 'PF_Renamed'} | Out-Null
+invokeLaboRequest @{command = 'asset.delete'; project = $taskProject; asset = $taskToolsCopy.assetId} | Out-Null
+$taskToolsLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Tools'}
+$taskToolsRoot = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskToolsLevel.assetId; template = $taskToolsPrefab.assetId}
+invokeLaboRequest @{command = 'instance.duplicate'; project = $taskProject; level = $taskToolsLevel.assetId; instances = @($taskToolsRoot.data.authoringId)} | Out-Null
+$taskToolsInstances = invokeLaboRequest @{command = 'instance.list'; project = $taskProject; level = $taskToolsLevel.assetId}
+if ($taskToolsInstances.instances.Count -ne 4) { throw 'Packaged CLI did not duplicate all descendants' }
+invokeLaboRequest @{command = 'instance.delete'; project = $taskProject; level = $taskToolsLevel.assetId; instances = @($taskToolsRoot.data.authoringId)} | Out-Null
+invokeLaboRequest @{command = 'instance.add'; project = $taskProject; level = $taskToolsLevel.assetId; name = 'Empty'} | Out-Null
+invokeLaboRequest @{command = 'level.validate'; project = $taskProject; level = $taskToolsLevel.assetId} | Out-Null
+$taskToolsClass = invokeLaboRequest @{command = 'class.get'; project = $taskProject; class = $taskClass.assetId}
+invokeLaboRequest @{command = 'class.set-source'; project = $taskProject; class = $taskClass.assetId; source = $taskToolsClass.source; revision = $taskToolsClass.revision} | Out-Null
+$taskValidation = invokeLaboRequest @{command = 'project.validate'; project = $taskProject}
+if (-not $taskValidation.valid) { throw ($taskValidation.errors | ConvertTo-Json -Depth 8) }
 Write-Output "Cli creation, editing, hierarchy, references, Export and level transition verified: $taskDirectory"

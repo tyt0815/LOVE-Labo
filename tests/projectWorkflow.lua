@@ -4664,4 +4664,203 @@ add("Add Child instance picker copies built-in LObject hierarchies without a tem
     end)
 end)
 
+add("Expanded CLI manages assets and validates class source writes with stable metadata and revisions", function()
+    fixture(function(parent)
+        local project, prefab = componentProject(parent)
+        local Cli = require("editor.Cli")
+        local function run(command, fields)
+            fields = fields or {}; fields.command, fields.project = command, project.rootPath
+            local result = Cli.execute(fields); project = assert(Project.open(project.rootPath)); return result
+        end
+        run("folder.create", {folder = "Assets", name = "CLI"})
+        Assert.truthy(#run("asset.list", {folder = "Assets"}).entries > 0)
+        local original = run("asset.get", {asset = prefab})
+        local moved = run("asset.move", {asset = prefab, destination = "Assets/CLI/Actor.prefab", revision = original.revision})
+        Assert.equal(prefab, moved.assetId)
+        local renamed = run("asset.rename", {asset = prefab, name = "PF_Renamed"})
+        Assert.equal("Assets/CLI/PF_Renamed.prefab", renamed.reference)
+        local copied = run("asset.copy", {asset = prefab, folder = "Assets/CLI", name = "PF_Copy.prefab"})
+        Assert.truthy(copied.assetId ~= prefab)
+        Assert.equal(false, pcall(run, "asset.copy", {asset = prefab, folder = "Assets/CLI", name = "PF_Copy.prefab"}))
+        run("asset.delete", {asset = copied.assetId})
+        Assert.equal(false, pcall(run, "asset.get", {asset = copied.assetId}))
+        local input = Fs.join(parent, "External.txt"); assert(Fs.writeAtomic(input, "resource"))
+        local imported = run("asset.import", {input = input, folder = "Assets/CLI"})
+        Assert.equal("Assets/CLI/External.txt", imported.reference)
+        Assert.equal("resource", assert(Fs.read(assert(project:resolvePath(imported.reference)))))
+        local class = run("class.get", {class = "Sources/Actor.lua"})
+        Assert.equal("lobject", class.kind); Assert.equal(10, class.schema.speed.default)
+        Assert.truthy(#run("class.list", {type = "lobject"}).classes > 0)
+        Assert.equal(false, pcall(run, "class.set-source", {class = class.assetId, source = "invalid Lua", revision = class.revision}))
+        Assert.equal(class.source, run("class.get", {class = class.assetId}).source)
+        local changed = run("class.set-source", {class = class.assetId, source = 'return {properties = {speed = {type = "number", default = 70}}}', revision = class.revision})
+        Assert.equal(70, changed.schema.speed.default)
+        Assert.equal(false, pcall(run, "class.set-source", {class = class.assetId, source = class.source, revision = class.revision}))
+        local classCopy = run("asset.copy", {asset = class.assetId, folder = "Sources", name = "ActorCopy.lua"})
+        Assert.equal("lobject", run("class.get", {class = classCopy.assetId}).kind)
+        local valid = run("project.validate"); Assert.equal(true, valid.valid)
+        assert(Fs.writeAtomic(assert(project:resolvePath("Sources/ActorCopy.lua")), "broken Lua"))
+        local invalid = run("project.validate"); Assert.equal(false, invalid.valid); Assert.truthy(#invalid.errors > 0)
+    end)
+end)
+
+add("Expanded CLI edits multiple instances and resets values against effective Prefab defaults", function()
+    fixture(function(parent)
+        local project, prefab = componentProject(parent)
+        local Cli = require("editor.Cli")
+        local function run(command, fields)
+            fields = fields or {}; fields.command, fields.project = command, project.rootPath
+            local result = Cli.execute(fields); project = assert(Project.open(project.rootPath)); return result
+        end
+        local level = run("level.create", {name = "L_Cli"}).assetId
+        run("project.set-default", {level = level})
+        local root = run("instance.add", {prefab = prefab}).data.authoringId
+        local child = run("instance.add", {parent = root, x = 10, y = 20}).data.authoringId
+        run("instance.rename", {instance = child, name = "Child"})
+        run("instance.set", {instance = root, property = "speed", value = 99})
+        run("instance.reset", {instance = root, property = "speed"})
+        Assert.equal(10, run("instance.get", {instance = root}).properties.values.speed)
+        local list = run("instance.list"); Assert.equal(2, #list.instances)
+        Assert.equal(1, list.instances[2].depth); Assert.equal(10, list.instances[2].worldTransform.x)
+        run("instance.duplicate", {instances = {root, child}})
+        Assert.equal(4, #run("instance.list").instances)
+        run("instance.reparent", {instances = {child, 4}, parent = false})
+        Assert.equal(0, run("instance.list").instances[2].depth)
+        run("instance.delete", {instances = {child, 4}})
+        Assert.equal(2, #run("instance.list").instances)
+        run("instance.set", {instance = root, property = "transform.x", value = 123})
+        run("instance.reset", {instance = root, property = "transform.x"})
+        Assert.equal(0, run("instance.get", {instance = root}).data.transform.x)
+        local class = run("class.create", {name = "LevelClass", type = "level"}).assetId
+        run("class.set-source", {class = class, source = 'return {properties = {score = {type = "number", default = 2}}}'})
+        run("level.set-parent", {parent = class})
+        run("level.set", {property = "score", value = 50})
+        run("level.reset", {property = "score"})
+        Assert.equal(2, run("level.get").properties.values.score)
+        Assert.equal(true, run("level.validate").valid)
+        run("level.set-parent", {parent = false})
+        Assert.equal(nil, run("level.get").data.scriptReference)
+        local bytes = assert(Fs.read(assert(project:resolveAssetFile(level))))
+        Assert.equal(false, pcall(run, "instance.set", {instance = root, property = "transform.scaleX", value = -2}))
+        Assert.equal(bytes, assert(Fs.read(assert(project:resolveAssetFile(level)))))
+    end)
+end)
+
+add("Expanded CLI edits Prefab descendants bindings inheritance and removed paths atomically", function()
+    fixture(function(parent)
+        local project, source = componentProject(parent)
+        local Cli = require("editor.Cli")
+        local function run(command, fields)
+            fields = fields or {}; fields.command, fields.project = command, project.rootPath
+            local result = Cli.execute(fields); project = assert(Project.open(project.rootPath)); return result
+        end
+        local prefab = run("prefab.create", {name = "PF_CliTree", class = source}).assetId
+        local child = run("prefab.child.add", {prefab = prefab, template = source}).node
+        run("prefab.child.rename", {prefab = prefab, node = child, name = "Weapon"})
+        run("prefab.set", {prefab = prefab, node = child, property = "speed", value = 25})
+        run("prefab.set", {prefab = prefab, property = "target", value = child})
+        local tree = run("prefab.tree", {prefab = prefab}); Assert.equal(2, #tree.nodes); Assert.equal("Weapon", tree.nodes[2].name)
+        Assert.equal(25, run("prefab.get", {prefab = prefab, node = child}).values.speed)
+        local before = assert(Fs.read(assert(project:resolveAssetFile(prefab))))
+        Assert.equal(false, pcall(run, "prefab.child.remove", {prefab = prefab, node = child}))
+        Assert.equal(before, assert(Fs.read(assert(project:resolveAssetFile(prefab)))))
+        run("prefab.reset", {prefab = prefab, property = "target"})
+        run("prefab.reset", {prefab = prefab, node = child, property = "speed"})
+        Assert.equal(10, run("prefab.get", {prefab = prefab, node = child}).values.speed)
+        run("prefab.set-parent", {prefab = prefab, node = child, parent = false})
+        Assert.equal(false, run("prefab.get", {prefab = prefab}).data.children[1].definitionReference)
+        run("prefab.child.remove", {prefab = prefab, node = child})
+        Assert.equal(1, #run("prefab.tree", {prefab = prefab}).nodes)
+        local fresh = run("prefab.child.add", {prefab = prefab})
+        Assert.truthy(fresh.node ~= child); Assert.equal(2, #fresh.nodes)
+        local level = run("level.create", {name = "L_Source"}).assetId
+        local instance = run("instance.add", {level = level}).data.authoringId
+        local copied = run("prefab.child.add", {prefab = prefab, instance = instance, level = level})
+        Assert.equal(3, #copied.nodes)
+        Assert.equal(false, pcall(run, "prefab.child.add", {prefab = prefab, template = prefab}))
+        Assert.equal(false, pcall(run, "prefab.set", {prefab = prefab, node = "root/missing", property = "speed", value = 2}))
+        Assert.equal(nil, Fs.info(Fs.join(project.rootPath, ".labo-cli.lock")))
+    end)
+end)
+
+add("CLI parent paths become asset IDs and remain valid after parent asset moves", function()
+    fixture(function(parent)
+        local project, source = componentProject(parent)
+        assert(project:createEntry("Sources", "lua", "B", {scriptKind = "lobject"}))
+        assert(Fs.writeAtomic(assert(project:resolvePath("Sources/B.lua")), 'return {properties = {speed = {type = "number", default = 70}}}'))
+        local b = project:getAssetId("Sources/B.lua")
+        local Cli = require("editor.Cli")
+        local function run(command, fields) fields.command, fields.project = command, project.rootPath; return Cli.execute(fields) end
+        local prefab = run("prefab.create", {name = "PF_ParentMove", class = source}).assetId
+        local node = run("prefab.child.add", {prefab = prefab, template = source}).node
+        local changed = run("prefab.set-parent", {prefab = prefab, node = node, parent = "Sources/B.lua"})
+        Assert.equal(b, changed.data.children[1].definitionReference)
+        run("folder.create", {folder = "Sources", name = "Moved"})
+        run("asset.move", {asset = b, destination = "Sources/Moved/B.lua"})
+        run("asset.rename", {asset = b, name = "RenamedB"})
+        Assert.equal(70, run("prefab.get", {prefab = prefab, node = node}).values.speed)
+        Assert.equal(true, run("project.validate", {}).valid)
+    end)
+end)
+
+add("CLI and Inspector serialize parent changes using the replacement property schema", function()
+    fixture(function(parent)
+        local project, source = componentProject(parent)
+        assert(project:createEntry("Sources", "lua", "NumericTarget", {scriptKind = "lobject"}))
+        assert(Fs.writeAtomic(assert(project:resolvePath("Sources/NumericTarget.lua")), 'return {properties = {target = {type = "number", default = 7}}}'))
+        local numeric = project:getAssetId("Sources/NumericTarget.lua")
+        local Cli = require("editor.Cli")
+        local function run(command, fields) fields.command, fields.project = command, project.rootPath; return Cli.execute(fields) end
+        for _, gui in ipairs({false, true}) do
+            local prefab = run("prefab.create", {name = gui and "PF_GuiSchema" or "PF_CliSchema", class = source}).assetId
+            local node = run("prefab.child.add", {prefab = prefab, template = source}).node
+            run("prefab.set", {prefab = prefab, property = "target", value = node})
+            if gui then
+                project = assert(Project.open(project.rootPath))
+                local app = EditorApp.new(nil, project)
+                assert(app:inspectAsset(project:getAssetReference(prefab)))
+                assert(app.inspector.classInspector:selectParent(numeric))
+                assert(app:saveInspectedDocument())
+            else run("prefab.set-parent", {prefab = prefab, parent = numeric}) end
+            local result = run("prefab.get", {prefab = prefab})
+            Assert.equal(2, result.values.target)
+            Assert.equal(2, result.data.overrides.properties.target)
+            Assert.equal(0, #(result.data.bindings or {}))
+        end
+    end)
+end)
+
+add("Derived Prefab branch removal discards inherited outgoing bindings but rejects incoming references", function()
+    fixture(function(parent)
+        local project, source = componentProject(parent)
+        local data = {formatVersion = 3, definitionReference = source, overrides = {}, children = {
+            {id = "a", definitionReference = source, children = {{id = "b", definitionReference = source}}}}, bindings = {
+            {from = "root/a", property = "target", to = "root"}, {from = "root/a/b", property = "target", to = "root/a"}}}
+        assert(project:createEntry("Assets", "prefab", "PF_Outgoing", {prefabData = data}))
+        local base = project:getAssetId("Assets/PF_Outgoing.prefab")
+        local Cli = require("editor.Cli")
+        local function run(command, fields) fields.command, fields.project = command, project.rootPath; return Cli.execute(fields) end
+        local derived = run("prefab.create", {name = "PF_RemovalVariant", class = base}).assetId
+        local result = run("prefab.child.remove", {prefab = derived, node = "root/a"})
+        Assert.equal(1, #result.nodes)
+        project = assert(Project.open(project.rootPath))
+        local recipe = assert(require("project.PrefabHierarchy").resolve(project, derived))
+        Assert.equal(0, #recipe.bindings)
+        local world = require("core.World").new(); require("runtime.PrefabSpawner").bind(project, world)
+        Assert.equal(0, #assert(world:spawnLObject(derived)).children)
+        data.bindings[#data.bindings + 1] = {from = "root", property = "target", to = "root/a"}
+        assert(Fs.writeAtomic(assert(project:resolveAssetFile(base)), assert(require("project.Prefab").encodeData(data))))
+        local blocked = run("prefab.create", {name = "PF_IncomingVariant", class = base}).assetId
+        project = assert(Project.open(project.rootPath))
+        local path = assert(project:resolveAssetFile(blocked)); local before = assert(Fs.read(path))
+        Assert.equal(false, pcall(run, "prefab.child.remove", {prefab = blocked, node = "root/a"}))
+        Assert.equal(before, assert(Fs.read(path)))
+        assert(project:createEntry("Assets", "prefab", "PF_InvalidBindingSource", {prefabData = {
+            formatVersion = 3, definitionReference = source, overrides = {},
+            bindings = {{from = "root/missing", property = "target", to = "root"}}}}))
+        local invalid = require("project.PrefabHierarchy").resolve(project, project:getAssetId("Assets/PF_InvalidBindingSource.prefab"))
+        Assert.equal(nil, invalid)
+    end)
+end)
+
 return tests

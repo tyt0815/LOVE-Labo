@@ -43,3 +43,4 @@
 - [0041. Inspector 대상 추가는 드래그 예외보다 스포이드를 우선한다](adr/0041-inspector-picking-over-drag-exceptions.md)
 - [0042. 루트 오브젝트와 자손을 하나의 Prefab 생성 정의로 저장한다](adr/0042-hierarchy-prefab-definitions.md)
 - [0043. 목록 스크롤바를 공유하고 Inspector 계층 높이를 독립 조절한다](adr/0043-list-scrollbars-and-resizable-inspector-trees.md)
+- [0044. CLI를 계층 편집·에셋 관리·코드 수정·검증으로 확장한다](adr/0044-expanded-authoring-cli.md)
