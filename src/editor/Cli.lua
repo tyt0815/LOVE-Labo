@@ -193,10 +193,12 @@ local function execute(request)
     if command == "instance.add" then
         local prefab = request.template or request.prefab
         local reference
+        assert(not (prefab and request.script), "Choose a Prefab or a script")
         if prefab then reference = assert(project:getAssetReference(prefab)); assert(require("project.LObjectTemplate").resolve(project, prefab)) end
         local x, y = tonumber(request.x or 0), tonumber(request.y or 0)
         assert(require("core.Transform").finite(x) and require("core.Transform").finite(y), "Invalid placement coordinates")
-        object = assert(level:addLObject(x, y, project:getAssetId(reference), request.name or reference and reference:match("([^/]+)%.[^.]+$") or "LObject"))
+        if request.script then object = assert(require("project.ScriptPlacement").add(project, level, request.script, x, y))
+        else object = assert(level:addLObject(x, y, project:getAssetId(reference), request.name or reference and reference:match("([^/]+)%.[^.]+$") or "LObject")) end
         assert(require("project.PrefabHierarchy").expandAuthoring(project, level, object))
         if request.parent ~= nil and request.parent ~= false then
             local parent = assert(level:findLObject(tonumber(request.parent)), "Parent instance not found")

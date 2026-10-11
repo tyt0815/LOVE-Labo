@@ -36,6 +36,10 @@ function Operations.execute(project, request, api)
         local source
         if command == "asset.import" then source = api.absolute(api.required(request, "input"))
         else source = assert(project:resolveProjectFile(assert(project:getAssetReference(api.required(request, "asset"))))) end
+        if command == "asset.import" then
+            local ok, reference = require("editor.AssetImport").copy(project, source, request.folder or "Assets", request.name)
+            assert(ok, reference); return api.basicResult(project, reference)
+        end
         local info = assert(Fs.info(source)); assert(info.type == "file" and not info.isLink, "Expected a regular file")
         local folder = request.folder or "Assets"
         assert(not project:isReadOnly(folder), "Labo plugin assets are read-only")

@@ -133,46 +133,59 @@ function Operations:refresh(reference)
     local history = self.app.histories[self.app.document]
     history.entries[history.index].text = assert(require("editor.LevelFile").encode(self.app.level))
 end
+function Operations:recordCreation(reference, created)
+    local captured, state = pcall(function()
+        local commands = {}
+        for _, path in ipairs(created and #created > 0 and created or {reference}) do
+            commands[#commands + 1] = {reference = path, snapshot = snapshot(self:livePath(path))}
+        end
+        return commands
+    end)
+    if not captured then
+        for i = #(created or {reference}), 1, -1 do self.project:deleteEntry((created or {reference})[i]) end
+        return false, tostring(state)
+    end
+    local command = {reference = reference}
+    command.undo = function()
+        for i = #state, 1, -1 do
+            local saved, err = pcall(self.stash, self, state[i])
+            if not saved then
+                for j = i + 1, #state do self:restore(state[j]) end
+                error(err)
+            end
+        end
+        self:refresh(reference); return true
+    end
+    command.redo = function()
+        for i = 1, #state do
+            local restored, err = pcall(self.restore, self, state[i])
+            if not restored then
+                for j = i - 1, 1, -1 do self:stash(state[j]) end
+                error(err)
+            end
+        end
+        self:refresh(reference); return true
+    end
+    self.app:pushAssetAction(command)
+    return true, reference
+end
 function Operations:create(folder, kind, name, options)
     return self:perform(function()
         local ok, reference, created = self.project:createEntry(folder, kind, name, options)
         if not ok then return false, reference end
-        local captured, state = pcall(function()
-            local commands = {}
-            for _, path in ipairs(created and #created > 0 and created or {reference}) do
-                commands[#commands + 1] = {reference = path, snapshot = snapshot(self:livePath(path))}
-            end
-            return commands
-        end)
-        if not captured then
-            for i = #(created or {reference}), 1, -1 do self.project:deleteEntry((created or {reference})[i]) end
-            return false, tostring(state)
-        end
-        local command = {reference = reference}
-        command.undo = function()
-            for i = #state, 1, -1 do
-                local saved, err = pcall(self.stash, self, state[i])
-                if not saved then
-                    for j = i + 1, #state do self:restore(state[j]) end
-                    error(err)
-                end
-            end
-            self:refresh(reference); return true
-        end
-        command.redo = function()
-            for i = 1, #state do
-                local restored, err = pcall(self.restore, self, state[i])
-                if not restored then
-                    for j = i - 1, 1, -1 do self:stash(state[j]) end
-                    error(err)
-                end
-            end
-            self:refresh(reference); return true
-        end
-        self.app:pushAssetAction(command)
-        return true, reference
+        return self:recordCreation(reference, created)
     end)
 end
+function Operations:import(input, folder)
+    return self:perform(function()
+        local ok, reference = require("editor.AssetImport").copy(self.project, input, folder)
+        if not ok then return false, reference end
+        local recorded, err = self:recordCreation(reference)
+        if recorded then self:refresh(reference) end
+        return recorded, err
+    end)
+end
+
 function Operations:createLinkedPrefab(folder, name, object)
     local hierarchy = require("project.PrefabHierarchy")
     local allowed, err = hierarchy.canLinkCapture(object)

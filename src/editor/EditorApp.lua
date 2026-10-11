@@ -252,12 +252,44 @@ function EditorApp:prepareInspectedAsset(reference)
     return true
 end
 
-function EditorApp:placePrefab(reference, x, y, hierarchyDrop)
+function EditorApp:importExternalAsset(input, x, y)
+    if self:isPlaying() then return false, "Stop Play before importing assets" end
+    if self.uiRoot.popup then return false, "Close the dialog before importing assets" end
+    local browser, folder = self.assetBrowser, nil
+    if browser.treeSlot.widget:containsPoint(x, y) then
+        local tree = browser.treeSlot.widget
+        local node = browser.tree[math.floor((y - tree.y) / require("editor.Ui").METRICS.treeRowHeight) + 1 + browser.treeScroll]
+        folder = node and node.reference
+    elseif browser.fileSlot.widget:containsPoint(x, y) then
+        local entry = browser:getEntryAtPosition(x, y)
+        folder = entry and entry.type == "directory" and entry.reference or browser.folder
+    end
+    if not folder then browser.error = "Drop files or folders into the Asset Browser"; return false, browser.error end
+    local ok, result = browser.assetOperations:import(input, folder)
+    browser.error = not ok and result or nil
+    return ok, result
+end
+
+function EditorApp:placeAsset(reference, x, y, hierarchyDrop)
     if self:isPlaying() then return false, "Stop Play before placing a Prefab" end
     if not hierarchyDrop and not self.sceneView:containsPoint(x, y) then return false, "Drop inside the Scene View" end
     if self.viewportControls:containsPoint(x, y) then return false, "Drop outside the viewport controls" end
     local source, sourceError = self.project:getAssetReference(reference)
     if not source then return false, sourceError end
+    if source:match("%.lua$") then
+        local class, err = require("project.ScriptPlacement").valid(self.project, reference)
+        if not class then return false, err end
+        self.inspector:commitEdit()
+        local wx, wy = self.sceneView:screenToWorld(x, y)
+        local parent = type(hierarchyDrop) == "table" and hierarchyDrop.parent or hierarchyDrop and self.hierarchy:getLObjectAtPosition(x, y)
+        if hierarchyDrop then wx, wy = 0, 0 end
+        local object, error = require("project.ScriptPlacement").add(self.project, self.level, reference, wx, wy, parent)
+        if not object then return false, error end
+        if parent then self.hierarchy.collapsed[parent.authoringId] = nil end
+        self.sceneView:setSelection({object}); self.activePanel = hierarchyDrop and "hierarchy" or "scene"; self.inspectorSource = "scene"
+        self.assetBrowser.selectedReference = nil; self:updateInspectorTarget()
+        return true
+    end
     local sourcePath, sourceError = require("project.LObjectTemplate").source(self.project, reference)
     if not sourcePath then return false, sourceError end
     local Definition = require("editor.ObjectDefinition")
@@ -284,14 +316,14 @@ function EditorApp:placePrefab(reference, x, y, hierarchyDrop)
     return true
 end
 
-function EditorApp:placePrefabs(entries, x, y, hierarchyDrop)
+function EditorApp:placeAssets(entries, x, y, hierarchyDrop)
     local startId, previous = self.level.nextAuthoringId, self.sceneView:getSelection()
     local previousSource, previousPanel = self.inspectorSource, self.activePanel
     local collapsed = {}; for id, value in pairs(self.hierarchy.collapsed) do collapsed[id] = value end
     local target = hierarchyDrop and {parent = self.hierarchy:getLObjectAtPosition(x, y)} or nil
     local added = {}
     for _, entry in ipairs(entries) do
-        local called, ok, err = pcall(self.placePrefab, self, entry.reference, x, y, target)
+        local called, ok, err = pcall(self.placeAsset, self, entry.reference, x, y, target)
         if not called then err, ok = tostring(ok), false end
         if not ok then
             for _, object in ipairs(self.level.lobjects) do
@@ -779,21 +811,21 @@ function EditorApp:initializeUI()
             if self.inspectorWidget:containsPoint(x, y) then return false, nil, "Use the eyedropper to assign resources" end
             if self.hierarchy:containsPoint(x, y) then
                 if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
-                if entry.type ~= "file" or not require("project.LObjectTemplate").source(self.project, entry.reference) then return false, nil, "Drop a Prefab into the Hierarchy" end
+                if entry.type ~= "file" or not (require("project.LObjectTemplate").source(self.project, entry.reference) or self.project:getScriptKind(entry.reference) == "script") then return false, nil, "Drop a Prefab into the Hierarchy" end
                 return "hierarchy", {x = 0, y = self.hierarchy.y or 0, w = self.hierarchy.width, h = self.hierarchy.height}
             end
             if not self.sceneView:containsPoint(x, y) then return end
             if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
             if self.viewportControls:containsPoint(x, y) then return false, nil, "Drop outside the viewport controls" end
-            if entry.type ~= "file" or not require("project.LObjectTemplate").source(self.project, entry.reference) then return false, nil, "Drop a Prefab into the Scene View" end
+            if entry.type ~= "file" or not (require("project.LObjectTemplate").source(self.project, entry.reference) or self.project:getScriptKind(entry.reference) == "script") then return false, nil, "Drop a Prefab into the Scene View" end
             local vx, vy, width, height = self.sceneView:getViewport()
             return "scene", {x = vx, y = vy, w = width, h = height}
         end
         self.assetBrowser.onExternalDrop = function(entry, x, y, destination)
-            return self:placePrefab(entry.reference, x, y, destination == "hierarchy")
+            return self:placeAsset(entry.reference, x, y, destination == "hierarchy")
         end
         self.assetBrowser.onExternalDropMany = function(entries, x, y, destination)
-            return self:placePrefabs(entries, x, y, destination == "hierarchy")
+            return self:placeAssets(entries, x, y, destination == "hierarchy")
         end
         self.assetBrowser.onRefresh = function()
             self.inspector:commitEdit()

@@ -1,5 +1,5 @@
 local tests = {}
-for _, suite in ipairs({"scriptRuntime", "attachedWorkflow", "plugins", "uiTree", "viewportTools", "ime", "textEdit", "theme", "objectHierarchy"}) do
+for _, suite in ipairs({"scriptRuntime", "attachedWorkflow", "plugins", "assetPlacement", "uiTree", "viewportTools", "ime", "textEdit", "theme", "objectHierarchy"}) do
     for _, test in ipairs(require("tests." .. suite)) do tests[#tests + 1] = test end
 end
 local TestRunner = {}

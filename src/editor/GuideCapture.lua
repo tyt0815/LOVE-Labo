@@ -122,6 +122,12 @@ return Player
         pluginDialog.expanded.DemoPlugin = true; shot("plugins")
         pluginDialog:toggle("LaboEssentials"); assert(pluginDialog.error); shot("plugin-errors")
         app.uiRoot:keypressed("escape")
+        local vx, vy, vw, vh = app.sceneView:getViewport()
+        assert(app:placeAsset("Assets/Player.lua", vx + vw / 2, vy + vh / 2))
+        assert(app.inspector.classInspector:setProperty("s1.image", project:getAssetId("Assets/Player.png")))
+        shot("script-placement")
+        assert(app.assetBrowser.assetOperations:import(assert(project:resolveAssetFile("Assets/Player.png")), "Assets/UI"))
+        app.assetBrowser:openFolder("Assets/UI"); shot("asset-import")
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

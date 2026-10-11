@@ -110,7 +110,12 @@ function love.directorydropped(path)
         app.replace = true
         require("editor.ui.TextEdit").begin(app, app.path, true)
         app.error = nil
+    elseif app and app.importExternalAsset then app:importExternalAsset(path, love.mouse.getPosition())
     end
+end
+
+function love.filedropped(file)
+    if app and app.importExternalAsset then app:importExternalAsset(file:getFilename(), love.mouse.getPosition()) end
 end
 
 function love.wheelmoved(x, y)

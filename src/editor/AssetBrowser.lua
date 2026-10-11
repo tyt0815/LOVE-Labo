@@ -574,7 +574,7 @@ function AssetBrowser:drawDragOverlay()
     Theme.setColor("border")
     love.graphics.rectangle("line", x, y, width, 54, 4, 4)
     Ui.label(drag.entry.name .. (drag.entries and #drag.entries > 1 and " (+" .. (#drag.entries - 1) .. ")" or ""), x + 8, y + 7, width - 16)
-    Ui.text(drag.error or (drag.destination == "scene" and "Place Prefab in Scene" or drag.destination == "hierarchy" and "Place Prefab in Hierarchy" or drag.destination == "inspector" and "Set Inspector resource" or "Move to " .. (drag.destination or "")), x + 8, y + 29, width - 16,
+    Ui.text(drag.error or (drag.destination == "scene" and "Place object in Scene" or drag.destination == "hierarchy" and "Place object in Hierarchy" or drag.destination == "inspector" and "Set Inspector resource" or "Move to " .. (drag.destination or "")), x + 8, y + 29, width - 16,
         Theme.color(drag.destination and "textMuted" or "error"))
     love.graphics.pop()
 end

@@ -1,0 +1,67 @@
+local Assert = require("tests.Assert")
+local Fs = require("editor.HostFileSystem")
+local tests = {}
+local function add(name, fn) tests[#tests + 1] = {name = name, fn = fn} end
+local function fixture()
+    local project = assert(require("editor.Project").create(Fs.join(love.filesystem.getSourceBaseDirectory(), "build"),
+        "AssetPlacement_" .. os.time() .. "_" .. love.math.random(100000, 999999)))
+    assert(require("editor.PluginOperations").create(project, "Gameplay"))
+    assert(require("editor.PluginOperations").apply(project, "Gameplay", true, true))
+    return project, require("editor.EditorApp").new(nil, project)
+end
+add("GUI and CLI place scripts on blank named objects and reject Level scripts", function()
+    local p, app = fixture(); app:draw()
+    local reference = "Assets/User Plugins/Gameplay/Gameplay.lua"
+    local x, y, width, height = app.sceneView:getViewport()
+    x, y = x + width / 2, y + height / 2
+    local destination = app.assetBrowser.externalDropTarget({type = "file", reference = reference}, x, y)
+    Assert.equal("scene", destination)
+    app:recordHistory(); assert(app:placeAsset(reference, x, y)); app:recordHistory()
+    local object = app.level.lobjects[1]
+    Assert.equal("Gameplay 1", object.name); Assert.equal(nil, object.definitionReference)
+    Assert.equal(p:getAssetId(reference), object.scripts[1].source)
+    assert(app:undoRedo(-1)); Assert.equal(0, #app.level.lobjects)
+    assert(app:undoRedo(1)); Assert.equal(1, #app.level.lobjects)
+    object = app.level.lobjects[1]
+    local rect = app.hierarchy:nameRect(object)
+    assert(app:placeAsset(reference, rect.x + 20, rect.y + rect.h / 2, true))
+    Assert.equal(object.authoringId, app.level.lobjects[2].parentAuthoringId)
+    Assert.equal("Gameplay 2", app.level.lobjects[2].name)
+    assert(p:createEntry("Assets", "lua", "LevelBehavior", {scriptKind = "level"}))
+    Assert.equal(false, app:placeAsset("Assets/LevelBehavior.lua", x, y))
+    assert(p:createEntry("Assets", "level", "L_Empty", {empty = true}))
+    local result = require("editor.Cli").execute({command = "instance.add", project = p.rootPath,
+        level = "Assets/L_Empty.level", script = reference, x = 20, y = 40})
+    Assert.truthy(result)
+    local doc = assert(require("editor.LevelDocument").load(assert(p:resolveAssetFile("Assets/L_Empty.level"))))
+    Assert.equal("Gameplay 1", doc.level.lobjects[1].name); Assert.equal(20, doc.level.lobjects[1].transform.x)
+end)
+add("External asset import copies folders preserves originals and supports Undo Redo", function()
+    local p, app = fixture(); app:draw()
+    local source = Fs.join(p.rootPath, "External")
+    assert(Fs.mkdir(source)); assert(Fs.mkdir(Fs.join(source, "Nested")))
+    assert(Fs.createFile(Fs.join(source, "Nested/Behavior.lua"), "local Behavior = {properties = {}}\nreturn Behavior\n"))
+    local folder = "Assets/User Plugins/Gameplay"
+    local ok, reference = app.assetBrowser.assetOperations:import(source, folder); assert(ok, reference)
+    Assert.equal(folder, app.assetBrowser.folder)
+    local found = false; for _, entry in ipairs(app.assetBrowser.entries) do if entry.reference == reference then found = true end end
+    Assert.truthy(found); Assert.equal(reference, app.assetBrowser.selectedReference)
+    local id = p:getAssetId(reference .. "/Nested/Behavior.lua")
+    Assert.truthy(id); Assert.truthy(Fs.info(Fs.join(source, "Nested/Behavior.lua")))
+    Assert.equal(false, app.assetBrowser.assetOperations:import(source, folder))
+    assert(app:undoRedo(-1)); Assert.equal(nil, p:getAssetId(reference .. "/Nested/Behavior.lua"))
+    assert(app:undoRedo(1)); Assert.equal(id, p:getAssetId(reference .. "/Nested/Behavior.lua"))
+    local result = require("editor.Cli").execute({command = "asset.import", project = p.rootPath, input = source, folder = "Assets"})
+    Assert.equal("Assets/External", result.reference)
+    assert(p:rebuildAssetIndex()); Assert.truthy(p:getAssetId("Assets/External/Nested/Behavior.lua"))
+end)
+add("Invalid imported metadata is rolled back and Labo import targets remain protected", function()
+    local p = fixture(); assert(require("editor.PluginOperations").apply(p, "LaboEssentials", true, true))
+    local source = Fs.join(p.rootPath, "Invalid.lua")
+    assert(Fs.createFile(source, "-- labo-script: unknown\nreturn {}"))
+    local ok = require("editor.AssetImport").copy(p, source, "Assets")
+    Assert.equal(false, ok); Assert.equal(nil, Fs.info(Fs.join(p.rootPath, "Assets/Invalid.lua")))
+    Assert.equal(false, require("editor.AssetImport").copy(p, source, "Assets/Labo Plugins/LaboEssentials"))
+    Assert.truthy(Fs.info(source))
+end)
+return tests

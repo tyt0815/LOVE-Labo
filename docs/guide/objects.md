@@ -10,6 +10,10 @@ Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그
 1. File → New → Lua Class에서 부모 Script 또는 편의 스크립트를 고릅니다. 경로는 모두 Assets 안입니다.
 2. Lua 파일에 [프로퍼티와 선택적 콜백](lua-api.md)을 작성합니다.
 3. Prefab을 만들고 Add Script로 Lua 에셋 또는 기본 스크립트를 추가합니다.
+
+Lua **오브젝트 스크립트**를 에셋 브라우저에서 Scene View 또는 Hierarchy로 드래그해도 됩니다. 빈 LObject에 그 스크립트 하나를 부착하며 이름은 `스크립트이름 1`, `스크립트이름 2`처럼 생성합니다. Hierarchy의 오브젝트 위에 놓으면 자손이 됩니다. Level 스크립트는 이 방법으로 배치하지 않습니다. 다중 드롭과 Undo/Redo도 지원합니다.
+
+![스크립트를 배치해 만든 오브젝트](images/script-placement.png)
 4. 각 스크립트 그룹의 프로퍼티를 설정하고 우측 상단 Save를 누릅니다.
 5. Prefab을 뷰포트나 Hierarchy에 드롭해 인스턴스를 배치합니다. Lua 스크립트 자체는 배치 대상이 아닙니다.
 
