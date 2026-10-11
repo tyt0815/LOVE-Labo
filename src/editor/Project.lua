@@ -110,7 +110,7 @@ function Project.create(parentPath, name)
         for i = #createdDirectories, 1, -1 do fs.removeDirectory(createdDirectories[i]) end
         return nil, err
     end
-    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Sources"), fs.join(root, "Docs") }) do
+    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Docs") }) do
         local created, err = fs.mkdir(directory)
         if not created then return rollback(err) end
         createdDirectories[#createdDirectories + 1] = directory
@@ -143,7 +143,7 @@ function Project.open(rootPath)
     if not valid then return nil, nameError end
     -- 필수 폴더의 누락만 복구한다. 파일·링크와 권한 오류는 덮어쓰지 않는다.
     local missingFolders = {}
-    for _, name in ipairs({"Assets", "Sources"}) do
+    for _, name in ipairs({"Assets"}) do
         local path = fs.join(project.rootPath, name)
         local info, infoError = fs.info(path)
         if infoError then return nil, infoError end
@@ -164,6 +164,8 @@ function Project.open(rootPath)
         local made, makeError = fs.mkdir(path)
         if not made then return nil, makeError end
     end
+    local layoutReady, layoutError = require("editor.ProjectLayout").migrateSources(project.rootPath)
+    if not layoutReady then return nil, layoutError end
     project.defaultLevelReference = data.defaultLevelReference
     project.name = data.name
     local recovered, recoverError = require("editor.AssetRegistry").recoverMove(project)
@@ -189,6 +191,7 @@ end
 
 function Project:getAssetId(reference)
     if type(reference) ~= "string" then return nil end
+    reference = reference:gsub("^Sources/", "Assets/Scripts/")
     return self.assetIds and self.assetIds[reference]
         or self.assetIdsByLower and self.assetIdsByLower[reference:lower()]
 end
@@ -214,7 +217,7 @@ function Project:getAssetReference(reference)
         if not path then return nil, "Asset ID is missing: " .. reference end
         return path
     end
-    return reference
+    return type(reference) == "string" and reference:gsub("^Sources/", "Assets/Scripts/") or reference
 end
 
 function Project:referenceForPath(path)
@@ -223,7 +226,7 @@ function Project:referenceForPath(path)
     local prefix = self.rootPath:gsub("/+$", "") .. "/"
     if normalized:lower():sub(1, #prefix) ~= prefix:lower() then return nil end
     local reference = normalized:sub(#prefix + 1)
-    if reference:match("^Assets/") or reference:match("^Sources/") then return reference end
+    if reference:match("^Assets/") then return reference end
 end
 
 function Project:listAssets(reference)
@@ -235,9 +238,8 @@ function Project:listAssets(reference)
 end
 
 function Project:listDirectory(reference)
-    if type(reference) ~= "string" or (reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/"
-        and reference ~= "Sources" and reference:sub(1, 8) ~= "Sources/") then
-        return nil, "Folder must be inside Assets or Sources"
+    if type(reference) ~= "string" or (reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/") then
+        return nil, "Folder must be inside Assets"
     end
     local path, err = self:resolvePath(reference)
     if not path then return nil, err end
@@ -247,7 +249,7 @@ function Project:listDirectory(reference)
     for segment in reference:gmatch("[^/]+") do
         current = fs.join(current, segment)
         local info, infoError = fs.info(current)
-        if not info and not infoError and reference == "Sources" then return {} end
+        if not info and not infoError and reference == "Assets" then return {} end
         if not info or info.type ~= "directory" or info.isLink then
             return nil, infoError or "Project folder is missing or is a filesystem link"
         end
@@ -280,8 +282,8 @@ function Project:resolveSourceFile(reference)
 end
 
 function Project:resolveProjectFile(reference)
-    if type(reference) ~= "string" or (reference:sub(1, 7) ~= "Assets/" and reference:sub(1, 8) ~= "Sources/") then
-        return nil, "File must be inside Assets or Sources"
+    if type(reference) ~= "string" or (reference:sub(1, 7) ~= "Assets/") then
+        return nil, "File must be inside Assets"
     end
     local path, err = self:resolvePath(reference)
     if not path then return nil, err end
@@ -298,9 +300,8 @@ end
 
 -- 쓰기 작업도 탐색과 동일하게 루트 경계와 모든 부모의 링크 여부를 검사한다.
 function Project:checkedEntry(reference)
-    if type(reference) ~= "string" or (reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/"
-        and reference ~= "Sources" and reference:sub(1, 8) ~= "Sources/") then
-        return nil, "Entry must be inside Assets or Sources"
+    if type(reference) ~= "string" or (reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/") then
+        return nil, "Entry must be inside Assets"
     end
     local path, err = self:resolvePath(reference)
     if not path then return nil, err end
@@ -332,14 +333,14 @@ function Project:getScriptKind(reference)
     text = text:gsub("^\239\187\191", "")
     local firstLine = text:match("^([^\r\n]*)") or ""
     local kind = firstLine:match("^%s*%-%-%s*labo%-script:%s*([%w_-]+)%s*$")
-    if kind == "level" or kind == "lobject" or kind == "component" then return kind end
+    if kind == "level" or kind == "script" then return kind end
     if firstLine:find("labo-script:", 1, true) then return nil, "Invalid script type marker" end
     -- 종류 표식 도입 전에 작성한 프로젝트 코드는 기존 Level 동작을 유지한다.
-    return "level"
+    return "script"
 end
 
 function Project:listScripts(kind)
-    if kind ~= "level" and kind ~= "lobject" and kind ~= "component" then return nil, "Unknown script type" end
+    if kind ~= "level" and kind ~= "script" then return nil, "Unknown script type" end
     local scripts = {}
     local function visit(folder)
         local entries, err = self:listDirectory(folder)
@@ -358,7 +359,7 @@ function Project:listScripts(kind)
         end
         return true
     end
-    local ok, err = visit("Sources")
+    local ok, err = visit("Assets")
     if not ok then return nil, err end
     table.sort(scripts)
     return scripts
@@ -368,15 +369,15 @@ function Project:createEntry(folder, kind, name, options)
     options = options or {}
     local valid, err = Project.isValidName(name)
     if not valid then return false, err end
-    if kind == "lua" then name = require("editor.ClassName").fromModule(name, "LuaClass") end
+    if kind == "lua" then name = require("editor.ClassName").fromModule(name, "LuaScript") end
     if require("editor.AssetRegistry").isInternal(name:lower()) then return false, "Metadata and temporary names are reserved" end
     if kind ~= "folder" and kind ~= "level" and kind ~= "prefab" and kind ~= "lua" then return false, "Unknown entry type" end
     if (kind == "level" or kind == "prefab") and not folder:match("^Assets/?") then return false, "Level and Prefab assets belong in Assets" end
-    if kind == "lua" and not folder:match("^Sources/?") then return false, "Lua scripts belong in Sources" end
+    if kind == "lua" and not folder:match("^Assets/?") then return false, "Lua scripts belong in Assets" end
     local entries, listError = self:listDirectory(folder)
     if not entries then return false, listError end
-    if kind == "lua" and options.scriptKind ~= "level" and options.scriptKind ~= "lobject" and options.scriptKind ~= "component" then
-        return false, "Choose a Level, LObject or Component parent"
+    if kind == "lua" and options.scriptKind ~= "level" and options.scriptKind ~= "script" then
+        return false, "Choose a Level, LObject or Script parent"
     end
     if (kind == "level" or kind == "prefab") and options.scriptReference ~= nil then
         local rebuilt, rebuildError = self:rebuildAssetIndex()
@@ -392,14 +393,10 @@ function Project:createEntry(folder, kind, name, options)
     end
     local parentId
     if kind == "lua" and options.parentReference then
-        if options.scriptKind == "component" and ({LObjectComponent = true, SceneComponent = true, BoundsComponent = true, PointerComponent = true, RenderComponent = true, SpriteComponent = true, CameraComponent = true, RectComponent = true, CanvasComponent = true})[options.parentReference] then
-            parentId = options.parentReference
-        else
-            local parent, err = require("project.LuaClass").load(self, options.parentReference, options.scriptKind)
-            if not parent then return false, err end
-            parentId = self:getAssetId(self:getAssetReference(options.parentReference))
-            if not parentId then return false, "Parent Class is not registered" end
-        end
+        local parent, err = require("project.LuaScript").load(self, options.parentReference, options.scriptKind)
+        if not parent then return false, err end
+        parentId = require("Engine")[options.parentReference] and options.parentReference or self:getAssetId(self:getAssetReference(options.parentReference))
+        if not parentId then return false, "Parent script is not registered" end
     end
     local fs, createdDirectories, createdFiles, createdReferences = filesystem(), {}, {}, {}
     local function rollback(errorText)
@@ -457,42 +454,15 @@ function Project:createEntry(folder, kind, name, options)
         end
     elseif kind == "lua" then
         ok, createError = writeNew(reference, require(options.scriptKind == "level"
-            and "editor.LevelScriptTemplate" or options.scriptKind == "component" and "editor.ComponentScriptTemplate"
-            or "editor.LObjectScriptTemplate")(name, parentId))
+            and "editor.LevelScriptTemplate" or "editor.ScriptTemplate")(name, parentId))
     elseif kind == "level" then
         if fs.info(assert(self:resolvePath(reference))) then return false, "Level file already exists" end
         local level = options.level or require("editor.Level").new()
         assert(level:setScriptReference(self:getAssetId(options.scriptReference) or options.scriptReference))
         if not options.level and not options.empty then
-            local cameraReference = "Sources/Defaults/Camera.lua"
-            local cameraPath = assert(self:resolvePath(cameraReference))
-            local cameraId, cameraName = nil, "camera"
-            if fs.info(cameraPath) then
-                local indexed, indexError = self:rebuildAssetIndex()
-                if not indexed then return rollback(indexError) end
-                local definition, cameraError = require("project.ObjectDefinition").resolve(self, cameraReference)
-                if not definition then return rollback(cameraError) end
-                local preview = assert(require("core.LObject").new(1, {transform = {x = 0, y = 0}}))
-                local configured, configureError = require("project.ObjectDefinition").configure(preview, definition)
-                if not configured or not preview.rootComponent:isA(require("core.CameraComponent")) then
-                    return rollback(configureError or "Default Camera class must have a CameraComponent root")
-                end
-                cameraId = self:getAssetId(cameraReference)
-                cameraName = preview.rootComponent.name
-            else
-                local saved, cameraError, id = writeNew(cameraReference, [[-- labo-script: lobject
-local Engine = require("Engine")
-local Camera = {}
-function Camera.build(self)
-    self:setRootComponent("camera", Engine.CameraComponent)
-end
-return Camera
-]], "lobject")
-                if not saved then return rollback(cameraError) end
-                cameraId = id
-            end
-            local camera = assert(level:addLObject(0, 0, cameraId, "Camera"))
-            level.mainCamera = {authoringId = camera.authoringId, component = cameraName}
+            local camera = assert(level:addLObject(0, 0, nil, "Camera"))
+            camera.scripts = {{id = "camera", source = "Camera"}}
+            level.mainCamera = {authoringId = camera.authoringId, script = "camera"}
         end
         local text, encodeError = require("editor.LevelFile").encode(level)
         if not text then return rollback(encodeError) end
@@ -516,7 +486,7 @@ function Project:deletionEntries(reference)
     end
     local path, info = self:checkedEntry(reference)
     if not path then return false, info end
-    if reference == "Assets" or reference == "Sources" then return false, "Project roots cannot be deleted" end
+    if reference == "Assets" then return false, "Project roots cannot be deleted" end
     local default = self:getAssetReference(self.defaultLevelReference)
     -- 현재 호스트는 Windows이므로 대소문자만 다른 참조도 같은 파일로 보호한다.
     local compared = reference:lower()
@@ -572,9 +542,9 @@ function Project:deleteEntry(reference)
 end
 
 function Project:moveEntry(source, destination)
-    if source == "Assets" or source == "Sources" then return false, "Project roots cannot be moved" end
+    if source == "Assets" then return false, "Project roots cannot be moved" end
     if type(destination) ~= "string" then return false, "Enter a destination path" end
-    if source:match("^[^/]+") ~= destination:match("^[^/]+") then return false, "Keep the entry in its Assets or Sources root" end
+    if source:match("^[^/]+") ~= destination:match("^[^/]+") then return false, "Keep the entry in its Assets root" end
     local rebuilt, rebuildError = self:rebuildAssetIndex()
     if not rebuilt then return false, rebuildError end
     local path, info = self:checkedEntry(source)

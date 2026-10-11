@@ -43,6 +43,19 @@ function Tree:choose(node)
     self.selected = node.key
     if self.onSelect then self.onSelect(node.key) end
 end
+function Tree:nameRect(path)
+    for index, node in ipairs(self.nodes) do if node.key == path then
+        return {x = self.x + 24 + node.depth * 14, y = self.y + (index - 1 - self.scroll) * ROW_HEIGHT,
+            w = math.max(60, self.width - node.depth * 14 - 60), h = ROW_HEIGHT}
+    end end
+end
+function Tree:prefabGroup(object)
+    local current = object
+    while current do
+        if current.reference then return current.path, current.reference end
+        current = current.parent
+    end
+end
 function Tree:reveal(path)
     local parent = path
     while parent do self.expanded[parent] = true; parent = parent:match("^(.*)/[^/]+$") end
@@ -63,7 +76,9 @@ function Tree:dispatch(event, ...)
         local node = self:nodeAt(x, y)
         if button == 2 and node and self.onContext then self.onContext(node.key, x, y); return true end
         if button == 1 and node then
-            if x < self.x + 24 + node.depth * 14 and #node.children > 0 then
+            local _, reference = self:prefabGroup(node.object)
+            if reference and x >= self.x + self.width - 44 and self.onLocatePrefab then self.onLocatePrefab(reference)
+            elseif x < self.x + 24 + node.depth * 14 and #node.children > 0 then
                 self.expanded[node.key] = self.expanded[node.key] == false; self:rebuild()
             else self:choose(node) end
         end
@@ -84,13 +99,17 @@ function Tree:draw()
     for row = 1, self.rows do
         local node = self.nodes[row + self.scroll]; if not node then break end
         local y, x = self.y + (row - 1) * ROW_HEIGHT, self.x + 8 + node.depth * 14
+        local group = self:prefabGroup(node.object)
+        local selectedGroup
+        for _, selected in ipairs(self.nodes) do if selected.key == self.selected then selectedGroup = self:prefabGroup(selected.object) end end
+        require("editor.ui.PrefabAppearance").background(group, group == selectedGroup, {x = self.x, y = y, w = self.width - 12, h = ROW_HEIGHT})
         if node.key == self.selected then Ui.selection(self.x, y, self.width, ROW_HEIGHT) end
         if self.ping and self.ping.key == node.key then
             Theme.setColor("focus"); love.graphics.rectangle("line", self.x + 1, y + 1, self.width - 2 - Scrollbar.WIDTH, ROW_HEIGHT - 2)
         end
         if #node.children > 0 then Ui.chevron(x, y + ROW_HEIGHT / 2, self.expanded[node.key] ~= false) end
-        Ui.text(node.label, x + 16, y + 5, math.max(0, self.width - (x - self.x) - 34))
-        Ui.hint({x = self.x, y = y, w = self.width, h = ROW_HEIGHT}, "Select " .. node.label .. ". Drop a template or an instance to add children.")
+        Ui.text(node.label, x + 16, y + 5, math.max(0, self.width - (x - self.x) - 60))
+        if group then Ui.browseButton({x = self.x + self.width - 44, y = y, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
     end
     self.scrollbar:draw()
     love.graphics.pop()

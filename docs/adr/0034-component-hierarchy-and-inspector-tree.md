@@ -1,5 +1,7 @@
 # 0034. 컴포넌트 부착 계층과 Inspector 선택 트리
 
+> 컴포넌트 부착·Inspector 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다.
+
 - 상태: 채택
 - 후속: 위치 합산·루트 로컬 위치·컴포넌트 회전/스케일 제외와 렌더링 관계는 [ADR 0035](0035-render-components-and-root-transform.md)로 부분 대체한다.
 - 날짜: 2026-10-09

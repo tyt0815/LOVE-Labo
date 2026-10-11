@@ -36,7 +36,8 @@ function Operations.execute(project, level, request)
                 if type(value) ~= "table" then values[name] = value
                 elseif value.runtimeId then values[name] = {runtimeId = value.runtimeId, authoringId = value.authoringId} end
             end
-            result.instances[#result.instances + 1] = {runtimeId = object.runtimeId, authoringId = object.authoringId, properties = values}
+            result.instances[#result.instances + 1] = {runtimeId = object.runtimeId, authoringId = object.authoringId, properties = values,
+                scripts = require("runtime.ScriptState").read(object)}
         end
     end)
     for _, image in pairs(images) do image:release() end

@@ -22,7 +22,7 @@ function Package:resolve(reference, root)
     if not love.filesystem.getInfo(packed, "file") then return nil, "Missing packaged file: " .. path end
     return packed
 end
-function Package:resolveSourceFile(reference) return self:resolve(reference, "Sources") end
+function Package:resolveSourceFile(reference) return self:resolve(reference, "Assets") end
 function Package:resolveAssetFile(reference) return self:resolve(reference, "Assets") end
 function Package:readSource(reference)
     local path, err = self:resolveSourceFile(reference)

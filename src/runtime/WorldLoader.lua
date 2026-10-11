@@ -1,9 +1,9 @@
 local Loader = {}
-local LuaClass = require("project.LuaClass")
+local LuaScript = require("project.LuaScript")
 local Definition = require("project.ObjectDefinition")
 
 function Loader.bind(project, data, world)
-    local loadClass = LuaClass.loader(project)
+    local loadClass = LuaScript.loader(project)
     local initial, byId, dataById = {}, {}, {}
     for i, object in ipairs(world.lobjects) do initial[i] = object; byId[object.authoringId] = object end
     local authored = {}
@@ -48,7 +48,7 @@ function Loader.bind(project, data, world)
             if not recipe then recipe, err = Hierarchy.resolve(project, source.definitionReference, loadClass) end
             if not recipe then return false, err end
             local objects, configureError = require("runtime.TemplateObjects").configure(world, recipe, initial[i],
-                {properties = source.propertyOverrides, components = source.componentOverrides, removedPaths = source.prefabRemovedPaths}, authored[source.authoringId])
+                {attachments = source.scripts, properties = source.propertyOverrides, scripts = source.scriptOverrides, removedPaths = source.prefabRemovedPaths}, authored[source.authoringId])
             if not objects then return false, configureError end
         end
     end
@@ -56,7 +56,7 @@ function Loader.bind(project, data, world)
     if not ok then return false, err end
     local valid, referenceError = require("runtime.TemplateObjects").resolveReferences(project, world)
     if not valid then return false, referenceError end
-    local complete = {}; for _, object in ipairs(world.lobjects) do complete[#complete + 1] = object end
+    local complete = require("core.ScriptOrder").objects(world.lobjects)
     return true, complete, loadClass
 end
 
@@ -69,10 +69,10 @@ function Loader.prepare(project, data)
     local class
     if data.scriptReference then
         if not project then return nil, "Level script requires a project" end
-        class, err = LuaClass.load(project, data.scriptReference, "level")
+        class, err = LuaScript.load(project, data.scriptReference, "level")
         if not class then return nil, err end
     end
-    world.properties, err = LuaClass.values(class, data.propertyOverrides)
+    world.properties, err = LuaScript.values(class, data.propertyOverrides)
     if not world.properties then return nil, err end
     world.levelPropertySchema = class and class.properties
     local ok, initial, loadClass = Loader.bind(project, data, world)
@@ -86,8 +86,10 @@ function Loader.activate(project, world, class, initial, loadClass)
     require("runtime.PrefabSpawner").bind(project, world, loadClass)
     require("runtime.LevelTransition").bind(project, world)
     for _, object in ipairs(initial) do
-        local ok, err = object:beginPlay(world)
-        if not ok then return nil, err end
+        if object.world == world then
+            local ok, err = object:beginPlay(world)
+            if not ok then return nil, err end
+        end
     end
     if class then
         local ok, err = world:setLevelScript(class)

@@ -177,7 +177,7 @@ function Dialog:draw()
                     or "Select " .. choice.label .. ". Enter: confirm.")
             end
         end
-        if #self.options.choices == 0 then Ui.text(self.options.emptyLabel or "No matching classes. Create one in Sources.", rect.x + 8, rect.y + 8, rect.w - 16) end
+        if #self.options.choices == 0 then Ui.text(self.options.emptyLabel or "No matching classes. Create one in Assets.", rect.x + 8, rect.y + 8, rect.w - 16) end
         self.scrollbar:draw()
         local hint = self.options.checkboxes and "Click / Space: toggle    Up/Down or wheel: navigate"
             or self.options.listOnly and "Up/Down or wheel: scroll" or "Tab: name/class    Up/Down or wheel: select class"

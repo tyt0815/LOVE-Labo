@@ -21,7 +21,7 @@ function AssetBrowser.new(project)
     local self = setmetatable(Canvas.new(), AssetBrowser)
     local state = {
         project = project, folder = "Assets", entries = {}, selectedReference = nil, selectedReferences = {},
-        expanded = { Assets = true, Sources = true }, children = {}, tree = {},
+        expanded = { Assets = true }, children = {}, tree = {},
         treeScroll = 0, fileScroll = 0, collapsed = false,
         x = 0, y = 0, width = 0, height = 0, error = nil,
         viewMode = "thumbnails", panelName = "assets"
@@ -92,6 +92,7 @@ function AssetBrowser.new(project)
     end
     self.handlers.keypressed = function(_, key)
         if key == "escape" then self:cancelDrag()
+        elseif key == "f2" then local entries = self:getSelectedEntries(); if #entries == 1 then self:showRenameDialog(entries[1]) end
         elseif key == "a" and love.keyboard.isDown("lctrl", "rctrl") then self:setSelection(self.entries)
         elseif key == "delete" then local entries = self:getSelectedEntries(); if entries[1] then self:showDeleteSelectionDialog(entries[1]) end
         elseif key == "backspace" then self:goUp()
@@ -109,7 +110,7 @@ function AssetBrowser.new(project)
         if self.ping then self.ping.remaining = self.ping.remaining - dt; if self.ping.remaining <= 0 then self.ping = nil end end
         self:updateDrag(dt)
     end
-    self.hint = "Asset Browser: browse Assets and Sources. Right-click: create or manage files."
+    self.hint = "Asset Browser: browse Assets. Right-click: create or manage files."
     self:refresh()
     return self
 end
@@ -184,7 +185,6 @@ function AssetBrowser:rebuildTree()
         end
     end
     visit("Assets", "Assets", 0)
-    visit("Sources", "Sources", 0)
     self:clampScroll()
 end
 
@@ -266,7 +266,7 @@ function AssetBrowser:reveal(value)
 end
 
 function AssetBrowser:goUp()
-    if self.folder == "Assets" or self.folder == "Sources" then return false end
+    if self.folder == "Assets" then return false end
     return self:openFolder(self.folder:match("^(.*)/[^/]+$"))
 end
 
@@ -346,7 +346,7 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
         if x < self.treeSlot.widget.x + Ui.METRICS.contentPaddingX + 18 + node.depth * 14 then
             self.expanded[node.reference] = not self.expanded[node.reference]
             self:rebuildTree()
-        elseif node.reference == "Assets" or node.reference == "Sources" then self:openFolder(node.reference)
+        elseif node.reference == "Assets" then self:openFolder(node.reference)
         else
             -- 트리 탐색은 release까지 미뤄 이동 중에 현재 폴더가 바뀌지 않게 한다.
             self.drag = {entry = {reference = node.reference, name = node.name, type = "directory"},
@@ -450,7 +450,7 @@ function AssetBrowser:dropTargetAt(x, y)
     local source = self.drag.entry.reference
     local destination = folder .. "/" .. self.drag.entry.name
     local errorText
-    if source:match("^[^/]+") ~= folder:match("^[^/]+") then errorText = "Keep Assets and Sources separate"
+    if source:match("^[^/]+") ~= folder:match("^[^/]+") then errorText = "Keep assets inside Assets"
     elseif destination:lower() == source:lower() then errorText = "Already in this folder"
     elseif self.drag.entry.type == "directory" and (folder:lower() == source:lower()
         or folder:lower():sub(1, #source + 1) == source:lower() .. "/") then errorText = "Cannot move into itself"
@@ -574,12 +574,14 @@ function AssetBrowser:drawDragOverlay()
 end
 
 function AssetBrowser:showContextMenu(x, y)
-    local entry, folder = nil, self.folder
+    local entry, folder, renameRect = nil, self.folder, nil
     if self.treeSlot.widget:containsPoint(x, y) then
         local index = math.floor((y - self.treeSlot.widget.y) / ROW) + 1 + self.treeScroll
         local node = self.tree[index]
         if node then
             entry = { reference = node.reference, name = node.name, type = "directory" }
+            renameRect = {x = self.treeSlot.widget.x + 28 + node.depth * 14, y = self.treeSlot.widget.y + (index - 1 - self.treeScroll) * ROW,
+                w = math.max(60, self.treeSlot.widget.width - 40 - node.depth * 14), h = ROW}
             folder = node.reference
             self:setSelection({entry})
         end
@@ -593,17 +595,17 @@ function AssetBrowser:showContextMenu(x, y)
     for _, option in ipairs({ {"Folder", "folder"}, {"Level", "level"}, {"Prefab", "prefab"}, {"Lua Class", "lua"} }) do
         local label, kind = option[1], option[2]
         local root = folder:match("^[^/]+")
-        if kind == "folder" or (kind == "level" or kind == "prefab") and root == "Assets" or kind == "lua" and root == "Sources" then
+        if kind == "folder" or (kind == "level" or kind == "prefab") and root == "Assets" or kind == "lua" and root == "Assets" then
             newItems[#newItems + 1] = { label = label,
                 action = function() self:showCreateDialog(folder, kind) end }
         end
     end
     local items = { { label = "New", children = newItems } }
-    if entry and entry.reference ~= "Assets" and entry.reference ~= "Sources" then
+    if entry and entry.reference ~= "Assets" then
         items[#items + 1] = { label = "Move", enabled = not entry.isLink,
             action = function() self:showMoveSelectionDialog(entry) end }
         items[#items + 1] = { label = "Rename", enabled = not entry.isLink and #self:getSelectedEntries() <= 1,
-            action = function() self:showRenameDialog(entry) end }
+            action = function() self:showRenameDialog(entry, renameRect) end }
         items[#items + 1] = { label = "Delete", enabled = not entry.isLink,
             action = function() self:showDeleteSelectionDialog(entry) end }
     end
@@ -626,19 +628,26 @@ function AssetBrowser:showMoveDialog(entry)
     dialog.error = tree.error
 end
 
-function AssetBrowser:showRenameDialog(entry)
+function AssetBrowser:showRenameDialog(entry, rect)
     local folder, name = entry.reference:match("^(.*)/([^/]+)$")
     local extension = entry.type == "file" and (name:match("%.[^%.]+$") or "") or ""
     local stem = extension ~= "" and name:sub(1, -#extension - 1) or name
-    Dialog.new(self.uiRoot, {title = "Rename", message = entry.reference, input = true,
-        value = stem, confirmLabel = "Rename", onConfirm = function(newName)
+    if not rect then
+        self:reveal(entry.reference)
+        for i, item in ipairs(self.entries) do if item.reference == entry.reference then rect = self:entryBounds(i) end end
+        if rect and self.viewMode ~= "list" then rect = {x = rect.x + 7, y = rect.y + 98, w = rect.w - 10, h = 26} end
+    end
+    if not rect then return false, "Entry is not visible" end
+    self:setSelection({entry})
+    require("editor.ui.InlineRename").new(self.uiRoot, rect, stem, function(newName)
             if extension ~= "" and newName:sub(-#extension):lower() == extension:lower() then
                 newName = newName:sub(1, -#extension - 1)
             end
             local valid, err = self.project.isValidName(newName)
             if not valid then return false, err end
+            if folder .. "/" .. newName .. extension == entry.reference then return true end
             return self:moveEntry(entry, folder .. "/" .. newName .. extension)
-        end})
+        end)
 end
 
 function AssetBrowser:moveEntry(entry, destination)
@@ -660,6 +669,16 @@ function AssetBrowser:moveEntryDirect(entry, destination)
 end
 
 function AssetBrowser:showCreateDialog(folder, kind)
+    if kind == "prefab" then
+        local name, number = "NewPrefab", 1
+        while self.project:checkedEntry(folder .. "/" .. name .. ".prefab") do number = number + 1; name = "NewPrefab " .. number end
+        local ok, reference
+        if self.assetOperations then ok, reference = self.assetOperations:create(folder, kind, name)
+        else ok, reference = self.project:createEntry(folder, kind, name) end
+        if not ok then self.error = reference; return false, reference end
+        self:reveal(reference)
+        for _, entry in ipairs(self.entries) do if entry.reference == reference then return self:showRenameDialog(entry) end end
+    end
     return require("editor.CreateAssetDialog").show(self, folder, kind)
 end
 
@@ -719,11 +738,9 @@ function AssetBrowser:drawIcon(entry, x, y)
         love.graphics.rectangle("line", x + 12.5, y + 12.5, 63, 63, 6, 6)
         love.graphics.setFont(self.fileIconFont)
         local font = self.fileIconFont
-        if font:getWidth(label) > 52 then
-            self.smallFileIconFont = self.smallFileIconFont or require("editor.Fonts").get(16)
-            font = self.smallFileIconFont
-            love.graphics.setFont(font)
-        end
+        local size = 24
+        while font:getWidth(label) > 52 and size > 8 do size = size - 1; font = require("editor.Fonts").get(size) end
+        love.graphics.setFont(font)
         Ui.text(label, x + 44 - math.min(font:getWidth(label), 52) / 2,
             y + 44 - font:getHeight() / 2, 52, Theme.color(color))
         if badge then
@@ -738,17 +755,14 @@ end
 function AssetBrowser:iconStyle(entry)
     if entry.isLink then return "Link", "iconText" end
     local extension = (entry.name:match("%.([^%.]+)$") or "file"):lower()
-    if extension == "level" then return "Lv", "assetLevel" end
-    if extension == "prefab" then return "Pf", "assetPrefab" end
+    if extension == "level" then return "Level", "assetLevel" end
+    if extension == "prefab" then return "Prefab", "assetPrefab" end
     if extension == "lua" then
         local meta = self.project.assetMetadata and self.project.assetMetadata[entry.reference]
         local kind = meta and meta.scriptKind
-        if kind == "level" then return "Lv", "classLevel", "Lua" end
-        if kind == "lobject" then return "LO", "classLObject", "Lua" end
-        if kind == "component" then return "Cp", "classComponent", "Lua" end
-        return "?", "iconText", "Lua"
+        return "Lua", kind == "level" and "classLevel" or "classComponent"
     end
-    return extension == "file" and "File" or extension:upper(), "iconText"
+    return extension:sub(1, 1):upper() .. extension:sub(2), "iconText"
 end
 
 function AssetBrowser:drawFiles()

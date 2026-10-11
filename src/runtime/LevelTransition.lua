@@ -10,7 +10,7 @@ function Transition.bind(project, world)
         if not bytes then return false, readError end
         local data, decodeError = Json.decode(bytes)
         if not data then return false, decodeError end
-        if data.formatVersion ~= 1 and data.formatVersion ~= 2 then return false, "Unsupported level format version" end
+        if data.formatVersion ~= 1 and data.formatVersion ~= 2 and data.formatVersion ~= 3 then return false, "Unsupported level format version" end
         -- 파일 구조와 객체 관계를 검증하되 beginPlay는 프레임 경계까지 실행하지 않는다.
         local prepared, class, initial, loadClass = require("runtime.WorldLoader").prepare(project, data)
         if not prepared then return false, class end

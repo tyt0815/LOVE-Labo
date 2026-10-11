@@ -1,5 +1,7 @@
 # 0035. Draw 오버라이드와 루트 Transform 통일
 
+> 루트 컴포넌트·Draw 상속 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다. 오브젝트의 단일 Transform과 직접 draw 구현 원칙은 유지한다.
+
 - 상태: 채택
 - 후속: 카메라 투영·화면 Canvas와 전역 정렬은 [ADR 0046](0046-camera-screen-canvas-and-component-order.md)을 따른다.
 - 후속: Draw·GetLocalBounds·모듈 이름은 [ADR 0036](0036-code-conventions-and-module-names.md)의 draw·getLocalBounds·PascalCase 파일명으로 대체한다.

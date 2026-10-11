@@ -21,12 +21,12 @@ nav:
   - 사용자 매뉴얼:
       - 첫 프로젝트와 실행: guide/getting-started.md
       - 에디터 화면과 선택: guide/editor.md
-      - 클래스와 Prefab: guide/objects.md
+      - 스크립트와 Prefab: guide/objects.md
       - 카메라와 화면 UI: guide/camera-ui.md
       - 저장과 게임 Export: guide/export.md
   - Lua API:
       - 개요와 생명주기: guide/lua-api.md
-      - 컴포넌트와 프로퍼티: components.md
+      - 스크립트와 프로퍼티: components.md
       - 런타임 객체 생성: runtime-spawn.md
       - 레벨 전환: level-transition.md
       - 계층 Prefab: hierarchy-prefabs.md

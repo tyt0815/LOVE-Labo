@@ -13,7 +13,7 @@ function Operations.execute(project, request, api)
             if kind or reference:match("%.prefab$") or reference:match("%.level$") then
                 checked = checked + 1
                 local ok, err = pcall(function()
-                    if kind then assert(require("project.LuaClass").load(project, reference, kind))
+                    if kind then assert(require("project.LuaScript").load(project, reference, kind))
                     elseif reference:match("%.level$") then
                         local document = assert(require("editor.LevelDocument").load(assert(project:resolveAssetFile(reference))))
                         assert(require("runtime.WorldLoader").prepare(project, document.level:toData()))
@@ -27,7 +27,7 @@ function Operations.execute(project, request, api)
         return {valid = #errors == 0, checked = checked, errors = errors}
     end
     if command == "asset.list" then return {entries = assert(project:listDirectory(request.folder or "Assets"))} end
-    if command == "class.list" then return {classes = assert(project:listScripts(request.type or "lobject"))} end
+    if command == "class.list" then return {classes = assert(project:listScripts(request.type or "script"))} end
     if command == "folder.create" then
         local ok, reference = project:createEntry(api.required(request, "folder"), "folder", api.required(request, "name"))
         assert(ok, reference); return api.basicResult(project, reference)
@@ -40,7 +40,7 @@ function Operations.execute(project, request, api)
         local folder = request.folder or "Assets"
         if command == "asset.copy" then
             local original = assert(project:getAssetReference(request.asset))
-            assert(original:match("^[^/]+") == folder:match("^[^/]+"), "Keep the copy in its Assets or Sources root")
+            assert(original:match("^[^/]+") == folder:match("^[^/]+"), "Keep the copy in its Assets root")
         end
         assert(project:listDirectory(folder))
         local name = request.name or source:match("([^/\\]+)$")
@@ -75,11 +75,11 @@ function Operations.execute(project, request, api)
                 if project:getAssetReference(requested) == reference then return text end
                 return project:readSource(requested)
             end}, {__index = project})
-            assert(require("project.LuaClass").load(view, reference, kind))
+            assert(require("project.LuaScript").load(view, reference, kind))
             assert(assert(Fs.read(path)) == bytes, "Revision conflict: file changed while editing")
             assert(Fs.writeAtomic(path, text)); bytes = text
         else assert(command == "class.get", "Unknown command: " .. command) end
-        local class = assert(require("project.LuaClass").load(project, reference, kind))
+        local class = assert(require("project.LuaScript").load(project, reference, kind))
         local result = api.basicResult(project, reference)
         result.source, result.kind, result.schema, result.parent, result.revision = bytes, kind, class.properties, class.extends, api.revision(bytes)
         return result

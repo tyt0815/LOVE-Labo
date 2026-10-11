@@ -1,3 +1,16 @@
+> 현재 실행 모델은 [ADR 0050](adr/0050-attached-scripts-and-unified-assets.md)을 따른다. LObject는 Transform·자손을 소유하며 여러 Script를 부착한다. 아래의 LObject 클래스 상속·Component·Sources 관련 초기 설계는 역사적 맥락이며 새 계약으로 대체되었다. 플러그인 계획은 이번 전환에 포함하지 않는다.
+
+## 현재 오브젝트 모델
+
+```text
+World (소유) → LObject (소유) → 자손 LObject
+                         ├→ Transform
+                         └→ Script 인스턴스 여러 개
+Script (상속) ← Camera / Sprite / Pointer / Rect / Canvas / 사용자 스크립트
+```
+
+Script는 별도 Transform을 갖지 않는다. Prefab이 부착 구성·계층·기본 프로퍼티를 저장하고 인스턴스는 값을 재정의한다. Lua 에셋은 부착할 스크립트 정의이며 Prefab만 오브젝트 생성 템플릿으로 사용한다. Assets가 유일한 에셋 루트다. 형식 전환 및 CLI 계약은 ADR 0050과 사용자 가이드를 따른다.
+
 # LÖVE Labo — Design
 
 - 상태: **개발 Baseline**

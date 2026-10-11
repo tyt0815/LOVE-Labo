@@ -1,0 +1,35 @@
+# LÖVE Labo 로컬 핵심 안내
+
+공식 문서: https://tyt0815.github.io/LOVE-Labo/ — 개발 버전의 실제 CLI help와 함께 확인한다.
+
+## 오브젝트와 스크립트
+
+LObject는 Transform과 부모·자손을 가진다. 스크립트는 오브젝트를 상속하지 않고 독립 인스턴스로 부착된다.
+Lua 파일은 properties와 선택적인 beginPlay(world), update(dt), draw(context)를 가진 테이블을 반환한다.
+self는 스크립트이며 self.owner.transform, self.owner:getScript(id)로 오브젝트·다른 스크립트를 사용한다.
+일반 Lua 필드는 Inspector에 노출되지 않는다. properties에 number/string/boolean/object/script/image/prefab를 선언한다.
+group으로 프로퍼티를 묶는다. object 참조는 authoringId, script 참조는 {authoringId=ID, script="부착ID"}로 저장한다.
+
+require("Engine")은 LObject, Script, Camera, Sprite, Pointer, Rect, Canvas를 제공한다.
+편의 스크립트는 Script를 직접 상속하며 별도의 컴포넌트 계층·루트 컴포넌트는 없다.
+Camera의 viewWidth/viewHeight는 논리 화면 크기이고 zoom은 배율이다. World의 setActiveCamera로 전환한다.
+Canvas는 화면 중심을 원점으로 하는 픽셀 좌표계를 시작한다. Pointer의 boundsSource는 같은 오브젝트의 스크립트 ID다.
+onPointerDown/up/move에서 true를 반환하면 입력을 소비한다. 직접 hitTest/getLocalBounds를 구현할 수도 있다.
+world:spawnLObject(prefab, transform, overrides)로 Prefab 계층을 생성하고 world:removeLObject(object)로 자손까지 제거한다.
+world:openLevel(reference)은 프레임 경계에서 레벨을 전환한다. 새 레벨은 기본 Camera와 Main Camera 지정을 포함한다.
+
+## 데이터와 CLI
+
+모든 에셋은 Assets 아래에 있으며 .meta의 ID로 참조한다. Docs는 게임 Export에 포함하지 않는다.
+Prefab 형식은 4, 레벨 형식은 3이다. 이전 Sources는 Assets/Scripts로 이동하지만 옛 컴포넌트 코드·Prefab은 수동 전환해야 한다.
+Prefab의 scripts는 {id,source,label} 목록, overrides.scripts는 부착 ID별 프로퍼티 재정의다.
+
+Labo-cli.exe --cli help
+Labo-cli.exe --cli script create --project <경로> --name Movement
+Labo-cli.exe --cli prefab script add --project <경로> --prefab Assets/PF_Player.prefab --source Assets/Movement.lua --script movement
+Labo-cli.exe --cli prefab script move --project <경로> --prefab Assets/PF_Player.prefab --script movement --index 1
+Labo-cli.exe --cli level simulate --project <경로> --frames 60 --dt 0.0166667
+Labo-cli.exe --cli level pointer --project <경로> --space screen --x 640 --y 360
+
+기본 레벨이 없으면 --level을 지정한다. 복잡한 값은 --request <UTF-8 JSON 파일>을 사용한다.
+level.simulate는 초기화·업데이트 결과를 반환하며 파일을 수정하거나 draw를 실행하지 않는다.

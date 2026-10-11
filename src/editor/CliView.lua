@@ -8,15 +8,15 @@ function Operations.execute(project, level, request)
     if viewport.camera then
         local camera = viewport.camera
         local width, height = camera:getViewSize()
-        result.camera = {authoringId = camera.owner.authoringId, component = camera.name,
+        result.camera = {authoringId = camera.owner.authoringId, script = camera.name,
             transform = camera:getViewTransform(), viewWidth = width, viewHeight = height}
     end
     for _, object in ipairs(world.lobjects) do
-        for _, name in ipairs(object:getComponentOrder()) do
-            local component = object.components[name]
-            if component:isA(require("core.CanvasComponent")) then
-                local x, y, width, height = component:getBounds({viewport = viewport})
-                result.canvases[#result.canvases + 1] = {authoringId = object.authoringId, component = name,
+        for _, name in ipairs(object:getScriptOrder()) do
+            local script = object.scripts[name]
+            if script:isA(require("core.CanvasScript")) then
+                local x, y, width, height = script:getBounds({viewport = viewport})
+                result.canvases[#result.canvases + 1] = {authoringId = object.authoringId, script = name,
                     x = x, y = y, width = width, height = height}
             end
         end

@@ -1,0 +1,18 @@
+local Transform = require("core.Transform")
+local Camera = require("core.Script"):extend({scriptType = "Camera", camera = true, properties = {
+    viewWidth = {type = "number", default = 1280, group = "Camera"},
+    viewHeight = {type = "number", default = 720, group = "Camera"},
+    zoom = {type = "number", default = 1, group = "Camera"}
+}})
+function Camera:getViewSize()
+    assert(Transform.finite(self.viewWidth) and self.viewWidth > 0 and Transform.finite(self.viewHeight) and self.viewHeight > 0
+        and Transform.finite(self.zoom) and self.zoom > 0, "Camera size and zoom must be positive")
+    return self.viewWidth / self.zoom, self.viewHeight / self.zoom
+end
+function Camera:getViewTransform()
+    local world = self.owner:getWorldTransform()
+    local rotation, object = 0, self.owner
+    while object do rotation = rotation + (object.transform.rotation or 0); object = object.parent end
+    return {x = world.x, y = world.y, rotation = Transform.normalizeRotation(rotation), scaleX = 1, scaleY = 1}
+end
+return Camera

@@ -24,11 +24,19 @@ function Operations.execute(project, request, api)
         local parent = request.parent
         if parent == "None" or parent == false then parent = nil end
         if parent then parent = assert(project:getAssetId(assert(project:getAssetReference(parent))), "Parent asset is not registered") end
-        local definition = assert(require("project.ObjectDefinition").resolve(project, parent, nil, document.assetId))
-        local defaults = assert(require("project.ObjectDefinition").inspectorTarget(project, {transform = target.data.transform}, definition))
+        local defaults = assert(target.parentDefaults(parent))
         target.setParentReference(parent)
-        target:setOverrides(require("project.LuaClass").compatibleOverrides(defaults.class, target:getOverrides()), defaults)
+        target:setOverrides(require("project.LuaScript").compatibleOverrides(defaults.class, target:getOverrides()), defaults)
         changed = true
+    elseif command == "prefab.script.add" then
+        local ok, id = editor:addScript(nodePath, api.required(request, "source"), request.script)
+        assert(ok, id); changed = true
+    elseif command == "prefab.script.remove" then
+        local ok, err = editor:removeScript(nodePath, api.required(request, "script"))
+        assert(ok, err); changed = true
+    elseif command == "prefab.script.move" then
+        local ok, err = editor:moveScript(nodePath, api.required(request, "script"), tonumber(api.required(request, "index")))
+        assert(ok, err); changed = true
     elseif command == "prefab.child.add" then
         local ok, err, childPath
         if request.instance then
@@ -46,16 +54,16 @@ function Operations.execute(project, request, api)
         for _, binding in ipairs(document.data.bindings or {}) do
             if not Hierarchy.isRemoved(binding.from, {nodePath}) then bindings[#bindings + 1] = binding end
         end
-        document.data.bindings = bindings; document.data.formatVersion = 3
+        document.data.bindings = bindings; document.data.formatVersion = 4
         nodePath = "root"; changed = true
     elseif command == "prefab.child.rename" then
         assert(nodePath ~= "root", "Rename the root asset with asset.rename")
         local name = api.required(request, "name"); assert(type(name) == "string" and name ~= "", "Invalid instance name")
-        editor:record(nodePath, true).name = name; document.data.formatVersion = 3; changed = true
+        editor:record(nodePath, true).name = name; document.data.formatVersion = 4; changed = true
     else assert(command == "prefab.get" or command == "prefab.tree", "Unknown command: " .. command) end
     if changed then
         document.data.overrides.properties = document.data.overrides.properties or {}
-        document.data.overrides.components = document.data.overrides.components or {}
+        document.data.overrides.scripts = document.data.overrides.scripts or {}
         assert(editor:recipe())
         assert(require("runtime.WorldLoader").prepare(project, {lobjects = {{authoringId = 1, transform = {x = 0, y = 0}, definitionReference = document.assetId}}}))
         assert(assert(Fs.read(path)) == bytes, "Revision conflict: file changed while editing")

@@ -65,7 +65,7 @@ function GameView:drawRuntimeLObjects(world)
     local viewport = require("core.Viewport").new(world, left, top, width, height)
     local drawn = require("core.Renderer").drawWorld(world, function(reference) return self.spriteAssets and self.spriteAssets:image(reference) end, viewport)
     for _, lobject in ipairs(world.lobjects) do
-        if not drawn[lobject] and #lobject:getComponentOrder() == 1 and lobject.rootComponent.isDefaultRoot then
+        if not drawn[lobject] and #lobject:getScriptOrder() == 0 then
             local transform = lobject:getWorldTransform()
             local screenX, screenY = self:worldToScreen(transform.x, transform.y)
             -- 표시할 Sprite가 없는 객체도 위치를 확인할 수 있게 한다.

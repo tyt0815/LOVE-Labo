@@ -50,9 +50,9 @@ add("Runtime root and descendant component follow object parents", function()
     assert(level:reparent({child}, root))
     local world = assert(World.fromLevelData(level:toData()))
     local a, b = world.lobjects[1], world.lobjects[2]
-    local component = b:addComponent("child", require("core.SceneComponent"), {x = 5, y = 0})
+    local script = b:addScript("child", require("core.Script"):extend({}))
     Assert.equal(a, b.parent); Assert.equal(b, a.children[1])
-    near(115, component:getWorldTransform().x)
+    near(110, script:getWorldTransform().x)
     a.transform.rotation = 90
     near(90, b:getWorldTransform().x); near(30, b:getWorldTransform().y)
     Assert.equal(false, pcall(a.attachTo, a, b))
@@ -109,7 +109,7 @@ add("Hierarchy rectangle selection reparent drag and fractional scrolling work",
 end)
 add("Level API queues switches without changing the current update snapshot", function()
     local Json = require("project.Json")
-    local map = {["Assets/L_Two.level"] = assert(Json.encode({formatVersion = 2, lobjects = {{authoringId = 1, transform = {x = 5, y = 6}}}}))}
+    local map = {["Assets/L_Two.level"] = assert(Json.encode({formatVersion = 3, lobjects = {{authoringId = 1, transform = {x = 5, y = 6}}}}))}
     local project = {getAssetReference = function(_, ref) return ref end, getAssetId = function() end, readAsset = function(_, ref) return map[ref], "missing" end}
     local world = assert(require("runtime.WorldLoader").create(project, {lobjects = {}}))
     Assert.truthy(require("Engine").openLevel(world, "Assets/L_Two.level"))
@@ -123,8 +123,8 @@ add("Failed destination beginPlay retains current World and reports a transition
     local Json = require("project.Json")
     local project = {
         getAssetReference = function(_, ref) return ref end, getAssetId = function() end,
-        readAsset = function() return assert(Json.encode({formatVersion = 2, lobjects = {}, scriptReference = "Sources/Fail.lua"})) end,
-        getScriptKind = function() return "level" end, resolveSourceFile = function() return "Sources/Fail.lua" end,
+        readAsset = function() return assert(Json.encode({formatVersion = 3, lobjects = {}, scriptReference = "Assets/Fail.lua"})) end,
+        getScriptKind = function() return "level" end, resolveSourceFile = function() return "Assets/Fail.lua" end,
         readSource = function() return "return {beginPlay = function() error('destination failed') end}" end
     }
     local world = assert(require("runtime.WorldLoader").create(project, {lobjects = {}}))

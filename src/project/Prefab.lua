@@ -5,14 +5,25 @@ local Prefab = {}
 function Prefab.decode(text)
     local data, err = Json.decode(text)
     if type(data) ~= "table" then return nil, err or "Prefab must be an object" end
-    if data.formatVersion ~= 1 and data.formatVersion ~= 2 and data.formatVersion ~= 3 then return nil, "Unsupported Prefab format" end
+    if data.formatVersion ~= 1 and data.formatVersion ~= 2 and data.formatVersion ~= 3 and data.formatVersion ~= 4 then return nil, "Unsupported Prefab format" end
+    if data.formatVersion ~= 4 then return nil, "Legacy Prefab: convert to the attached-script format before opening" end
+    local attachments, attachmentError = require("project.ScriptAttachments").validate(data.scripts)
+    if not attachments then return nil, attachmentError end
+    data.scripts = attachments
+    local function validateRemoved(list)
+        return require("project.ScriptAttachments").validateIds(list)
+    end
+    local validRemoved, removedError = validateRemoved(data.removedScripts)
+    if not validRemoved then return nil, removedError end
+    local validOrder, orderError = validateRemoved(data.scriptOrder)
+    if not validOrder then return nil, orderError end
     local valid, referenceError = Level.isValidScriptReference(data.definitionReference)
     if not valid then return nil, referenceError end
     if type(data.overrides) ~= "table" then return nil, "Prefab overrides must be an object" end
     local properties, propertyError = require("project.PropertyData").validate(data.overrides.properties)
     if not properties then return nil, propertyError end
-    local components, componentError = require("project.PropertyData").validateComponents(data.overrides.components)
-    if not components then return nil, componentError end
+    local scripts, scriptError = require("project.PropertyData").validateScripts(data.overrides.scripts)
+    if not scripts then return nil, scriptError end
     local function removed(paths)
         if paths == nil then return true end
         if type(paths) ~= "table" then return nil, "Invalid removed Prefab paths" end
@@ -28,6 +39,12 @@ function Prefab.decode(text)
         for _, node in ipairs(nodes) do
             if type(node) ~= "table" or type(node.id) ~= "string" or not node.id:match("^[%w_%-]+$") or ids[node.id] then return nil, "Invalid or duplicate Prefab child ID" end
             ids[node.id] = true
+            local scripts, scriptError = require("project.ScriptAttachments").validate(node.scripts)
+            if not scripts then return nil, scriptError end
+            local validRemoved, removedError = validateRemoved(node.removedScripts)
+            if not validRemoved then return nil, removedError end
+            local validOrder, orderError = validateRemoved(node.scriptOrder)
+            if not validOrder then return nil, orderError end
             if node.definitionReference then
                 local valid, err = Level.isValidScriptReference(node.definitionReference)
                 if not valid then return nil, err end
@@ -47,7 +64,7 @@ function Prefab.decode(text)
             if node.overrides then
                 local valid, err = require("project.PropertyData").validate(node.overrides.properties)
                 if not valid then return nil, err end
-                valid, err = require("project.PropertyData").validateComponents(node.overrides.components)
+                valid, err = require("project.PropertyData").validateScripts(node.overrides.scripts)
                 if not valid then return nil, err end
             end
             local valid, err = removed(node.removedPaths)
@@ -83,7 +100,7 @@ function Prefab.encode(definitionReference)
     local valid, err = Level.isValidScriptReference(definitionReference)
     if not valid then return nil, err end
     -- Definition의 데이터 변형을 위한 에셋이다. 빈 override는 원본 값을 유지한다.
-    return Prefab.encodeData({ formatVersion = 2,
+    return Prefab.encodeData({ formatVersion = 4,
         definitionReference = definitionReference, overrides = {} })
 end
 

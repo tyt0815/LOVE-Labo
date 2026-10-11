@@ -12,9 +12,10 @@ local function headerKind(text)
     text = text:gsub("^\239\187\191", "")
     local line = text:match("^([^\r\n]*)") or ""
     local kind = line:match("^%s*%-%-%s*labo%-script:%s*([%w_-]+)%s*$")
-    if kind == "level" or kind == "lobject" or kind == "component" then return kind end
+    if kind == "lobject" or kind == "component" then return "script" end
+    if kind == "level" or kind == "script" then return kind end
     if line:find("labo-script:", 1, true) then return nil, "Invalid script type marker" end
-    return "level"
+    return "script"
 end
 
 function Registry.metaText(scriptKind, id)
@@ -41,7 +42,7 @@ function Registry.recoverMove(project)
     end
     local paths = {}
     for _, reference in ipairs({journal.source, journal.destination}) do
-        if not reference:match("^Assets/") and not reference:match("^Sources/") then return false, "Invalid move path" end
+        if not reference:match("^Assets/") then return false, "Invalid move path" end
         local parent, parentInfo = project:checkedEntry(reference:match("^(.*)/[^/]+$"))
         if not parent or parentInfo.type ~= "directory" then return false, "Move parent is missing" end
         local path, err = project:resolvePath(reference)
@@ -100,10 +101,14 @@ function Registry.rebuild(project)
                         if type(meta) ~= "table" or meta.version ~= 1 or not Id.isValid(meta.id) then
                             return false, "Invalid metadata: " .. entry.reference
                         end
+                        if meta.scriptKind == "lobject" or meta.scriptKind == "component" then
+                            meta.previousScriptKind, meta.scriptKind = meta.scriptKind, "script"
+                            missing[#missing + 1] = {path = metaPath, meta = meta, replace = true}
+                        end
                     else
                         meta = {version = 1, id = Id.new()}
                     end
-                    if entry.reference:match("^Sources/.+%.lua$") then
+                    if entry.reference:match("^Assets/.+%.lua$") then
                         if not info then
                             local text, readError = Fs.read(path)
                             if not text then return false, readError end
@@ -111,7 +116,7 @@ function Registry.rebuild(project)
                             if not kind then return false, kindError end
                             meta.scriptKind = kind
                         end
-                        if meta.scriptKind ~= "level" and meta.scriptKind ~= "lobject" and meta.scriptKind ~= "component" then
+                        if meta.scriptKind ~= "level" and meta.scriptKind ~= "script" then
                             return false, "Invalid script metadata: " .. entry.reference
                         end
                     end
@@ -124,12 +129,13 @@ function Registry.rebuild(project)
         return true
     end
     -- 기존 메타데이터 전체를 먼저 검증한다. 중복 ID를 임의로 새 ID로 바꾸지 않는다.
-    for _, folder in ipairs({"Assets", "Sources"}) do
+    for _, folder in ipairs({"Assets"}) do
         local ok, err = visit(folder)
         if not ok then return false, err end
     end
     for _, entry in ipairs(missing) do
-        local wrote, err = Fs.createFile(entry.path, assert(Json.encode(entry.meta, true)) .. "\n")
+        local write = entry.replace and Fs.writeAtomic or Fs.createFile
+        local wrote, err = write(entry.path, assert(Json.encode(entry.meta, true)) .. "\n")
         if not wrote then return false, err end
     end
     project.assetPaths, project.assetIds, project.assetMetadata = paths, ids, metadata

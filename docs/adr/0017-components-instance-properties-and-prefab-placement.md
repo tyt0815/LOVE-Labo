@@ -1,3 +1,7 @@
+> 컴포넌트·공간 상속 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다. 그 밖의 동작 계약은 유지한다.
+
+> 컴포넌트·공간 상속 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다. 그 밖의 동작 계약은 유지한다.
+
 # 0017. 컴포넌트 구성·인스턴스 프로퍼티와 Prefab 배치
 
 - 상태: 채택

@@ -1,6 +1,7 @@
 local Spawner = {}
 
 function Spawner.bind(project, world, loadClass)
+    world.scriptLoader = loadClass
     local depth = 0
     local loadTemplate = require("project.LObjectTemplate").loader(project, loadClass)
     world.spawnLObjectFactory = function(reference, transform, overrides)
@@ -23,20 +24,28 @@ function Spawner.bind(project, world, loadClass)
             instance.name = base .. " " .. number
             world.nextRuntimeId = world.nextRuntimeId + 1
             world.lobjects[#world.lobjects + 1] = instance
+            instance.world, instance.scriptLoader = world, loadClass
+            world.updateOrderDirty = true
             local objects, configureError = require("runtime.TemplateObjects").configure(world, template.hierarchy, instance, overrides)
             if not objects then return nil, configureError end
             local valid, propertyError = require("runtime.TemplateObjects").resolveReferences(project, world)
             if not valid then return nil, propertyError end
             for _, node in ipairs(template.hierarchy.nodes) do
-                local begun, beginError = objects[node.path]:beginPlay(world)
-                if not begun then return nil, beginError end
+                local pending = objects[node.path]
+                if pending and pending.world == world then
+                    local begun, beginError = pending:beginPlay(world)
+                    if not begun then return nil, beginError end
+                end
             end
             return instance
         end)
         depth = depth - 1
         if not called or not object then
             -- 실패한 초기화와 그 안에서 생성한 객체를 함께 제거한다. ID는 재사용하지 않는다.
-            for i = #world.lobjects, checkpoint + 1, -1 do world.lobjects[i] = nil end
+            for i = #world.lobjects, checkpoint + 1, -1 do
+                local added = world.lobjects[i]
+                if added then world:removeLObject(added) end
+            end
             return nil, called and err or tostring(object)
         end
         return object

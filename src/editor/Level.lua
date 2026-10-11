@@ -2,7 +2,7 @@ local Level = {}
 local Transform = require("core.Transform")
 Level.__index = Level
 
-local FORMAT_VERSION = 2
+local FORMAT_VERSION = 3
 
 Level.isValidScriptReference = require("project.Reference").validScript
 
@@ -57,6 +57,8 @@ local function validateLObjectData(data, usedAuthoringIds)
         return nil, "lobject transform x/y must be numbers"
     end
 
+    local scripts, errorText = require("project.ScriptAttachments").validate(data.scripts)
+    if not scripts then return nil, errorText end
     usedAuthoringIds[data.authoringId] = true
     if data.prefabRootId ~= nil or data.prefabNodePath ~= nil then
         if not isPositiveInteger(data.prefabRootId) or type(data.prefabNodePath) ~= "string"
@@ -73,8 +75,8 @@ local function validateLObjectData(data, usedAuthoringIds)
     if not transform then return nil, transformError end
     local properties, propertyError = require("editor.PropertyData").validate(data.propertyOverrides)
     if not properties then return nil, propertyError end
-    local components, componentError = require("editor.PropertyData").validateComponents(data.componentOverrides)
-    if not components then return nil, componentError end
+    local scripts, scriptError = require("editor.PropertyData").validateScripts(data.scriptOverrides)
+    if not scripts then return nil, scriptError end
 
     -- 입력 data table을 그대로 Level에 넣지 않는다.
     -- serialized/authoring data 사이에 mutable table reference가 공유되지 않게
@@ -86,7 +88,7 @@ local function validateLObjectData(data, usedAuthoringIds)
         prefabRemovedPaths = data.prefabRemovedPaths and require("editor.PropertyData").copy(data.prefabRemovedPaths),
         definitionReference = data.definitionReference,
         propertyOverrides = properties,
-        componentOverrides = components,
+        scriptOverrides = scripts, scripts = require("project.ScriptAttachments").copy(data.scripts),
         transform = transform
     }
 end
@@ -174,7 +176,8 @@ function Level:toData()
             definitionReference =
                 lobject.definitionReference,
             propertyOverrides = next(lobject.propertyOverrides or {}) and require("editor.PropertyData").copy(lobject.propertyOverrides) or nil,
-            componentOverrides = next(lobject.componentOverrides or {}) and require("editor.PropertyData").copyComponents(lobject.componentOverrides) or nil,
+            scripts = require("project.ScriptAttachments").copy(lobject.scripts),
+            scriptOverrides = next(lobject.scriptOverrides or {}) and require("editor.PropertyData").copyScripts(lobject.scriptOverrides) or nil,
             transform = Transform.toData(lobject.transform)
         }
     end
@@ -193,7 +196,7 @@ function Level.fromData(data)
         return nil, "level data must be a table"
     end
 
-    if data.formatVersion ~= 1 and data.formatVersion ~= FORMAT_VERSION then
+    if data.formatVersion ~= 1 and data.formatVersion ~= 2 and data.formatVersion ~= FORMAT_VERSION then
         return nil, "unsupported level format version"
     end
 
@@ -372,15 +375,17 @@ end
 function Level:duplicateLObjects(objects)
     local roots, result, originals, remapped = self:selectionRoots(objects), {}, {}, {}
     for _, object in ipairs(self.lobjects) do originals[#originals + 1] = object end
-    local included, baked = {}, {}
+    local included, baked, referenceFields = {}, {}, {}
     for _, object in ipairs(originals) do
         for _, root in ipairs(roots) do if object == root or self:isDescendant(object, root) then included[object.authoringId] = true; break end end
     end
     -- 원래 Prefab 루트가 없는 복제는 현재 상속값을 독립적인 정의로 보존한다.
     if self.duplicateData then
         for _, object in ipairs(originals) do
-            if included[object.authoringId] and object.prefabRootId and not included[object.prefabRootId] then
-                baked[object.authoringId] = assert(self.duplicateData(object))
+            if included[object.authoringId] then
+                local data = assert(self.duplicateData(object))
+                referenceFields[object.authoringId] = data.referenceFields
+                if object.prefabRootId and not included[object.prefabRootId] then baked[object.authoringId] = data end
             end
         end
     end
@@ -390,7 +395,8 @@ function Level:duplicateLObjects(objects)
         duplicate.transform = assert(Transform.copy(object.transform))
         duplicate.parentAuthoringId = parentId
         duplicate.propertyOverrides = require("editor.PropertyData").copy(data.propertyOverrides)
-        duplicate.componentOverrides = require("editor.PropertyData").copyComponents(data.componentOverrides)
+        duplicate.scripts = require("project.ScriptAttachments").copy(data.scripts)
+        duplicate.scriptOverrides = require("editor.PropertyData").copyScripts(data.scriptOverrides)
         duplicate.prefabRemovedPaths = data.prefabRemovedPaths and require("editor.PropertyData").copy(data.prefabRemovedPaths)
         result[#result + 1] = duplicate
         remapped[object.authoringId] = duplicate
@@ -400,11 +406,14 @@ function Level:duplicateLObjects(objects)
     for _, root in ipairs(roots) do clone(root, root.parentAuthoringId) end
     for oldId, duplicate in pairs(remapped) do
         local source = self:findLObject(oldId)
-        for _, name in ipairs(baked[oldId] and baked[oldId].referenceFields or {}) do
-            local component, field = name:match("^([^.]+)%.(.+)$")
-            local values = component and duplicate.componentOverrides[component] or duplicate.propertyOverrides
+        for _, name in ipairs(referenceFields[oldId] or {}) do
+            local script, field = name:match("^([^.]+)%.(.+)$")
+            local values = script and duplicate.scriptOverrides[script] or duplicate.propertyOverrides
             local value = values and values[field or name]
-            if value and remapped[value] then values[field or name] = remapped[value].authoringId end
+            local id = type(value) == "table" and value.authoringId or value
+            if id and remapped[id] then
+                values[field or name] = type(value) == "table" and {authoringId = remapped[id].authoringId, script = value.script} or remapped[id].authoringId
+            end
         end
         if source.prefabRootId and remapped[source.prefabRootId] then
             duplicate.prefabRootId, duplicate.prefabNodePath = remapped[source.prefabRootId].authoringId, source.prefabNodePath

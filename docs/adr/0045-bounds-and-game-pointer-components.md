@@ -1,3 +1,7 @@
+> 컴포넌트·공간 상속 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다. 그 밖의 동작 계약은 유지한다.
+
+> 컴포넌트·공간 상속 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다. 그 밖의 동작 계약은 유지한다.
+
 # 0045. 렌더링과 게임 포인터 입력이 공간 영역 계약을 공유한다
 
 - 상태: 채택·구현

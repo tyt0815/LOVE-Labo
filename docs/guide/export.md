@@ -17,6 +17,6 @@ Undo/Redo는 프로퍼티·Transform·계층과 에디터에서 실행한 에셋
 love D:/Games/MyGame/Build/Game.love
 ```
 
-CLI Export는 디스크에 저장된 프로젝트를 읽습니다. GUI의 미저장 초안을 다른 프로세스의 CLI가 읽을 수는 없으므로 저장을 먼저 완료하세요. 출력은 Assets/Sources 바깥에 둡니다.
+CLI Export는 디스크에 저장된 프로젝트를 읽습니다. GUI의 미저장 초안을 다른 프로세스의 CLI가 읽을 수는 없으므로 저장을 먼저 완료하세요. 출력은 Assets 바깥에 둡니다.
 
 현재 `.love` 게임은 LÖVE 런타임으로 실행합니다. Windows 에디터 자체 배포와 게임 Export는 서로 다른 작업입니다. 상세 패키지 검증은 [CLI와 Export](../cli-and-export.md), [패키징](../packaging.md)에 있습니다.

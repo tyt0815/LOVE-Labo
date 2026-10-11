@@ -154,8 +154,8 @@ function EditorApp:setMainCamera(value)
         local choices, choiceError = require("project.MainCamera").choices(self.project, self.level, object)
         if not choices then return false, choiceError end
         local found = false
-        for _, choice in ipairs(choices) do if choice.component == copy.component then found = true end end
-        if not found then return false, "Camera component was not found" end
+        for _, choice in ipairs(choices) do if choice.script == copy.script then found = true end end
+        if not found then return false, "Camera script was not found" end
     end
     self.inspector:commitEdit(); self:recordHistory()
     self.level.mainCamera = copy
@@ -343,7 +343,7 @@ function EditorApp:updateInspectorTarget()
             kind = kinds[extension] or extension:upper() .. " File"
             if extension == "lua" then
                 local meta = self.project.assetMetadata and self.project.assetMetadata[selected]
-                local classes = {level = "Level Class", lobject = "LObject Class", component = "Component Class"}
+                local classes = {level = "Level Class", lobject = "LObject Class", script = "Script Class"}
                 kind = meta and classes[meta.scriptKind] or kind
             end
         end
@@ -686,6 +686,9 @@ function EditorApp:initializeUI()
         keypressed = function(_, key) return self:handleSceneKey(key) end
     })
     self.hierarchy.sceneView = self.sceneView
+    self.hierarchyWidget = hierarchy
+    self.hierarchy.project = self.project
+    self.hierarchy.onLocatePrefab = function(reference) return self.assetBrowser:reveal(reference) end
     self.sceneView.onContextMenu = function(x, y, object) self:showObjectMenu(x, y, object) end
     self.hierarchy.onContextMenu = self.sceneView.onContextMenu
 
@@ -767,13 +770,13 @@ function EditorApp:initializeUI()
             if self.inspectorWidget:containsPoint(x, y) then return false, nil, "Use the eyedropper to assign resources" end
             if self.hierarchy:containsPoint(x, y) then
                 if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
-                if entry.type ~= "file" or not require("project.LObjectTemplate").source(self.project, entry.reference) then return false, nil, "Drop an LObject Lua Class or Prefab into the Hierarchy" end
+                if entry.type ~= "file" or not require("project.LObjectTemplate").source(self.project, entry.reference) then return false, nil, "Drop a Prefab into the Hierarchy" end
                 return "hierarchy", {x = 0, y = self.hierarchy.y or 0, w = self.hierarchy.width, h = self.hierarchy.height}
             end
             if not self.sceneView:containsPoint(x, y) then return end
             if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
             if self.viewportControls:containsPoint(x, y) then return false, nil, "Drop outside the viewport controls" end
-            if entry.type ~= "file" or not require("project.LObjectTemplate").source(self.project, entry.reference) then return false, nil, "Drop an LObject Lua Class or Prefab into the Scene View" end
+            if entry.type ~= "file" or not require("project.LObjectTemplate").source(self.project, entry.reference) then return false, nil, "Drop a Prefab into the Scene View" end
             local vx, vy, width, height = self.sceneView:getViewport()
             return "scene", {x = vx, y = vy, w = width, h = height}
         end
@@ -956,11 +959,11 @@ function EditorApp:beginObjectPick(name, parentPath)
     local declaration = name ~= "$parent" and inspector.class.properties[name]
     local kind = name == "$mainCamera" and "camera" or name == "$child" and "child" or declaration and declaration.type or name == "$parent" and "parent"
     if kind == "child" and (not self.prefabEditor or inspector.target ~= self.prefabInspectorTarget) then return false, "Open a Prefab before adding children" end
-    if kind ~= "camera" and kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "image" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
-    if kind == "object" and inspector.target.level ~= self.level and not inspector.target.prefabScope then return false, "Pick an instance reference on a level or placed instance" end
+    if kind ~= "camera" and kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "script" and kind ~= "image" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
+    if (kind == "object" or kind == "script") and inspector.target.level ~= self.level and not inspector.target.prefabScope then return false, "Pick an instance reference on a level or placed instance" end
     if self.objectPick then self:cancelObjectPick(); return true end
     self.inspector:commitEdit(); self.uiRoot:cancelCapture(); self.uiRoot:dismissPopup()
-    self.objectPick = {target = inspector.target, component = inspector.selectedComponent, name = name, kind = kind, cursor = love.mouse.getCursor()}
+    self.objectPick = {target = inspector.target, script = inspector.selectedScript, name = name, kind = kind, cursor = love.mouse.getCursor()}
     if kind == "child" then self.objectPick.parentPath = parentPath or self.prefabEditor.selected end
     self.pickCursor = self.pickCursor or love.mouse.getSystemCursor("crosshair")
     love.mouse.setCursor(self.pickCursor)
@@ -987,7 +990,7 @@ function EditorApp:pickReferenceAt(x, y)
     for _, bar in ipairs(bars) do
         if bar:dispatch("mousepressed", x, y, 1) then self.objectPick.scrollbar = bar; return end
     end
-    if self.objectPick.kind == "object" and self.inspector.classInspector.target.prefabScope and inspector:treeContains(tree, x, y) then
+    if (self.objectPick.kind == "object" or self.objectPick.kind == "script") and self.inspector.classInspector.target.prefabScope and inspector:treeContains(tree, x, y) then
         local node = tree:nodeAt(x, y)
         object = node and self.inspector.classInspector.target.scopeByPath[node.key]
     elseif self.assetBrowser:containsPoint(x, y) then
@@ -1011,7 +1014,29 @@ function EditorApp:pickReferenceAt(x, y)
     end
     if not reference and not object then return end
     local pick, inspector = self.objectPick, self.inspector.classInspector
-    if inspector.target ~= pick.target or inspector.selectedComponent ~= pick.component then self:cancelObjectPick(); return end
+    if inspector.target ~= pick.target or inspector.selectedScript ~= pick.script then self:cancelObjectPick(); return end
+    if pick.kind == "script" then
+        if not object then inspector.error = "Select an object with attached scripts"; return end
+        local target, err
+        if inspector.target.prefabScope then target, err = self.prefabEditor:target(object.path)
+        else
+            local definition
+            definition, err = require("project.PrefabHierarchy").authoringDefinition(self.project, self.level, object)
+            if definition then target, err = require("project.ObjectDefinition").inspectorTarget(self.project, object, definition, self.level) end
+        end
+        if not target then inspector.error = err; return end
+        local options = {}
+        for _, id in ipairs(target.preview.scriptOrder) do
+            options[#options + 1] = {label = id .. " (" .. target.preview.scripts[id].scriptType .. ")", action = function()
+                local ok = inspector:applyPicked(pick.name, {authoringId = object.authoringId, script = id})
+                if ok then self:updateInspectorTarget() end
+            end}
+        end
+        if #options == 0 then inspector.error = "Selected object has no scripts"; return end
+        self:cancelObjectPick()
+        if #options == 1 then options[1].action() else require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, options) end
+        return
+    end
     if pick.kind == "camera" then
         local choices, err = require("project.MainCamera").choices(self.project, self.level, object)
         if not choices then inspector.error = err; return end
@@ -1025,7 +1050,7 @@ function EditorApp:pickReferenceAt(x, y)
         else
             local options = {}
             for _, value in ipairs(choices) do
-                options[#options + 1] = {label = value.component, action = function() apply(value) end}
+                options[#options + 1] = {label = value.script, action = function() apply(value) end}
             end
             require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, options)
         end
@@ -1058,7 +1083,7 @@ function EditorApp:mousepressed(x, y, button, presses)
     if self.objectPick then
         if button == 2 then self:cancelObjectPick(); return true end
         if button == 1 then
-            if self.inspectorWidget:containsPoint(x, y) and not (self.objectPick.kind == "object"
+            if self.inspectorWidget:containsPoint(x, y) and not ((self.objectPick.kind == "object" or self.objectPick.kind == "script")
                 and self.inspector.classInspector.target.prefabScope and self.inspector.classInspector:treeContains(self.inspector.classInspector.objectTree, x, y))
                 and not (self.inspector.classInspector.scrollbar.visible and require("editor.Ui").contains(x, y, self.inspector.classInspector.scrollbar.rect)) then self:cancelObjectPick()
             else self:pickReferenceAt(x, y); return true end
@@ -1147,6 +1172,7 @@ function EditorApp:keypressed(key)
     end
     -- 팝업과 편집 포커스가 입력을 우선 소비한다. 저장·Play는 에디터 전역 명령이다.
     if self.uiRoot.popup then return self.uiRoot:keypressed(key) end
+    if key == "f2" and self.uiRoot.focused == self.hierarchyWidget and self.sceneView.selectedLObject then return self:renameObject(self.sceneView.selectedLObject) end
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
     local shiftDown = love.keyboard.isDown("lshift", "rshift")
     if key == "z" and controlDown and not self:isPlaying() then return self:undoRedo(shiftDown and 1 or -1) end
@@ -1173,6 +1199,13 @@ function EditorApp:showObjectMenu(x, y, object)
         self.inspector:commitEdit(); self:recordHistory(); callback(); self:recordHistory(); self:updateInspectorTarget()
     end
     require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, {
+        {label = "Add Child", enabled = object ~= nil, action = function() edit(function()
+            local child = assert(self.level:addLObject(0, 0))
+            child.parentAuthoringId = object.authoringId
+            self.hierarchy.collapsed[object.authoringId] = nil
+            self.sceneView:setSelection({child})
+        end) end},
+        {label = "Rename", shortcut = "F2", enabled = object ~= nil, action = function() self:renameObject(object) end},
         {label = "Duplicate", shortcut = "Ctrl+D", enabled = enabled, action = function() edit(function() self.sceneView:duplicateSelection() end) end},
         {label = "Create Prefab...", enabled = object ~= nil, action = function() self:showCreatePrefabDialog(object) end},
         {label = "Delete", shortcut = "Delete", enabled = enabled, action = function() edit(function() self.sceneView:deleteSelection() end) end},
@@ -1205,10 +1238,46 @@ end
 
 function EditorApp:showPrefabObjectMenu(path, x, y)
     require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, {
-        {label = "Add Child", children = {
-            {label = "Pick Source...", action = function() self:beginObjectPick("$child", path) end}
-        }}
+        {label = "Add Child", action = function()
+            self.inspector:commitEdit(); self:recordHistory()
+            local ok, err, child = self.prefabEditor:insertChild(nil, "LObject", path)
+            if not ok then self.inspector.classInspector.error = err; return end
+            self:recordHistory(); self.prefabEditor.selected = child
+            self.prefabEditor.onSelect(child)
+        end},
+        {label = "Rename", action = function() self:renamePrefabObject(path) end}
     })
+end
+function EditorApp:renameObject(object)
+    if self:isPlaying() then return false end
+    self.hierarchy:revealObject(object)
+    local rect = self.hierarchy:nameRect(object)
+    if not rect then return false end
+    require("editor.ui.InlineRename").new(self.uiRoot, rect, object.name or "LObject", function(name)
+        if name:match("^%s*$") then return false, "Name cannot be empty" end
+        self.inspector:commitEdit(); self:recordHistory(); object.name = name
+        self:recordHistory(); self:updateInspectorTarget(); return true
+    end)
+    return true
+end
+function EditorApp:renamePrefabObject(path)
+    local tree = self.inspector.classInspector.objectTree
+    tree:reveal(path)
+    local node = assert(self.prefabEditor:recipe()).byPath[path]
+    require("editor.ui.InlineRename").new(self.uiRoot, tree:nameRect(path), node.name or "LObject", function(name)
+        if name:match("^%s*$") then return false, "Name cannot be empty" end
+        if path == "root" then
+            local valid, err = self.project.isValidName(name)
+            if not valid then return false, err end
+            local source = self.project:getAssetReference(self.prefabDocument.assetId)
+            local destination = source:match("^(.*)/") .. "/" .. name .. ".prefab"
+            if destination == source then return true end
+            return self.assetBrowser:moveEntry({reference = source, type = "file"}, destination)
+        end
+        self.inspector:commitEdit(); self:recordHistory()
+        self.prefabEditor:record(path, true).name = name; self.prefabEditor.onChanged()
+        self:recordHistory(); self.prefabEditor.onSelect(path); return true
+    end)
 end
 function EditorApp:recordHistory()
     if self.performingAssets or self.replayingAssets then return end

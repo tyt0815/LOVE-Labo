@@ -49,3 +49,6 @@
 - [0047. 레벨 Main Camera 저장과 기본 카메라 생성](adr/0047-level-main-camera-and-default-camera.md)
 - [0048. 사용자 가이드 사이트와 새 프로젝트 AI 안내](adr/0048-user-guides-and-project-agent-instructions.md)
 - [0049. 카메라 선택을 Main Camera 지정과 런타임 전환으로 통일한다](adr/0049-camera-selection-without-enabled.md)
+
+- [0050. LObject 스크립트 부착과 에셋 루트 통합](adr/0050-attached-scripts-and-unified-assets.md)
+- [0051. 목록 안 이름 편집과 Prefab 소속 표시](adr/0051-inline-names-and-prefab-membership.md)

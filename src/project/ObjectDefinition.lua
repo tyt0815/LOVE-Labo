@@ -1,115 +1,88 @@
-local LuaClass = require("project.LuaClass")
-local Schema = require("core.PropertySchema")
+local LuaScript = require("project.LuaScript")
 local Transform = require("core.Transform")
+local Attachments = require("project.ScriptAttachments")
+local Copy = require("project.PropertyData")
+local Schema = require("core.PropertySchema")
 local Definition = {}
-
-local function componentForOverrides(object, name, fields)
-    local component = object.components[name]
-    if component or name ~= "root" then return component end
-    -- 기본 root를 다른 이름의 루트로 교체한 프로젝트에도 과거 루트 offset 무시 규칙을 적용한다.
-    -- 일반 프로퍼티나 삭제된 다른 컴포넌트까지 새 루트로 연결하지 않는다.
-    for field in pairs(fields) do if not Transform.FIELDS[field] then return nil end end
-    return object.rootComponent
-end
-
-function Definition.resolve(project, reference, loadClass, excludedId)
-    loadClass = loadClass or LuaClass.loader(project)
-    local properties, components = {}, {}
-    local class, classReference
-    local visiting, chain = {}, {}
-    local function resolve(current, depth)
-        if not current then return true end
+function Definition.resolve(project, reference, loader, excludedId)
+    loader = loader or LuaScript.loader(project)
+    local layers, visiting = {}, {}
+    local function visit(current, depth)
+        if not current or current == false then return true end
         if depth > 64 then return nil, "Prefab inheritance is too deep" end
-        local reference = current
-        local path, err = project:getAssetReference(reference)
+        local path, err = project:getAssetReference(current)
         if not path then return nil, err end
-        if path:match("^Assets/.+%.prefab$") then
-            local key = project:getAssetId(path) or path
-            if key == excludedId then return nil, "Prefab inheritance cycle: " .. path end
-            if visiting[key] then return nil, "Prefab inheritance cycle: " .. path end
-            visiting[key] = true
-            local bytes, readError = project:readAsset(reference)
-            if not bytes then return nil, readError end
-            local prefab, prefabError = require("project.Prefab").decode(bytes)
-            if not prefab then return nil, prefabError end
-            local ok, parentError = resolve(prefab.definitionReference, depth + 1)
-            if not ok then return nil, parentError end
-            chain[#chain + 1] = prefab
-            for name, value in pairs(prefab.overrides.properties or {}) do properties[name] = value end
-            for name, fields in pairs(prefab.overrides.components or {}) do
-                components[name] = components[name] or {}
-                for field, value in pairs(fields) do components[name][field] = value end
-            end
-            visiting[key] = nil
-        else
-            local err
-            class, err = loadClass(reference, "lobject")
-            if not class then return nil, err end
-            classReference = project:getAssetId(path) or path
-        end
+        if not path:match("^Assets/.+%.prefab$") then return nil, "Object sources must be Prefabs; attach Lua scripts separately" end
+        local id = project:getAssetId(path) or path
+        if visiting[id] or id == excludedId then return nil, "Prefab inheritance cycle" end
+        visiting[id] = true
+        local bytes, readError = project:readAsset(id)
+        if not bytes then return nil, readError end
+        local data, decodeError = require("project.Prefab").decode(bytes)
+        if not data then return nil, decodeError end
+        local ok, parentError = visit(data.definitionReference, depth + 1)
+        if not ok then return nil, parentError end
+        layers[#layers + 1] = data; visiting[id] = nil
         return true
     end
-    local ok, err = resolve(reference, 0)
+    local ok, err = visit(reference, 0)
     if not ok then return nil, err end
-    -- 각 단계의 잘못된 override도 검사한다. 자식 값으로 덮여 오류가 숨겨지지 않게 한다.
-    for _, prefab in ipairs(chain) do
-        local valid, errorText = LuaClass.values(class, prefab.overrides.properties)
-        if not valid then return nil, errorText end
+    local result = {properties = {}, scripts = {}, attachments = {}, removedScripts = {}, layers = layers, scriptLoader = loader}
+    for _, layer in ipairs(layers) do
+        result.attachments = Attachments.merge(result.attachments, layer.scripts, layer.removedScripts)
+        result.attachments = Attachments.reorder(result.attachments, layer.scriptOrder)
+        for id, fields in pairs(layer.overrides.scripts or {}) do
+            result.scripts[id] = result.scripts[id] or {}
+            for name, value in pairs(fields) do result.scripts[id][name] = value end
+        end
+        for _, id in ipairs(layer.removedScripts or {}) do result.scripts[id] = nil; result.removedScripts[id] = true end
+        for _, attachment in ipairs(layer.scripts or {}) do result.removedScripts[attachment.id] = nil end
     end
-    return {class = class, classReference = classReference, properties = properties, components = components, layers = chain, componentLoader = loadClass}
+    return result
 end
-
-function Definition.configure(object, definition, propertyOverrides, componentOverrides)
-    local properties = require("project.PropertyData").copy(definition.properties)
-    for name, value in pairs(propertyOverrides or {}) do properties[name] = value end
-    local values, err = LuaClass.values(definition.class, properties)
-    if not values then return false, err end
-    object.luaClass, object.properties = definition.class, values
-    object.componentLoader = definition.componentLoader
-    if definition.class and definition.class.build then
-        local ok, result, buildError = pcall(definition.class.build, object)
-        if not ok or result == false then return false, tostring(ok and buildError or result) end
+function Definition.withAttachments(definition, scripts, removed)
+    local result = {}
+    for key, value in pairs(definition) do result[key] = value end
+    result.attachments = Attachments.merge(definition.attachments, scripts, removed)
+    result.scripts = Copy.copyScripts(definition.scripts)
+    result.removedScripts = Copy.copy(definition.removedScripts)
+    for _, id in ipairs(removed or {}) do result.scripts[id] = nil; result.removedScripts[id] = true end
+    for _, attachment in ipairs(scripts or {}) do result.removedScripts[attachment.id] = nil end
+    return result
+end
+function Definition.configure(object, definition, propertyOverrides, scriptOverrides, attachments)
+    object.scriptLoader = definition.scriptLoader
+    local list = Attachments.merge(definition.attachments, attachments)
+    local fields = Copy.copyScripts(definition.scripts)
+    for id, values in pairs(scriptOverrides or {}) do
+        fields[id] = fields[id] or {}
+        for name, value in pairs(values) do fields[id][name] = value end
     end
-    -- 구성 함수는 한 번만 실행하고 각 부모 단계의 컴포넌트 값도 같은 스키마로 검사한다.
-    for _, layer in ipairs(definition.layers or {}) do
-        for name, fields in pairs(layer.overrides.components or {}) do
-            local component = componentForOverrides(object, name, fields)
-            if not component then return false, "Unknown component: " .. name end
-            local valid, errorText = Schema.values(getmetatable(component).properties, fields)
-            if not valid then return false, errorText end
+    local present = {}
+    local ok, err = pcall(function()
+        for _, attachment in ipairs(list) do
+            local class, loadError = definition.scriptLoader(attachment.source, "script")
+            assert(class, loadError)
+            local script = object:addScript(attachment.id, class, fields[attachment.id])
+            script.source, script.label = attachment.source, attachment.label
+            present[attachment.id] = true
         end
-    end
-    local components = require("project.PropertyData").copyComponents(definition.components)
-    for name, fields in pairs(componentOverrides or {}) do
-        components[name] = components[name] or {}
-        for field, value in pairs(fields) do components[name][field] = value end
-    end
-    for name, fields in pairs(components) do
-        local component = componentForOverrides(object, name, fields)
-        if not component then return false, "Unknown component: " .. name end
-        local valid, validationError = Schema.values(getmetatable(component).properties, fields)
-        if not valid then return false, validationError end
-        local merged = {}
-        for field in pairs(getmetatable(component).properties) do merged[field] = component.properties[field] end
-        for field, value in pairs(fields) do
-            -- 루트는 배치 Transform만 사용한다. 기존 컴포넌트 override의 루트 offset은 적용하지 않는다.
-            if component ~= object.rootComponent or not Transform.FIELDS[field] then merged[field] = value end
-        end
-        local resolved, fieldError = Schema.values(getmetatable(component).properties, merged)
-        if not resolved then return false, fieldError end
-        if component:isA(require("core.SceneComponent")) then
-            local applied, applyError = pcall(component.setProperties, component, resolved)
-            if not applied then return false, tostring(applyError) end
-        else component.properties = resolved end
-    end
+        for id in pairs(fields) do assert(present[id], "Unknown script: " .. id) end
+    end)
+    if not ok then return false, tostring(err) end
     return true
 end
-
--- 참조는 모든 객체를 구성한 다음 해석한다. 순환·전방 참조도 같은 객체를 가리킨다.
 function Definition.resolveReferences(values, schema, objects, project)
     for name, declaration in pairs(schema or {}) do
         local value = values[name]
-        if declaration.type == "object" and value ~= false then
+        if declaration.type == "script" and value ~= false then
+            if not value.owner then
+                local object = objects[value.authoringId]
+                local script = object and object.scripts[value.script]
+                if not script then return false, "Missing script reference" end
+                values[name] = script
+            end
+        elseif declaration.type == "object" and value ~= false then
             local resolved = false
             if type(value) == "table" then
                 for _, object in pairs(objects) do if object == value then resolved = true; break end end
@@ -130,58 +103,51 @@ function Definition.resolveReferences(values, schema, objects, project)
 end
 
 function Definition.inspectorTarget(project, data, definition, level, label)
-    local object = assert(require("core.LObject").new(1, {transform = {x = 0, y = 0}}))
-    local ok, err = Definition.configure(object, definition)
+    local object = assert(require("core.LObject").new(1, {transform = data.transform or {x = 0, y = 0}}))
+    local ok, err = Definition.configure(object, definition, nil, nil, data.scripts)
     if not ok then return nil, err end
-    local schema, componentTypes = {}, {}
-    for name, field in pairs(definition.class and definition.class.properties or {}) do
-        schema[name] = {type = field.type, default = object.properties[name], group = field.group}
+    local schema, scriptTypes = {}, {}
+    if data.transform then
+        local defaults = assert(Transform.copy({x = 0, y = 0}))
+        for field in pairs(Transform.FIELDS) do
+            schema["$transform." .. field] = {type = "number", default = defaults[field], field = field, rootTransform = true, sceneTransform = true, group = "Transform"}
+        end
     end
-    for _, name in ipairs(object.componentOrder) do
-        local component = object.components[name]
-        local scene = component:isA(require("core.SceneComponent"))
-        componentTypes[name] = component.componentType
-        for field, declaration in pairs(getmetatable(component).properties) do
-            local rootTransform = component == object.rootComponent and Transform.FIELDS[field]
-            if not rootTransform or data.transform then
-                schema[name .. "." .. field] = {type = declaration.type, default = component.properties[field], component = name, field = field,
-                    sceneTransform = scene and Transform.FIELDS[field] or nil, rootTransform = rootTransform or nil, group = declaration.group}
-            end
+    for _, id in ipairs(object.scriptOrder) do
+        local script = object.scripts[id]
+        scriptTypes[id] = script.label or script.scriptType or LuaScript.name(getmetatable(script)) or "Script"
+        for field, declaration in pairs(getmetatable(script).properties) do
+            schema[id .. "." .. field] = {type = declaration.type, default = script.properties[field], script = id, field = field, group = declaration.group}
         end
     end
     return {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,
-        class = {properties = schema, componentTypes = componentTypes, className = LuaClass.name(definition.class) or "LObject"}, preview = object,
+        class = {properties = schema, scriptTypes = scriptTypes, className = "LObject"}, preview = object,
         getOverrides = function(target)
-            local result = require("project.PropertyData").copy(target.data.propertyOverrides)
-            for name, fields in pairs(target.data.componentOverrides or {}) do
-                for field, value in pairs(fields) do
-                    if name ~= object.rootComponent.name or not Transform.FIELDS[field] then result[name .. "." .. field] = value end
-                end
+            local values = {}
+            for id, fields in pairs(target.data.scriptOverrides or {}) do
+                for field, value in pairs(fields) do values[id .. "." .. field] = value end
             end
             if target.data.transform then
-                for field in pairs(Transform.FIELDS) do result[object.rootComponent.name .. "." .. field] = target.data.transform[field] end
+                for field in pairs(Transform.FIELDS) do values["$transform." .. field] = target.data.transform[field] end
             end
-            return result
+            return values
         end,
         setOverrides = function(target, values)
-            local properties, components = {}, {}
+            local scripts = {}
             local transform = target.data.transform and assert(Transform.copy(target.data.transform))
-            for key, value in pairs(values) do
-                local name, field = key:match("^([^.]+)%.(.+)$")
-                if name == object.rootComponent.name and Transform.FIELDS[field] then
-                    if transform then transform[field] = value end
-                elseif name then components[name] = components[name] or {}; components[name][field] = value
-                else properties[key] = value end
+            for name, value in pairs(values) do
+                local id, field = name:match("^([^.]+)%.(.+)$")
+                if id == "$transform" then if transform then transform[field] = value end
+                elseif id then scripts[id] = scripts[id] or {}; scripts[id][field] = value end
             end
             if transform then
-                -- 리셋으로 생략된 루트 필드는 schema 기본값을 사용한다.
                 for field in pairs(Transform.FIELDS) do
-                    local key = object.rootComponent.name .. "." .. field
+                    local key = "$transform." .. field
                     if values[key] == nil then transform[field] = schema[key].default end
                 end
                 target.data.transform = assert(Transform.copy(transform))
             end
-            target.data.propertyOverrides, target.data.componentOverrides = properties, components
+            target.data.propertyOverrides, target.data.scriptOverrides = {}, scripts
         end}
 end
 return Definition

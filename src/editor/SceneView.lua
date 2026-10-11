@@ -147,11 +147,11 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
             local preview = self.spriteAssets:preview(object)
             if preview then previews[#previews + 1] = preview; sources[preview] = object end
         end
-        local entries = require("core.ComponentOrder").entries(previews, require("core.RenderComponent"))
+        local entries = require("core.ScriptOrder").entries(previews, "draw")
         local context = {image = function(_, reference) return self.spriteAssets:image(reference) end}
         for index = #entries, 1, -1 do
-            local component = entries[index].component
-            if component:hitTest(context, worldX, worldY) then return sources[component.owner] end
+            local script = entries[index].script
+            if script.hitTest and script:hitTest(context, worldX, worldY) then return sources[script.owner] end
         end
     end
 
@@ -465,14 +465,14 @@ function SceneView:getCameraBounds(camera)
     return points
 end
 function SceneView:drawCameraBounds()
-    local Camera = require("core.CameraComponent")
+    local Camera = require("core.CameraScript")
     for _, object in ipairs(self.level.lobjects) do
         local preview = self.spriteAssets:preview(object)
         if preview then
-            for _, name in ipairs(preview:getComponentOrder()) do
-                local component = preview.components[name]
-                if component:isA(Camera) then
-                    local ok, points = pcall(self.getCameraBounds, self, component)
+            for _, name in ipairs(preview:getScriptOrder()) do
+                local script = preview.scripts[name]
+                if script.camera then
+                    local ok, points = pcall(self.getCameraBounds, self, script)
                     if ok then
                         Theme.setColor(self:isSelected(object) and "objectSelected" or "textMuted")
                         love.graphics.setLineWidth(self:isSelected(object) and 2 or 1)

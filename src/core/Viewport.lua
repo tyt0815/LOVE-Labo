@@ -27,7 +27,7 @@ function Viewport:containsWorldScreen(x, y)
         and math.abs(y - self.y - self.height / 2) <= self.contentHeight / 2
 end
 function Viewport:context(image)
-    return {image = image, viewport = self, transform = function(_, component) return require("core.CoordinateSpace").transform(component) end}
+    return {image = image, viewport = self, transform = function(_, script) return require("core.CoordinateSpace").transform(script) end}
 end
 function Viewport:dispatchPointer(world, kind, x, y, button, dx, dy, image)
     local wx, wy = self:screenToWorld(x, y)

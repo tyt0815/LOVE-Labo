@@ -18,7 +18,7 @@ function Export.write(project, level, output)
     output = output:gsub("\\", "/")
     if not output:match("^%a:/") and output:sub(1, 1) ~= "/" then output = Fs.join(project.rootPath, output) end
     local relative = project:referenceForPath(output)
-    if relative and (relative:match("^Assets/") or relative:match("^Sources/")) then return false, "Export output must be outside Assets and Sources" end
+    if relative and (relative:match("^Assets/") or relative:match("^Assets/")) then return false, "Export output must be outside Assets and Assets" end
     local world, err = require("runtime.WorldLoader").prepare(project, level:toData())
     if not world then return false, err end
     local entries = {}

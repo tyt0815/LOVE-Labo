@@ -22,6 +22,27 @@ function Hierarchy:containsPoint(x, y)
     return x >= 0 and x < self.width and y >= (self.y or 0) and (not self.height or y < (self.y or 0) + self.height)
 end
 function Hierarchy:rows() return self.level and self.level:treeRows(self.collapsed) or {} end
+function Hierarchy:revealObject(object)
+    local parent = object.parentAuthoringId and self.level:findLObject(object.parentAuthoringId)
+    while parent do self.collapsed[parent.authoringId] = nil; parent = parent.parentAuthoringId and self.level:findLObject(parent.parentAuthoringId) end
+    local visible = math.max(1, math.floor(((self.height or love.graphics.getHeight()) - HEADER_HEIGHT) / ROW_HEIGHT))
+    for index, row in ipairs(self:rows()) do if row.object == object then self.scroll = math.max(0, index - visible) end end
+end
+function Hierarchy:nameRect(object)
+    for index, row in ipairs(self:rows()) do if row.object == object then
+        return {x = Ui.METRICS.contentPaddingX + row.depth * 16 + 18, y = (self.y or 0) + HEADER_HEIGHT + (index - 1 - self.scroll) * ROW_HEIGHT,
+            w = math.max(60, self.width - row.depth * 16 - 60), h = ROW_HEIGHT}
+    end end
+end
+function Hierarchy:prefabGroup(object)
+    if not object or not object.definitionReference and not object.prefabRootId then return nil end
+    local current = object
+    while current do
+        local path = self.project and self.project:getAssetReference(current.definitionReference)
+        if path and path:match("%.prefab$") then return current.authoringId, current.definitionReference end
+        current = current.parentAuthoringId and self.level:findLObject(current.parentAuthoringId)
+    end
+end
 function Hierarchy:rowAt(x, y)
     if not self:containsPoint(x, y) or y < (self.y or 0) + HEADER_HEIGHT then return nil end
     return self:rows()[math.floor((y - (self.y or 0) - HEADER_HEIGHT) / ROW_HEIGHT) + 1 + self.scroll]
@@ -32,6 +53,10 @@ function Hierarchy:mousepressed(x, y, button)
     local handled, capture = self.scrollbar:dispatch("mousepressed", x, y, button)
     if handled then return true, capture end
     local view, row = self.sceneView, self:rowAt(x, y)
+    if button == 1 and row and x >= self.width - 44 and x < self.width - 18 then
+        local _, reference = self:prefabGroup(row.object)
+        if reference and self.onLocatePrefab then self.onLocatePrefab(reference); return true end
+    end
     if button == 2 then if self.onContextMenu then self.onContextMenu(x, y, row and row.object) end; return true end
     if button ~= 1 then return true end
     if row and row.children and x < Ui.METRICS.contentPaddingX + row.depth * 16 + 16 then
@@ -118,11 +143,15 @@ function Hierarchy:draw(selected)
         local rowY = top + HEADER_HEIGHT + (i - 1 - self.scroll) * ROW_HEIGHT
         if rowY + ROW_HEIGHT > top + HEADER_HEIGHT and rowY < top + height then
             local object = row.object
+            local group = self:prefabGroup(object)
+            local selectedGroup = self:prefabGroup(selected or self.sceneView and self.sceneView.selectedLObject)
+            require("editor.ui.PrefabAppearance").background(group, group and group == selectedGroup, {x = 6, y = rowY, w = self.width - 24, h = ROW_HEIGHT})
             if self.sceneView and self.sceneView:isSelected(object) or not self.sceneView and object == selected then Ui.selection(0, rowY, self.width, ROW_HEIGHT) end
             local x = Ui.METRICS.contentPaddingX + row.depth * 16
             Theme.setColor("text")
             if row.children then Ui.chevron(x + 7, rowY + ROW_HEIGHT / 2, not self.collapsed[object.authoringId]) end
-            Ui.text(object.name or "LObject " .. object.authoringId, x + 18, rowY + 4, self.width - x - 36)
+            Ui.text(object.name or "LObject " .. object.authoringId, x + 18, rowY + 4, self.width - x - 62)
+            if group then Ui.browseButton({x = self.width - 44, y = rowY, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
             if self.drag and self.drag.active and not self.drag.marquee and self.drag.target == object then
                 Theme.setColor("focus"); love.graphics.rectangle("line", 6, rowY, self.width - 12, ROW_HEIGHT)
                 local _, detach = self:dropParent(self.drag.objects, object)

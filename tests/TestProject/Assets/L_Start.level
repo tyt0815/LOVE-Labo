@@ -1,0 +1,48 @@
+{
+  "formatVersion": 3,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "name": "Camera 1",
+      "scripts": [
+        {
+          "id": "camera",
+          "source": "Camera"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 2,
+      "definitionReference": "85ca271c-97e3-4509-b963-b6b85ac45dbd",
+      "name": "NewPrefab 1",
+      "prefabNodePath": "root",
+      "prefabRootId": 2,
+      "scripts": {},
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 3,
+      "name": "VisualChild",
+      "parentAuthoringId": 2,
+      "prefabNodePath": "root/o1",
+      "prefabRootId": 2,
+      "scripts": {},
+      "transform": {
+        "x": 100,
+        "y": 0
+      }
+    }
+  ],
+  "mainCamera": {
+    "authoringId": 1,
+    "script": "camera"
+  },
+  "propertyOverrides": {}
+}

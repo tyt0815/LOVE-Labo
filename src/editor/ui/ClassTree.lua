@@ -8,28 +8,28 @@ function Tree.new(project, kind)
     local self = setmetatable(Widget.new(), Tree)
     self.project, self.kind, self.expanded, self.scroll = project, kind, {}, 0
     self.records, self.roots = {}, {}
-    for _, base in ipairs(kind == "lua" and {"level", "lobject", "component"} or {kind == "level" and "level" or "lobject"}) do
+    for _, base in ipairs(kind == "lua" and {"script", "level"} or {kind == "level" and "level" or "lobject"}) do
         local key = "builtin:" .. base
-        local node = {reference = key, name = base == "level" and "Level" or base == "component" and "LObjectComponent" or "LObject",
-            kind = base, parentReference = base == "component" and "LObjectComponent" or nil, children = {}}
+        local node = {reference = key, name = base == "level" and "Level" or base == "script" and "Script" or "LObject",
+            kind = base, parentReference = base == "script" and "Script" or nil, children = {}}
         self.records[key], self.roots[#self.roots + 1] = node, node
         self.expanded[key] = kind ~= "lua"
     end
     if kind == "lua" then
-        local parents = {SceneComponent = "component", BoundsComponent = "SceneComponent", CameraComponent = "SceneComponent", RectComponent = "BoundsComponent", CanvasComponent = "RectComponent", RenderComponent = "BoundsComponent", SpriteComponent = "RenderComponent", PointerComponent = "BoundsComponent"}
-        for _, name in ipairs({"SceneComponent", "BoundsComponent", "CameraComponent", "RectComponent", "CanvasComponent", "RenderComponent", "SpriteComponent", "PointerComponent"}) do
+        local parents = {Camera = "script", Sprite = "script", Pointer = "script", Rect = "script", Canvas = "script"}
+        for _, name in ipairs({"Camera", "Sprite", "Pointer", "Rect", "Canvas"}) do
             local parent = self.records["builtin:" .. parents[name]]
-            local node = {reference = "builtin:" .. name, name = name, kind = "component", parentReference = name, children = {}}
+            local node = {reference = "builtin:" .. name, name = name, kind = "script", parentReference = name, children = {}}
             node.parent = parent.reference
             self.records[node.reference] = node
             parent.children[#parent.children + 1] = node
         end
     end
-    local loader = require("project.LuaClass").loader(project)
+    local loader = require("project.LuaScript").loader(project)
     for reference, meta in pairs(project.assetMetadata or {}) do
-        local script = reference:match("^Sources/.+%.lua$") and meta.scriptKind
+        local script = reference:match("^Assets/.+%.lua$") and meta.scriptKind
         local prefab = kind == "prefab" and reference:match("^Assets/.+%.prefab$")
-        if script and self.records["builtin:" .. script] or prefab then
+        if kind ~= "prefab" and script and self.records["builtin:" .. script] or prefab then
             local id = project:getAssetId(reference)
             local node = {reference = id, assetId = id, path = reference,
                 name = reference:match("([^/]+)$"), kind = prefab and "lobject" or script, children = {}}
@@ -52,7 +52,7 @@ function Tree.new(project, kind)
                 class, node.error = loader(id, script)
                 if class then
                     node.parent = class.extends
-                    if script == "component" and self.records["builtin:" .. tostring(node.parent)] then node.parent = "builtin:" .. node.parent end
+                    if script == "script" and self.records["builtin:" .. tostring(node.parent)] then node.parent = "builtin:" .. node.parent end
                 end
             end
             self.records[id] = node
@@ -68,7 +68,7 @@ function Tree.new(project, kind)
     end
     local function sort(node)
         table.sort(node.children, function(a, b)
-            if a.name == b.name then return a.path < b.path end
+            if a.name == b.name then return (a.path or a.name) < (b.path or b.name) end
             return a.name:lower() < b.name:lower()
         end)
         for _, child in ipairs(node.children) do sort(child) end

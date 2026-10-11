@@ -207,4 +207,24 @@ add("project start renders preedit instead of lagging committed text", function(
     Assert.truthy(love.textedited)
 end)
 
+add("Inline rename commits preedit on Enter and outside click without leaking delayed input", function()
+    for _, outside in ipairs({false, true}) do
+        local root, saved = Root.new(Canvas.new()), nil
+        require("editor.ui.InlineRename").new(root, {x = 0, y = 0, w = 100, h = 26}, "Default", function(text) saved = text; return true end)
+        root:textinput("새"); root:textedited("이름", 0, 2)
+        if outside then root:mousepressed(200, 100, 1) else root:keypressed("return") end
+        Assert.equal("새이름", saved); Assert.equal(nil, root.popup)
+        local nextField = require("editor.ui.InlineRename").new(root, {x = 0, y = 0, w = 100, h = 26}, "Next", function() return true end)
+        root:textinput("이름"); Assert.equal("Next", nextField.text)
+        root:dismissPopup(); Ime.update()
+    end
+end)
+add("Inline rename Escape cancels preedit and delayed OS commit", function()
+    local root, saved = Root.new(Canvas.new()), false
+    require("editor.ui.InlineRename").new(root, {x = 0, y = 0, w = 100, h = 26}, "Default", function() saved = true; return true end)
+    root:textedited("취소", 0, 2); root:keypressed("escape")
+    Assert.equal(false, saved)
+    local nextField = require("editor.ui.InlineRename").new(root, {x = 0, y = 0, w = 100, h = 26}, "Next", function() return true end)
+    root:textinput("취소"); Assert.equal("Next", nextField.text); root:dismissPopup()
+end)
 return tests

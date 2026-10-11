@@ -7,7 +7,7 @@ function Create.show(browser, folder, kind)
     local project, root = browser.project, browser.uiRoot
     local titles = {folder = "Folder", level = "Level", prefab = "Prefab", lua = "Lua Class"}
     local defaults = {folder = "NewFolder", level = "L_", prefab = "PF_", lua = "NewClass"}
-    local pathRoot = kind == "lua" and "Sources" or kind == "folder" and folder:match("^[^/]+") or "Assets"
+    local pathRoot = kind == "lua" and "Assets" or kind == "folder" and folder:match("^[^/]+") or "Assets"
     if folder ~= pathRoot and folder:sub(1, #pathRoot + 1) ~= pathRoot .. "/" then folder = pathRoot end
     local state = {folder = folder, name = defaults[kind]}
     local parentTree = kind ~= "folder" and ClassTree.new(project, kind)

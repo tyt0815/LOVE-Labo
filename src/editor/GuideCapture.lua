@@ -25,28 +25,31 @@ function Capture.run(args)
         end
         app:draw(); shot("level-details")
         app.sceneView:setSelection({app.level.lobjects[1]}); app.inspectorSource = "scene"; app:updateInspectorTarget()
-        app.inspector.classInspector:selectComponent("camera"); shot("camera-details")
-        assert(project:createEntry("Sources", "lua", "Player", {scriptKind = "lobject"}))
-        assert(Fs.writeAtomic(assert(project:resolveSourceFile("Sources/Player.lua")), [[-- labo-script: lobject
-local Engine = require("Engine")
-local Player = {properties = {speed = {type = "number", default = 100, group = "Movement"}}}
-function Player.build(self) self:setRootComponent("sprite", Engine.SpriteComponent) end
+        app.inspector.classInspector:selectScript("camera"); shot("camera-details")
+        assert(project:createEntry("Assets", "lua", "Player", {scriptKind = "script"}))
+        assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/Player.lua")), [[-- labo-script: script
+local Player = {extends = "Sprite", properties = {speed = {type = "number", default = 100, group = "Movement"}}}
 return Player
 ]]))
         local image = love.image.newImageData(64, 64)
         image:mapPixel(function() return 0.1, 0.65, 0.95, 1 end)
         local png = image:encode("png"); assert(Fs.writeAtomic(project:resolvePath("Assets/Player.png"), png:getString()))
         png:release(); image:release(); assert(project:rebuildAssetIndex())
-        assert(project:createEntry("Assets", "prefab", "PF_Player", {scriptReference = project:getAssetId("Sources/Player.lua")}))
+        assert(project:createEntry("Assets", "prefab", "PF_Player", {}))
         local prefab = assert(require("editor.PrefabDocument").load(project, "Assets/PF_Player.prefab"))
-        prefab.data.overrides.components = {sprite = {image = project:getAssetId("Assets/Player.png")}}
+        prefab.data.scripts = {{id = "sprite", source = project:getAssetId("Assets/Player.lua")}}
+        prefab.data.overrides.scripts = {sprite = {image = project:getAssetId("Assets/Player.png")}}
         assert(prefab:save(project))
         local object = app.level:addLObject(150, 0, project:getAssetId("Assets/PF_Player.prefab"), "PF_Player")
         app.assetBrowser:refresh(); app.sceneView:setSelection({object}); app:updateInspectorTarget()
-        app.inspector.classInspector:selectComponent("sprite"); shot("sprite-details")
+        app.inspector.classInspector:selectScript("sprite"); shot("sprite-details")
         assert(app.document:save())
         assert(app:inspectAsset("Assets/PF_Player.prefab")); shot("prefab-details")
         assert(app:startPlay()); shot("game-view"); app:stopPlay()
+        assert(app.prefabEditor:insertChild(nil, "Child", "root"))
+        app.prefabEditor.onSelect("root"); shot("prefab-hierarchy")
+        app.assetBrowser:showCreateDialog("Assets", "prefab"); shot("inline-rename")
+        app.uiRoot:keypressed("escape")
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

@@ -34,7 +34,7 @@ function Host.load(args)
                 local viewport = require("core.Viewport").new(world, 0, 0, width, height)
                 report.view = {scale = viewport.scale, camera = viewport.camera and viewport.camera.name,
                     x = viewport.transform.x, y = viewport.transform.y}
-                report.properties = {}
+                report.properties, report.instances = {}, {}
                 for _, object in ipairs(world.lobjects) do
                     local values = {}
                     for key, item in pairs(object.properties) do
@@ -42,6 +42,8 @@ function Host.load(args)
                         elseif item.authoringId then values[key] = {instance = item.authoringId} end
                     end
                     report.properties[#report.properties + 1] = values
+                    report.instances[#report.instances + 1] = {authoringId = object.authoringId, name = object.name,
+                        transform = object.transform, scripts = require("runtime.ScriptState").read(object)}
                 end
             end
             local path = args[i + 1]

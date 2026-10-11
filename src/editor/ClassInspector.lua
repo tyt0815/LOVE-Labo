@@ -1,7 +1,7 @@
 local Schema = require("core.PropertySchema")
 local Ui = require("editor.Ui")
 local Theme = require("editor.Theme")
-local LuaClass = require("editor.LuaClass")
+local LuaScript = require("editor.LuaScript")
 local Dropdown = require("editor.ui.Dropdown")
 local Ime = require("editor.ui.Ime")
 local Edit = require("editor.ui.TextEdit")
@@ -16,9 +16,9 @@ local TRANSFORM_LABELS = {x = "X", y = "Y", rotationX = "Rot X°", rotationY = "
 function ClassInspector.new(project, root)
     local self = setmetatable({project = project, root = root, scroll = 0, groupExpanded = {}, thumbnails = Thumbnail.new(project)}, ClassInspector)
     self.scrollbar = Scrollbar.new(function() return self.scroll end, function(value)
-        self.scroll = math.floor(value + 0.5); self:layoutComponentTree()
+        self.scroll = math.floor(value + 0.5); self:layoutTrees()
     end)
-    self.objectTreeHeight, self.componentTreeHeight = 78, 78
+    self.objectTreeHeight, self.scriptTreeHeight = 78, 78
     return self
 end
 
@@ -47,11 +47,11 @@ function ClassInspector:setTarget(target)
     self:commitEdit()
     local key = target and (target.documentKey or target.data)
     if key ~= self.treeLayoutKey then
-        self.objectTreeHeight, self.componentTreeHeight, self.objectTree = 78, 78, nil
+        self.objectTreeHeight, self.scriptTreeHeight, self.objectTree = 78, 78, nil
     end
     self.treeLayoutKey = key
     self.target, self.scroll, self.error = target, 0, nil
-    self.selectedComponent, self.tree, self.treeFocused = nil, nil, false
+    self.selectedScript, self.tree, self.treeFocused = nil, nil, false
     self:reload()
 end
 
@@ -72,26 +72,19 @@ function ClassInspector:reload()
         local target
         if definition then target, err = Definition.inspectorTarget(self.project, {}, definition, nil, "Prefab") end
         if target then self.class, self.preview = target.class, target.preview else self.error = err end
-    elseif reference then self.class, self.error = LuaClass.load(self.project, reference, self.target.kind) end
+    elseif reference then self.class, self.error = LuaScript.load(self.project, reference, self.target.kind) end
     if self.target.mainCameraDetails then
         local properties = {}
         for name, declaration in pairs(self.class and self.class.properties or {}) do properties[name] = declaration end
         properties["$mainCamera"] = {type = "object", default = false, field = "Main Camera", group = "Camera"}
-        self.class = {properties = properties, className = self.class and (self.class.className or LuaClass.name(self.class)) or "Level"}
+        self.class = {properties = properties, className = self.class and (self.class.className or LuaScript.name(self.class)) or "Level"}
     end
-    if not self.preview then self.selectedComponent = nil end
+    if not self.preview then self.selectedScript = nil end
     self.allNames = {}
     for name in pairs(self.class and self.class.properties or {}) do self.allNames[#self.allNames + 1] = name end
     table.sort(self.allNames)
     local oldTree = self.tree
     self.tree = nil
-    if self.preview then
-        if self.selectedComponent and not self.preview.components[self.selectedComponent] then self.selectedComponent = nil end
-        local label = self.target.getDisplayName and self.target:getDisplayName() or self.target.label
-        self.tree = require("editor.ui.ComponentTree").new(self.preview, label, function(component) self:selectComponent(component) end, true)
-        if oldTree then self.tree.expanded, self.tree.scroll = oldTree.expanded, oldTree.scroll end
-        self.tree:reveal(self.selectedComponent)
-    end
     self:rebuildRows()
     local oldObjectTree = self.objectTree
     self.objectTree = nil
@@ -104,6 +97,7 @@ function ClassInspector:reload()
                 self.objectTree:rebuild()
             end
             self.objectTree.selected = self.target.selectedObjectPath or "root"
+            self.objectTree.onLocatePrefab = function(value) if self.onReveal then return self.onReveal(value) end end
         end
     end
     self.dropdown = Dropdown.new(self.root, {}, reference or false, function(value) return self:selectParent(value) end)
@@ -111,14 +105,14 @@ function ClassInspector:reload()
     self:updateOptions()
 end
 
-function ClassInspector:selectComponent(component)
+function ClassInspector:selectScript(script)
     self:commitEdit()
-    assert(not component or self.preview and self.preview.components[component], "Missing Inspector component")
-    self.selectedComponent, self.scroll = component, 0
-    if self.tree then self.tree:reveal(component) end
+    assert(not script or self.preview and self.preview.scripts[script], "Missing Inspector script")
+    self.selectedScript, self.scroll = script, 0
+    if self.tree then self.tree:reveal(script) end
     self:rebuildRows()
     if self.onScopeChanged then self.onScopeChanged() end
-    if self.left then self:layoutComponentTree() end
+    if self.left then self:layoutTrees() end
     return true
 end
 
@@ -130,7 +124,8 @@ function ClassInspector:parentVisible() return self.target and not self.target.h
 
 function ClassInspector:updateOptions()
     local options = {{label = "None", value = false}}
-    local scripts, err = self.project:listScripts(self.target.kind)
+    local scripts, err = self.project:listScripts(self.target.kind == "lobject" and "script" or self.target.kind)
+    if self.target.kind == "lobject" then scripts, err = {}, nil end
     local current = self.target.data[self.target.referenceField]
     local found = not current
     for _, reference in ipairs(scripts or {}) do
@@ -161,7 +156,11 @@ function ClassInspector:selectParent(value)
     self:commitEdit()
     local snapshot = self.target.getSnapshot and self.target.getSnapshot()
     local class, err, parentTarget
-    if value then
+    if self.target.parentDefaults then
+        parentTarget, err = self.target.parentDefaults(value)
+        if not parentTarget then self.error = err; return false end
+        class = parentTarget.class
+    elseif value then
         if self.target.kind == "lobject" then
             local valid, parentError = require("project.PrefabHierarchy").resolve(self.project, value, nil, self.target.parentOwnerId)
             if not valid then self.error = parentError; return false end
@@ -172,12 +171,12 @@ function ClassInspector:selectParent(value)
             local target
             target, err = Definition.inspectorTarget(self.project, {transform = self.target.data.transform}, definition, nil, "Prefab")
             if target then class, parentTarget = target.class, target end
-        else class, err = LuaClass.load(self.project, value, self.target.kind) end
+        else class, err = LuaScript.load(self.project, value, self.target.kind) end
         if not class then self.error = err; return false end
     end
     if self.target.setParentReference then self.target.setParentReference(value)
     else self.target.data[self.target.referenceField] = value or nil end
-    self.target:setOverrides(LuaClass.compatibleOverrides(class, self.target:getOverrides()), parentTarget)
+    self.target:setOverrides(LuaScript.compatibleOverrides(class, self.target:getOverrides()), parentTarget)
     if self.target.reloadTarget then
         local target, reloadError = self.target.reloadTarget()
         if not target then
@@ -197,13 +196,12 @@ function ClassInspector:setProperty(name, value)
         self.error = "Use the eyedropper to select a camera instance"; return false
     end
     local declaration = self.class and self.class.properties[name]
-    if not declaration or not LuaClass.validValue(declaration.type, value) then
+    if not declaration or not LuaScript.validValue(declaration.type, value) then
         self.error = "Invalid value for " .. name
         return false
     end
     if declaration.sceneTransform then
-        local component = self.preview.components[declaration.component]
-        local transform = require("core.Transform").copy(component.transform)
+        local transform = require("core.Transform").copy(self.preview.transform)
         transform[declaration.field] = value
         local valid, err = require("core.Transform").copy(transform)
         if not valid then self.error = err; return false end
@@ -229,10 +227,10 @@ function ClassInspector:setProperty(name, value)
             if not ok then self.error = tostring(result); return false end
         end
         value = self.project:getAssetId(reference) or reference
-    elseif declaration.type == "object" and value ~= false then
+    elseif (declaration.type == "object" or declaration.type == "script") and value ~= false then
         local found = false
         for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
-            if object.authoringId == value then found = true end
+            if object.authoringId == (type(value) == "table" and value.authoringId or value) then found = true end
         end
         if not found then self.error = "Instance must belong to the current level"; return false end
     end
@@ -261,7 +259,7 @@ function ClassInspector:isEditing() return self.editing ~= nil end
 
 function ClassInspector:propertyRect(name, top)
     if self.class.properties[name].type == "image" then return self:imageRects(top - 3).selector end
-    if Schema.isTemplate(self.class.properties[name].type) or self.class.properties[name].type == "object" then
+    if Schema.isTemplate(self.class.properties[name].type) or (self.class.properties[name].type == "object" or self.class.properties[name].type == "script") then
         local rect = self:referenceRects(top - 3).selector
         return rect
     end
@@ -307,9 +305,10 @@ end
 function ClassInspector:objectLabel(value, name)
     if value == false then return name == "$mainCamera" and "Auto" or "None" end
     for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
-        if object.authoringId == value then
+        if object.authoringId == (type(value) == "table" and value.authoringId or value) then
             local label = object.name or "LObject " .. tostring(value)
-            if name == "$mainCamera" then label = label .. " / " .. self.target.data.mainCamera.component end
+            if type(value) == "table" then label = label .. " / " .. value.script end
+            if name == "$mainCamera" then label = label .. " / " .. self.target.data.mainCamera.script end
             return label
         end
     end
@@ -318,12 +317,12 @@ end
 function ClassInspector:pickCandidate(name, reference, object)
     if name == "$parent" then
         reference = reference or object and object.definitionReference
-        if not reference then return nil, "Select a Parent Class asset or an instance with a source" end
+        if not reference then return nil, "Select a Parent Prefab asset or a sourced instance" end
         if self.target.kind == "lobject" then
             local definition, err = require("project.ObjectDefinition").resolve(self.project, reference, nil, self.target.parentOwnerId)
             if not definition then return nil, err end
         else
-            local class, err = LuaClass.load(self.project, reference, self.target.kind)
+            local class, err = LuaScript.load(self.project, reference, self.target.kind)
             if not class then return nil, err end
         end
         local path, err = self.project:getAssetReference(reference)
@@ -332,14 +331,14 @@ function ClassInspector:pickCandidate(name, reference, object)
     end
     local declaration = self.class.properties[name]
     if not declaration then return nil, "Property no longer exists" end
-    if declaration.type == "object" then
+    if (declaration.type == "object" or declaration.type == "script") then
         if not object or not self.target.level then return nil, "Select an instance in the current level" end
         for _, current in ipairs(self.target.level.lobjects) do if current == object then return object.authoringId end end
         return nil, "Instance must belong to the current level"
     end
     if Schema.isTemplate(declaration.type) then
         reference = reference or object and object.definitionReference
-        if not reference then return nil, "Select an LObject Lua Class, Prefab or sourced instance" end
+        if not reference then return nil, "Select a Prefab or sourced instance" end
         local template, err = require("project.LObjectTemplate").resolve(self.project, reference)
         return template and template.reference or nil, err
     end
@@ -404,14 +403,14 @@ function ClassInspector:rebuildRows()
         if self.objectTree then rows[#rows + 1] = {objectTree = true, height = self.objectTreeHeight + 12} end
         if self:parentVisible() then rows[#rows + 1] = {parentClass = true, height = 48} end
     end
-    local function addScope(component)
+    local function addScope(script)
         local groups, groupNames = {}, {}
-        local defaultGroup = component and self.class.componentTypes[component]
-            or self.class and (self.class.className or LuaClass.name(self.class)) or "LObject"
+        local defaultGroup = script and self.class.scriptTypes[script]
+            or self.class and (self.class.className or LuaScript.name(self.class)) or "LObject"
         for _, name in ipairs(self.allNames or {}) do
             local declaration = self.class.properties[name]
-            local belongs = component and declaration.component == component and not declaration.rootTransform
-                or not component and (not declaration.component or declaration.rootTransform)
+            local belongs = script and declaration.script == script and not declaration.rootTransform
+                or not script and (not declaration.script or declaration.rootTransform)
             if belongs then
                 self.names[#self.names + 1] = name
                 local group = declaration.rootTransform and "Transform" or declaration.group or defaultGroup
@@ -419,7 +418,7 @@ function ClassInspector:rebuildRows()
                 groups[group][#groups[group] + 1] = name
             end
         end
-        if #groupNames == 0 and not component and self.class then groups[defaultGroup] = {}; groupNames[1] = defaultGroup end
+        if #groupNames == 0 and self.class and (script or not self.preview) then groups[defaultGroup] = {}; groupNames[1] = defaultGroup end
         table.sort(groupNames, function(a, b)
             if a == b then return false end
             if a == "Transform" then return true end
@@ -437,8 +436,9 @@ function ClassInspector:rebuildRows()
                 if first or second then return first ~= nil and first ~= false end
                 return a < b
             end)
-            local key = (component and "component:" .. component or "object") .. "/" .. group
-            local header = {header = true, label = group, groupKey = key, height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}
+            local key = (script and "script:" .. script or "object") .. "/" .. group
+            local label = script and (script .. " (" .. defaultGroup .. ")" .. (group ~= defaultGroup and " / " .. group or "")) or group
+            local header = {scriptId = script, header = true, label = label, groupKey = key, height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}
             rows[#rows + 1] = header
             if self.groupExpanded[key] ~= false then
                 for _, name in ipairs(groups[group]) do
@@ -450,9 +450,9 @@ function ClassInspector:rebuildRows()
         end
     end
     addScope(nil)
-    if self.tree then
-        rows[#rows + 1] = {componentTree = true, height = 36 + self.componentTreeHeight}
-        if self.selectedComponent then addScope(self.selectedComponent) end
+    if self.preview then
+        rows[#rows + 1] = {scriptActions = true, height = 36}
+        for _, id in ipairs(self.preview.scriptOrder) do addScope(id) end
     end
     local offset = 0
     for _, row in ipairs(rows) do row.offset = offset; offset = offset + row.height end
@@ -466,16 +466,16 @@ end
 
 function ClassInspector:ensurePropertyVisible(name)
     local declaration = assert(self.class.properties[name], "Missing property " .. name)
-    local component = not declaration.rootTransform and declaration.component or nil
-    if component and component ~= self.selectedComponent then self:selectComponent(component) end
-    local group = declaration.rootTransform and "Transform" or declaration.group or (component and self.class.componentTypes[component]
-        or self.class.className or LuaClass.name(self.class) or "LObject")
-    self.groupExpanded[(component and "component:" .. component or "object") .. "/" .. group] = true
+    local script = not declaration.rootTransform and declaration.script or nil
+    if script and script ~= self.selectedScript then self:selectScript(script) end
+    local group = declaration.rootTransform and "Transform" or declaration.group or (script and self.class.scriptTypes[script]
+        or self.class.className or LuaScript.name(self.class) or "LObject")
+    self.groupExpanded[(script and "script:" .. script or "object") .. "/" .. group] = true
     self:rebuildRows()
     for _, row in ipairs(self.rows) do
         if row.name == name then
             self.scroll = math.max(0, math.min(self.maxScroll, math.max(row.offset + row.height - self.propertyHeight, math.min(self.scroll, row.offset))))
-            self:layoutComponentTree()
+            self:layoutTrees()
             return self:propertyRect(name, self.propertyTop + row.offset - self.scroll + 3)
         end
     end
@@ -490,17 +490,17 @@ function ClassInspector:layout(left, width, height, propertyTop, top)
     self.propertyBottom = height - 10
     self.propertyHeight = math.max(0, self.propertyBottom - self.propertyTop - (self.error and 32 or 0))
     self:rebuildRows()
-    self:layoutComponentTree()
+    self:layoutTrees()
 end
-function ClassInspector:layoutComponentTree()
+function ClassInspector:layoutTrees()
     for _, row in ipairs(self.rows) do
         local y = self.propertyTop + row.offset - self.scroll
         local width = self.width - 2 * Ui.METRICS.contentPaddingX - (self.scrollbar.visible and Scrollbar.WIDTH or 0)
         if row.objectTree then self.objectTree:setBounds(self.left + Ui.METRICS.contentPaddingX, y, width, self.objectTreeHeight)
         elseif row.parentClass then self.dropdown:setBounds(self.left + self.width / 2 + 4, y, math.max(0, self.width / 2 - Ui.METRICS.contentPaddingX - 64 - (self.width - (self.contentWidth or self.width))), 28)
         end
-        if row.componentTree then
-            self.tree:setBounds(self.left + Ui.METRICS.contentPaddingX, y + 30, width, self.componentTreeHeight)
+        if row.scriptTree then
+            self.tree:setBounds(self.left + Ui.METRICS.contentPaddingX, y + 30, width, self.scriptTreeHeight)
         end
     end
 end
@@ -512,7 +512,7 @@ function ClassInspector:resizeAt(x, y)
     if y < self.propertyTop or y >= self.propertyTop + self.propertyHeight then return end
     if self.objectTree and Ui.contains(x, y, self:treeGrip(self.objectTree)) then return "object" end
     if self.tree and y >= self.propertyTop and y < self.propertyTop + self.propertyHeight
-        and Ui.contains(x, y, self:treeGrip(self.tree)) then return "component" end
+        and Ui.contains(x, y, self:treeGrip(self.tree)) then return "script" end
 end
 function ClassInspector:isPointerActive()
     return self.treeResize or self.scrollbar.drag or self.tree and self.tree.scrollbar.drag
@@ -524,7 +524,7 @@ end
 
 function ClassInspector:targetKind()
     if self.target.kind == "lobject" then
-        local name = self.class and (self.class.className or LuaClass.name(self.class)) or "LObject"
+        local name = self.class and (self.class.className or LuaScript.name(self.class)) or "LObject"
         return (name or "LObject") .. " Prefab"
     end
     return self.target.label
@@ -534,7 +534,7 @@ function ClassInspector:draw()
     local propertyHeight = math.max(0, self.propertyBottom - self.propertyTop - (self.error and 32 or 0))
     if propertyHeight ~= self.propertyHeight then self.propertyHeight = propertyHeight; self:rebuildRows() end
     if not self.target.instance and self.onSave then Ui.button("Save", self:saveRect(), false, "Save this document", true) end
-    self:layoutComponentTree()
+    self:layoutTrees()
     love.graphics.push("all")
     love.graphics.intersectScissor(self.left, self.propertyTop, self.width, self.propertyHeight)
     for _, row in ipairs(self.rows) do
@@ -553,16 +553,20 @@ function ClassInspector:draw()
         elseif row.objectTree then
             self.objectTree:draw(); Ui.resizeGrip(self:treeGrip(self.objectTree))
         elseif row.parentClass then
-            Ui.label("Parent Class", self.left + Ui.METRICS.contentPaddingX + 12, self.dropdown.y + 6, self.width / 2 - Ui.METRICS.contentPaddingX - 20)
+            Ui.label(self.target.kind == "lobject" and "Parent Prefab" or "Level Script", self.left + Ui.METRICS.contentPaddingX + 12, self.dropdown.y + 6, self.width / 2 - Ui.METRICS.contentPaddingX - 20)
             self.dropdown:draw()
             Ui.eyedropperButton(self:parentPickRect(), self.isPicking and self.isPicking("$parent"))
             Ui.browseButton(self:parentBrowseRect(), self.dropdown.value ~= false)
-        elseif row.componentTree then
-            Ui.label("Components", self.left + Ui.METRICS.contentPaddingX, y + 6, self.width - 2 * Ui.METRICS.contentPaddingX)
+        elseif row.scriptActions then
+            Ui.label("Scripts", self.left + Ui.METRICS.contentPaddingX, y + 6, self.width - 2 * Ui.METRICS.contentPaddingX)
+            if self.target.addScript and not self.target.instance then Ui.button("Add Script", self:scriptActionRect(y), false, "Attach a script to this Prefab object", true) end
+        elseif row.scriptTree then
+            Ui.label("Scripts", self.left + Ui.METRICS.contentPaddingX, y + 6, self.width - 2 * Ui.METRICS.contentPaddingX)
             self.tree:draw()
             Ui.resizeGrip(self:treeGrip(self.tree))
         elseif row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             PropertyLayout.group(self.left, self.contentWidth or self.width, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false)
+            if row.scriptId and self.target.removeScript and not self.target.instance then Ui.button("Remove", self:scriptActionRect(y), false, "Remove this script attachment", true) end
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             PropertyLayout.separators(self.left, self.width, y, row.height, self.width - (self.contentWidth or self.width))
             local declaration = self.class.properties[name]
@@ -576,11 +580,11 @@ function ClassInspector:draw()
                 Ui.thumbnail(self:thumbnail(value), imageRects.preview)
                 Ui.eyedropperButton(imageRects.assign, self.isPicking and self.isPicking(name))
                 Ui.browseButton(imageRects.browse, value ~= false)
-            elseif Schema.isTemplate(declaration.type) or declaration.type == "object" then
+            elseif Schema.isTemplate(declaration.type) or (declaration.type == "object" or declaration.type == "script") then
                 local actions = self:referenceRects(y)
                 rect = actions.selector
                 Ui.eyedropperButton(actions.assign, self.isPicking and self.isPicking(name))
-                if declaration.type == "object" then
+                if (declaration.type == "object" or declaration.type == "script") then
                     Ui.browseButton(actions.browse, value ~= false, self.target.prefabScope and "Locate referenced object in this Prefab." or "Frame referenced instance in viewport.")
                 else
                     Ui.browseButton(actions.browse, value ~= false)
@@ -588,7 +592,7 @@ function ClassInspector:draw()
             end
             Ui.text(declaration.sceneTransform and TRANSFORM_LABELS[declaration.field] or declaration.field or name, labelRect.x, labelRect.y, labelRect.w)
             Ui.hint(labelRect, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
-            if declaration.type == "object" then
+            if (declaration.type == "object" or declaration.type == "script") then
                 Ui.button("", rect, false, self:objectLabel(value, name) .. ". Use the eyedropper to pick a target.")
                 Ui.text(self:objectLabel(value, name), rect.x + 4, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, math.max(0, rect.w - 8))
             elseif declaration.type == "image" or Schema.isTemplate(declaration.type) then
@@ -615,7 +619,7 @@ function ClassInspector:mousepressed(x, y, button)
     local resize = button == 1 and self:resizeAt(x, y)
     if resize then
         self:commitEdit(); self.treeResize = {kind = resize, startY = y,
-            height = resize == "object" and self.objectTreeHeight or self.componentTreeHeight}
+            height = resize == "object" and self.objectTreeHeight or self.scriptTreeHeight}
         return true, true
     end
     if button == 2 and y >= self.propertyTop and y < self.propertyTop + self.propertyHeight and self.objectTree and self.objectTree:containsPoint(x, y) then
@@ -623,6 +627,23 @@ function ClassInspector:mousepressed(x, y, button)
     end
     if button == 1 and not self.target.instance and self.onSave and Ui.contains(x, y, self:saveRect()) then self:commitEdit(); self.onSave(); return true end
     if y < self.propertyTop or y >= self.propertyTop + self.propertyHeight then self:commitEdit(); return true end
+    if button == 2 and not self.target.instance and self.target.moveScript then
+        for _, row in ipairs(self.rows) do
+            local top = self.propertyTop + row.offset - self.scroll
+            if row.header and row.scriptId and y >= top and y < top + row.height then
+                local id, index = row.scriptId, 1
+                for number, current in ipairs(self.preview.scriptOrder) do if current == id then index = number end end
+                local function move(destination)
+                    local ok, err = self.target:moveScript(id, destination)
+                    if ok then self:reload() else self.error = err end
+                end
+                require("editor.ui.ContextMenu").new(self.root):show(x, y, {
+                    {label = "Move Up", enabled = index > 1, action = function() move(index - 1) end},
+                    {label = "Move Down", enabled = index < #self.preview.scriptOrder, action = function() move(index + 1) end}})
+                return true
+            end
+        end
+    end
     if button ~= 1 then return true end
     local handled, capture = self.scrollbar:dispatch("mousepressed", x, y, button)
     if handled then self:commitEdit(); return true, capture end
@@ -655,6 +676,15 @@ function ClassInspector:mousepressed(x, y, button)
     for _, row in ipairs(self.rows) do
         local name = row.name
         local top = self.propertyTop + row.offset - self.scroll
+        if not self.target.instance and Ui.contains(x, y, self:scriptActionRect(top)) then
+            if row.scriptActions and self.target.addScript then self:commitEdit(); self:showAddScript(top); return true end
+            if row.header and row.scriptId and self.target.removeScript then
+                self:commitEdit()
+                local ok, err = self.target:removeScript(row.scriptId)
+                if ok then self:reload() else self.error = err end
+                return true
+            end
+        end
         if row.header and y >= top and y < top + row.height then
             self:commitEdit()
             self.groupExpanded[row.groupKey] = self.groupExpanded[row.groupKey] == false
@@ -666,7 +696,7 @@ function ClassInspector:mousepressed(x, y, button)
         if name and y >= rowTop and y < rowTop + row.height then
             local declaration = self.class.properties[name]
             local actions = declaration.type == "image" and self:imageRects(rowTop)
-                or (Schema.isTemplate(declaration.type) or declaration.type == "object") and self:referenceRects(rowTop)
+                or (Schema.isTemplate(declaration.type) or (declaration.type == "object" or declaration.type == "script")) and self:referenceRects(rowTop)
             if actions and Ui.contains(x, y, actions.assign) then
                 self:commitEdit()
                 local ok, err
@@ -676,11 +706,11 @@ function ClassInspector:mousepressed(x, y, button)
             end
             if actions and Ui.contains(x, y, actions.browse) then
                 local value = self.target:getOverrides()[name]
-                if declaration.type == "object" then
+                if (declaration.type == "object" or declaration.type == "script") then
                     self:commitEdit()
                     if value == nil then value = declaration.default end
                     local ok, err
-                    if self.onFrame then ok, err = self.onFrame(value) end
+                    if self.onFrame then ok, err = self.onFrame(type(value) == "table" and value.authoringId or value) end
                     if not ok then self.error = err or "Instance was not found" end
                     return true
                 end
@@ -700,7 +730,7 @@ function ClassInspector:mousepressed(x, y, button)
             self:commitEdit()
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
-            if declaration.type == "object" then return true end
+            if (declaration.type == "object" or declaration.type == "script") then return true end
             if declaration.type == "image" or Schema.isTemplate(declaration.type) then
                 local choice = self:choices(name, value)
                 local rect = self:propertyRect(name, top)
@@ -725,10 +755,31 @@ function ClassInspector:mousepressed(x, y, button)
     return true
 end
 
+function ClassInspector:scriptActionRect(y)
+    return {x = self.left + (self.contentWidth or self.width) - Ui.METRICS.contentPaddingX - 90, y = y + 3, w = 90, h = 26}
+end
+function ClassInspector:showAddScript(y)
+    if self.target.instance or not self.target.addScript then return false end
+    local options = {}
+    for _, name in ipairs({"Script", "Camera", "Sprite", "Pointer", "Rect", "Canvas"}) do options[#options + 1] = {label = name, value = name} end
+    for _, reference in ipairs(self.project:listScripts("script") or {}) do
+        options[#options + 1] = {label = resourceName(reference), value = self.project:getAssetId(reference)}
+    end
+    local selector = Dropdown.new(self.root, options, false, function(source)
+        local ok, err = self.target:addScript(source)
+        if ok then self:reload() else self.error = err end
+        return ok
+    end)
+    local rect = self:scriptActionRect(y)
+    selector:setBounds(rect.x, rect.y, rect.w, rect.h)
+    self.scriptChoice = selector
+    return selector:dispatch("mousepressed", rect.x + 5, rect.y + 5, 1)
+end
+
 function ClassInspector:mousemoved(x, y, dx)
     if self.treeResize then
         local value = math.max(78, math.min(math.max(78, (self.layoutHeight - self.top) * 0.7), self.treeResize.height + y - self.treeResize.startY))
-        if self.treeResize.kind == "object" then self.objectTreeHeight = value else self.componentTreeHeight = value end
+        if self.treeResize.kind == "object" then self.objectTreeHeight = value else self.scriptTreeHeight = value end
         self:layout(self.left, self.width, self.layoutHeight, nil, self.top)
         return true
     end
@@ -797,6 +848,6 @@ function ClassInspector:wheelmoved(amount, x, y)
         if self.tree.scroll ~= previous then return end
     end
     self.scroll = math.floor(math.max(0, math.min(self.maxScroll or 0, self.scroll - amount * PropertyLayout.ROW_HEIGHT)))
-    self:layoutComponentTree()
+    self:layoutTrees()
 end
 return ClassInspector

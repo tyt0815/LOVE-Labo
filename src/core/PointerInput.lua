@@ -1,4 +1,4 @@
-local Pointer = require("core.PointerComponent")
+local Pointer = require("core.PointerScript")
 local Transform = require("core.Transform")
 local Input = {}
 local CALLBACKS = {down = "onPointerDown", up = "onPointerUp", move = "onPointerMove"}
@@ -10,8 +10,8 @@ function Input.dispatch(world, kind, x, y, button, dx, dy, context)
     context = context or {image = function() end}
     world.pointerCaptures = world.pointerCaptures or {}
     local live = {}; for _, object in ipairs(world.lobjects) do live[object] = true end
-    for id, component in pairs(world.pointerCaptures) do
-        if not live[component.owner] or component.owner.components[component.name] ~= component or not component.properties.enabled then world.pointerCaptures[id] = nil end
+    for id, script in pairs(world.pointerCaptures) do
+        if not live[script.owner] or script.owner.scripts[script.name] ~= script or script.properties.enabled == false then world.pointerCaptures[id] = nil end
     end
     if kind == "down" then world.pointerCaptures[button] = nil end
     local candidates, seen = {}, {}
@@ -21,31 +21,33 @@ function Input.dispatch(world, kind, x, y, button, dx, dy, context)
     elseif kind == "move" and next(world.pointerCaptures) then
         local buttons = {}; for id in pairs(world.pointerCaptures) do buttons[#buttons + 1] = id end; table.sort(buttons)
         for _, id in ipairs(buttons) do
-            local component = world.pointerCaptures[id]
-            if not seen[component] then candidates[#candidates + 1] = component; seen[component] = true end
+            local script = world.pointerCaptures[id]
+            if not seen[script] then candidates[#candidates + 1] = script; seen[script] = true end
         end
     else
-        local entries = require("core.ComponentOrder").entries(world.lobjects, Pointer, function(component) return component.properties.enabled end)
-        for index = #entries, 1, -1 do candidates[#candidates + 1] = entries[index].component end
+        local entries = require("core.ScriptOrder").entries(world.lobjects, "pointer", function(script) return script.properties.enabled ~= false end)
+        for index = #entries, 1, -1 do candidates[#candidates + 1] = entries[index].script end
     end
     local result = {consumed = false, targets = {}}
-    for _, component in ipairs(candidates) do
-        if component.owner and component.properties.enabled then
-            local screen = require("core.CoordinateSpace").canvas(component:getBoundsSource()) ~= nil
+    for _, script in ipairs(candidates) do
+        if script.owner and script.properties.enabled ~= false then
+            local screen = require("core.CoordinateSpace").canvas(script:getBoundsSource()) ~= nil
             local hitX, hitY = x, y
             if screen and context.screenX ~= nil then hitX, hitY = context.screenX, context.screenY end
-            local hit, localX, localY = component:hitTest(context, hitX, hitY)
+            local hit, localX, localY = script:hitTest(context, hitX, hitY)
             if not screen and context.worldVisible == false then hit = false end
-            if hit or captured == component or seen[component] then
+            if hit or captured == script or seen[script] then
                 local event = {kind = kind, worldX = x, worldY = y, localX = localX, localY = localY,
                     button = button, dx = screen and context.screenDx or dx or 0, dy = screen and context.screenDy or dy or 0,
                     screenX = context.screenX, screenY = context.screenY, coordinateSpace = screen and "screen" or "world", inside = hit == true, world = world}
-                local consumed = component[CALLBACKS[kind]](component, event) == true or component.properties.blockPointer
-                result.targets[#result.targets + 1] = {runtimeId = component.owner.runtimeId, authoringId = component.owner.authoringId, component = component.name, consumed = consumed}
-                if consumed or captured == component then
+                local callback = script[CALLBACKS[kind]]
+                local owner, id = script.owner, script.id
+                local consumed = (callback and callback(script, event) == true or false) or script.properties.blockPointer == true
+                result.targets[#result.targets + 1] = {runtimeId = owner.runtimeId, authoringId = owner.authoringId, script = id, consumed = consumed}
+                if consumed or captured == script then
                     result.consumed = true
-                    if kind == "down" then world.pointerCaptures[button] = component end
-                    if not (kind == "move" and seen[component]) then break end
+                    if kind == "down" and owner.world == world and script.owner == owner and owner.scripts[id] == script then world.pointerCaptures[button] = script end
+                    if not (kind == "move" and seen[script]) then break end
                 end
             end
         end

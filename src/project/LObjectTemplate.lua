@@ -8,14 +8,7 @@ function Template.source(project, reference)
         if not file then return nil, fileError end
         return path, "prefab"
     end
-    if path:match("^Sources/.+%.lua$") then
-        local kind, kindError = project:getScriptKind(reference)
-        if kind ~= "lobject" then return nil, kindError or "Expected an LObject Lua Class" end
-        local file, fileError = project:resolveSourceFile(reference)
-        if not file then return nil, fileError end
-        return path, "lua"
-    end
-    return nil, "Expected an LObject Lua Class or Prefab"
+    return nil, "Expected a Prefab; Lua scripts must be attached to an LObject"
 end
 function Template.resolve(project, reference, loadClass)
     local path, kind = Template.source(project, reference)

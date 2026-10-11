@@ -33,7 +33,7 @@ function Assets:preview(data)
     else definition, err = Definition.resolve(self.project, data.definitionReference) end
     local object = assert(require("core.LObject").new(1, data))
     local ok, configureError
-    if definition then ok, configureError = Definition.configure(object, definition, data.propertyOverrides, data.componentOverrides) end
+    if definition then ok, configureError = Definition.configure(object, definition, data.propertyOverrides, data.scriptOverrides) end
     self.previews[data] = {signature = signature, object = ok and object or nil}
     if not ok then self.error = err or configureError end
     if ok then object.parent = self.level and self.level:getParent(data) and self:preview(self.level:getParent(data)) or nil end

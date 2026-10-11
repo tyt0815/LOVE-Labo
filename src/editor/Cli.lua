@@ -27,7 +27,7 @@ local function value(request)
 end
 local function setProperty(project, target, name, item)
     local declaration = assert(target.class.properties[name], "Unknown property: " .. name)
-    assert(require("project.LuaClass").validValue(declaration.type, item), "Invalid property value")
+    assert(require("project.LuaScript").validValue(declaration.type, item), "Invalid property value")
     if declaration.type == "image" and item ~= false then
         local path = assert(project:resolveAssetFile(item))
         local pixels = love.image.newImageData(love.filesystem.newFileData(assert(project:readAsset(item)), path))
@@ -61,13 +61,19 @@ end
 
 local api = {required = required, absolute = absolute, revision = revision, checkRevision = checkRevision,
     basicResult = basicResult, value = value, setProperty = setProperty, properties = properties}
-local COMMANDS = {"project.create", "project.info", "project.set-default", "project.validate", "class.create", "class.list", "class.get", "class.set-source",
+local COMMANDS = {"project.create", "project.info", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
-    "prefab.child.add", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.pointer", "level.view", "level.set-camera",
+    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.child.add", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
     "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "export"}
 local function execute(request)
     local command = required(request, "command")
+    if command:match("^script%.") then
+        local normalized = {}; for key, value in pairs(request) do normalized[key] = value end
+        normalized.command = command:gsub("^script%.", "class.")
+        normalized.class = normalized.class or normalized.script
+        return execute(normalized)
+    end
     if command == "help" then
         return {commands = COMMANDS, requestFormat = "JSON object: command, project, command arguments",
             propertyValues = "Use value-json for numbers/booleans and value for strings; JSON requests use value directly",
@@ -75,7 +81,7 @@ local function execute(request)
             multiSelection = "instances: JSON array or comma-separated --instances; includes descendants",
             examples = {{command = "project.validate", project = "D:/Games/MyGame"},
                 {command = "instance.duplicate", project = "D:/Games/MyGame", instances = {1, 2}},
-                {command = "prefab.child.add", project = "D:/Games/MyGame", prefab = "Assets/PF_Enemy.prefab", node = "root", template = "Sources/Weapon.lua"}}}
+                {command = "prefab.child.add", project = "D:/Games/MyGame", prefab = "Assets/PF_Enemy.prefab", node = "root", template = "Assets/PF_Weapon.prefab"}}}
     end
     local known = false; for _, name in ipairs(COMMANDS) do if name == command then known = true; break end end
     assert(known, "Unknown command: " .. command)
@@ -89,10 +95,10 @@ local function execute(request)
     if command == "project.info" then return {project = project.rootPath, name = project.name, defaultLevel = project.defaultLevelReference, assets = project.assetMetadata} end
     if command == "class.create" or command == "prefab.create" or command == "level.create" then
         local kind = command:match("^(.-)%.")
-        local folder = request.folder or (kind == "class" and "Sources" or "Assets")
+        local folder = request.folder or "Assets"
         local parent = kind == "class" and request.parent
-        local builtin = ({LObjectComponent = true, SceneComponent = true, BoundsComponent = true, PointerComponent = true, RenderComponent = true, SpriteComponent = true, CameraComponent = true, RectComponent = true, CanvasComponent = true})[parent or ""]
-        local options = {scriptKind = request.type or builtin and "component" or (parent and assert(project:getScriptKind(parent))) or "lobject",
+        local builtin = ({Script = true, Camera = true, Sprite = true, Pointer = true, Rect = true, Canvas = true})[parent or ""]
+        local options = {scriptKind = request.type or builtin and "script" or (parent and assert(project:getScriptKind(parent))) or "script",
             parentReference = parent, scriptReference = request.class, empty = request.empty == true or request.empty == "true"}
         if kind == "prefab" and request.instance then
             local document = assert(require("editor.LevelDocument").load(assert(project:resolveAssetFile(request.level or project.defaultLevelReference))))
@@ -197,12 +203,14 @@ local function execute(request)
             local candidates = assert(require("project.MainCamera").choices(project, level, level:findLObject(tonumber(request.instance))))
             local selected
             for _, candidate in ipairs(candidates) do
-                if candidate.component == request.component or not request.component and #candidates == 1 then selected = candidate end
+                if candidate.script == request.script or not request.script and #candidates == 1 then selected = candidate end
             end
-            assert(selected, "Choose a CameraComponent with --component")
+            assert(selected, "Choose a Camera script with --script")
             level.mainCamera = selected
         end
         changed = true
+    elseif command == "level.simulate" then
+        local result = require("editor.CliSimulation").execute(project, level, request); result.revision = revision(bytes); return result
     elseif command == "level.view" then
         local result = require("editor.CliView").execute(project, level, request)
         result.revision = revision(bytes); return result
@@ -213,15 +221,15 @@ local function execute(request)
         local world = assert(require("runtime.WorldLoader").prepare(project, level:toData()))
         return {valid = true, objects = #world.lobjects, revision = revision(bytes)}
     elseif command == "level.set" or command == "level.get" or command == "level.reset" or command == "level.set-parent" then
-        local class = level.scriptReference and assert(require("project.LuaClass").load(project, level.scriptReference, "level"))
+        local class = level.scriptReference and assert(require("project.LuaScript").load(project, level.scriptReference, "level"))
         target = {class = class or {properties = {}}, level = level,
             getOverrides = function() return require("project.PropertyData").copy(level.propertyOverrides) end,
             setOverrides = function(_, values) level.propertyOverrides = values end}
         if command == "level.set-parent" then
             local parent = request.parent; if parent == "None" or parent == false then parent = nil end
-            local nextClass = parent and assert(require("project.LuaClass").load(project, parent, "level"))
+            local nextClass = parent and assert(require("project.LuaScript").load(project, parent, "level"))
             level.scriptReference = parent and project:getAssetId(project:getAssetReference(parent)) or nil
-            level.propertyOverrides = require("project.LuaClass").compatibleOverrides(nextClass, level.propertyOverrides)
+            level.propertyOverrides = require("project.LuaScript").compatibleOverrides(nextClass, level.propertyOverrides)
             target.class = nextClass or {properties = {}}; changed = true
         elseif command ~= "level.get" then
             local name = required(request, "property")
@@ -275,7 +283,7 @@ function Cli.parse(args)
                     prefab = true, template = true, level = true, instance = true, property = true, ["value-json"] = true,
                     x = true, y = true, output = true, revision = true, request = true, result = true, value = true,
                     asset = true, destination = true, source = true, node = true, instances = true, input = true,
-                    event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true, component = true}
+                    event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true, script = true, index = true, frames = true, dt = true}
                 assert(allowed[key], "Unknown option: " .. item)
                 assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)
                 assert(request[key] == nil, "Duplicate option: " .. item)

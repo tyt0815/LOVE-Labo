@@ -45,6 +45,9 @@ function World:addLObject(initialState)
 
     self.lobjects[#self.lobjects + 1] =
         lobject
+    lobject.world = self
+    lobject.scriptLoader = self.scriptLoader
+    self.updateOrderDirty = true
 
     return lobject
 end
@@ -52,6 +55,28 @@ end
 function World:spawnLObject(template, transform, overrides)
     if not self.spawnLObjectFactory then return nil, "World has no LObjectTemplate loader" end
     return self.spawnLObjectFactory(template, transform, overrides)
+end
+function World:removeLObject(object)
+    local live = false
+    for _, current in ipairs(self.lobjects) do if current == object then live = true end end
+    if not live then return false, "Object does not belong to this World" end
+    local removed = {}
+    local function visit(current)
+        removed[current] = true
+        for _, child in ipairs(current.children) do visit(child) end
+    end
+    visit(object); object:attachTo(nil)
+    for index = #self.lobjects, 1, -1 do
+        local current = self.lobjects[index]
+        if removed[current] then
+            current.world = nil
+            for _, script in pairs(current.scripts) do script.owner = nil end
+            table.remove(self.lobjects, index)
+        end
+    end
+    for button, script in pairs(self.pointerCaptures or {}) do if not script.owner then self.pointerCaptures[button] = nil end end
+    self.updateOrderDirty = true
+    return true
 end
 function World:dispatchPointer(kind, x, y, button, dx, dy, context)
     local ok, result = pcall(require("core.PointerInput").dispatch, self, kind, x, y, button, dx, dy, context)
@@ -61,20 +86,20 @@ end
 function World:cancelPointer() self.pointerCaptures = {} end
 function World:setActiveCamera(camera)
     if camera == nil then self.activeCamera = nil; return true end
-    if type(camera) ~= "table" or type(camera.isA) ~= "function" or not camera:isA(require("core.CameraComponent")) then return false, "Expected CameraComponent" end
+    if type(camera) ~= "table" or type(camera.isA) ~= "function" or not camera:isA(require("core.CameraScript")) then return false, "Expected CameraScript" end
     for _, object in ipairs(self.lobjects) do
-        if camera.owner == object and object.components[camera.name] == camera then self.activeCamera = camera; return true end
+        if camera.owner == object and object.scripts[camera.name] == camera then self.activeCamera = camera; return true end
     end
     return false, "Camera must belong to this World"
 end
 function World:getActiveCamera()
     local first
     for _, object in ipairs(self.lobjects) do
-        for _, name in ipairs(object:getComponentOrder()) do
-            local component = object.components[name]
-            if component:isA(require("core.CameraComponent")) then
-                if component == self.activeCamera then return component end
-                first = first or component
+        for _, name in ipairs(object:getScriptOrder()) do
+            local script = object.scripts[name]
+            if script:isA(require("core.CameraScript")) then
+                if script == self.activeCamera then return script end
+                first = first or script
             end
         end
     end
@@ -100,7 +125,14 @@ function World:update(dt)
     end
 
     -- 이번 프레임 중 생성된 객체는 beginPlay만 즉시 호출하고 다음 프레임부터 update한다.
-    local count = #self.lobjects
+    if self.updateOrderDirty or not self.updateObjects then
+        self.updateObjects = {}
+        for _, object in ipairs(require("core.ScriptOrder").objects(self.lobjects)) do
+            if #object.updateScripts > 0 then self.updateObjects[#self.updateObjects + 1] = object end
+        end
+        self.updateOrderDirty = nil
+    end
+    local pending = {}; for _, object in ipairs(self.updateObjects) do pending[#pending + 1] = object end
     if self.levelScript and self.levelScript.update then
         local ok, result, err = pcall(self.levelScript.update, self, dt)
         if not ok or result == false then return false, "level script update failed: " .. tostring(ok and err or result) end
@@ -109,8 +141,8 @@ function World:update(dt)
     -- World가 Runtime LObject lifecycle의 호출 순서를 소유한다.
     -- LObject:update()가 false를 명시적으로 반환한 경우만 실패로 취급한다.
     -- 일반적인 Lua callback처럼 nil을 반환하는 update는 정상 완료로 본다.
-    for i = 1, count do
-        local lobject = self.lobjects[i]
+    for _, lobject in ipairs(pending) do
+        if lobject.world == self then
         local updated, updateError =
             lobject:update(dt)
 
@@ -120,6 +152,7 @@ function World:update(dt)
                 .. lobject.runtimeId
                 .. " update failed: "
                 .. tostring(updateError)
+        end
         end
     end
 
@@ -190,6 +223,7 @@ function World.fromLevelData(levelData)
     local world = World.new()
 
     world.lobjects = runtimeLObjects
+    for _, object in ipairs(runtimeLObjects) do object.world = world end
     world.nextRuntimeId =
         #runtimeLObjects + 1
 

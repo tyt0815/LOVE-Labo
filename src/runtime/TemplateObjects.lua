@@ -14,16 +14,16 @@ function Objects.configure(world, recipe, root, rootOverrides, authored)
             object:attachTo(objects[node.parent.path])
         end
         objects[node.path] = object
-        local extra = node.parent and source and {properties = source.data.propertyOverrides, components = source.data.componentOverrides}
+        local extra = node.parent and source and {properties = source.data.propertyOverrides, scripts = source.data.scriptOverrides}
             or not node.parent and rootOverrides or {}
-        local properties, components = Hierarchy.copy(node.overrides.properties or {}), Hierarchy.copy(node.overrides.components or {})
+        local properties, scripts = Hierarchy.copy(node.overrides.properties or {}), Hierarchy.copy(node.overrides.scripts or {})
         overridden[node.path] = {}
         for name, value in pairs(extra.properties or {}) do properties[name] = value; overridden[node.path][name] = true end
-        for name, fields in pairs(extra.components or {}) do
-            components[name] = components[name] or {}
-            for field, value in pairs(fields) do components[name][field] = value; overridden[node.path][name .. "." .. field] = true end
+        for name, fields in pairs(extra.scripts or {}) do
+            scripts[name] = scripts[name] or {}
+            for field, value in pairs(fields) do scripts[name][field] = value; overridden[node.path][name .. "." .. field] = true end
         end
-        local ok, err = Definition.configure(object, node.definition, properties, components)
+        local ok, err = Definition.configure(object, node.definition, properties, scripts, source and source.data.scripts or not node.parent and rootOverrides.attachments)
         if not ok then return nil, err end
         end
     end
@@ -41,9 +41,9 @@ function Objects.resolveReferences(project, world)
     for _, object in ipairs(world.lobjects) do
         local ok, err = Definition.resolveReferences(object.properties, object.luaClass and object.luaClass.properties, byId, project)
         if not ok then return false, err end
-        for _, name in ipairs(object.componentOrder) do
-            local component = object.components[name]
-            ok, err = Definition.resolveReferences(component.properties, getmetatable(component).properties, byId, project)
+        for _, name in ipairs(object.scriptOrder) do
+            local script = object.scripts[name]
+            ok, err = Definition.resolveReferences(script.properties, getmetatable(script).properties, byId, project)
             if not ok then return false, err end
         end
     end

@@ -32,11 +32,17 @@ def checkFile(path):
             if name not in EXTERNAL_IDENTIFIERS:
                 issues.append("private identifier must be camelCase: " + name)
         # LÖVE ZIP 내부에서는 파일명 대소문자도 require 계약의 일부다.
-        for module in re.findall(r"require\([\"']([^\"']+)[\"']\)", content):
+        masked = LUA_STRINGS.sub(lambda match: re.sub(r"[^\n]", " ", match.group(0)), content)
+        for match in re.finditer(r"require\([\"']([^\"']+)[\"']\)", content):
+            if masked[match.start():match.start() + 7] != "require":
+                continue
+            module = match.group(1)
             if module in EXTERNAL_MODULES:
                 continue
             base = ROOT if module.startswith("tests.") else ROOT / "src"
             target = base / (module.replace(".", "/") + ".lua")
+            if relative.startswith("tests/TestProject/Assets/") and not target.is_file():
+                target = ROOT / "tests/TestProject/Assets" / (module.replace(".", "/") + ".lua")
             if not target.is_file():
                 issues.append("missing module: " + module)
             elif target.name not in [entry.name for entry in target.parent.iterdir()]:

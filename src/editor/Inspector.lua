@@ -59,7 +59,7 @@ function Inspector:getFieldAtPosition(x, y, windowWidth)
         return nil
     end
 
-    if not self.transformExpanded or self.classInspector and self.classInspector.selectedComponent then return nil end
+    if not self.transformExpanded or self.classInspector and self.classInspector.selectedScript then return nil end
     for _, field in ipairs(TRANSFORM_ORDER) do
         if Ui.contains(x, y, self:fieldRect(field, windowWidth)) then return field end
     end
@@ -154,7 +154,7 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if self.classInspector and self.classInspector.target and not selectedLObject then
         return self.classInspector:mousepressed(x, y, button)
     end
-    if self.classInspector and self.classInspector.target and (self.classInspector.selectedComponent
+    if self.classInspector and self.classInspector.target and (self.classInspector.selectedScript
         or self.classInspector.tree and self.classInspector.tree:containsPoint(x, y)) then
         self:commitEdit(); return self.classInspector:mousepressed(x, y, button)
     end
@@ -212,13 +212,13 @@ end
 
 function Inspector:fieldRect(field, windowWidth)
     if self.classInspector and self.classInspector.preview then
-        return self.classInspector:ensurePropertyVisible(self.classInspector.preview.rootComponent.name .. "." .. field)
+        return self.classInspector:ensurePropertyVisible("$transform." .. field)
     end
     local _, rect = PropertyLayout.cells(windowWidth - self.width, self.width, self:getTransformTop() + 32 + (TRANSFORM_FIELDS[field] - 1) * PropertyLayout.ROW_HEIGHT)
     return rect
 end
 function Inspector:getPropertyTop()
-    if self.classInspector and self.classInspector.selectedComponent and self.classInspector:treeBottom() then return self.classInspector:treeBottom() + 8 end
+    if self.classInspector and self.classInspector.selectedScript and self.classInspector:treeBottom() then return self.classInspector:treeBottom() + 8 end
     return self:getTransformTop() + (self.transformExpanded and 32 + #TRANSFORM_ORDER * PropertyLayout.ROW_HEIGHT or PropertyLayout.HEADER_HEIGHT) + 8
 end
 function Inspector:getTransformTop()

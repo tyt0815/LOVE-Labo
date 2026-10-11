@@ -1,51 +1,44 @@
-# Lua API 개요
+# Lua API와 생명주기
 
-게임 소스는 Lua 5.1/LuaJIT 계약을 사용합니다. `require("Engine")`로 런타임 기본 타입을 가져옵니다. 프로젝트의 Lua 클래스·Prefab 참조는 에셋 ID로 저장되어 파일을 이동해도 유지됩니다.
-
-| 대상 | 주요 역할 |
-|---|---|
-| LObject Class | properties 선언, build/beginPlay/update 구현 |
-| Level Class | 레벨 프로퍼티와 World 생명주기 |
-| LObjectComponent | beginPlay(world), update(dt) |
-| SceneComponent | 로컬 Transform과 부모 합성 |
-| BoundsComponent | getLocalBounds(context), getBounds(context), hitTest(context, x, y) |
-| RenderComponent | draw(context), sortingOrder |
-| SpriteComponent | image 참조와 이미지 렌더링 |
-| CameraComponent | viewWidth/viewHeight/zoom |
-| RectComponent / CanvasComponent | 사각형 크기 / 화면 좌표계 루트 |
-| PointerComponent | onPointerDown/up/move, boundsSource, blockPointer, inputPriority |
-
-## 생명주기
+Lua 파일은 스크립트 정의 테이블을 반환합니다. LObject를 상속하지 않습니다. `self`는 부착마다 생성되는 스크립트이고 `self.owner`는 Transform과 자손을 가진 LObject입니다. Lua 5.1/LuaJIT와 일반 LÖVE API를 사용할 수 있습니다.
 
 ```lua
--- labo-script: lobject
-local Engine = require("Engine")
-local Player = {properties = {speed = {type = "number", default = 100}}}
-function Player.build(self)
-    self:setRootComponent("sprite", Engine.SpriteComponent)
+local Movement = {
+    properties = {
+        speed = {type = "number", default = 100, group = "Movement"},
+        title = {type = "string", default = "Player"},
+        enabled = {type = "boolean", default = true},
+        target = {type = "object", default = false},
+        other = {type = "script", default = false},
+        projectile = {type = "prefab", default = false},
+    },
+}
+function Movement:beginPlay(world)
+    self.elapsed = 0 -- 일반 필드는 Inspector에 노출되지 않는다.
 end
-function Player.beginPlay(self, world)
-    self.world = world
+function Movement:update(dt)
+    if self.enabled then
+        self.owner.transform.x = self.owner.transform.x + self.speed * dt
+    end
 end
-function Player.update(self, dt)
-    self.transform.x = self.transform.x + self.properties.speed * dt
-end
-return Player
+return Movement
 ```
 
-build는 구성을 선언하며 에디터 프리뷰에서도 실행됩니다. beginPlay는 Play·게임 초기화, update는 초 단위 dt에 따른 진행입니다. 새 코드는 beginPlay를 사용하며 기존 load는 호환성을 위해 읽을 수 있습니다.
+`beginPlay(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 초기화 중 추가된 스크립트도 초기화하며 실행 중인 콜백에 재진입하지 않습니다. 부모 오브젝트에서 자손으로, 같은 오브젝트에서는 부착 순서로 실행합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
 
-클래스 테이블과 파일은 PascalCase, 변수·함수는 camelCase, 상수는 UPPER_SNAKE_CASE, 들여쓰기는 공백 4칸입니다. LÖVE 콜백은 외부 API의 이름을 그대로 사용합니다.
+`extends = "Sprite"`처럼 기본 스크립트를 확장하거나 다른 Lua 스크립트의 에셋 ID를 부모로 지정할 수 있습니다. `require("Engine")`은 LObject, Script, Camera, Sprite, Pointer, Rect, Canvas를 제공합니다. 프로젝트 내부 일반 모듈은 `require("Helpers.Math")`로 `Assets/Helpers/Math.lua`를 읽습니다.
 
-## World API
+| API | 역할 |
+|---|---|
+| self.owner.transform | 부모 기준 Transform |
+| self.owner:getWorldTransform() | 합성된 월드 Transform |
+| self.owner:getScript(id) | 같은 오브젝트의 부착 ID로 조회 |
+| self.owner:addScript(id, Engine.Sprite, values) | 런타임 부착 |
+| self.owner:removeScript(id) | 런타임 제거 |
+| object:attachTo(parent) | 부모 변경, nil이면 독립 |
+| world:spawnLObject(prefab, transform, overrides) | Prefab 계층 생성 |
+| world:removeLObject(object) | 자손·입력 캡처까지 제거 |
+| world:setActiveCamera(script) | 런타임 카메라 지정 |
+| world:openLevel(reference) | 프레임 경계에서 레벨 전환 |
 
-- `world:spawnLObject(template, transform, overrides)`: Class 또는 Prefab에서 생성합니다. [생성 API](../runtime-spawn.md)를 참고하세요.
-- `world:openLevel(reference)`: 다음 프레임 경계에서 레벨을 전환합니다. [레벨 전환](../level-transition.md)을 참고하세요.
-- `world:setActiveCamera(component)`: 같은 World의 CameraComponent를 지정합니다. nil이면 자동 선택으로 돌아갑니다.
-- `world:getActiveCamera()`: 유효한 지정 카메라 또는 첫 번째 카메라를 반환합니다.
-
-## 컴포넌트 API
-
-`self:addComponent(name, class, overrides, parent)`, `self:setRootComponent(name, class, overrides)`로 구성합니다. `component:addComponent(...)` 또는 `child:attachTo(parent)`로 계층을 만듭니다. 컴포넌트 이름은 같은 LObject 안에서 유일해야 합니다. 선언·참조·사용자 정의 렌더링은 [컴포넌트](../components.md)를 참고하세요.
-
-컴포넌트 구성은 build 코드에서 선언하고, 값 편집은 Inspector·CLI를 사용합니다.
+레벨 Lua 스크립트는 별도로 유지됩니다. 레벨을 상속한 오브젝트가 아니라 World 전체의 초기화·업데이트를 담당합니다. 예전 `build`, 루트 컴포넌트, LObject 클래스 생성 템플릿 API는 지원하지 않습니다.
