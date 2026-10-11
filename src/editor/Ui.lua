@@ -9,8 +9,9 @@ Ui.METRICS = {
     buttonPaddingX = 10, buttonGap = 8,
     selectionPaddingX = 0, selectionPaddingY = 0, selectionRadius = 0,
     -- 트리 행 높이와 모든 계층선의 두께를 여기서 조절한다.
-    treeRowHeight = 22, treeLineWidth = 0.3,
-    treeHighlightPaddingX = 8, treeHighlightRadius = 4,
+    treeRowHeight = 22, treeLineWidth = 0.3, treeLineHighlightWidth = 1,
+    -- 모든 트리뷰의 호버·선택 박스에 적용하는 좌우 여백.
+    treeHighlightPaddingX = 3, treeHighlightRadius = 4,
     assetCellWidth = 112, assetCellHeight = 138,
 }
 
@@ -52,15 +53,33 @@ function Ui.treeRow(rect, selected)
     Ui.row(rect, selected, {selectionPaddingX = Ui.METRICS.treeHighlightPaddingX,
         selectionPaddingY = 0, selectionRadius = Ui.METRICS.treeHighlightRadius})
 end
-function Ui.treeLines(x, y, height, depth, indent)
+function Ui.treeLineHighlights(rows, isSelected)
+    local ancestors, paths, marked, result = {}, {}, {}, {}
+    for index, row in ipairs(rows) do
+        local path = {}
+        for depth = 0, row.depth - 1 do path[depth] = ancestors[depth] end
+        paths[index] = path
+        if isSelected(row) then
+            marked[index] = true
+            for _, parent in pairs(path) do marked[parent] = true end
+        end
+        ancestors[row.depth] = index
+    end
+    for index, path in ipairs(paths) do
+        result[index] = {}
+        for depth, parent in pairs(path) do result[index][depth] = marked[parent] == true end
+    end
+    return result
+end
+function Ui.treeLines(x, y, height, depth, indent, highlights)
     love.graphics.push("all")
-    local width = Ui.METRICS.treeLineWidth
-    if width <= 0 then love.graphics.pop(); return end
-    -- 1px 미만 설정도 사라지지 않도록 픽셀 면적의 투명도로 표현한다.
-    local pixelWidth = math.ceil(width)
-    Theme.setColor("textMuted", width / pixelWidth)
     for ancestor = 0, depth - 1 do
-        local lineX = x + ancestor * indent + 5
+        local active = highlights and highlights[ancestor]
+        local width = active and Ui.METRICS.treeLineHighlightWidth or Ui.METRICS.treeLineWidth
+        -- 1px 미만 설정도 사라지지 않도록 픽셀 면적의 투명도로 표현한다.
+        local pixelWidth = math.max(1, math.ceil(width))
+        Theme.setColor(active and "treeLineHighlight" or "textMuted", math.max(0, width) / pixelWidth)
+        local lineX = x + ancestor * indent + 1
         -- 선 끝의 안티앨리어싱이 이웃 행과 겹치지 않도록 행 영역만 채운다.
         love.graphics.rectangle("fill", math.floor(lineX - pixelWidth / 2 + 0.5), y, pixelWidth, height)
     end

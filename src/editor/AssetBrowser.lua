@@ -119,7 +119,7 @@ function AssetBrowser:setBounds(x, y, width, height)
     Canvas.setBounds(self, x, y, width, height)
     local contentHeight = self.collapsed and 0 or math.max(0, height - HEADER - 24)
     local split = self:treeWidth()
-    self:setSlotBounds(self.treeSlot, 6, HEADER + 12, math.max(0, split - 12), contentHeight)
+    self:setSlotBounds(self.treeSlot, 12, HEADER + 12, math.max(0, split - 18), contentHeight)
     self:setSlotBounds(self.fileSlot, split + 6, HEADER + 6 + BREADCRUMB,
         math.max(0, self.width - split - 18), math.max(0, contentHeight + 6 - BREADCRUMB))
     self.breadcrumb.visible = not self.collapsed
@@ -703,13 +703,14 @@ end
 function AssetBrowser:drawTree()
     local view = self.treeSlot.widget
     if view.height <= 0 then return end
+    local highlights = Ui.treeLineHighlights(self.tree, function(node) return node.reference == self.folder end)
     love.graphics.push("all")
     love.graphics.intersectScissor(view.x, view.y, view.width, view.height)
     for i, node in ipairs(self.tree) do
         local rowY = view.y + (i - 1 - self.treeScroll) * ROW
         if rowY + ROW > view.y and rowY < view.y + view.height then
             Ui.treeRow({x = view.x, y = rowY, w = view.width, h = ROW}, node.reference == self.folder)
-            Ui.treeLines(view.x + Ui.METRICS.contentPaddingX, rowY, ROW, node.depth, 14)
+            Ui.treeLines(view.x + Ui.METRICS.contentPaddingX, rowY, ROW, node.depth, 14, highlights[i])
             local arrowX, arrowY = view.x + Ui.METRICS.contentPaddingX + node.depth * 14, rowY + ROW / 2
             Ui.chevron(arrowX, arrowY, self.expanded[node.reference])
             Ui.text(node.name, view.x + Ui.METRICS.contentPaddingX + 16 + node.depth * 14, rowY + 5, view.width - Ui.METRICS.contentPaddingX - 26 - node.depth * 14)

@@ -12,6 +12,7 @@
     "panelBorder": "#D4D4D4",
     "panelTitle": "#383A42",
     "focus": "#4078F2",
+    "treeLineHighlight": "#696C77",
     "input": "#FFFFFF",
     "textSelection": "#BFCEEC",
     "text": "#383A42",

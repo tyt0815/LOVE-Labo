@@ -87,6 +87,7 @@ end
 
 function FolderTree:draw()
     self:clampScroll()
+    local highlights = Ui.treeLineHighlights(self.nodes, function(node) return node.reference == self.selected end)
     love.graphics.push("all")
     love.graphics.intersectScissor(self.x, self.y, self.width, self.height)
     Theme.setColor("input")
@@ -96,7 +97,7 @@ function FolderTree:draw()
         if not node then break end
         local y = self.y + (row - 1) * ROW
         Ui.treeRow({x = self.x, y = y, w = self.width, h = ROW}, node.reference == self.selected)
-        Ui.treeLines(self.x + 10, y, ROW, node.depth, 16)
+        Ui.treeLines(self.x + 10, y, ROW, node.depth, 16, highlights[row + self.scroll])
         local x = self.x + 10 + node.depth * 16
         Theme.setColor("textMuted")
         if not node.children or #node.children > 0 then

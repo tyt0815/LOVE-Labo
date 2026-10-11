@@ -118,13 +118,14 @@ function Tree:draw()
     love.graphics.intersectScissor(self.x, self.y, self.width, self.height)
     Theme.setColor("input"); love.graphics.rectangle("fill", self.x, self.y, self.width, self.height, 4, 4)
     local appearance = require("editor.ui.PrefabAppearance")
+    local highlights = Ui.treeLineHighlights(self.nodes, function(node) return node.key == self.selected end)
     local groups = appearance.layout(self.nodes, function(object) return self:prefabGroup(object) end, function(object) return object.path end)
     for row = 1, self.rows do
         local node = self.nodes[row + self.scroll]; if not node then break end
         local y, x = self.y + (row - 1) * ROW_HEIGHT, self.x + 8 + node.depth * 14
         local group = groups[row + self.scroll]
         Ui.treeRow({x = self.x, y = y, w = self.width, h = ROW_HEIGHT}, node.key == self.selected)
-        Ui.treeLines(self.x + 8, y, ROW_HEIGHT, node.depth, 14)
+        Ui.treeLines(self.x + 8, y, ROW_HEIGHT, node.depth, 14, highlights[row + self.scroll])
         if self.ping and self.ping.key == node.key then
             Theme.setColor("focus"); love.graphics.rectangle("line", self.x + 1, y + 1, self.width - 2 - Scrollbar.WIDTH, ROW_HEIGHT - 2)
         end

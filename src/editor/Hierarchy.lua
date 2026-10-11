@@ -148,6 +148,9 @@ function Hierarchy:draw(selected)
     love.graphics.intersectScissor(6, top + HEADER_HEIGHT, self.width - 12, math.max(0, height - HEADER_HEIGHT - 6))
     local rows = self:rows()
     local appearance = require("editor.ui.PrefabAppearance")
+    local highlights = Ui.treeLineHighlights(rows, function(row)
+        return self.sceneView and self.sceneView:isSelected(row.object) or not self.sceneView and row.object == selected
+    end)
     local groups = appearance.layout(rows, function(object) return self:prefabGroup(object) end, function(object) return object.authoringId end)
     for i, row in ipairs(rows) do
         local rowY = top + HEADER_HEIGHT + (i - 1 - self.scroll) * ROW_HEIGHT
@@ -155,8 +158,8 @@ function Hierarchy:draw(selected)
             local object = row.object
             local group = groups[i]
             local x = Ui.METRICS.contentPaddingX + row.depth * 16
-            Ui.treeRow({x = 0, y = rowY, w = self.width, h = ROW_HEIGHT}, self.sceneView and self.sceneView:isSelected(object) or not self.sceneView and object == selected)
-            Ui.treeLines(Ui.METRICS.contentPaddingX + 7, rowY, ROW_HEIGHT, row.depth, 16)
+            Ui.treeRow({x = 6, y = rowY, w = self.width - 12, h = ROW_HEIGHT}, self.sceneView and self.sceneView:isSelected(object) or not self.sceneView and object == selected)
+            Ui.treeLines(Ui.METRICS.contentPaddingX + 7, rowY, ROW_HEIGHT, row.depth, 16, highlights[i])
             Theme.setColor("text")
             if row.children then Ui.chevron(x + 7, rowY + ROW_HEIGHT / 2, not self.collapsed[object.authoringId]) end
             if group.isRoot then appearance.icon(self.width - 54, rowY + ROW_HEIGHT / 2 - 1) end

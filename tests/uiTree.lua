@@ -173,4 +173,20 @@ add("Prefab colors recalculate when nested placement becomes an independent root
     Assert.equal("b", colors[1].key); Assert.equal(1, colors[1].colorIndex)
     Assert.equal("a", colors[3].key); Assert.equal(3, colors[3].colorIndex)
 end)
+add("Tree line highlighting covers selected ancestry without highlighting other branches", function()
+    local Ui = require("editor.Ui")
+    local rows = {{depth = 0}, {depth = 1}, {depth = 2}, {depth = 2},
+        {depth = 1}, {depth = 2}, {depth = 0}, {depth = 1}}
+    local highlights = Ui.treeLineHighlights(rows, function(row) return row == rows[3] end)
+    Assert.equal(true, highlights[2][0])
+    Assert.equal(true, highlights[3][0]); Assert.equal(true, highlights[3][1])
+    Assert.equal(true, highlights[4][1])
+    Assert.equal(true, highlights[6][0]); Assert.equal(false, highlights[6][1])
+    Assert.equal(false, highlights[8][0])
+    highlights = Ui.treeLineHighlights(rows, function(row) return row == rows[1] or row == rows[7] end)
+    Assert.equal(true, highlights[6][0]); Assert.equal(false, highlights[6][1])
+    Assert.equal(true, highlights[8][0])
+    highlights = Ui.treeLineHighlights(rows, function() return false end)
+    Assert.equal(false, highlights[3][0]); Assert.equal(false, highlights[3][1])
+end)
 return tests
