@@ -15,7 +15,6 @@ function Edit.move(editor, path, parentPath, index, rootChange)
     local recipe, err = editor:recipe(); if not recipe then return false, err end
     local node, parent = recipe.byPath[path], recipe.byPath[parentPath]
     if not node or node.isInherited then return false, "Inherited objects cannot be moved" end
-    if rootChange and editor.document.data.definitionReference then return false, "Inherited Prefab roots cannot be changed" end
     if not rootChange and (path == "root" or not parent) then return false, "Invalid object destination" end
     if not rootChange and Hierarchy.isRemoved(parentPath, {path}) then return false, "Object attachment cycle" end
     local snapshot = Hierarchy.copy(editor.document.data)
@@ -49,6 +48,7 @@ function Edit.move(editor, path, parentPath, index, rootChange)
             rotationX = combined(recipe.root, "rotationX") - combined(node, "rotationX"), rotationY = combined(recipe.root, "rotationY") - combined(node, "rotationY"),
             scaleX = combined(recipe.root, "scaleX", true) / combined(node, "scaleX", true), scaleY = combined(recipe.root, "scaleY", true) / combined(node, "scaleY", true)}
         replacement.id, replacement.transform = nil, nil
+        replacement.name = node.name
         if replacement.definitionReference == false then replacement.definitionReference = nil end
         mapping = function(old)
             if old == path then return "root" end

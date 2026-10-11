@@ -31,16 +31,18 @@ end
 function Hierarchy:nameRect(object)
     for index, row in ipairs(self:rows()) do if row.object == object then
         return {x = Ui.METRICS.contentPaddingX + row.depth * 16 + 18, y = (self.y or 0) + HEADER_HEIGHT + (index - 1 - self.scroll) * ROW_HEIGHT,
-            w = math.max(60, self.width - row.depth * 16 - 60), h = ROW_HEIGHT}
+            w = math.max(60, self.width - row.depth * 16 - 76), h = ROW_HEIGHT}
     end end
 end
 function Hierarchy:prefabGroup(object)
-    if not object or not object.definitionReference and not object.prefabRootId then return nil end
+    if not object then return nil end
     local current = object
     while current do
         local path = self.project and self.project:getAssetReference(current.definitionReference)
         if path and path:match("%.prefab$") then return current.authoringId, current.definitionReference end
-        current = current.parentAuthoringId and self.level:findLObject(current.parentAuthoringId)
+        local parent = current.parentAuthoringId and self.level:findLObject(current.parentAuthoringId)
+        if not current.prefabRootId or not parent or parent.authoringId ~= current.prefabRootId and parent.prefabRootId ~= current.prefabRootId then return nil end
+        current = parent
     end
 end
 function Hierarchy:rowAt(x, y)
@@ -144,19 +146,26 @@ function Hierarchy:draw(selected)
     love.graphics.push("all"); love.graphics.setScissor(0, top, self.width, height)
     Ui.panel(0, top, self.width, height); Ui.panelHeading("Hierarchy", 0, top, self.width)
     love.graphics.intersectScissor(6, top + HEADER_HEIGHT, self.width - 12, math.max(0, height - HEADER_HEIGHT - 6))
-    for i, row in ipairs(self:rows()) do
+    local rows = self:rows()
+    local appearance = require("editor.ui.PrefabAppearance")
+    local groups = appearance.layout(rows, function(object) return self:prefabGroup(object) end, function(object) return object.authoringId end)
+    local selectedGroup = self:prefabGroup(selected or self.sceneView and self.sceneView.selectedLObject)
+    for i, row in ipairs(rows) do
         local rowY = top + HEADER_HEIGHT + (i - 1 - self.scroll) * ROW_HEIGHT
         if rowY + ROW_HEIGHT > top + HEADER_HEIGHT and rowY < top + height then
             local object = row.object
-            local group = self:prefabGroup(object)
-            local selectedGroup = self:prefabGroup(selected or self.sceneView and self.sceneView.selectedLObject)
-            require("editor.ui.PrefabAppearance").background(group, group and group == selectedGroup, {x = 6, y = rowY, w = self.width - 24, h = ROW_HEIGHT})
-            if self.sceneView and self.sceneView:isSelected(object) or not self.sceneView and object == selected then Ui.selection(0, rowY, self.width, ROW_HEIGHT) end
+            local group = groups[i]
             local x = Ui.METRICS.contentPaddingX + row.depth * 16
+            if self.sceneView and self.sceneView:isSelected(object) or not self.sceneView and object == selected then Ui.selection(0, rowY, self.width, ROW_HEIGHT) end
+            if group.showRange then
+                local branchEnd = x + (row.children and 7 or 18) - 4
+                appearance.range(Ui.METRICS.contentPaddingX + group.depth * 16 + 11, rowY, ROW_HEIGHT, group.key == selectedGroup, group.first, group.last, group.isRoot, branchEnd)
+            end
             Theme.setColor("text")
             if row.children then Ui.chevron(x + 7, rowY + ROW_HEIGHT / 2, not self.collapsed[object.authoringId]) end
-            Ui.text(object.name or "LObject " .. object.authoringId, x + 18, rowY + 4, self.width - x - 62)
-            if group then Ui.browseButton({x = self.width - 44, y = rowY, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
+            if group.isRoot then appearance.icon(self.width - 54, rowY + ROW_HEIGHT / 2 - 1) end
+            Ui.text(object.name or "LObject " .. object.authoringId, x + 18, rowY + 4, self.width - x - 78)
+            if group.key then Ui.browseButton({x = self.width - 44, y = rowY, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
             if self.drag and self.drag.active and not self.drag.marquee and self.drag.target == object then
                 Theme.setColor("focus")
                 local mode = self.drag.intent and self.drag.intent.mode or "attach"

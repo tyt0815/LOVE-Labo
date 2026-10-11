@@ -24,7 +24,7 @@ function Hierarchy.mergeChildren(base, overrides, inherited)
         for _, item in ipairs(override.scripts or {}) do removed[item.id] = nil end
         for _, id in ipairs(override.removedScripts or {}) do removed[id] = true end
         for key, value in pairs(override) do
-            if key == "isInherited" then if inherited == nil then node.isInherited = value == true end
+            if key == "isInherited" then if inherited == nil then node.isInherited = node.isInherited or value == true end
             elseif key == "scripts" then node.scripts = require("project.ScriptAttachments").merge(node.scripts, value)
             elseif key == "children" then node.children = Hierarchy.mergeChildren(node.children, value, inherited)
             elseif key == "transform" then
@@ -56,8 +56,9 @@ end
 function Hierarchy.resolve(project, reference, loadClass, excludedId)
     local documentId = reference and (project:getAssetId(reference) or reference)
     loadClass = loadClass or require("project.LuaScript").loader(project)
-    local visiting, nodes, bindings, operations, removedPaths = {}, {}, {}, {}, {}
-    local function build(reference, override, path, parent, depth, ancestorRemoved)
+    local nodes, bindings, operations, removedPaths = {}, {}, {}, {}
+    local function build(reference, override, path, parent, depth, ancestorRemoved, visiting)
+        visiting = visiting or {}
         if depth > 64 then return nil, "Prefab hierarchy is too deep" end
         local key = reference and (project:getAssetId(reference) or reference) or nil
         if key and key == excludedId then return nil, "Nested Prefab cycle" end
@@ -65,7 +66,7 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
         if not definition then return nil, err end
         definition = Definition.withAttachments(definition, override and override.scripts, override and override.removedScripts)
         definition.attachments = require("project.ScriptAttachments").reorder(definition.attachments, override and override.scriptOrder)
-        local children, removed, pending = {}, Hierarchy.copy(ancestorRemoved or {}), {}
+        local children, removed, pending, name = {}, Hierarchy.copy(ancestorRemoved or {}), {}, nil
         local function clearFields(record, prefix)
             for name in pairs(record.overrides and record.overrides.properties or {}) do pending[#pending + 1] = {from = prefix, property = name} end
             for name, fields in pairs(record.overrides and record.overrides.scripts or {}) do
@@ -74,6 +75,7 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
             for _, child in ipairs(record.children or {}) do clearFields(child, prefix .. "/" .. child.id) end
         end
         for _, layer in ipairs(definition.layers) do
+            if layer.name ~= nil then name = layer.name end
             children = Hierarchy.mergeChildren(children, layer.children, key ~= documentId or layer ~= definition.layers[#definition.layers])
             clearFields(layer, path)
             for _, prefix in ipairs(layer.removedPaths or {}) do removed[#removed + 1] = path .. prefix:sub(5) end
@@ -83,6 +85,8 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
         end
         if key and visiting[key] and #children > 0 then return nil, "Nested Prefab cycle" end
         if key then visiting[key] = (visiting[key] or 0) + 1 end
+        local sourceChildren = {}
+        for _, child in ipairs(children) do sourceChildren[child.id] = true end
         children = Hierarchy.mergeChildren(children, override and override.children)
         for _, prefix in ipairs(override and override.removedPaths or {}) do removed[#removed + 1] = path .. prefix:sub(5) end
         for _, prefix in ipairs(removed) do removedPaths[#removedPaths + 1] = prefix end
@@ -92,7 +96,7 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
         if not transform then return nil, transformError end
         local node = {path = path, parent = parent, reference = key, definition = definition,
             isInherited = override and override.isInherited == true,
-            transform = transform, name = override and override.name,
+            transform = transform, name = override and override.name or name,
             overrides = Hierarchy.copy(override and override.overrides or {}), children = {}}
         for _, id in ipairs(override and override.removedScripts or {}) do
             if node.overrides.scripts then node.overrides.scripts[id] = nil end
@@ -101,7 +105,9 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
         for _, child in ipairs(children) do
             if not Hierarchy.isRemoved(path .. "/" .. child.id, removed) then
             -- 상속용 부분 레코드는 ID 병합으로 원본을 유지하고, 새 무참조 노드는 기본 LObject다.
-            local resolved, childError = build(child.definitionReference, child, path .. "/" .. child.id, node, depth + 1, removed)
+            -- 명시적으로 추가한 가지는 원본의 재귀 확장과 별개인 유한한 구성이다.
+            local resolved, childError = build(child.definitionReference, child, path .. "/" .. child.id, node, depth + 1, removed,
+                sourceChildren[child.id] and visiting or {})
             if not resolved then return nil, childError end
             node.children[#node.children + 1] = resolved
             end
@@ -206,8 +212,39 @@ function Hierarchy.capture(project, level, root)
             end
         end
     end
-    return {formatVersion = 4, definitionReference = record.definitionReference, scripts = record.scripts, overrides = record.overrides,
-        children = record.children, bindings = bindings, removedPaths = record.removedPaths}
+    return {formatVersion = 4, name = record.name, definitionReference = record.definitionReference, scripts = record.scripts, overrides = record.overrides,
+        children = record.children, bindings = bindings, removedPaths = record.removedPaths}, nil, paths
+end
+
+function Hierarchy.canLinkCapture(root)
+    if root.prefabRootId and root.prefabRootId ~= root.authoringId then
+        return false, "Cannot replace an inherited member; select its owning Prefab root"
+    end
+    return true
+end
+function Hierarchy.linkCapture(project, level, root, reference, paths)
+    local allowed, err = Hierarchy.canLinkCapture(root)
+    if not allowed then return false, err end
+    local recipe, resolveError = Hierarchy.resolve(project, reference)
+    if not recipe then return false, resolveError end
+    local objects = {}
+    for id, path in pairs(paths) do
+        local object = level:findLObject(id)
+        if not object or not recipe.byPath[path] then return false, "Captured object hierarchy changed" end
+        objects[path] = object
+    end
+    if objects.root ~= root then return false, "Captured root changed" end
+    for _, node in ipairs(recipe.nodes) do if not objects[node.path] then return false, "Captured source hierarchy changed; refresh before creating a Prefab" end end
+    -- ID·이름·Transform은 유지하고 에셋에 저장한 값은 인스턴스에서 제거한다.
+    for _, node in ipairs(recipe.nodes) do
+        local object = objects[node.path]
+        if node.parent then object.definitionReference = node.reference
+        else object.definitionReference = project:getAssetId(reference) or reference end
+        object.prefabRootId, object.prefabNodePath = root.authoringId, node.path
+        object.scripts, object.propertyOverrides, object.scriptOverrides, object.prefabRemovedPaths = nil, nil, nil, nil
+        if node.parent then object.parentAuthoringId = objects[node.parent.path].authoringId end
+    end
+    return true
 end
 
 function Hierarchy.expandAuthoring(project, level, root)

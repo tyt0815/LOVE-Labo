@@ -46,13 +46,18 @@ end
 function Tree:nameRect(path)
     for index, node in ipairs(self.nodes) do if node.key == path then
         return {x = self.x + 24 + node.depth * 14, y = self.y + (index - 1 - self.scroll) * ROW_HEIGHT,
-            w = math.max(60, self.width - node.depth * 14 - 60), h = ROW_HEIGHT}
+            w = math.max(60, self.width - node.depth * 14 - 76), h = ROW_HEIGHT}
     end end
 end
 function Tree:prefabGroup(object)
     local current = object
     while current do
+        if current == self.object then
+            if self.rootReference then return current.path, self.rootReference end
+            return nil
+        end
         if current.reference then return current.path, current.reference end
+        if not current.isInherited then return nil end
         current = current.parent
     end
 end
@@ -112,20 +117,26 @@ function Tree:draw()
     self:clampScroll(); love.graphics.push("all")
     love.graphics.intersectScissor(self.x, self.y, self.width, self.height)
     Theme.setColor("input"); love.graphics.rectangle("fill", self.x, self.y, self.width, self.height, 4, 4)
+    local appearance = require("editor.ui.PrefabAppearance")
+    local groups = appearance.layout(self.nodes, function(object) return self:prefabGroup(object) end, function(object) return object.path end)
+    local selectedGroup
+    for _, node in ipairs(self.nodes) do if node.key == self.selected then selectedGroup = self:prefabGroup(node.object) end end
     for row = 1, self.rows do
         local node = self.nodes[row + self.scroll]; if not node then break end
         local y, x = self.y + (row - 1) * ROW_HEIGHT, self.x + 8 + node.depth * 14
-        local group = self:prefabGroup(node.object)
-        local selectedGroup
-        for _, selected in ipairs(self.nodes) do if selected.key == self.selected then selectedGroup = self:prefabGroup(selected.object) end end
-        require("editor.ui.PrefabAppearance").background(group, group == selectedGroup, {x = self.x, y = y, w = self.width - 12, h = ROW_HEIGHT})
+        local group = groups[row + self.scroll]
         if node.key == self.selected then Ui.selection(self.x, y, self.width, ROW_HEIGHT) end
+        if group.showRange then
+            local branchEnd = x + (#node.children > 0 and 0 or 16) - 4
+            appearance.range(self.x + 12 + group.depth * 14, y, ROW_HEIGHT, group.key == selectedGroup, group.first, group.last, group.isRoot, branchEnd)
+        end
         if self.ping and self.ping.key == node.key then
             Theme.setColor("focus"); love.graphics.rectangle("line", self.x + 1, y + 1, self.width - 2 - Scrollbar.WIDTH, ROW_HEIGHT - 2)
         end
         if #node.children > 0 then Ui.chevron(x, y + ROW_HEIGHT / 2, self.expanded[node.key] ~= false) end
-        Ui.text(node.label, x + 16, y + 5, math.max(0, self.width - (x - self.x) - 60))
-        if group then Ui.browseButton({x = self.x + self.width - 44, y = y, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
+        if group.isRoot then appearance.icon(self.x + self.width - 54, y + ROW_HEIGHT / 2 - 1) end
+        Ui.text(node.label, x + 16, y + 5, math.max(0, self.width - (x - self.x) - 76))
+        if group.key then Ui.browseButton({x = self.x + self.width - 44, y = y, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
     end
     self.scrollbar:draw()
     if self.drag and self.drag.active and self.drag.intent and self.drag.intent.target then

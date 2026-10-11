@@ -92,6 +92,7 @@ function ClassInspector:reload()
         local hierarchy = self.target.getObjectHierarchy()
         if hierarchy then
             self.objectTree = require("editor.ui.ObjectTree").new(hierarchy, self.target.onSelectObject, self.target.onObjectContext)
+            self.objectTree.rootReference = self.target.objectHierarchyReference
             if oldObjectTree then
                 self.objectTree.expanded, self.objectTree.scroll = oldObjectTree.expanded, oldObjectTree.scroll
                 self.objectTree.drag = oldObjectTree.drag

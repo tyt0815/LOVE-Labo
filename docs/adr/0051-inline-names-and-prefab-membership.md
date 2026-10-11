@@ -1,6 +1,8 @@
 # 0051. 목록 안 이름 편집과 Prefab 소속 표시
 
 - 상태: 승인·구현
+- 소속 배경색과 묶음 판정은 [ADR 0053](0053-prefab-source-membership-lines.md)으로 대체한다.
+- 루트 Rename의 파일명 변경 계약은 [ADR 0054](0054-prefab-root-object-names.md)로 대체한다.
 - 파일명의 여러 줄 편집과 계층 드래그·상속 제한은 [ADR 0052](0052-local-scripts-and-fixed-inherited-topology.md)를 따른다.
 - 관련: [0041](0041-inspector-picking-over-drag-exceptions.md), [0050](0050-attached-scripts-and-unified-assets.md)
 

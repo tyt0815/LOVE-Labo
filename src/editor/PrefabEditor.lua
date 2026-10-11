@@ -22,8 +22,7 @@ end
 function Editor:recipe()
     local recipe, err = Hierarchy.resolve(self.project, self.document.assetId)
     if recipe then
-        local reference = self.project:getAssetReference(self.document.assetId)
-        recipe.root.name = reference and reference:match("([^/]+)%.prefab$") or "Prefab"
+        recipe.root.name = recipe.root.name or "LObject"
         for _, node in ipairs(recipe.nodes) do
             if not node.name then
                 local path = node.reference and self.project:getAssetReference(node.reference)
@@ -32,6 +31,14 @@ function Editor:recipe()
         end
     end
     return recipe, err
+end
+function Editor:renameObject(path, name)
+    if type(name) ~= "string" or name:match("^%s*$") then return false, "Name cannot be empty" end
+    local recipe, err = self:recipe()
+    if not recipe then return false, err end
+    if not recipe.byPath[path] then return false, "Missing object" end
+    self:record(path, true).name = name
+    self.onChanged(); return true
 end
 function Editor:baseRecipe(path)
     local data = Hierarchy.copy(self.document.data)
@@ -114,9 +121,14 @@ function Editor:target(path)
     local baseTransform = baseNode and baseNode.transform or assert(require("core.Transform").copy({x = 0, y = 0}))
     for name, declaration in pairs(target.class.properties) do if declaration.rootTransform then declaration.default = baseTransform[declaration.field] end end
     target.data = proxy; target.referenceField = "definitionReference"; proxy.definitionReference = parentReference
-    target.getDisplayName = function() return node.name end
+    target.getDisplayName = function()
+        if node.path ~= "root" then return node.name end
+        local reference = self.project:getAssetReference(self.document.assetId)
+        return reference and reference:match("([^/]+)%.prefab$") or "Prefab"
+    end
     target.isDirty = function() return self.document:isDirty() end
     target.getObjectHierarchy = function() local current = self:recipe(); return current and current.root end
+    target.objectHierarchyReference = self.document.data.definitionReference
     target.selectedObjectPath = node.path
     target.onSelectObject = function(selected) self.selected = selected; self.onSelect(selected) end
     target.onObjectContext = function(path, x, y) if self.onContext then self.onContext(path, x, y) end end

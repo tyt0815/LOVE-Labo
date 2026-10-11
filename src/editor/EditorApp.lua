@@ -1232,16 +1232,18 @@ end
 function EditorApp:showCreatePrefabDialog(object)
     if self:isPlaying() then return false, "Stop Play before creating a Prefab" end
     self.inspector:commitEdit(); self:recordHistory()
+    local allowed, linkError = require("project.PrefabHierarchy").canLinkCapture(object)
+    if not allowed then self.hierarchy.error = linkError; return false, linkError end
     local captured, err = require("project.PrefabHierarchy").capture(self.project, self.level, object)
     if not captured then self.hierarchy.error = err; return false, err end
     local folder = self.assetBrowser.folder
     if not folder:match("^Assets") then folder = "Assets" end
     local tree = require("editor.ui.FolderTree").new(self.project, "Assets", nil, folder)
     require("editor.ui.Dialog").new(self.uiRoot, {title = "Create Prefab", input = true,
-        message = "Save this object and its descendants. The level instances stay unchanged.",
+        message = "Create a Prefab and connect this object and its descendants to it.",
         value = "PF_" .. (object.name or "Object"):gsub("[^%w_]", "_"), content = tree,
         onConfirm = function(name)
-            local ok, reference = self.assetBrowser.assetOperations:create(tree.selected or folder, "prefab", name, {prefabData = captured})
+            local ok, reference = self.assetBrowser.assetOperations:createLinkedPrefab(tree.selected or folder, name, object)
             if ok then self.assetBrowser:reveal(reference) end
             return ok, reference
         end})
@@ -1278,16 +1280,9 @@ function EditorApp:renamePrefabObject(path)
     local node = assert(self.prefabEditor:recipe()).byPath[path]
     require("editor.ui.InlineRename").new(self.uiRoot, tree:nameRect(path), node.name or "LObject", function(name)
         if name:match("^%s*$") then return false, "Name cannot be empty" end
-        if path == "root" then
-            local valid, err = self.project.isValidName(name)
-            if not valid then return false, err end
-            local source = self.project:getAssetReference(self.prefabDocument.assetId)
-            local destination = source:match("^(.*)/") .. "/" .. name .. ".prefab"
-            if destination == source then return true end
-            return self.assetBrowser:moveEntry({reference = source, type = "file"}, destination)
-        end
         self.inspector:commitEdit(); self:recordHistory()
-        self.prefabEditor:record(path, true).name = name; self.prefabEditor.onChanged()
+        local ok, err = self.prefabEditor:renameObject(path, name)
+        if not ok then return false, err end
         self:recordHistory(); self.prefabEditor.onSelect(path); return true
     end)
 end

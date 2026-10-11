@@ -62,9 +62,8 @@ function Operations.execute(project, request, api)
         document.data.bindings = bindings; document.data.formatVersion = 4
         nodePath = "root"; changed = true
     elseif command == "prefab.child.rename" then
-        assert(nodePath ~= "root", "Rename the root asset with asset.rename")
-        local name = api.required(request, "name"); assert(type(name) == "string" and name ~= "", "Invalid instance name")
-        editor:record(nodePath, true).name = name; document.data.formatVersion = 4; changed = true
+        assert(editor:renameObject(nodePath, api.required(request, "name")))
+        document.data.formatVersion = 4; changed = true
     else assert(command == "prefab.get" or command == "prefab.tree", "Unknown command: " .. command) end
     if changed then
         document.data.overrides.properties = document.data.overrides.properties or {}

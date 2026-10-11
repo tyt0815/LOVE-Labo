@@ -173,6 +173,40 @@ function Operations:create(folder, kind, name, options)
         return true, reference
     end)
 end
+function Operations:createLinkedPrefab(folder, name, object)
+    local hierarchy = require("project.PrefabHierarchy")
+    local allowed, err = hierarchy.canLinkCapture(object)
+    if not allowed then return false, err end
+    local app, document, reference = self.app, self.app.document, nil
+    local ok, failure = self:batch(function()
+        local data, captureError, paths = hierarchy.capture(self.project, app.level, object)
+        if not data then return false, captureError end
+        local before = assert(require("editor.LevelFile").encode(app.level))
+        local created, result = self:create(folder, "prefab", name, {prefabData = data})
+        if not created then return false, result end
+        reference = result
+        local after
+        local function restore(text)
+            document.level = assert(require("editor.LevelFile").decode(text))
+            local history = app.histories[document]
+            document.level.nextAuthoringId = math.max(document.level.nextAuthoringId, history.highWater or 1)
+            history.entries[history.index].text = text
+            if app.document == document then
+                app:setDocument(document)
+                app.sceneView:setSelection({app.level:findLObject(object.authoringId)})
+                app.inspectorSource = "scene"; app.instanceInspectorObject = nil; app:updateInspectorTarget()
+            end
+            return true
+        end
+        app:pushAssetAction({undo = function() return restore(before) end, redo = function() return restore(after) end})
+        local linked, linkError = hierarchy.linkCapture(self.project, app.level, object, reference, paths)
+        if not linked then return false, linkError end
+        after = assert(require("editor.LevelFile").encode(app.level))
+        restore(after)
+        return true
+    end)
+    return ok, ok and reference or failure
+end
 function Operations:delete(reference)
     return self:perform(function()
         self:checkDelete(reference)

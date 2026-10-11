@@ -23,11 +23,13 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | folder create | --folder, --name |
 | asset list/get/import/copy/move/rename/delete | --asset, --folder, --name; move의 --destination은 최종 파일 경로 |
 | prefab create/get/tree/set/reset/set-parent | --prefab, --node root 또는 root/ID, --property, --value-json, --parent |
+| prefab create --level --instance --link | 기존 계층에서 에셋 생성 후 원본 연결 및 레벨 저장; --link 생략 시 캡처만 수행 |
 | prefab script add | --prefab, --node, --source, 선택 --script 부착 ID |
 | prefab script remove | --prefab, --node, --script |
 | prefab script move | --prefab, --node, --script, --index (1부터) |
 | prefab child add/remove/rename | --prefab, --node, --template 또는 --instance, --name |
-| prefab child move | --prefab, --node, --destination 노드 경로, --mode attach/before/after/detach; root 앞은 독립 Prefab의 루트 교체 |
+| prefab child rename --node root | 루트 오브젝트 이름 변경; Prefab 파일 이름 변경은 asset rename 사용 |
+| prefab child move | --prefab, --node, --destination 노드 경로, --mode attach/before/after/detach; root 앞은 로컬 자손을 새 루트로 지정하며 기존 루트의 원본 유지 |
 | level create/get/set/reset/set-parent/validate | --level, --name, --property; create --empty는 카메라 없는 레벨 |
 | level view/set-camera | 투영 정보; --instance, --script로 Main Camera 지정 |
 | level simulate | --frames 0..10000, --dt; 파일 수정 없이 beginPlay/update 결과와 스크립트 상태 반환, draw는 실행하지 않음 |
@@ -38,6 +40,14 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | export | --output; 검증 후 독립 게임 .love 생성 |
 
 정확한 개별 인자는 help와 JSON 요청 예제를 확인합니다. 일반 스크립트 생성은 --type script, 레벨 스크립트는 --type level을 사용합니다. 생성 경로 기본값은 Assets입니다. 새 레벨은 기본 Camera 부착 오브젝트와 `{authoringId,script}` Main Camera를 저장합니다. 별도 Camera.lua를 만들지 않습니다.
+
+```powershell
+Labo-cli.exe --cli prefab create --project D:/Games/MyGame --level Assets/L_Start.level --instance 2 --name PF_Enemy --link
+```
+
+이 명령은 오브젝트 ID와 Transform을 유지하며, 스크립트와 프로퍼티 값을 에셋으로 옮긴 뒤 레벨을 저장합니다. 결과의 linkedLevel과 instance로 연결한 대상을 확인합니다. GUI Create Prefab과 공용 캡처·연결 로직을 사용합니다. 생성 후 연결 또는 레벨 저장이 실패하면 새 에셋을 제거합니다. 상속 자손 하나를 교체하지 않고 배치 루트에서 사용합니다.
+
+`--link`와 함께 전달하는 `--revision`은 연결할 레벨의 revision입니다. `level get`으로 조회한 revision이 현재 레벨과 다르면 에셋 생성 전에 거절하며, 생성·저장 도중 레벨이 변경된 경우도 덮어쓰지 않습니다.
 
 ```json
 {"command":"prefab.set","project":"D:/Games/MyGame","prefab":"Assets/PF_Player.prefab","property":"movement.speed","value":250}

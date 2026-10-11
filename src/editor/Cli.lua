@@ -79,6 +79,7 @@ local function execute(request)
             propertyValues = "Use value-json for numbers/booleans and value for strings; JSON requests use value directly",
             prefabNodes = "root or root/<child-id>/...; object references accept node paths",
             multiSelection = "instances: JSON array or comma-separated --instances; includes descendants",
+            prefabCapture = "prefab.create --level --instance captures a hierarchy; --link also connects it and saves the level",
             examples = {{command = "project.validate", project = "D:/Games/MyGame"},
                 {command = "instance.duplicate", project = "D:/Games/MyGame", instances = {1, 2}},
                 {command = "prefab.child.add", project = "D:/Games/MyGame", prefab = "Assets/PF_Enemy.prefab", node = "root", template = "Assets/PF_Weapon.prefab"}}}
@@ -100,14 +101,34 @@ local function execute(request)
         local builtin = ({Script = true, Camera = true, Sprite = true, Pointer = true, Rect = true, Canvas = true})[parent or ""]
         local options = {scriptKind = request.type or builtin and "script" or (parent and assert(project:getScriptKind(parent))) or "script",
             parentReference = parent, scriptReference = request.class, empty = request.empty == true or request.empty == "true"}
+        local capturedDocument, capturedObject, capturedPaths, capturedLevelBytes
+        local link = request.link == true or request.link == "true"
         if kind == "prefab" and request.instance then
-            local document = assert(require("editor.LevelDocument").load(assert(project:resolveAssetFile(request.level or project.defaultLevelReference))))
-            local object = assert(document.level:findLObject(tonumber(request.instance)), "Instance not found")
-            options.prefabData = assert(require("project.PrefabHierarchy").capture(project, document.level, object))
+            capturedDocument = assert(require("editor.LevelDocument").load(assert(project:resolveAssetFile(request.level or project.defaultLevelReference))))
+            capturedLevelBytes = assert(Fs.read(capturedDocument.path))
+            if link then checkRevision(request, capturedLevelBytes) end
+            capturedObject = assert(capturedDocument.level:findLObject(tonumber(request.instance)), "Instance not found")
+            local hierarchy = require("project.PrefabHierarchy")
+            if link then assert(hierarchy.canLinkCapture(capturedObject)) end
+            local data, captureError, paths = hierarchy.capture(project, capturedDocument.level, capturedObject)
+            assert(data, captureError); options.prefabData, capturedPaths = data, paths
         end
+        assert(not link or capturedDocument, "--link requires prefab.create --instance")
         local ok, reference = project:createEntry(folder, kind == "class" and "lua" or kind, required(request, "name"), options)
         assert(ok, reference)
-        return basicResult(project, reference)
+        if link then
+            if Fs.read(capturedDocument.path) ~= capturedLevelBytes then
+                project:deleteEntry(reference); error("Revision conflict: level changed while creating a Prefab")
+            end
+            local linked, linkError = require("project.PrefabHierarchy").linkCapture(project, capturedDocument.level, capturedObject, reference, capturedPaths)
+            if not linked then project:deleteEntry(reference); error(linkError) end
+            local levelPath = capturedDocument.path
+            local saved, saveError = capturedDocument:save(levelPath)
+            if not saved then project:deleteEntry(reference); error(saveError) end
+        end
+        local result = basicResult(project, reference)
+        if link then result.linkedLevel, result.instance = project:getAssetId(project:referenceForPath(capturedDocument.path)), capturedObject.authoringId end
+        return result
     end
     if command == "project.set-default" then
         local reference = project:getAssetReference(required(request, "level"))
@@ -284,9 +305,9 @@ function Cli.parse(args)
         local item = args[i]
         if item:sub(1, 2) == "--" then
             local key = item:sub(3)
-            if key == "empty" then
-                assert(request.empty == nil, "Duplicate option: " .. item)
-                request.empty, i = true, i + 1
+            if key == "empty" or key == "link" then
+                assert(request[key] == nil, "Duplicate option: " .. item)
+                request[key], i = true, i + 1
             else
                 local allowed = {project = true, parent = true, name = true, folder = true, type = true, class = true,
                     prefab = true, template = true, level = true, instance = true, property = true, ["value-json"] = true,

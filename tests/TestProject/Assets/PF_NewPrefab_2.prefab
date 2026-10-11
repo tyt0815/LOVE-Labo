@@ -1,0 +1,47 @@
+{
+  "bindings": {},
+  "children": [
+    {
+      "children": [
+        {
+          "children": {},
+          "definitionReference": "338edf49-fb68-4879-8b47-b9654678af6f",
+          "id": "o5",
+          "name": "NewPrefab 2 1",
+          "overrides": {},
+          "scripts": {},
+          "transform": {
+            "rotation": 0,
+            "rotationX": 0,
+            "rotationY": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "x": -100,
+            "y": 0
+          }
+        }
+      ],
+      "id": "previousRoot",
+      "name": "a",
+      "overrides": {},
+      "scripts": {},
+      "transform": {
+        "rotation": 0,
+        "rotationX": 0,
+        "rotationY": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "x": 100,
+        "y": 0
+      }
+    }
+  ],
+  "definitionReference": "85ca271c-97e3-4509-b963-b6b85ac45dbd",
+  "formatVersion": 4,
+  "name": "NewPrefab 1",
+  "overrides": {
+    "properties": {},
+    "scripts": {}
+  },
+  "scripts": {}
+}

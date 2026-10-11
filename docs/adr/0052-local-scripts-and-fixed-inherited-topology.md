@@ -1,6 +1,7 @@
 # 0052. 로컬 스크립트 확장과 상속 구조 고정
 
 - 상태: 승인·구현
+- 원본 연결이 있는 루트의 교체 금지는 [ADR 0055](0055-prefab-container-and-sourced-object-roots.md)로 대체한다. 상속 구성 내부 제한은 유지한다.
 - 대체 범위: [0050](0050-attached-scripts-and-unified-assets.md)의 인스턴스 부착 금지, [0051](0051-inline-names-and-prefab-membership.md)의 단일 행 이름 편집.
 
 ## 배경과 제약

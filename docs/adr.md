@@ -53,3 +53,7 @@
 - [0050. LObject 스크립트 부착과 에셋 루트 통합](adr/0050-attached-scripts-and-unified-assets.md)
 - [0051. 목록 안 이름 편집과 Prefab 소속 표시](adr/0051-inline-names-and-prefab-membership.md)
 - [0052. 로컬 스크립트 확장과 상속 구조 고정](adr/0052-local-scripts-and-fixed-inherited-topology.md)
+- [0053. 원본 소속에 따른 Prefab 범위선](adr/0053-prefab-source-membership-lines.md)
+- [0054. Prefab 파일과 루트 오브젝트 이름 분리](adr/0054-prefab-root-object-names.md)
+- [0055. Prefab 컨테이너와 원본을 참조하는 오브젝트의 루트 교체](adr/0055-prefab-container-and-sourced-object-roots.md)
+- [0056. Prefab 생성과 기존 계층 연결](adr/0056-create-prefab-and-connect-instances.md)

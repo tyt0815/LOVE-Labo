@@ -3,19 +3,20 @@
     {
       "from": "root",
       "property": "behavior.target",
-      "to": "root/o1"
+      "to": "root/previousRoot"
     },
     {
       "from": "root",
       "property": "behavior.otherScript",
-      "to": "root/o1",
+      "to": "root/previousRoot",
       "toScript": "sprite"
     }
   ],
   "children": [
     {
-      "id": "o1",
-      "name": "VisualChild",
+      "children": {},
+      "id": "previousRoot",
+      "name": "a",
       "overrides": {
         "scripts": {
           "sprite": {
@@ -30,11 +31,18 @@
         }
       ],
       "transform": {
-        "x": 100
+        "rotation": 0,
+        "rotationX": 0,
+        "rotationY": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "x": 100,
+        "y": 0
       }
     }
   ],
   "formatVersion": 4,
+  "name": "b",
   "overrides": {
     "properties": {},
     "scripts": {
