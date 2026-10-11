@@ -64,8 +64,8 @@ local api = {required = required, absolute = absolute, revision = revision, chec
 local COMMANDS = {"project.create", "project.info", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
-    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.child.add", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
-    "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "export"}
+    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
+    "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.reorder", "export"}
 local function execute(request)
     local command = required(request, "command")
     if command:match("^script%.") then
@@ -170,7 +170,12 @@ local function execute(request)
         assert(object, "Instance not found")
         local definition = assert(require("project.PrefabHierarchy").authoringDefinition(project, level, object))
         target = assert(require("project.ObjectDefinition").inspectorTarget(project, object, definition, level))
-        if command == "instance.reparent" then
+        if command == "instance.script.add" then assert(target:addScript(required(request, "source"), request.script)); changed = true
+        elseif command == "instance.script.remove" then assert(target:removeScript(required(request, "script"))); changed = true
+        elseif command == "instance.script.move" then assert(target:moveScript(required(request, "script"), tonumber(required(request, "index")))); changed = true
+        elseif command == "instance.reorder" then
+            assert(level:dropObjects(selected(), assert(level:findLObject(tonumber(required(request, "destination")))), request.mode or "before")); changed = true
+        elseif command == "instance.reparent" then
             local parent = request.parent ~= nil and request.parent ~= false and assert(level:findLObject(tonumber(request.parent)), "Parent instance not found") or nil
             assert(level:reparent(selected(), parent)); changed = true
         elseif command == "instance.rename" then
@@ -249,6 +254,10 @@ local function execute(request)
         bytes = assert(Fs.read(levelPath))
     end
     local result = {revision = revision(bytes), level = project:getAssetReference(levelReference), data = object or level:toData()}
+    if object and changed then
+        local definition = assert(require("project.PrefabHierarchy").authoringDefinition(project, level, object))
+        target = assert(require("project.ObjectDefinition").inspectorTarget(project, object, definition, level))
+    end
     if target then result.properties = properties(target) end
     return result
 end
@@ -282,7 +291,7 @@ function Cli.parse(args)
                 local allowed = {project = true, parent = true, name = true, folder = true, type = true, class = true,
                     prefab = true, template = true, level = true, instance = true, property = true, ["value-json"] = true,
                     x = true, y = true, output = true, revision = true, request = true, result = true, value = true,
-                    asset = true, destination = true, source = true, node = true, instances = true, input = true,
+                    asset = true, destination = true, source = true, node = true, instances = true, input = true, mode = true,
                     event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true, script = true, index = true, frames = true, dt = true}
                 assert(allowed[key], "Unknown option: " .. item)
                 assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)

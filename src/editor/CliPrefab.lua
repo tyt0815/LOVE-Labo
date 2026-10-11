@@ -21,6 +21,7 @@ function Operations.execute(project, request, api)
         if declaration.type == "object" and type(item) == "string" then item = assert(target.scopeByPath[item], "Prefab object path not found").authoringId end
         api.setProperty(project, target, name, item); changed = true
     elseif command == "prefab.set-parent" then
+        assert(nodePath == "root" or not recipe.byPath[nodePath].isInherited, "Inherited object sources cannot be changed")
         local parent = request.parent
         if parent == "None" or parent == false then parent = nil end
         if parent then parent = assert(project:getAssetId(assert(project:getAssetReference(parent))), "Parent asset is not registered") end
@@ -46,7 +47,11 @@ function Operations.execute(project, request, api)
         elseif request.template or request.class then ok, err, childPath = editor:add(request.template or request.class, nodePath)
         else ok, err, childPath = editor:insertChild(nil, request.name or "LObject", nodePath) end
         assert(ok, err); nodePath = childPath; changed = true
+    elseif command == "prefab.child.move" then
+        local ok, err = editor:dropObject(nodePath, request.destination, request.mode or "attach")
+        assert(ok, err); nodePath = editor.selected; changed = true
     elseif command == "prefab.child.remove" then
+        assert(not recipe.byPath[nodePath].isInherited, "Inherited objects cannot be removed")
         assert(nodePath ~= "root", "Cannot remove the Prefab root")
         document.data.removedPaths = document.data.removedPaths or {}
         document.data.removedPaths[#document.data.removedPaths + 1] = nodePath

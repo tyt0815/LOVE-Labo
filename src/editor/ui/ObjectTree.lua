@@ -80,8 +80,24 @@ function Tree:dispatch(event, ...)
             if reference and x >= self.x + self.width - 44 and self.onLocatePrefab then self.onLocatePrefab(reference)
             elseif x < self.x + 24 + node.depth * 14 and #node.children > 0 then
                 self.expanded[node.key] = self.expanded[node.key] == false; self:rebuild()
-            else self:choose(node) end
+            else self.drag = {path = node.key, x = x, y = y}; self:choose(node); return true, true end
         end
+    elseif event == "mousemoved" and self.drag then
+        local x, y = ...
+        self.drag.active = self.drag.active or (x - self.drag.x)^2 + (y - self.drag.y)^2 >= 36
+        local target = self:nodeAt(x, y)
+        local top = target and self:nameRect(target.key).y or self.y
+        self.drag.intent = require("editor.ui.TreeDrop").intent(target, y, top, ROW_HEIGHT)
+        self.drag.yNow = y
+    elseif event == "mousereleased" and self.drag then
+        local drag = self.drag; self.drag = nil
+        local x, y = ...
+        if drag.active and x and y and self:containsPoint(x, y) and self.onDrop then
+            local target = self:nodeAt(x, y)
+            local intent = require("editor.ui.TreeDrop").intent(target, y, target and self:nameRect(target.key).y or self.y, ROW_HEIGHT)
+            self.onDrop(drag.path, target and target.key, intent.mode)
+        end
+    elseif event == "cancel" then self.drag = nil
     elseif event == "wheelmoved" then
         local _, _, amount = ...; self.scroll = self.scroll - amount * 3; self:clampScroll()
     elseif event == "keypressed" then
@@ -112,6 +128,12 @@ function Tree:draw()
         if group then Ui.browseButton({x = self.x + self.width - 44, y = y, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
     end
     self.scrollbar:draw()
+    if self.drag and self.drag.active and self.drag.intent and self.drag.intent.target then
+        local rect = self:nameRect(self.drag.intent.target.key)
+        Theme.setColor("focus")
+        if self.drag.intent.mode == "attach" then love.graphics.rectangle("line", self.x + 2, rect.y, self.width - 4, ROW_HEIGHT)
+        else love.graphics.line(self.x + 2, rect.y + (self.drag.intent.mode == "after" and ROW_HEIGHT or 0), self.x + self.width - 2, rect.y + (self.drag.intent.mode == "after" and ROW_HEIGHT or 0)) end
+    end
     love.graphics.pop()
 end
 return Tree

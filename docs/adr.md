@@ -52,3 +52,4 @@
 
 - [0050. LObject 스크립트 부착과 에셋 루트 통합](adr/0050-attached-scripts-and-unified-assets.md)
 - [0051. 목록 안 이름 편집과 Prefab 소속 표시](adr/0051-inline-names-and-prefab-membership.md)
+- [0052. 로컬 스크립트 확장과 상속 구조 고정](adr/0052-local-scripts-and-fixed-inherited-topology.md)

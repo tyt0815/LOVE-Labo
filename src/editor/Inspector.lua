@@ -239,10 +239,10 @@ function Inspector:mousemoved(x, y, dx)
     end
     return Edit.move(self, x)
 end
-function Inspector:mousereleased()
+function Inspector:mousereleased(x, y, button)
     if NumberDrag.finish(self) then self:commitEdit() end
     Edit.release(self)
-    if self.classInspector then self.classInspector:mousereleased() end
+    if self.classInspector then self.classInspector:mousereleased(x, y, button) end
     return true
 end
 function Inspector:cancelPointer()

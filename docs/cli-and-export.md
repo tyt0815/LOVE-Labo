@@ -27,11 +27,14 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | prefab script remove | --prefab, --node, --script |
 | prefab script move | --prefab, --node, --script, --index (1부터) |
 | prefab child add/remove/rename | --prefab, --node, --template 또는 --instance, --name |
+| prefab child move | --prefab, --node, --destination 노드 경로, --mode attach/before/after/detach; root 앞은 독립 Prefab의 루트 교체 |
 | level create/get/set/reset/set-parent/validate | --level, --name, --property; create --empty는 카메라 없는 레벨 |
 | level view/set-camera | 투영 정보; --instance, --script로 Main Camera 지정 |
 | level simulate | --frames 0..10000, --dt; 파일 수정 없이 beginPlay/update 결과와 스크립트 상태 반환, draw는 실행하지 않음 |
 | level pointer | --space world/screen, --x, --y, --width, --height, --events-json; 이벤트마다 최신 카메라로 좌표 변환 |
 | instance add/get/list/set/reset/rename/reparent/duplicate/delete | --instance 또는 --instances, --prefab, --parent; 재정의 프로퍼티는 movement.speed처럼 부착 ID 포함 |
+| instance script add/remove/move | --instance, --source, --script, --index; 로컬 부착만 제거·정렬 |
+| instance reorder | --instances 또는 --instance, --destination 인스턴스 ID, --mode before/after |
 | export | --output; 검증 후 독립 게임 .love 생성 |
 
 정확한 개별 인자는 help와 JSON 요청 예제를 확인합니다. 일반 스크립트 생성은 --type script, 레벨 스크립트는 --type level을 사용합니다. 생성 경로 기본값은 Assets입니다. 새 레벨은 기본 Camera 부착 오브젝트와 `{authoringId,script}` Main Camera를 저장합니다. 별도 Camera.lua를 만들지 않습니다.
@@ -40,9 +43,11 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 {"command":"prefab.set","project":"D:/Games/MyGame","prefab":"Assets/PF_Player.prefab","property":"movement.speed","value":250}
 ```
 
-부착 구성은 Prefab에서만 변경하고 인스턴스는 값만 편집합니다. GUI와 CLI는 같은 PrefabEditor·ObjectDefinition·계층 로직을 사용합니다. 변경 충돌을 피하려면 GUI 초안을 먼저 저장합니다. CLI 파일 변경은 GUI Undo에 포함되지 않습니다.
+Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니다. 상속한 구성은 값만 편집합니다. GUI와 CLI는 같은 PrefabEditor·ObjectDefinition·계층 로직을 사용합니다. 변경 충돌을 피하려면 GUI 초안을 먼저 저장합니다. CLI 파일 변경은 GUI Undo에 포함되지 않습니다.
 
 `level simulate` 중 레벨 전환 대상의 초기화가 실패하면 성공 결과 대신 오류를 반환합니다. 이전 World에서 계속 실행한 결과를 정상 전환으로 보고하지 않습니다.
+
+상속된 오브젝트의 부모·순서·삭제와 상속된 스크립트의 제거·정렬은 명령 단계에서 거절합니다. 원본으로부터 구성 전체를 배치한 루트 인스턴스의 이동·삭제는 허용합니다. 로컬 항목 추가와 프로퍼티 변경은 허용하며 GUI와 같은 공용 로직을 사용합니다.
 
 ## 패키징
 

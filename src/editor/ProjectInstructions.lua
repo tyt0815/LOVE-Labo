@@ -10,7 +10,7 @@ function Instructions.files()
 - 에셋 생성·이동·삭제·배치는 Labo-cli.exe 명령을 우선 사용하고 .meta ID를 보존한다.
 - GUI에서 연 문서를 저장한 뒤 CLI로 수정한다. CLI 변경은 GUI Undo에 포함되지 않는다.
 - LObject는 Transform과 자손 계층을 소유한다. Lua 스크립트를 여러 개 부착하며 self.owner가 오브젝트다.
-- Prefab에서 스크립트를 추가·제거·정렬한다. 배치 인스턴스는 프로퍼티만 재정의한다.
+- Prefab에서 스크립트를 추가·제거·정렬한다. 배치 인스턴스에도 로컬 스크립트를 추가한다. 상속한 오브젝트·스크립트의 구조는 고정하고 값만 재정의한다.
 - 클래스·파일 이름은 PascalCase, 변수·함수는 camelCase, 상수는 UPPER_SNAKE_CASE, 들여쓰기는 공백 4칸이다.
 ]]},
         {name = "Docs/EngineGuide.md", text = [[# LÖVE Labo 로컬 핵심 안내

@@ -48,7 +48,12 @@ return Player
         assert(app:startPlay()); shot("game-view"); app:stopPlay()
         assert(app.prefabEditor:insertChild(nil, "Child", "root"))
         app.prefabEditor.onSelect("root"); shot("prefab-hierarchy")
+        local inspector = app.inspector.classInspector
+        for _, row in ipairs(inspector.rows) do if row.scriptActions then inspector:showAddScript(inspector.propertyTop + row.offset - inspector.scroll); break end end
+        shot("script-picker"); app.uiRoot:keypressed("escape")
         app.assetBrowser:showCreateDialog("Assets", "prefab"); shot("inline-rename")
+        app.uiRoot.popup:dispatch("textinput", "A_Long_Prefab_Name_For_Multiline_Editing")
+        shot("multiline-rename")
         app.uiRoot:keypressed("escape")
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)

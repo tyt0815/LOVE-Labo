@@ -20,7 +20,7 @@ LÖVE 11.5 + LuaJIT을 사용하는 2D 제작 에디터다. 현재 외부 프로
 
 ## 현재 모델
 
-LObject는 Transform과 자손 계층을 소유하며 Lua 스크립트를 여러 개 부착합니다. Prefab은 계층·부착 구성·값을 저장합니다. Prefab Inspector에서 스크립트를 추가·제거·정렬하고 인스턴스에서는 값만 재정의합니다. Lua 파일 자체는 오브젝트 생성 템플릿이 아닙니다.
+LObject는 Transform과 자손 계층을 소유하며 Lua 스크립트를 여러 개 부착합니다. Prefab은 계층·부착 구성·값을 저장합니다. Prefab Inspector에서 스크립트를 추가·제거·정렬하고 인스턴스에서는 로컬 스크립트를 추가·제거·정렬하고 상속한 구성의 값만 재정의합니다. Lua 파일 자체는 오브젝트 생성 템플릿이 아닙니다.
 
 프로젝트 에셋은 Assets로 통합했습니다. Sources는 충돌이 없을 때 Assets/Scripts로 이동하며 .meta ID를 유지합니다. 이전 컴포넌트 코드·Prefab은 자동 전환하지 않습니다. [ADR 0050](docs/adr/0050-attached-scripts-and-unified-assets.md)에 결정과 호환성 제한을 기록했습니다.
 

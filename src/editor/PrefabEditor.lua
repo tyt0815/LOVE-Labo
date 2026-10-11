@@ -81,7 +81,7 @@ function Editor:target(path)
             for field, value in pairs(fields) do definition.scripts[name][field] = value end
         end
     end
-    local scope = {lobjects = {}}
+    local scope = {lobjects = {}, prefabScope = true}
     local byPath = {}
     for index, current in ipairs(recipe.nodes) do
         local object = {authoringId = index, name = current.name, path = current.path}
@@ -90,9 +90,11 @@ function Editor:target(path)
     local target, targetError = Definition.inspectorTarget(self.project, proxy, definition, scope, "Prefab")
     if not target then return nil, targetError end
     target.instance, target.hideParent, target.parentOwnerId = false, false, self.document.assetId
+    if node.isInherited then target.hideParent = true end
     target.documentKey = self.document.assetId
     target.addScript = function(_, source, id) return self:addScript(node.path, source, id) end
     target.removeScript = function(_, id) return self:removeScript(node.path, id) end
+    target.canRemoveScript = function(_, id) return not self:scriptInherited(node.path, id) end
     target.moveScript = function(_, id, index) return self:moveScript(node.path, id, index) end
     target.prefabScope, target.scopeByPath = true, byPath
     local baseBindings = inherited.bindings
@@ -118,6 +120,7 @@ function Editor:target(path)
     target.selectedObjectPath = node.path
     target.onSelectObject = function(selected) self.selected = selected; self.onSelect(selected) end
     target.onObjectContext = function(path, x, y) if self.onContext then self.onContext(path, x, y) end end
+    target.onObjectDrop = function(source, destination, mode) return self:dropObject(source, destination, mode) end
     target.reloadTarget = function() return self:target(node.path) end
     target.getSnapshot = function() return assert(require("editor.Prefab").encodeData(self.document.data)) end
     target.restoreSnapshot = function(text)
@@ -249,6 +252,7 @@ function Editor:addScript(path, source, id)
     return true, id
 end
 function Editor:removeScript(path, id)
+    if self:scriptInherited(path, id) then return false, "Inherited scripts cannot be removed" end
     local recipe, err = self:recipe()
     if not recipe then return false, err end
     local node = recipe.byPath[path]
@@ -267,15 +271,55 @@ function Editor:removeScript(path, id)
     self.onChanged(); return true
 end
 function Editor:moveScript(path, id, index)
+    if self:scriptInherited(path, id) then return false, "Inherited scripts cannot be reordered" end
     local recipe, err = self:recipe()
     if not recipe then return false, err end
     local node = recipe.byPath[path]
     local attachments = node and node.definition.attachments or {}
+    for position, item in ipairs(attachments) do
+        if position >= index and self:scriptInherited(path, item.id) then return false, "Local scripts must follow inherited scripts" end
+    end
     if type(index) ~= "number" or index % 1 ~= 0 or index < 1 or index > #attachments then return false, "Invalid script index" end
     local order, current = {}, nil
     for number, item in ipairs(attachments) do order[number] = item.id; if item.id == id then current = number end end
     if not current then return false, "Missing script" end
     table.remove(order, current); table.insert(order, index, id)
     self:record(path, true).scriptOrder = order; self.onChanged(); return true
+end
+function Editor:dropObject(path, destination, mode)
+    local recipe, err = self:recipe(); if not recipe then return false, err end
+    local node, target = recipe.byPath[path], recipe.byPath[destination]
+    if not node then return false, "Missing dragged object" end
+    if mode == "before" and destination == "root" then return require("editor.PrefabTreeEdit").move(self, path, nil, nil, true) end
+    local parent, index
+    if mode == "attach" then parent = node.parent == target and recipe.root or target
+    elseif mode == "detach" then parent = recipe.root
+    elseif target and target.parent then
+        parent = target.parent
+        for position, child in ipairs(parent.children) do if child == target then index = position + (mode == "after" and 1 or 0) end end
+    end
+    if not parent then return false, "Invalid object destination" end
+    return require("editor.PrefabTreeEdit").move(self, path, parent.path, index)
+end
+function Editor:scriptInherited(path, id)
+    local parent = self.document.data.definitionReference
+    if parent then
+        local recipe = Hierarchy.resolve(self.project, parent)
+        local node = recipe and recipe.byPath[path]
+        for _, item in ipairs(node and node.definition.attachments or {}) do if item.id == id then return true end end
+    end
+    if path ~= "root" then
+        local recipe = self:recipe(); local node = recipe and recipe.byPath[path]
+        if node and node.reference then
+            local definition = Definition.resolve(self.project, node.reference)
+            for _, item in ipairs(definition and definition.attachments or {}) do if item.id == id then return true end end
+        end
+        if node and node.isInherited then
+            local localRecord = self:record(path, false)
+            for _, item in ipairs(localRecord and localRecord.scripts or {}) do if item.id == id then return false end end
+            return true
+        end
+    end
+    return false
 end
 return Editor

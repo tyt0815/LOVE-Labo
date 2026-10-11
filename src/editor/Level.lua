@@ -292,6 +292,9 @@ function Level:selectionRoots(objects)
     return roots
 end
 function Level:reparent(objects, parent)
+    for _, object in ipairs(self:selectionRoots(objects)) do
+        if object.prefabRootId and object.prefabRootId ~= object.authoringId then return false, "Inherited objects cannot be reparented" end
+    end
     if parent and self:findLObject(parent.authoringId) ~= parent then return false, "Parent is not in this level" end
     local roots, positions = self:selectionRoots(objects), {}
     for _, object in ipairs(roots) do
@@ -311,6 +314,30 @@ function Level:reparent(objects, parent)
         object.transform.x, object.transform.y = unpack(positions[object])
     end
     return true
+end
+function Level:dropObjects(objects, target, mode)
+    local roots = self:selectionRoots(objects)
+    if mode == "attach" or mode == "detach" then
+        local parent = mode == "attach" and target or nil
+        local detach = parent ~= nil
+        for _, object in ipairs(roots) do if object.parentAuthoringId ~= (parent and parent.authoringId) then detach = false end end
+        if detach then parent = nil end
+        return self:reparent(roots, parent)
+    end
+    if not target then return false, "Missing order target" end
+    if target.prefabRootId and target.prefabRootId ~= target.authoringId then return false, "Cannot insert between inherited objects" end
+    for _, object in ipairs(roots) do if object == target or self:isDescendant(target, object) then return false, "Object attachment cycle" end end
+    local moving = {}
+    for _, object in ipairs(self.lobjects) do for _, root in ipairs(roots) do if object == root or self:isDescendant(object, root) then moving[object] = true end end end
+    local ok, err = self:reparent(roots, self:getParent(target)); if not ok then return false, err end
+    local remaining, ordered = {}, {}
+    for _, object in ipairs(self.lobjects) do
+        if moving[object] then ordered[#ordered + 1] = object else remaining[#remaining + 1] = object end
+    end
+    local index = 1
+    for position, object in ipairs(remaining) do if object == target then index = position + (mode == "after" and 1 or 0) end end
+    for position = #ordered, 1, -1 do table.insert(remaining, index, ordered[position]) end
+    self.lobjects = remaining; return true
 end
 function Level:validateHierarchy()
     local paths = {}
@@ -348,6 +375,10 @@ function Level:treeRows(collapsed)
     visit(nil, 0); return rows
 end
 function Level:removeLObjects(objects, syncingPrefab)
+    if not syncingPrefab then
+        local roots = self:selectionRoots(objects)
+        for _, object in ipairs(roots) do if object.prefabRootId and object.prefabRootId ~= object.authoringId then return false, "Inherited objects cannot be removed" end end
+    end
     local removed = {}
     for _, object in ipairs(self.lobjects) do
         for _, selected in ipairs(objects) do

@@ -94,10 +94,18 @@ function ClassInspector:reload()
             self.objectTree = require("editor.ui.ObjectTree").new(hierarchy, self.target.onSelectObject, self.target.onObjectContext)
             if oldObjectTree then
                 self.objectTree.expanded, self.objectTree.scroll = oldObjectTree.expanded, oldObjectTree.scroll
+                self.objectTree.drag = oldObjectTree.drag
                 self.objectTree:rebuild()
+                self.objectTree:setBounds(oldObjectTree.x, oldObjectTree.y, oldObjectTree.width, oldObjectTree.height)
             end
             self.objectTree.selected = self.target.selectedObjectPath or "root"
             self.objectTree.onLocatePrefab = function(value) if self.onReveal then return self.onReveal(value) end end
+            self.objectTree.onDrop = function(source, destination, mode)
+                local ok, err = self.target.onObjectDrop(source, destination, mode)
+                if ok then
+                    if self.onTreeChanged then self.onTreeChanged() end
+                else self.error = err end
+            end
         end
     end
     self.dropdown = Dropdown.new(self.root, {}, reference or false, function(value) return self:selectParent(value) end)
@@ -516,7 +524,7 @@ function ClassInspector:resizeAt(x, y)
 end
 function ClassInspector:isPointerActive()
     return self.treeResize or self.scrollbar.drag or self.tree and self.tree.scrollbar.drag
-        or self.objectTree and self.objectTree.scrollbar.drag
+        or self.objectTree and (self.objectTree.scrollbar.drag or self.objectTree.drag)
 end
 function ClassInspector:treeContains(tree, x, y)
     return tree and y >= self.propertyTop and y < self.propertyTop + self.propertyHeight and tree:containsPoint(x, y)
@@ -559,14 +567,20 @@ function ClassInspector:draw()
             Ui.browseButton(self:parentBrowseRect(), self.dropdown.value ~= false)
         elseif row.scriptActions then
             Ui.label("Scripts", self.left + Ui.METRICS.contentPaddingX, y + 6, self.width - 2 * Ui.METRICS.contentPaddingX)
-            if self.target.addScript and not self.target.instance then Ui.button("Add Script", self:scriptActionRect(y), false, "Attach a script to this Prefab object", true) end
+            if self.isPicking and self.isPicking("$attachScript") then
+                local rect = self:attachmentRect(y); self.attachPickRect = rect
+                Ui.field("", {x = rect.x, y = rect.y, w = rect.w - 56, h = 26}, false)
+                Ui.eyedropperButton({x = rect.x + rect.w - 56, y = rect.y, w = 28, h = 26}, true)
+                local x, cy = rect.x + rect.w - 13, rect.y + 13
+                Theme.setColor("textMuted"); love.graphics.line(x - 4, cy - 4, x + 4, cy + 4); love.graphics.line(x - 4, cy + 4, x + 4, cy - 4)
+            elseif self.target.addScript then self.attachPickRect = nil; Ui.button("Add Script", self:scriptActionRect(y), false, "Attach a script to this object", true) end
         elseif row.scriptTree then
             Ui.label("Scripts", self.left + Ui.METRICS.contentPaddingX, y + 6, self.width - 2 * Ui.METRICS.contentPaddingX)
             self.tree:draw()
             Ui.resizeGrip(self:treeGrip(self.tree))
         elseif row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             PropertyLayout.group(self.left, self.contentWidth or self.width, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false)
-            if row.scriptId and self.target.removeScript and not self.target.instance then Ui.button("Remove", self:scriptActionRect(y), false, "Remove this script attachment", true) end
+            if row.scriptId and self.target.removeScript and (not self.target.canRemoveScript or self.target:canRemoveScript(row.scriptId)) then Ui.button("Remove", self:scriptActionRect(y), false, "Remove this script attachment", true) end
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             PropertyLayout.separators(self.left, self.width, y, row.height, self.width - (self.contentWidth or self.width))
             local declaration = self.class.properties[name]
@@ -627,7 +641,7 @@ function ClassInspector:mousepressed(x, y, button)
     end
     if button == 1 and not self.target.instance and self.onSave and Ui.contains(x, y, self:saveRect()) then self:commitEdit(); self.onSave(); return true end
     if y < self.propertyTop or y >= self.propertyTop + self.propertyHeight then self:commitEdit(); return true end
-    if button == 2 and not self.target.instance and self.target.moveScript then
+    if button == 2 and self.target.moveScript then
         for _, row in ipairs(self.rows) do
             local top = self.propertyTop + row.offset - self.scroll
             if row.header and row.scriptId and y >= top and y < top + row.height then
@@ -676,7 +690,7 @@ function ClassInspector:mousepressed(x, y, button)
     for _, row in ipairs(self.rows) do
         local name = row.name
         local top = self.propertyTop + row.offset - self.scroll
-        if not self.target.instance and Ui.contains(x, y, self:scriptActionRect(top)) then
+        if Ui.contains(x, y, self:scriptActionRect(top)) then
             if row.scriptActions and self.target.addScript then self:commitEdit(); self:showAddScript(top); return true end
             if row.header and row.scriptId and self.target.removeScript then
                 self:commitEdit()
@@ -759,21 +773,21 @@ function ClassInspector:scriptActionRect(y)
     return {x = self.left + (self.contentWidth or self.width) - Ui.METRICS.contentPaddingX - 90, y = y + 3, w = 90, h = 26}
 end
 function ClassInspector:showAddScript(y)
-    if self.target.instance or not self.target.addScript then return false end
+    if not self.target.addScript then return false end
     local options = {}
     for _, name in ipairs({"Script", "Camera", "Sprite", "Pointer", "Rect", "Canvas"}) do options[#options + 1] = {label = name, value = name} end
     for _, reference in ipairs(self.project:listScripts("script") or {}) do
         options[#options + 1] = {label = resourceName(reference), value = self.project:getAssetId(reference)}
     end
-    local selector = Dropdown.new(self.root, options, false, function(source)
+    local rect = self:attachmentRect(y)
+    return require("editor.ui.ScriptPicker").new(self.root, rect, options, function(source)
         local ok, err = self.target:addScript(source)
         if ok then self:reload() else self.error = err end
         return ok
-    end)
-    local rect = self:scriptActionRect(y)
-    selector:setBounds(rect.x, rect.y, rect.w, rect.h)
-    self.scriptChoice = selector
-    return selector:dispatch("mousepressed", rect.x + 5, rect.y + 5, 1)
+    end, function() if self.onPick then self.onPick("$attachScript") end end)
+end
+function ClassInspector:attachmentRect(y)
+    return {x = self.left + (self.contentWidth or self.width) / 2, y = y + 3, w = math.max(80, (self.contentWidth or self.width) / 2 - Ui.METRICS.contentPaddingX), h = 26}
 end
 
 function ClassInspector:mousemoved(x, y, dx)
@@ -785,7 +799,7 @@ function ClassInspector:mousemoved(x, y, dx)
     end
     if self.scrollbar:dispatch("mousemoved", x, y) then return true end
     for _, tree in pairs({self.tree, self.objectTree}) do
-        if tree.scrollbar.drag then return tree:dispatch("mousemoved", x, y, dx) end
+        if tree.scrollbar.drag or tree.drag then return tree:dispatch("mousemoved", x, y, dx) end
     end
     local handled, text = NumberDrag.move(self, x, dx)
     if handled then

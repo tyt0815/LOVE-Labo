@@ -686,6 +686,7 @@ function EditorApp:initializeUI()
         keypressed = function(_, key) return self:handleSceneKey(key) end
     })
     self.hierarchy.sceneView = self.sceneView
+    self.sceneView.onError = function(err) self.hierarchy.error = err end
     self.hierarchyWidget = hierarchy
     self.hierarchy.project = self.project
     self.hierarchy.onLocatePrefab = function(reference) return self.assetBrowser:reveal(reference) end
@@ -710,7 +711,7 @@ function EditorApp:initializeUI()
         end,
         keypressed = function(_, key) return self.inspector:keypressed(key) end,
         mousemoved = function(_, x, y, dx) return self.inspector:mousemoved(x, y, dx) end,
-        mousereleased = function() return self.inspector:mousereleased() end,
+        mousereleased = function(_, x, y, button) return self.inspector:mousereleased(x, y, button) end,
         cancel = function() return self.inspector:cancelPointer() end,
         textinput = function(_, text) return self.inspector:textinput(text) end,
         textedited = function(_, text) return self.inspector:textedited(text) end,
@@ -763,6 +764,9 @@ function EditorApp:initializeUI()
             self.assetBrowser.collapsed = false
             self:updateSceneViewport()
             return self.assetBrowser:reveal(value)
+        end
+        self.inspector.classInspector.onTreeChanged = function()
+            self:recordHistory(); self.prefabEditor.onSelect(self.prefabEditor.selected)
         end
         self:updateInspectorTarget()
         self.assetBrowser.onSelect = function(reference) return self:selectAsset(reference) end
@@ -957,9 +961,9 @@ function EditorApp:beginObjectPick(name, parentPath)
     local inspector = self.inspector.classInspector
     if self:isPlaying() or not inspector or not inspector.target then return false, "Stop Play before picking a reference" end
     local declaration = name ~= "$parent" and inspector.class.properties[name]
-    local kind = name == "$mainCamera" and "camera" or name == "$child" and "child" or declaration and declaration.type or name == "$parent" and "parent"
+    local kind = name == "$attachScript" and "attachment" or name == "$mainCamera" and "camera" or name == "$child" and "child" or declaration and declaration.type or name == "$parent" and "parent"
     if kind == "child" and (not self.prefabEditor or inspector.target ~= self.prefabInspectorTarget) then return false, "Open a Prefab before adding children" end
-    if kind ~= "camera" and kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "script" and kind ~= "image" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
+    if kind ~= "attachment" and kind ~= "camera" and kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "script" and kind ~= "image" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
     if (kind == "object" or kind == "script") and inspector.target.level ~= self.level and not inspector.target.prefabScope then return false, "Pick an instance reference on a level or placed instance" end
     if self.objectPick then self:cancelObjectPick(); return true end
     self.inspector:commitEdit(); self.uiRoot:cancelCapture(); self.uiRoot:dismissPopup()
@@ -981,6 +985,9 @@ end
 function EditorApp:inspectAsset(reference) return self:selectAsset(reference) end
 function EditorApp:pickReferenceAt(x, y)
     local reference, object
+    local attachmentRect = self.inspector.classInspector.attachPickRect
+    if self.objectPick.kind == "attachment" and attachmentRect and x >= attachmentRect.x + attachmentRect.w - 56
+        and require("editor.Ui").contains(x, y, attachmentRect) then self:cancelObjectPick(); return end
     self.assetBrowser:clampScroll(); self.hierarchy:layoutScrollbar()
     local bars = {self.assetBrowser.treeScrollbar, self.assetBrowser.fileScrollbar, self.hierarchy.scrollbar}
     local inspector = self.inspector.classInspector
@@ -1015,6 +1022,11 @@ function EditorApp:pickReferenceAt(x, y)
     if not reference and not object then return end
     local pick, inspector = self.objectPick, self.inspector.classInspector
     if inspector.target ~= pick.target or inspector.selectedScript ~= pick.script then self:cancelObjectPick(); return end
+    if pick.kind == "attachment" then
+        local ok, err = inspector.target:addScript(reference)
+        if ok then self:cancelObjectPick(); inspector:reload() else inspector.error = err end
+        return
+    end
     if pick.kind == "script" then
         if not object then inspector.error = "Select an object with attached scripts"; return end
         local target, err

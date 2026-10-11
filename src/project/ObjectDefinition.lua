@@ -120,7 +120,7 @@ function Definition.inspectorTarget(project, data, definition, level, label)
             schema[id .. "." .. field] = {type = declaration.type, default = script.properties[field], script = id, field = field, group = declaration.group}
         end
     end
-    return {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,
+    local target = {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,
         class = {properties = schema, scriptTypes = scriptTypes, className = "LObject"}, preview = object,
         getOverrides = function(target)
             local values = {}
@@ -149,5 +149,7 @@ function Definition.inspectorTarget(project, data, definition, level, label)
             end
             target.data.propertyOverrides, target.data.scriptOverrides = {}, scripts
         end}
+    if level and not level.prefabScope then require("project.InstanceScripts").bind(project, target) end
+    return target
 end
 return Definition

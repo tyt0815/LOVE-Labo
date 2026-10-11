@@ -50,7 +50,7 @@ return Movement
         check("camera outline", #app.sceneView:getCameraBounds(camera) == 8)
         local player = app.level.lobjects[2]; app.sceneView:setSelection({player}); app:updateInspectorTarget(); app:draw()
         local inspector = app.inspector.classInspector
-        check("instance scripts locked", inspector.target.instance and not inspector.target.addScript and not inspector.target.removeScript)
+        check("instance local scripts editable", inspector.target.instance and inspector.target.addScript and inspector.target.removeScript)
         check("single object Transform", inspector.class.properties["$transform.x"] and not inspector.class.properties["sprite.x"])
         check("flat script groups", inspector.tree == nil and inspector.class.properties["movement.speed"])
         assert(app:inspectAsset("Assets/PF_Player.prefab")); app:draw(); app:recordHistory()

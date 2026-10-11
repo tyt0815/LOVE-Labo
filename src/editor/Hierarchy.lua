@@ -102,7 +102,10 @@ function Hierarchy:mousemoved(x, y)
             end
         end
         self.sceneView:setSelection(objects)
-    else drag.target = self:getLObjectAtPosition(x, y) end
+    else
+        local row = self:rowAt(x, y); drag.target = row and row.object
+        drag.intent = require("editor.ui.TreeDrop").intent(row, y, row and self:nameRect(row.object).y or 0, ROW_HEIGHT)
+    end
     return true
 end
 function Hierarchy:dropParent(objects, target)
@@ -120,10 +123,12 @@ function Hierarchy:mousereleased(x, y, button)
     if self.scrollbar:dispatch("mousereleased", x, y, button) then return true end
     local drag = self.drag; self.drag = nil
     if button == 1 and drag and drag.active and not drag.marquee and self:containsPoint(x, y) then
-        local parent = self:dropParent(drag.objects, self:getLObjectAtPosition(x, y))
-        local ok, err = self.level:reparent(drag.objects, parent)
+        local row = self:rowAt(x, y)
+        local top = row and self:nameRect(row.object).y or 0
+        local intent = require("editor.ui.TreeDrop").intent(row, y, top, ROW_HEIGHT)
+        local ok, err = self.level:dropObjects(drag.objects, row and row.object, intent.mode)
         self.error = not ok and err or nil
-        if ok and parent then self.collapsed[parent.authoringId] = nil end
+        if ok and row then self.collapsed[row.object.authoringId] = nil end
     end
     return true
 end
@@ -153,7 +158,10 @@ function Hierarchy:draw(selected)
             Ui.text(object.name or "LObject " .. object.authoringId, x + 18, rowY + 4, self.width - x - 62)
             if group then Ui.browseButton({x = self.width - 44, y = rowY, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
             if self.drag and self.drag.active and not self.drag.marquee and self.drag.target == object then
-                Theme.setColor("focus"); love.graphics.rectangle("line", 6, rowY, self.width - 12, ROW_HEIGHT)
+                Theme.setColor("focus")
+                local mode = self.drag.intent and self.drag.intent.mode or "attach"
+                if mode == "attach" then love.graphics.rectangle("line", 6, rowY, self.width - 12, ROW_HEIGHT)
+                else local lineY = rowY + (mode == "after" and ROW_HEIGHT or 0); love.graphics.line(6, lineY, self.width - 12, lineY) end
                 local _, detach = self:dropParent(self.drag.objects, object)
                 Ui.hint({x = 6, y = rowY, w = self.width - 12, h = ROW_HEIGHT},
                     detach and "Release to detach from parent." or "Release to attach to this object.")

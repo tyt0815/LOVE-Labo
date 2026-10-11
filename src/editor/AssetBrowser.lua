@@ -647,7 +647,7 @@ function AssetBrowser:showRenameDialog(entry, rect)
             if not valid then return false, err end
             if folder .. "/" .. newName .. extension == entry.reference then return true end
             return self:moveEntry(entry, folder .. "/" .. newName .. extension)
-        end)
+        end, true)
 end
 
 function AssetBrowser:moveEntry(entry, destination)

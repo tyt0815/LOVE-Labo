@@ -1,6 +1,7 @@
 # 0051. 목록 안 이름 편집과 Prefab 소속 표시
 
 - 상태: 승인·구현
+- 파일명의 여러 줄 편집과 계층 드래그·상속 제한은 [ADR 0052](0052-local-scripts-and-fixed-inherited-topology.md)를 따른다.
 - 관련: [0041](0041-inspector-picking-over-drag-exceptions.md), [0050](0050-attached-scripts-and-unified-assets.md)
 
 ## 배경과 제약

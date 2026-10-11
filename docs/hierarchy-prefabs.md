@@ -16,4 +16,6 @@ Hierarchy에서 루트를 우클릭하여 Create Prefab...을 선택하면 자�
 
 독립 복제·캡처는 유효 상속값을 보존합니다. 계층 내부 object/script 참조는 복제 자손에 다시 연결하며 외부 참조는 유지합니다. 연결된 자손 ID를 보존하고 새 형제 ID는 충돌을 피합니다. 원본에서 제거한 자손은 런타임에도 남지 않습니다.
 
+현재 편집 원칙은 추가 부착과 값 재정의입니다. 상속된 오브젝트의 구조·순서·삭제와 상속된 스크립트의 제거·정렬은 금지합니다. 직접 추가한 자손만 부착·디태치·정렬하고 상속 항목 사이에는 끼워 넣지 않습니다. 독립 Prefab에서 자손을 루트 위로 옮기면 기존 루트가 새 루트의 자식이 됩니다. 부모 Prefab을 상속 중이면 루트 변경을 거절합니다. [ADR 0052](adr/0052-local-scripts-and-fixed-inherited-topology.md)에 현재 계약을 기록했습니다.
+
 Prefab 형식 4의 scripts는 `{id, source, label}` 목록입니다. overrides.scripts는 부착 ID별 값, removedScripts는 상속 부착 제거, scriptOrder는 순서 재정의입니다. children의 각 노드도 같은 구성을 가집니다. bindings는 from/to 노드 경로와 property를 저장하며 스크립트 대상에는 toScript 부착 ID를 추가합니다.

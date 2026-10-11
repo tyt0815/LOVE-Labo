@@ -588,7 +588,9 @@ function SceneView:objectScreenBounds(object)
 end
 function SceneView:deleteSelection()
     if not self.level then return end
-    self.level:removeLObjects(self:getSelection()); self:setSelection({}); self:cancelDrag(false)
+    local ok, err = self.level:removeLObjects(self:getSelection())
+    if not ok then if self.onError then self.onError(err) end; return false, err end
+    self:setSelection({}); self:cancelDrag(false); return true
 end
 function SceneView:duplicateSelection()
     self:setSelection(self.level:duplicateLObjects(self:getSelection()))

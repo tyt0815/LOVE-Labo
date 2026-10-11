@@ -13,19 +13,20 @@ function Hierarchy.copy(value)
     return result
 end
 
-function Hierarchy.mergeChildren(base, overrides)
+function Hierarchy.mergeChildren(base, overrides, inherited)
     local result, byId = Hierarchy.copy(base or {}), {}
     for _, node in ipairs(result) do byId[node.id] = node end
     for _, override in ipairs(overrides or {}) do
         local node = byId[override.id]
-        if not node then node = {id = override.id}; result[#result + 1] = node; byId[node.id] = node end
+        if not node then node = {id = override.id, isInherited = inherited == true}; result[#result + 1] = node; byId[node.id] = node end
         local removed = {}
         for _, id in ipairs(node.removedScripts or {}) do removed[id] = true end
         for _, item in ipairs(override.scripts or {}) do removed[item.id] = nil end
         for _, id in ipairs(override.removedScripts or {}) do removed[id] = true end
         for key, value in pairs(override) do
-            if key == "scripts" then node.scripts = require("project.ScriptAttachments").merge(node.scripts, value)
-            elseif key == "children" then node.children = Hierarchy.mergeChildren(node.children, value)
+            if key == "isInherited" then if inherited == nil then node.isInherited = value == true end
+            elseif key == "scripts" then node.scripts = require("project.ScriptAttachments").merge(node.scripts, value)
+            elseif key == "children" then node.children = Hierarchy.mergeChildren(node.children, value, inherited)
             elseif key == "transform" then
                 node.transform = node.transform or {}
                 for field, item in pairs(value) do node.transform[field] = item end
@@ -53,6 +54,7 @@ function Hierarchy.mergeChildren(base, overrides)
 end
 
 function Hierarchy.resolve(project, reference, loadClass, excludedId)
+    local documentId = reference and (project:getAssetId(reference) or reference)
     loadClass = loadClass or require("project.LuaScript").loader(project)
     local visiting, nodes, bindings, operations, removedPaths = {}, {}, {}, {}, {}
     local function build(reference, override, path, parent, depth, ancestorRemoved)
@@ -72,7 +74,7 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
             for _, child in ipairs(record.children or {}) do clearFields(child, prefix .. "/" .. child.id) end
         end
         for _, layer in ipairs(definition.layers) do
-            children = Hierarchy.mergeChildren(children, layer.children)
+            children = Hierarchy.mergeChildren(children, layer.children, key ~= documentId or layer ~= definition.layers[#definition.layers])
             clearFields(layer, path)
             for _, prefix in ipairs(layer.removedPaths or {}) do removed[#removed + 1] = path .. prefix:sub(5) end
             for _, binding in ipairs(layer.bindings or {}) do
@@ -89,6 +91,7 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
         local transform, transformError = Transform.copy(initial)
         if not transform then return nil, transformError end
         local node = {path = path, parent = parent, reference = key, definition = definition,
+            isInherited = override and override.isInherited == true,
             transform = transform, name = override and override.name,
             overrides = Hierarchy.copy(override and override.overrides or {}), children = {}}
         for _, id in ipairs(override and override.removedScripts or {}) do
@@ -262,7 +265,7 @@ function Hierarchy.authoringDefinition(project, level, object)
             else definition.properties[binding.property] = objects[binding.to].authoringId end
         end
     end
-    return definition
+    return Definition.withAttachments(definition, object.scripts)
 end
 
 function Hierarchy.duplicateData(project, level, object)

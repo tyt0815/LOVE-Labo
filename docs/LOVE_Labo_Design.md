@@ -9,7 +9,7 @@ World (소유) → LObject (소유) → 자손 LObject
 Script (상속) ← Camera / Sprite / Pointer / Rect / Canvas / 사용자 스크립트
 ```
 
-Script는 별도 Transform을 갖지 않는다. Prefab이 부착 구성·계층·기본 프로퍼티를 저장하고 인스턴스는 값을 재정의한다. Lua 에셋은 부착할 스크립트 정의이며 Prefab만 오브젝트 생성 템플릿으로 사용한다. Assets가 유일한 에셋 루트다. 형식 전환 및 CLI 계약은 ADR 0050과 사용자 가이드를 따른다.
+Script는 별도 Transform을 갖지 않는다. Prefab이 부착 구성·계층·기본 프로퍼티를 저장하고 인스턴스는 값을 재정의하고 로컬 스크립트를 추가할 수 있다. 상속한 구성의 관계·순서·부착은 고정한다. Lua 에셋은 부착할 스크립트 정의이며 Prefab만 오브젝트 생성 템플릿으로 사용한다. Assets가 유일한 에셋 루트다. 형식 전환 및 CLI 계약은 ADR 0050과 사용자 가이드를 따른다.
 
 # LÖVE Labo — Design
 
