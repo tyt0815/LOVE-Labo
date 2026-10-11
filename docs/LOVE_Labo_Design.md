@@ -518,3 +518,7 @@ standalone executable packaging
 기존 결정이 실제 사용에서 불편하거나 잘못된 것으로 드러나면 수정할 수 있다.
 
 다만 `Lua code가 gameplay behavior의 Source of Truth`, `Core → Editor 의존 금지`, `Edit/Runtime 분리`, `게임 특화 기능을 Core에 넣지 않음` 같은 핵심 경계를 변경할 때는 의도적으로 설계를 재검토한다.
+
+## 에디터 디버깅 표시
+
+World.debug는 배포에서 no-op이며 Editor Play와 CLI의 명시적 디버그 검증에만 에디터 서비스를 주입한다. 기록·일시적인 화면 로그·런타임 도형의 구현은 editor 모듈에 두고 Export에서 제외한다. 편집 화면 표시는 Script.drawEditor(context)로 분리하고 초기화·업데이트 없이 준비된 프로퍼티를 사용한다. Camera의 영역 표시도 Camera 플러그인의 콜백으로 구현한다. 수명·키 교체·기록 한계 및 모듈 경계는 [ADR 0061](adr/0061-editor-debug-services-and-draw-callback.md)을 따른다.

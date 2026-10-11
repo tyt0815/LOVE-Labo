@@ -354,7 +354,7 @@ function Cli.parse(args)
         local item = args[i]
         if item:sub(1, 2) == "--" then
             local key = item:sub(3)
-            if key == "empty" or key == "link" then
+            if key == "empty" or key == "link" or key == "debug" then
                 assert(request[key] == nil, "Duplicate option: " .. item)
                 request[key], i = true, i + 1
             else
@@ -362,7 +362,8 @@ function Cli.parse(args)
                     prefab = true, template = true, level = true, instance = true, property = true, ["value-json"] = true,
                     x = true, y = true, output = true, revision = true, request = true, result = true, value = true,
                     asset = true, destination = true, source = true, node = true, instances = true, input = true, mode = true,
-                    event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true, script = true, index = true, frames = true, dt = true}
+                    event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true, script = true, index = true, frames = true, dt = true,
+                    size = true, background = true}
                 assert(allowed[key], "Unknown option: " .. item)
                 assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)
                 assert(request[key] == nil, "Duplicate option: " .. item)

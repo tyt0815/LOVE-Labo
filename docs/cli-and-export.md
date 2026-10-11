@@ -32,7 +32,7 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | prefab child move | --prefab, --node, --destination 노드 경로, --mode attach/before/after/detach; root 앞은 로컬 자손을 새 루트로 지정하며 기존 루트의 원본 유지 |
 | level create/get/set/reset/set-parent/validate | --level, --name, --property; create --empty는 카메라 없는 레벨 |
 | level view/set-camera | 투영 정보; --instance, --script로 Main Camera 지정 |
-| level simulate | --frames 0..10000, --dt; 파일 수정 없이 beginPlay/update 결과와 스크립트 상태 반환, draw는 실행하지 않음 |
+| level simulate | --frames 0..10000, --dt, --debug; 파일 수정 없이 beginPlay/update 결과와 스크립트 상태 반환, draw는 실행하지 않음. --debug는 에디터 로그·도형 기록도 반환 |
 | level pointer | --space world/screen, --x, --y, --width, --height, --events-json; 이벤트마다 최신 카메라로 좌표 변환 |
 | instance add/get/list/set/reset/rename/reparent/duplicate/delete | --instance 또는 --instances, --prefab, --parent; 재정의 프로퍼티는 movement.speed처럼 부착 ID 포함 |
 | instance script add/remove/move | --instance, --source, --script, --index; 로컬 부착만 제거·정렬 |

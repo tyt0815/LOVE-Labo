@@ -57,7 +57,10 @@ function Layout:arrange(width, height)
     if self.slots.preview then self.canvas:setSlotBounds(self.slots.preview, width - app.inspector.width, self.previewTop, app.inspector.width, previewHeight) end
     if self.slots.menu then self.canvas:setSlotBounds(self.slots.menu, 0, 0, width, top) end
     if self.slots.assets then self.canvas:setSlotBounds(self.slots.assets, 0, self.editorHeight, width - app.inspector.width, browserHeight) end
-    if self.slots.status then self.canvas:setSlotBounds(self.slots.status, 0, workspaceHeight, width, app.statusHeight) end
+    if self.slots.status then
+        local logHeight = app.statusWidget.expanded and math.min(220, height * 0.35) or app.statusHeight
+        self.canvas:setSlotBounds(self.slots.status, 0, height - logHeight, width, logHeight)
+    end
 end
 
 function Layout:edgesAt(x, y)

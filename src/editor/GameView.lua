@@ -104,12 +104,16 @@ function GameView:draw(world)
     if world then
         local ok, err = pcall(self.drawRuntimeLObjects, self, world)
         if not ok then love.graphics.pop(); error(err, 0) end
+        if world.debug.drawShapes then
+            world.debug:drawShapes(function(x, y) return self:worldToScreen(x, y) end)
+            world.debug:drawScreens(viewportX + 18, viewportY + 42, math.max(0, width - 36), math.max(0, height - 54))
+        end
     end
 
     Theme.setColor("text")
 
     Ui.panelHeading(
-        "Game View  [F5: Stop]",
+        "Game View",
         viewportX,
         viewportY,
         width

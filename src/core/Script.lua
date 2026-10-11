@@ -1,7 +1,7 @@
 local Schema = require("core.PropertySchema")
 local Script = {properties = {}, scriptType = "Script"}
 local RESERVED = {owner = true, properties = true, id = true, name = true, source = true, hasBegunPlay = true,
-    beginPlay = true, update = true, draw = true, onPointerDown = true, onPointerUp = true, onPointerMove = true,
+    beginPlay = true, update = true, draw = true, drawEditor = true, onPointerDown = true, onPointerUp = true, onPointerMove = true,
     pointer = true, camera = true, canvas = true, super = true, scriptType = true}
 Script.__index = Script
 function Script:extend(definition)
@@ -15,7 +15,7 @@ function Script:extend(definition)
         assert(field.group == nil or type(field.group) == "string" and field.group ~= "", "Invalid property group")
         schema[name] = {type = field.type, default = field.default, group = field.group}
     end
-    for _, callback in ipairs({"beginPlay", "update", "draw", "getLocalBounds", "hitTest", "onPointerDown", "onPointerUp", "onPointerMove"}) do
+    for _, callback in ipairs({"beginPlay", "update", "draw", "drawEditor", "getLocalBounds", "hitTest", "onPointerDown", "onPointerUp", "onPointerMove"}) do
         assert(definition[callback] == nil or type(definition[callback]) == "function", callback .. " must be a function")
     end
     definition.properties, definition.super = schema, self

@@ -15,4 +15,13 @@ function Camera:getViewTransform()
     while object do rotation = rotation + (object.transform.rotation or 0); object = object.parent end
     return {x = world.x, y = world.y, rotation = Transform.normalizeRotation(rotation), scaleX = 1, scaleY = 1}
 end
+function Camera:drawEditor(context)
+    local width, height = self:getViewSize()
+    local transform, points = self:getViewTransform(), {}
+    for _, corner in ipairs({{-width / 2, -height / 2}, {width / 2, -height / 2}, {width / 2, height / 2}, {-width / 2, height / 2}}) do
+        local x, y = Transform.point(transform, corner[1], corner[2])
+        points[#points + 1] = x; points[#points + 1] = y
+    end
+    context:polygon(points, {color = {context.color[1] * 255, context.color[2] * 255, context.color[3] * 255}})
+end
 return Camera

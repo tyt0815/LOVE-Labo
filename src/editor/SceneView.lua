@@ -437,7 +437,7 @@ function SceneView:drawLObjects()
             function(x, y) return self:worldToScreen(x, y) end, self.zoom)
     end
     if self.spriteAssets then
-        self:drawCameraBounds()
+        self:drawEditorObjects()
         for _, selected in ipairs(self:getSelection()) do
             local preview = self.spriteAssets:preview(selected)
             if preview then
@@ -464,19 +464,24 @@ function SceneView:getCameraBounds(camera)
     end
     return points
 end
-function SceneView:drawCameraBounds()
+function SceneView:drawEditorObjects()
     for _, object in ipairs(self.level.lobjects) do
         local preview = self.spriteAssets:preview(object)
         if preview then
             for _, name in ipairs(preview:getScriptOrder()) do
                 local script = preview.scripts[name]
-                if script.camera then
-                    local ok, points = pcall(self.getCameraBounds, self, script)
-                    if ok then
-                        Theme.setColor(self:isSelected(object) and "objectSelected" or "textMuted")
-                        love.graphics.setLineWidth(self:isSelected(object) and 2 or 1)
-                        love.graphics.polygon("line", points)
-                    else self.spriteAssets.error = tostring(points) end
+                if script.drawEditor then
+                    local context = require("editor.DebugSession").new()
+                    context.selected = self:isSelected(object)
+                    context.color = Theme.color(context.selected and "objectSelected" or "textMuted")
+                    context.image = function(_, reference) return self.spriteAssets:image(reference) end
+                    love.graphics.push("all")
+                    local ok, err = pcall(function()
+                        script:drawEditor(context)
+                        context:drawShapes(function(x, y) return self:worldToScreen(x, y) end)
+                    end)
+                    love.graphics.pop()
+                    if not ok then self.spriteAssets.error = tostring(err) end
                 end
             end
         end

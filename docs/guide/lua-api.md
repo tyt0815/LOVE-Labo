@@ -43,5 +43,8 @@ return Movement
 | world:removeLObject(object) | 자손·입력 캡처까지 제거 |
 | world:setActiveCamera(script) | 런타임 카메라 지정 |
 | world:openLevel(reference) | 프레임 경계에서 레벨 전환 |
+| world.debug | [에디터 로그·화면 로그·디버그 도형](debugging.md); 배포에서는 no-op |
+
+편집 화면 표시에는 별도 `drawEditor(context)` 콜백을 사용합니다. 게임 draw와 분리되어 있으며 Camera 플러그인도 이를 사용합니다.
 
 레벨 Lua 스크립트는 별도로 유지됩니다. 레벨을 상속한 오브젝트가 아니라 World 전체의 초기화·업데이트를 담당합니다. 예전 `build`, 루트 컴포넌트, LObject 클래스 생성 템플릿 API는 지원하지 않습니다.

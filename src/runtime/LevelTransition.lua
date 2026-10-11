@@ -22,6 +22,7 @@ function Transition.bind(project, world)
         local pending = world.pendingLevel
         if not pending then return nil end
         world.pendingLevel = nil
+        pending.world.debug = world.debug
         local called, candidate, err = pcall(require("runtime.WorldLoader").activate, project, pending.world, pending.class, pending.initial, pending.loadClass)
         if not called or not candidate then
             world.levelTransitionError = tostring(called and err or candidate)

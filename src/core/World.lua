@@ -21,6 +21,7 @@ function World.new()
 
     self.lobjects = {}
     self.nextRuntimeId = 1
+    self.debug = require("core.Debug")
 
     -- Play session 안에서만 진행되는 Runtime clock이다.
     -- 새 World가 생성될 때마다 0부터 다시 시작한다.

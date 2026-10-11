@@ -31,7 +31,8 @@ function EditorApp.new(document, project, preferences)
         self.spriteAssets = require("editor.SpriteAssets").new(project)
         self.sceneView.spriteAssets, self.gameView.spriteAssets = self.spriteAssets, self.spriteAssets
     end
-    self.statusHeight = project and 26 or 0
+    self.statusHeight = project and require("editor.ui.LogPanel").HEIGHT or 0
+    self.debugSession = require("editor.DebugSession").new()
     self.assetBrowser = project and require("editor.AssetBrowser").new(project) or nil
     self.assetBrowserHeight = 350
     self.isResizingAssets = false
@@ -189,7 +190,8 @@ function EditorApp:startPlay()
     self.inspector:commitEdit()
     if self.viewportControls then self.viewportControls:commit() end
 
-    local called, world, worldError = pcall(require("runtime.WorldLoader").create, self.project, self.level:toData())
+    self.debugSession:clearOverlay()
+    local called, world, worldError = pcall(require("runtime.WorldLoader").create, self.project, self.level:toData(), self.debugSession)
     if not called then worldError, world = tostring(world), nil end
     if not world then self.runtimeError = worldError; return false, worldError end
     self.runtimeError, self.runtimeWorld = nil, world
@@ -211,6 +213,7 @@ function EditorApp:stopPlay()
     -- Runtime 변경을 authoring Level에 write-back하지 않고 통째로 폐기한다.
     self.runtimeWorld:cancelPointer()
     self.runtimeWorld = nil
+    self.debugSession:clearOverlay()
 
     return true
 end
@@ -774,7 +777,7 @@ function EditorApp:initializeUI()
     self.menuBar = require("editor.ui.MenuBar").new(self)
     slots.menu = self.canvas:addChild(self.menuBar, {z = 102})
     if self.statusHeight > 0 then
-        self.statusWidget = Widget.new({mousepressed = function() return true end, wheelmoved = function() return true end})
+        self.statusWidget = require("editor.ui.LogPanel").new(self)
         self.statusWidget.focusable = false
         slots.status = self.canvas:addChild(self.statusWidget, {z = 101})
     end
@@ -934,6 +937,7 @@ function EditorApp:updateSceneViewport()
 end
 
 function EditorApp:update(dt)
+    self.debugSession:update(dt)
     local objectTree = self.inspector.classInspector and self.inspector.classInspector.objectTree
     if objectTree and objectTree.ping then objectTree.ping.remaining = objectTree.ping.remaining - dt; if objectTree.ping.remaining <= 0 then objectTree.ping = nil end end
     if self.sceneView.ping then self.sceneView.ping.remaining = self.sceneView.ping.remaining - dt; if self.sceneView.ping.remaining <= 0 then self.sceneView.ping = nil end end
@@ -957,40 +961,15 @@ function EditorApp:draw()
     local x, y = love.mouse.getPosition()
     Ui.beginFrame(x, y)
     Theme.clear("background")
-    self.uiRoot:draw()
-    self:drawStatusBar(x, y)
-end
-
-function EditorApp:statusText(x, y)
-    if self.objectPick then return "Pick " .. self.objectPick.kind .. " reference in Assets, Hierarchy or Scene. Esc / right click: cancel." end
-    local Ui = require("editor.Ui")
-    if self.assetBrowser and self.assetBrowser.drag and self.assetBrowser.drag.active then
-        local drag = self.assetBrowser.drag
-        return drag.error or (drag.destination == "scene" and "Place Prefab in Scene. Esc: cancel."
-            or drag.destination == "inspector" and "Set Inspector resource. Esc: cancel."
-            or "Move to " .. (drag.destination or "") .. ". Esc: cancel.")
-    end
-    local hint = Ui.hoverHint or self.uiRoot:getHint(x, y)
     local err = self.runtimeError or self.assetBrowser and self.assetBrowser.error
         or self.inspector.classInspector and self.inspector.classInspector.error
-        or self.spriteAssets and self.spriteAssets.error
-        or self.viewportControls.error
-    if err then return "Error: " .. err .. (hint and " | " .. hint or "") end
-    if hint then return hint end
-    return self.assetBrowser and self.assetBrowser.selectedReference
-        or "Double-click a folder or level to open it."
-end
-
-function EditorApp:drawStatusBar(x, y)
-    if self.statusHeight == 0 then return end
-    local width, height = love.graphics.getDimensions()
-    love.graphics.push("all")
-    love.graphics.setScissor(0, height - self.statusHeight, width, self.statusHeight)
-    Theme.setColor("background")
-    love.graphics.rectangle("fill", 0, height - self.statusHeight, width, self.statusHeight)
-    self.statusHint = self:statusText(x, y)
-    require("editor.Ui").text(self.statusHint, 12, height - self.statusHeight + 6, width - 24, Theme.color("text"))
-    love.graphics.pop()
+        or self.spriteAssets and self.spriteAssets.error or self.viewportControls.error
+    if err ~= self.lastLoggedError then
+        if err then self.debugSession:log("Error: " .. tostring(err), {color = {255, 80, 80}}) end
+        self.lastLoggedError = err
+    end
+    self.uiRoot:draw()
+    self.debugSession:finishFrame()
 end
 
 function EditorApp:cancelObjectPick()
@@ -1227,6 +1206,9 @@ function EditorApp:keypressed(key)
     end
     -- 팝업과 편집 포커스가 입력을 우선 소비한다. 저장·Play는 에디터 전역 명령이다.
     if self.uiRoot.popup then return self.uiRoot:keypressed(key) end
+    if key == "`" and self.statusWidget and not self.inspector:isEditing() and not self.viewportControls.editing then
+        return self.statusWidget:toggle()
+    end
     if key == "f2" and self.uiRoot.focused == self.hierarchyWidget and self.sceneView.selectedLObject then return self:renameObject(self.sceneView.selectedLObject) end
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
     local shiftDown = love.keyboard.isDown("lshift", "rshift")

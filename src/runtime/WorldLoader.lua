@@ -97,9 +97,10 @@ function Loader.activate(project, world, class, initial, loadClass)
     end
     return world
 end
-function Loader.create(project, data)
+function Loader.create(project, data, debugSession)
     local world, class, initial, loadClass = Loader.prepare(project, data)
     if not world then return nil, class end
+    if debugSession then world.debug = debugSession end
     return Loader.activate(project, world, class, initial, loadClass)
 end
 return Loader

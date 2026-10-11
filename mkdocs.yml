@@ -23,6 +23,7 @@ nav:
       - 에디터 화면과 선택: guide/editor.md
       - 플러그인: guide/plugins.md
       - 미리보기와 썸네일: guide/preview.md
+      - 로그와 디버그 표시: guide/debugging.md
       - 스크립트와 Prefab: guide/objects.md
       - 카메라와 화면 UI: guide/camera-ui.md
       - 저장과 게임 Export: guide/export.md

@@ -21,6 +21,8 @@ function Instructions.files()
 
 LObject는 Transform과 부모·자손을 가진다. 스크립트는 오브젝트를 상속하지 않고 독립 인스턴스로 부착된다.
 Lua 파일은 properties와 선택적인 beginPlay(world), update(dt), draw(context)를 가진 테이블을 반환한다.
+편집 화면 표시는 drawEditor(context)에서 도형을 계산한다. 이때 beginPlay/update는 실행되지 않는다.
+world.debug:log/screenLog/point/line/circle/rect/polygon은 Editor Play에서만 표시되고 배포에서는 no-op이다.
 self는 스크립트이며 self.owner.transform, self.owner:getScript(id)로 오브젝트·다른 스크립트를 사용한다.
 일반 Lua 필드는 Inspector에 노출되지 않는다. properties에 number/string/boolean/object/script/image/prefab를 선언한다.
 group으로 프로퍼티를 묶는다. object 참조는 authoringId, script 참조는 {authoringId=ID, script="부착ID"}로 저장한다.
@@ -47,7 +49,7 @@ Labo-cli.exe --cli level simulate --project <경로> --frames 60 --dt 0.0166667
 Labo-cli.exe --cli level pointer --project <경로> --space screen --x 640 --y 360
 
 기본 레벨이 없으면 --level을 지정한다. 복잡한 값은 --request <UTF-8 JSON 파일>을 사용한다.
-level.simulate는 초기화·업데이트 결과를 반환하며 파일을 수정하거나 draw를 실행하지 않는다.
+level.simulate는 초기화·업데이트 결과를 반환하며 파일을 수정하거나 draw를 실행하지 않는다. --debug로 로그·도형 기록도 확인한다.
 ]]}
     }
 end

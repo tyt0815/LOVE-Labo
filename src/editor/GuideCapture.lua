@@ -132,6 +132,21 @@ return Player
         assert(app.previewPanel:setBackground({230, 230, 230})); shot("preview-live")
         assert(app:saveInspectedDocument()); app.assetBrowser:openFolder("Assets"); shot("preview-thumbnail")
         assert(app:inspectAsset("Assets/Player.png")); shot("preview-image")
+        local area = app.level:addLObject(260, -100); area.name = "Hit Area"
+        area.scripts = {{id = "area", source = "RectBounds"}, {id = "input", source = "Pointer"}}
+        area.scriptOverrides = {area = {width = 220, height = 120}, input = {boundsSource = "area"}}
+        app.inspectorSource = "scene"; app.sceneView:setSelection({area}); app:updateInspectorTarget(); shot("editor-areas")
+        assert(app:startPlay()); app.statusWidget:toggle()
+        app.debugSession:log("Play started")
+        app.debugSession:log("Object selected", {color = {0, 120, 255}})
+        app.debugSession:log("Debug overlay ready")
+        app.debugSession:screenLog("Ready", {key = "state", lifespan = 30})
+        app.debugSession:screenLog("Camera active", {lifespan = 30})
+        app.debugSession:screenLog("Running", {key = "state", lifespan = 30})
+        app.debugSession:circle(0, 0, 140, {color = {0, 120, 255}, lifespan = 30})
+        app.debugSession:rect(-220, -120, 440, 240, {lifespan = 30})
+        app.debugSession:line(-220, -120, 220, 120, {color = {255, 80, 80}, lifespan = 30})
+        shot("debugging"); assert(app:stopPlay()); app.statusWidget:toggle(); shot("log-collapsed")
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end
