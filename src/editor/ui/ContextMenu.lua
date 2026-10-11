@@ -4,6 +4,17 @@ local Ui = require("editor.Ui")
 local Menu = setmetatable({}, { __index = Widget })
 Menu.__index = Menu
 local WIDTH, ROW, PAD = 190, 30, 4
+local function available(items)
+    local result = {}
+    for _, item in ipairs(items) do
+        if item.enabled ~= false then
+            local copy = {}; for key, value in pairs(item) do copy[key] = value end
+            if item.children then copy.children = available(item.children) end
+            if not copy.children or #copy.children > 0 then result[#result + 1] = copy end
+        end
+    end
+    return result
+end
 
 function Menu.new(root)
     local self = setmetatable(Widget.new(), Menu)
@@ -15,10 +26,14 @@ end
 function Menu:show(x, y, items)
     self.panels = {}
     self:addPanel(x, y, items)
+    if #self.panels == 0 then self.root:dismissPopup(); return false end
     self.root:setPopup(self)
+    return true
 end
 
 function Menu:addPanel(x, y, items)
+    items = available(items)
+    if #items == 0 then return end
     local width, height = love.graphics.getDimensions()
     local panelWidth = math.min(width, self.menuWidth or WIDTH)
     self.panels[#self.panels + 1] = { x = math.max(0, math.min(x, width - panelWidth)),

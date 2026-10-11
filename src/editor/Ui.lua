@@ -7,19 +7,64 @@ Ui.METRICS = {
     titlePaddingX = 16, titlePaddingY = 14, titleFontSize = 15,
     contentPaddingX = 16, contentPaddingY = 4,
     buttonPaddingX = 10, buttonGap = 8,
-    selectionPaddingX = 8, selectionPaddingY = 2, selectionRadius = 4,
+    selectionPaddingX = 0, selectionPaddingY = 0, selectionRadius = 0,
+    -- 트리 행 높이와 모든 계층선의 두께를 여기서 조절한다.
+    treeRowHeight = 22, treeLineWidth = 0.3,
+    treeHighlightPaddingX = 8, treeHighlightRadius = 4,
+    assetCellWidth = 112, assetCellHeight = 138,
 }
 
 function Ui.buttonWidth(label)
     return math.ceil(love.graphics.getFont():getWidth(label)) + 2 * Ui.METRICS.buttonPaddingX
 end
 
-function Ui.selection(x, y, width, height)
-    local m = Ui.METRICS
+function Ui.selection(x, y, width, height, style)
+    local m = style or Ui.METRICS
+    love.graphics.push("all")
     Theme.setColor("selection")
     love.graphics.rectangle("fill", x + m.selectionPaddingX, y + m.selectionPaddingY,
         math.max(0, width - 2 * m.selectionPaddingX), math.max(0, height - 2 * m.selectionPaddingY),
         m.selectionRadius, m.selectionRadius)
+    Theme.setColor("focus"); love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", x + m.selectionPaddingX + 0.5, y + m.selectionPaddingY + 0.5,
+        math.max(0, width - 2 * m.selectionPaddingX - 1), math.max(0, height - 2 * m.selectionPaddingY - 1),
+        m.selectionRadius, m.selectionRadius)
+    love.graphics.pop()
+end
+function Ui.hovered(rect)
+    if Ui.hoverEnabled == false then return false end
+    local x, y = love.mouse.getPosition()
+    local sx, sy, sw, sh = love.graphics.getScissor()
+    return Ui.contains(x, y, rect) and (not sx or Ui.contains(x, y, {x = sx, y = sy, w = sw, h = sh}))
+end
+function Ui.row(rect, selected, style)
+    local m = style or Ui.METRICS
+    if selected then Ui.selection(rect.x, rect.y, rect.w, rect.h, m)
+    elseif Ui.hovered(rect) then
+        love.graphics.push("all"); Theme.setColor("hover")
+        love.graphics.rectangle("fill", rect.x + m.selectionPaddingX, rect.y + m.selectionPaddingY,
+            math.max(0, rect.w - 2 * m.selectionPaddingX), math.max(0, rect.h - 2 * m.selectionPaddingY),
+            m.selectionRadius, m.selectionRadius)
+        love.graphics.pop()
+    end
+end
+function Ui.treeRow(rect, selected)
+    Ui.row(rect, selected, {selectionPaddingX = Ui.METRICS.treeHighlightPaddingX,
+        selectionPaddingY = 0, selectionRadius = Ui.METRICS.treeHighlightRadius})
+end
+function Ui.treeLines(x, y, height, depth, indent)
+    love.graphics.push("all")
+    local width = Ui.METRICS.treeLineWidth
+    if width <= 0 then love.graphics.pop(); return end
+    -- 1px 미만 설정도 사라지지 않도록 픽셀 면적의 투명도로 표현한다.
+    local pixelWidth = math.ceil(width)
+    Theme.setColor("textMuted", width / pixelWidth)
+    for ancestor = 0, depth - 1 do
+        local lineX = x + ancestor * indent + 5
+        -- 선 끝의 안티앨리어싱이 이웃 행과 겹치지 않도록 행 영역만 채운다.
+        love.graphics.rectangle("fill", math.floor(lineX - pixelWidth / 2 + 0.5), y, pixelWidth, height)
+    end
+    love.graphics.pop()
 end
 
 function Ui.panelHeading(text, x, y, width)
@@ -102,14 +147,17 @@ function Ui.button(label, rect, active, hint, flat)
         Move = "Move to the selected destination folder.", Rename = "Change the name in the current folder.",
         Delete = "Permanently delete this file or folder.", R = "Reset this property to its class default."}
     Ui.hint(rect, hint or hints[label] or label)
-    local mx, my = love.mouse.getPosition()
-    local hovered = Ui.contains(mx, my, rect)
+    local hovered = Ui.hovered(rect)
     if active then Theme.setColor("selection")
     elseif hovered then Theme.setColor("hover")
     else Theme.setColor("button") end
     if not flat or active or hovered then
         if flat and hovered and love.mouse.isDown(1) then Theme.setColor("selection") end
         love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 4, 4)
+        if active then
+            Theme.setColor("focus"); love.graphics.setLineWidth(1)
+            love.graphics.rectangle("line", rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1, 4, 4)
+        end
     end
     local padding = Ui.METRICS.buttonPaddingX
     Ui.text(label, rect.x + padding, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2,
@@ -118,7 +166,7 @@ end
 
 function Ui.checkbox(rect, checked)
     love.graphics.push("all")
-    Theme.setColor("input")
+    Theme.setColor(Ui.hovered(rect) and "hover" or "input")
     love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 2, 2)
     Theme.setColor(checked and "focus" or "border")
     love.graphics.setLineWidth(1)
@@ -132,8 +180,7 @@ function Ui.checkbox(rect, checked)
 end
 function Ui.resizeGrip(rect)
     love.graphics.push("all")
-    local x, y = love.mouse.getPosition()
-    Theme.setColor(Ui.contains(x, y, rect) and "focus" or "border")
+    Theme.setColor(Ui.hovered(rect) and "focus" or "border")
     love.graphics.setLineWidth(1)
     love.graphics.line(rect.x, rect.y + rect.h / 2, rect.x + rect.w, rect.y + rect.h / 2)
     Ui.hint(rect, "Drag to resize this tree.")
@@ -188,7 +235,7 @@ function Ui.thumbnail(image, rect)
         local scale = math.min((rect.w - 4) / w, (rect.h - 4) / h)
         love.graphics.draw(image, rect.x + (rect.w - w * scale) / 2, rect.y + (rect.h - h * scale) / 2, 0, scale, scale)
     else Ui.text("-", rect.x, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, rect.w, Theme.color("textMuted"), false, "center") end
-    Theme.setColor("border")
+    Theme.setColor(Ui.hovered(rect) and "focus" or "border")
     love.graphics.rectangle("line", rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1, 3, 3)
     love.graphics.pop()
 end
@@ -209,7 +256,7 @@ function Ui.field(text, rect, focused, composition, owner)
     love.graphics.push("all")
     love.graphics.setLineWidth(1)
     Ui.hint(rect, "Edit the value. Enter: apply. Esc: cancel.")
-    Theme.setColor("input")
+    Theme.setColor(not focused and Ui.hovered(rect) and "hover" or "input")
     love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 3, 3)
     Theme.setColor(focused and "focus" or "border")
     love.graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, 3, 3)

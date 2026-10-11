@@ -24,15 +24,20 @@ function Root:dismissPopup()
 end
 
 function Root:draw()
+    local ui = require("editor.Ui")
+    local previousHover = ui.hoverEnabled
+    ui.hoverEnabled = not self.popup
     self.canvas:draw()
     if self.captured then self.captured:dispatch("drawOverlay") end
     if self.popup then
+        ui.hoverEnabled = true
         require("editor.Ui").resetHints()
         love.graphics.push("all")
         love.graphics.setScissor()
         self.popup:draw()
         love.graphics.pop()
     end
+    ui.hoverEnabled = previousHover
 end
 
 function Root:getHint(x, y)

@@ -93,10 +93,9 @@ add("context menu clamps panels and supports submenu keyboard actions", function
     Assert.truthy(menu.panels[1].y + menu.panels[1].h <= height)
     root:keypressed("right")
     Assert.equal(2, #menu.panels)
-    root:keypressed("return")
-    Assert.equal(0, selected)
+    Assert.equal(1, #menu.panels[2].items)
+    Assert.equal("Folder", menu.panels[2].items[1].label)
     Assert.equal(menu, root.popup)
-    root:keypressed("down")
     root:keypressed("return")
     Assert.equal(1, selected)
     Assert.equal(nil, root.popup)
@@ -107,6 +106,15 @@ add("context menu clamps panels and supports submenu keyboard actions", function
     Assert.equal(nil, root.popup)
 end)
 
+add("context menus remove unavailable branches and do not open empty menus", function()
+    local root = Root.new(Canvas.new())
+    local menu = require("editor.ui.ContextMenu").new(root)
+    menu:show(20, 20, {{label = "Empty", children = {{label = "Unavailable", enabled = false}}},
+        {label = "Visible", action = function() end}})
+    Assert.equal(1, #menu.panels[1].items); Assert.equal("Visible", menu.panels[1].items[1].label)
+    Assert.equal(false, menu:show(20, 20, {{label = "Unavailable", enabled = false}}))
+    Assert.equal(nil, root.popup)
+end)
 add("popup blocks background pointer input and receives dialog text", function()
     local canvas, moves = Canvas.new(), 0
     canvas.handlers.mousemoved = function() moves = moves + 1; return true end
@@ -133,4 +141,36 @@ add("popup blocks background pointer input and receives dialog text", function()
     Assert.equal(nil, root.popup)
 end)
 
+add("Prefab palette shares nested source colors and cycles independent roots", function()
+    local appearance = require("editor.ui.PrefabAppearance")
+    local rows = {}
+    local function row(key, group, depth)
+        rows[#rows + 1] = {object = {key = key, group = group}, depth = depth}
+    end
+    row("a", "a", 0); row("member", "a", 1)
+    row("b", "a", 1); row("c", "a", 2); row("plain", nil, 1)
+    row("d", "b", 0); row("e", "c", 1)
+    for i = 3, 7 do row("root" .. i, "root" .. i, 0) end
+    local groups = appearance.layout(rows, function(object) return object.key, object.group end, function(object) return object.key end)
+    local expected = {1, 1, 1, 1, false, 2, 3, 3, 4, 5, 6, 1}
+    for index, color in ipairs(expected) do Assert.equal(color or nil, groups[index].colorIndex) end
+end)
+add("Prefab colors recalculate when nested placement becomes an independent root", function()
+    local appearance = require("editor.ui.PrefabAppearance")
+    local rows = {{object = {key = "a", source = "one"}, depth = 0},
+        {object = {key = "child", source = "two"}, depth = 1},
+        {object = {key = "b", source = "two"}, depth = 0}}
+    local function layout()
+        return appearance.layout(rows, function(object) return object.key, object.source end, function(object) return object.key end)
+    end
+    local colors = layout()
+    Assert.equal(1, colors[1].colorIndex); Assert.equal(2, colors[2].colorIndex); Assert.equal(2, colors[3].colorIndex)
+    rows[2].depth = 0
+    colors = layout()
+    Assert.equal(1, colors[1].colorIndex); Assert.equal(2, colors[2].colorIndex); Assert.equal(3, colors[3].colorIndex)
+    rows[1], rows[3] = rows[3], rows[1]
+    colors = layout()
+    Assert.equal("b", colors[1].key); Assert.equal(1, colors[1].colorIndex)
+    Assert.equal("a", colors[3].key); Assert.equal(3, colors[3].colorIndex)
+end)
 return tests

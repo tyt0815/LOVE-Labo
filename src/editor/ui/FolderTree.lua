@@ -4,7 +4,7 @@ local Theme = require("editor.Theme")
 local Ui = require("editor.Ui")
 local FolderTree = setmetatable({}, {__index = Widget})
 FolderTree.__index = FolderTree
-local ROW = 28
+local ROW = Ui.METRICS.treeRowHeight
 
 function FolderTree.new(project, root, excluded, selected, onSelect)
     local self = setmetatable(Widget.new(), FolderTree)
@@ -95,9 +95,8 @@ function FolderTree:draw()
         local node = self.nodes[row + self.scroll]
         if not node then break end
         local y = self.y + (row - 1) * ROW
-        if node.reference == self.selected then
-            Ui.selection(self.x, y, self.width, ROW)
-        end
+        Ui.treeRow({x = self.x, y = y, w = self.width, h = ROW}, node.reference == self.selected)
+        Ui.treeLines(self.x + 10, y, ROW, node.depth, 16)
         local x = self.x + 10 + node.depth * 16
         Theme.setColor("textMuted")
         if not node.children or #node.children > 0 then

@@ -1006,7 +1006,7 @@ function EditorApp:pickReferenceAt(x, y)
         if entry and entry.type == "file" and not entry.isLink then reference = entry.reference end
         local tree = self.assetBrowser.treeSlot.widget
         if tree:containsPoint(x, y) then
-            local index = math.floor((y - tree.y) / 26) + 1 + self.assetBrowser.treeScroll
+            local index = math.floor((y - tree.y) / require("editor.Ui").METRICS.treeRowHeight) + 1 + self.assetBrowser.treeScroll
             local node = self.assetBrowser.tree[index]
             if node then
                 if x < tree.x + require("editor.Ui").METRICS.contentPaddingX + 18 + node.depth * 14 then
@@ -1206,23 +1206,28 @@ end
 
 function EditorApp:showObjectMenu(x, y, object)
     if object and not self.sceneView:isSelected(object) then self.sceneView:setSelection({object}) end
-    local enabled = #self.sceneView:getSelection() > 0
+    local enabled = object ~= nil and #self.sceneView:getSelection() > 0
+    local editable, attached = enabled, false
+    for _, root in ipairs(self.level:selectionRoots(self.sceneView:getSelection())) do
+        if root.prefabRootId and root.prefabRootId ~= root.authoringId then editable = false end
+        if root.parentAuthoringId then attached = true end
+    end
     local function edit(callback)
         self.inspector:commitEdit(); self:recordHistory(); callback(); self:recordHistory(); self:updateInspectorTarget()
     end
     require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, {
-        {label = "Add Child", enabled = object ~= nil, action = function() edit(function()
-            local child = assert(self.level:addLObject(0, 0))
-            child.parentAuthoringId = object.authoringId
-            self.hierarchy.collapsed[object.authoringId] = nil
+        {label = "New Object", action = function() edit(function()
+            local child = assert(self.level:addLObject(0, 0, nil, "LObject"))
+            child.parentAuthoringId = object and object.authoringId
+            if object then self.hierarchy.collapsed[object.authoringId] = nil end
             self.sceneView:setSelection({child})
         end) end},
         {label = "Rename", shortcut = "F2", enabled = object ~= nil, action = function() self:renameObject(object) end},
         {label = "Duplicate", shortcut = "Ctrl+D", enabled = enabled, action = function() edit(function() self.sceneView:duplicateSelection() end) end},
-        {label = "Create Prefab...", enabled = object ~= nil, action = function() self:showCreatePrefabDialog(object) end},
-        {label = "Delete", shortcut = "Delete", enabled = enabled, action = function() edit(function() self.sceneView:deleteSelection() end) end},
+        {label = "Create Prefab...", enabled = object ~= nil and require("project.PrefabHierarchy").canLinkCapture(object), action = function() self:showCreatePrefabDialog(object) end},
+        {label = "Delete", shortcut = "Delete", enabled = editable, action = function() edit(function() self.sceneView:deleteSelection() end) end},
         {label = "Frame Selection", shortcut = "F", enabled = enabled, action = function() self.sceneView:frameSelected() end},
-        {label = "Detach from Parent", enabled = enabled, action = function() edit(function()
+        {label = "Detach from Parent", enabled = editable and attached, action = function() edit(function()
             local ok, err = self.level:reparent(self.sceneView:getSelection(), nil); self.hierarchy.error = not ok and err or nil
         end) end},
         {label = "Select All", shortcut = "Ctrl+A", action = function() self.sceneView:setSelection(self.level.lobjects) end}
@@ -1252,14 +1257,14 @@ end
 
 function EditorApp:showPrefabObjectMenu(path, x, y)
     require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, {
-        {label = "Add Child", action = function()
+        {label = "New Object", action = function()
             self.inspector:commitEdit(); self:recordHistory()
-            local ok, err, child = self.prefabEditor:insertChild(nil, "LObject", path)
+            local ok, err, child = self.prefabEditor:insertChild(nil, "LObject", path or "root")
             if not ok then self.inspector.classInspector.error = err; return end
             self:recordHistory(); self.prefabEditor.selected = child
             self.prefabEditor.onSelect(child)
         end},
-        {label = "Rename", action = function() self:renamePrefabObject(path) end}
+        {label = "Rename", enabled = path ~= nil, action = function() self:renamePrefabObject(path) end}
     })
 end
 function EditorApp:renameObject(object)

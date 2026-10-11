@@ -57,3 +57,5 @@
 - [0054. Prefab 파일과 루트 오브젝트 이름 분리](adr/0054-prefab-root-object-names.md)
 - [0055. Prefab 컨테이너와 원본을 참조하는 오브젝트의 루트 교체](adr/0055-prefab-container-and-sourced-object-roots.md)
 - [0056. Prefab 생성과 기존 계층 연결](adr/0056-create-prefab-and-connect-instances.md)
+
+- [0057. 연속 목록 행과 Prefab 소속 글자색](adr/0057-list-hover-and-prefab-text-colors.md)

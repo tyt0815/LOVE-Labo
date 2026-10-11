@@ -1,6 +1,7 @@
 # 0053. 원본 소속에 따른 Prefab 범위선
 
 - 상태: 승인·구현
+- 표시 방식은 [0057](0057-list-hover-and-prefab-text-colors.md)로 대체한다. 원본 소속 판정은 유지한다.
 - 대체: [0051](0051-inline-names-and-prefab-membership.md)의 소속 배경색과 조상 기반 묶음 판정.
 
 ## 배경과 제약

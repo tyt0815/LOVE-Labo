@@ -18,7 +18,7 @@ function ClassInspector.new(project, root)
     self.scrollbar = Scrollbar.new(function() return self.scroll end, function(value)
         self.scroll = math.floor(value + 0.5); self:layoutTrees()
     end)
-    self.objectTreeHeight, self.scriptTreeHeight = 78, 78
+    self.objectTreeHeight, self.scriptTreeHeight = (3 * Ui.METRICS.treeRowHeight), (3 * Ui.METRICS.treeRowHeight)
     return self
 end
 
@@ -47,7 +47,7 @@ function ClassInspector:setTarget(target)
     self:commitEdit()
     local key = target and (target.documentKey or target.data)
     if key ~= self.treeLayoutKey then
-        self.objectTreeHeight, self.scriptTreeHeight, self.objectTree = 78, 78, nil
+        self.objectTreeHeight, self.scriptTreeHeight, self.objectTree = (3 * Ui.METRICS.treeRowHeight), (3 * Ui.METRICS.treeRowHeight), nil
     end
     self.treeLayoutKey = key
     self.target, self.scroll, self.error = target, 0, nil
@@ -583,6 +583,7 @@ function ClassInspector:draw()
             PropertyLayout.group(self.left, self.contentWidth or self.width, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false)
             if row.scriptId and self.target.removeScript and (not self.target.canRemoveScript or self.target:canRemoveScript(row.scriptId)) then Ui.button("Remove", self:scriptActionRect(y), false, "Remove this script attachment", true) end
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
+            Ui.row({x = self.left + Ui.METRICS.contentPaddingX, y = y, w = (self.contentWidth or self.width) - 2 * Ui.METRICS.contentPaddingX, h = row.height}, false)
             PropertyLayout.separators(self.left, self.width, y, row.height, self.width - (self.contentWidth or self.width))
             local declaration = self.class.properties[name]
             local value = self.target:getOverrides()[name]
@@ -793,7 +794,7 @@ end
 
 function ClassInspector:mousemoved(x, y, dx)
     if self.treeResize then
-        local value = math.max(78, math.min(math.max(78, (self.layoutHeight - self.top) * 0.7), self.treeResize.height + y - self.treeResize.startY))
+        local value = math.max((3 * Ui.METRICS.treeRowHeight), math.min(math.max((3 * Ui.METRICS.treeRowHeight), (self.layoutHeight - self.top) * 0.7), self.treeResize.height + y - self.treeResize.startY))
         if self.treeResize.kind == "object" then self.objectTreeHeight = value else self.scriptTreeHeight = value end
         self:layout(self.left, self.width, self.layoutHeight, nil, self.top)
         return true

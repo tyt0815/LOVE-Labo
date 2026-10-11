@@ -4,7 +4,7 @@ local Ui = require("editor.Ui")
 local Theme = require("editor.Theme")
 local Tree = setmetatable({}, {__index = Widget})
 Tree.__index = Tree
-local ROW_HEIGHT = 26
+local ROW_HEIGHT = Ui.METRICS.treeRowHeight
 function Tree.new(root, onSelect, onContext)
     local self = setmetatable(Widget.new(), Tree)
     self.object, self.onSelect, self.selected, self.expanded, self.scroll = root, onSelect, "root", {}, 0
@@ -79,7 +79,7 @@ function Tree:dispatch(event, ...)
     if event == "mousepressed" then
         local x, y, button = ...
         local node = self:nodeAt(x, y)
-        if button == 2 and node and self.onContext then self.onContext(node.key, x, y); return true end
+        if button == 2 and self.onContext then self.onContext(node and node.key, x, y); return true end
         if button == 1 and node then
             local _, reference = self:prefabGroup(node.object)
             if reference and x >= self.x + self.width - 44 and self.onLocatePrefab then self.onLocatePrefab(reference)
@@ -119,23 +119,18 @@ function Tree:draw()
     Theme.setColor("input"); love.graphics.rectangle("fill", self.x, self.y, self.width, self.height, 4, 4)
     local appearance = require("editor.ui.PrefabAppearance")
     local groups = appearance.layout(self.nodes, function(object) return self:prefabGroup(object) end, function(object) return object.path end)
-    local selectedGroup
-    for _, node in ipairs(self.nodes) do if node.key == self.selected then selectedGroup = self:prefabGroup(node.object) end end
     for row = 1, self.rows do
         local node = self.nodes[row + self.scroll]; if not node then break end
         local y, x = self.y + (row - 1) * ROW_HEIGHT, self.x + 8 + node.depth * 14
         local group = groups[row + self.scroll]
-        if node.key == self.selected then Ui.selection(self.x, y, self.width, ROW_HEIGHT) end
-        if group.showRange then
-            local branchEnd = x + (#node.children > 0 and 0 or 16) - 4
-            appearance.range(self.x + 12 + group.depth * 14, y, ROW_HEIGHT, group.key == selectedGroup, group.first, group.last, group.isRoot, branchEnd)
-        end
+        Ui.treeRow({x = self.x, y = y, w = self.width, h = ROW_HEIGHT}, node.key == self.selected)
+        Ui.treeLines(self.x + 8, y, ROW_HEIGHT, node.depth, 14)
         if self.ping and self.ping.key == node.key then
             Theme.setColor("focus"); love.graphics.rectangle("line", self.x + 1, y + 1, self.width - 2 - Scrollbar.WIDTH, ROW_HEIGHT - 2)
         end
         if #node.children > 0 then Ui.chevron(x, y + ROW_HEIGHT / 2, self.expanded[node.key] ~= false) end
         if group.isRoot then appearance.icon(self.x + self.width - 54, y + ROW_HEIGHT / 2 - 1) end
-        Ui.text(node.label, x + 16, y + 5, math.max(0, self.width - (x - self.x) - 76))
+        Ui.text(node.label, x + 16, y + 5, math.max(0, self.width - (x - self.x) - 76), appearance.textColor(group))
         if group.key then Ui.browseButton({x = self.x + self.width - 44, y = y, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
     end
     self.scrollbar:draw()

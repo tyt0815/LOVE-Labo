@@ -14,10 +14,14 @@ function Capture.run(args)
         assert(app:openProjectDocument("Assets/L_Start.level", true))
         app.sceneView.zoom = 0.5
         local report = {width = 1440, height = 900, images = {}}
-        local function shot(name)
+        local function shot(name, hover)
             local canvas = love.graphics.newCanvas(1440, 900)
             love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.clear(0.1, 0.1, 0.1, 1)
-            app:draw(); love.graphics.setCanvas(); love.graphics.pop()
+            local mousePosition = love.mouse.getPosition
+            love.mouse.getPosition = function() return hover and hover.x or -1, hover and hover.y or -1 end
+            local drawn, drawError = pcall(app.draw, app)
+            love.mouse.getPosition = mousePosition
+            assert(drawn, drawError); love.graphics.setCanvas(); love.graphics.pop()
             local pixels = canvas:newImageData(); local png = pixels:encode("png")
             assert(Fs.writeAtomic(Fs.join(directory, name .. ".png"), png:getString()))
             png:release(); pixels:release(); canvas:release()
@@ -84,6 +88,31 @@ return Player
         app.uiRoot.popup:dispatch("textinput", "A_Long_Prefab_Name_For_Multiline_Editing")
         shot("multiline-rename")
         app.uiRoot:keypressed("escape")
+        assert(project:createEntry("Assets", "folder", "UI"))
+        assert(project:createEntry("Assets/UI", "folder", "themes"))
+        assert(project:createEntry("Assets/UI", "folder", "widgets"))
+        app.assetBrowser.expanded["Assets/UI"] = true; app.assetBrowser:refresh(); app.assetBrowser:openFolder("Assets")
+        local linkedRoot = assert(app.level:findLObject(captureRoot.authoringId))
+        app.inspectorSource = "scene"; app.sceneView:setSelection({linkedRoot}); app:updateInspectorTarget(); app:draw()
+        local childRect = app.hierarchy:nameRect(assert(app.level:findLObject(captureChild.authoringId)))
+        shot("hierarchy-hover", {x = childRect.x + 20, y = childRect.y + childRect.h / 2})
+        local treeView = app.assetBrowser.treeSlot.widget
+        for index, node in ipairs(app.assetBrowser.tree) do if node.reference == "Assets/UI/themes" then
+            shot("tree-hover", {x = treeView.x + 90, y = treeView.y + (index - 1 - app.assetBrowser.treeScroll) * 26 + 13})
+        end end
+        for index, entry in ipairs(app.assetBrowser.entries) do if entry.reference == "Assets/PF_Player.prefab" then
+            local rect = app.assetBrowser:entryBounds(index)
+            shot("asset-hover", {x = rect.x + 40, y = rect.y + 110})
+            app.assetBrowser.viewMode = "list"; app.assetBrowser:clampScroll(); app:draw()
+            rect = app.assetBrowser:entryBounds(index); shot("asset-list-hover", {x = rect.x + 70, y = rect.y + 13})
+            app.assetBrowser.viewMode = "grid"; app.assetBrowser:clampScroll()
+        end end
+        app:draw()
+        local details = app.inspector.classInspector
+        for _, row in ipairs(details.rows) do if row.name == "$transform.x" then
+            shot("inspector-hover", {x = details.left + 45, y = details.propertyTop + row.offset - details.scroll + 16})
+        end end
+        app:showObjectMenu(140, 140, nil); shot("context-empty"); app.uiRoot:keypressed("escape")
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

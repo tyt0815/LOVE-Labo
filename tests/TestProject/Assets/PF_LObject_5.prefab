@@ -1,0 +1,25 @@
+{
+  "bindings": {},
+  "children": [
+    {
+      "children": {},
+      "id": "o6",
+      "name": "LObject 2",
+      "overrides": {},
+      "scripts": {},
+      "transform": {
+        "rotation": 0,
+        "rotationX": 0,
+        "rotationY": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "x": 0,
+        "y": 0
+      }
+    }
+  ],
+  "formatVersion": 4,
+  "name": "LObject 1",
+  "overrides": {},
+  "scripts": {}
+}

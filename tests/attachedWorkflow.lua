@@ -55,6 +55,28 @@ add("New project has one Assets root and generated instructions preserve user ed
         Assert.truthy(Fs.info(Fs.join(project.rootPath, "Assets")))
     end)
 end)
+add("Eyedropper folder navigation uses displayed tree row height and scroll", function()
+    fixture(function(project)
+        for _, name in ipairs({"A", "B", "C"}) do
+            run(project, "folder.create", {folder = "Assets", name = name})
+        end
+        local app = EditorApp.new(nil, project); app:draw()
+        app.objectPick = {kind = "prefab"}
+        local browser, height = app.assetBrowser, require("editor.Ui").METRICS.treeRowHeight
+        local tree = browser.treeSlot.widget
+        for index, node in ipairs(browser.tree) do
+            app:pickReferenceAt(tree.x + tree.width - 25, tree.y + (index - 1) * height + 1)
+            Assert.equal(node.reference, browser.folder)
+            Assert.truthy(app.objectPick)
+        end
+        browser.treeSlot.widget.height = height * 2
+        browser.treeScroll = 1
+        local expected = browser.tree[3].reference
+        app:pickReferenceAt(tree.x + tree.width - 25, tree.y + height + 1)
+        Assert.equal(expected, browser.folder)
+        app:cancelObjectPick()
+    end)
+end)
 add("Unified Assets permits scripts images Prefabs and levels in the same feature folder", function()
     fixture(function(project)
         run(project, "folder.create", {folder = "Assets", name = "Player"})
@@ -749,11 +771,11 @@ add("Inspector Prefab groups include inherited members but exclude original and 
         local function layout()
             return appearance.layout(tree.nodes, function(object) return tree:prefabGroup(object) end, function(object) return object.path end)
         end
-        Assert.equal(true, layout()[1].showRange)
+        Assert.equal(1, layout()[1].colorIndex)
         tree.expanded.root = false; tree:rebuild()
-        Assert.equal(false, layout()[1].showRange)
+        Assert.equal(1, layout()[1].colorIndex)
         tree.expanded.root = true; tree:rebuild()
-        Assert.equal(true, layout()[1].showRange)
+        Assert.equal(1, layout()[1].colorIndex)
     end)
 end)
 add("Level Prefab grouping distinguishes placed groups and excludes manually attached objects", function()
@@ -774,7 +796,11 @@ add("Level Prefab grouping distinguishes placed groups and excludes manually att
         local rows = level:treeRows()
         local groups = appearance.layout(rows, function(object) return hierarchy:prefabGroup(object) end, function(object) return object.authoringId end)
         Assert.equal(true, groups[1].isRoot); Assert.equal(false, groups[2].isRoot)
-        Assert.equal(0, groups[2].depth); Assert.equal(true, groups[2].last)
+        Assert.equal(groups[1].colorIndex, groups[2].colorIndex)
+        local byId = {}
+        for index, row in ipairs(rows) do byId[row.object.authoringId] = groups[index] end
+        Assert.equal(2, byId[second.authoringId].colorIndex)
+        Assert.equal(nil, byId[manual.authoringId].colorIndex)
     end)
 end)
 add("Prefab root names survive CLI rename asset rename inheritance and root replacement", function()
@@ -948,6 +974,32 @@ add("Linked Prefab creation rejects stale level revisions before creating any as
             instance = root, link = true, revision = currentRevision})
         local loaded = assert(require("editor.LevelDocument").load(levelPath)).level
         Assert.equal(result.assetId, loaded:findLObject(root).definitionReference)
+    end)
+end)
+add("Object context menus hide unavailable targets and New Object creates roots or children", function()
+    fixture(function(project)
+        local app = EditorApp.new(nil, project)
+        local function find(label)
+            for index, item in ipairs(app.uiRoot.popup.panels[1].items) do if item.label == label then return index end end
+        end
+        local function newObject(target)
+            app:showObjectMenu(50, 60, target)
+            Assert.equal(nil, find("Add Child")); Assert.truthy(find("New Object"))
+            app.uiRoot.popup:activate(1, find("New Object"))
+            return app.sceneView.selectedLObject
+        end
+        app:showObjectMenu(50, 60, nil)
+        Assert.equal(nil, find("Rename")); Assert.equal(nil, find("Delete")); Assert.equal(nil, find("Create Prefab..."))
+        local root = newObject(nil); Assert.equal(nil, root.parentAuthoringId)
+        local child = newObject(root); Assert.equal(root.authoringId, child.parentAuthoringId)
+        Assert.equal(nil, child.definitionReference); Assert.equal(0, #(child.scripts or {}))
+        assert(app:undoRedo(-1)); Assert.equal(nil, app.level:findLObject(child.authoringId))
+        assert(app:undoRedo(1)); Assert.equal(root.authoringId, app.level:findLObject(child.authoringId).parentAuthoringId)
+        local _, prefab = player(project); assert(app:inspectAsset(project:getAssetReference(prefab)))
+        app:showPrefabObjectMenu(nil, 50, 60)
+        Assert.equal(nil, find("Rename")); Assert.truthy(find("New Object"))
+        app.uiRoot.popup:activate(1, find("New Object"))
+        Assert.equal(1, #assert(app.prefabEditor:recipe()).root.children)
     end)
 end)
 return tests

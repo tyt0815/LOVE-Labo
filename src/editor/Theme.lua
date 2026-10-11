@@ -13,6 +13,8 @@ local DEFAULT_COLORS = {
     overlay = "#1B4D6866", thumbnailBackground = "#FFFFFF",
     iconBackground = "#FFFFFF", iconBorder = "#25AAE1", iconText = "#1B4D68",
     assetLevel = "#25AAE1", assetPrefab = "#EA316E",
+    prefabRed = "#C83232", prefabGreen = "#2D7C35", prefabBlue = "#325DC4",
+    prefabYellow = "#A66C00", prefabCyan = "#008080", prefabMagenta = "#A626A4",
     classLevel = "#1B4D68", classLObject = "#00A651", classComponent = "#4C90B1",
     folderTab = "#4C90B1", folderBody = "#25AAE1",
     grid = "#B1E3FA", axisX = "#EA316E", axisY = "#00A651", axisZ = "#25AAE1", origin = "#1B4D68",

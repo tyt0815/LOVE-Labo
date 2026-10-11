@@ -5,7 +5,7 @@ local Scrollbar = require("editor.ui.Scrollbar")
 local Hierarchy = {}
 Hierarchy.__index = Hierarchy
 local HEADER_HEIGHT = 36 + Ui.METRICS.contentPaddingY
-local ROW_HEIGHT = 24
+local ROW_HEIGHT = Ui.METRICS.treeRowHeight
 function Hierarchy.new(level, width)
     local self = setmetatable({level = level, width = width or 300, collapsed = {}, scroll = 0}, Hierarchy)
     self.scrollbar = Scrollbar.new(function() return self.scroll end, function(value) self.scroll = math.floor(value + 0.5) end)
@@ -149,22 +149,18 @@ function Hierarchy:draw(selected)
     local rows = self:rows()
     local appearance = require("editor.ui.PrefabAppearance")
     local groups = appearance.layout(rows, function(object) return self:prefabGroup(object) end, function(object) return object.authoringId end)
-    local selectedGroup = self:prefabGroup(selected or self.sceneView and self.sceneView.selectedLObject)
     for i, row in ipairs(rows) do
         local rowY = top + HEADER_HEIGHT + (i - 1 - self.scroll) * ROW_HEIGHT
         if rowY + ROW_HEIGHT > top + HEADER_HEIGHT and rowY < top + height then
             local object = row.object
             local group = groups[i]
             local x = Ui.METRICS.contentPaddingX + row.depth * 16
-            if self.sceneView and self.sceneView:isSelected(object) or not self.sceneView and object == selected then Ui.selection(0, rowY, self.width, ROW_HEIGHT) end
-            if group.showRange then
-                local branchEnd = x + (row.children and 7 or 18) - 4
-                appearance.range(Ui.METRICS.contentPaddingX + group.depth * 16 + 11, rowY, ROW_HEIGHT, group.key == selectedGroup, group.first, group.last, group.isRoot, branchEnd)
-            end
+            Ui.treeRow({x = 0, y = rowY, w = self.width, h = ROW_HEIGHT}, self.sceneView and self.sceneView:isSelected(object) or not self.sceneView and object == selected)
+            Ui.treeLines(Ui.METRICS.contentPaddingX + 7, rowY, ROW_HEIGHT, row.depth, 16)
             Theme.setColor("text")
             if row.children then Ui.chevron(x + 7, rowY + ROW_HEIGHT / 2, not self.collapsed[object.authoringId]) end
             if group.isRoot then appearance.icon(self.width - 54, rowY + ROW_HEIGHT / 2 - 1) end
-            Ui.text(object.name or "LObject " .. object.authoringId, x + 18, rowY + 4, self.width - x - 78)
+            Ui.text(object.name or "LObject " .. object.authoringId, x + 18, rowY + 4, self.width - x - 78, appearance.textColor(group))
             if group.key then Ui.browseButton({x = self.width - 44, y = rowY, w = 26, h = ROW_HEIGHT}, true, "Locate source Prefab") end
             if self.drag and self.drag.active and not self.drag.marquee and self.drag.target == object then
                 Theme.setColor("focus")
