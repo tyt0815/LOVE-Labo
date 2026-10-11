@@ -19,20 +19,28 @@ function Operations.apply(project, name, enabled, confirm, level)
     local valid, validationError = project.plugins:validate(nextEnabled)
     if not valid then return false, validationError end
     if not enabled then
-        local previous, metadata = project.plugins.enabled, project.assetMetadata
-        project.plugins.enabled = nextEnabled
-        project.assetMetadata = {}
-        for reference, value in pairs(metadata) do
+        local view = setmetatable({assetMetadata = {}, assetPaths = {}, assetIds = {}, assetIdsByLower = {}}, {__index = project})
+        view.plugins = project.plugins:forProject(view)
+        view.plugins.enabled = nextEnabled
+        view.pluginAssets = setmetatable({project = view, mounts = {}, groups = {}}, getmetatable(project.pluginAssets))
+        for prefix, mount in pairs(project.pluginAssets.mounts) do
+            if nextEnabled[mount.plugin] then
+                view.pluginAssets.mounts[prefix] = mount
+                view.pluginAssets.groups[prefix:match("^(.*)/[^/]+$")] = true
+            end
+        end
+        for reference, value in pairs(project.assetMetadata) do
             local mount = project.pluginAssets and project.pluginAssets:mount(reference)
-            if not mount or nextEnabled[mount.plugin] then project.assetMetadata[reference] = value end
+            if not mount or nextEnabled[mount.plugin] then
+                view.assetMetadata[reference], view.assetPaths[value.id] = value, reference
+                view.assetIds[reference], view.assetIdsByLower[reference:lower()] = value.id, value.id
+            end
         end
         local ok, usageError = pcall(function()
-            local result = require("editor.CliAssets").execute(project, {command = "project.validate"})
+            local result = require("editor.CliAssets").execute(view, {command = "project.validate"})
             assert(result.valid, result.errors[1] and result.errors[1].reference .. ": " .. result.errors[1].error)
-            if level then assert(require("runtime.WorldLoader").prepare(project, level:toData())) end
+            if level then assert(require("runtime.WorldLoader").prepare(view, level:toData())) end
         end)
-        project.plugins.enabled = previous
-        project.assetMetadata = metadata
         if not ok then return false, "Plugin is used by the project: " .. tostring(usageError) end
     end
     local names = {}; for id in pairs(nextEnabled) do names[#names + 1] = id end; table.sort(names)

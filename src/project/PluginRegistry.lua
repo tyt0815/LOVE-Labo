@@ -70,6 +70,11 @@ function Registry.new(project, packaged)
     return self
 end
 
+function Registry:forProject(project)
+    return setmetatable({project = project, plugins = self.plugins, scripts = self.scripts,
+        enabled = self.enabled, assetScripts = self.assetScripts, loaded = {}}, Registry)
+end
+
 function Registry:planEnable(name)
     local result, visiting, visited = {}, {}, {}
     local function visit(id)
@@ -153,10 +158,8 @@ function Registry:loadScript(name)
     if not readOk then self.loading[name] = nil; return nil, tostring(bytes) end
     local chunk, err = loadstring(bytes, "@plugin/" .. source.plugin .. "/" .. source.file)
     if not chunk then self.loading[name] = nil; return nil, err end
-    setfenv(chunk, setmetatable({require = function(module)
-        if module == "Engine" then return self:engine() end
-        return require(module)
-    end}, {__index = _G}))
+    self.moduleRequire = self.moduleRequire or require("project.LuaScript").moduleLoader(self.project, self)
+    setfenv(chunk, setmetatable({require = self.moduleRequire}, {__index = _G}))
     local ok, class = pcall(function()
         local definition = chunk()
         assert(type(definition) == "table", "Plugin script must return a table")

@@ -8,11 +8,8 @@ function LuaScript.validValue(kind, value)
     return require("core.PropertySchema").validValue(kind, value)
 end
 
--- 한 로드 범위 안에서만 클래스를 공유한다. 다음 검사·Play에서는 소스를 다시 읽는다.
-function LuaScript.loader(project)
-    if project then project.plugins = project.plugins or require("project.PluginRegistry").new(project,
-        not project.rootPath and {manifests = {}, enabled = {}} or nil) end
-    local loaded, visiting = {}, {}
+-- 일반 스크립트와 플러그인이 같은 에셋 경로 해석을 사용한다.
+function LuaScript.moduleLoader(project, registry)
     local modules, loadingModules = {}, {}
     local moduleRequire
     local function environment()
@@ -21,7 +18,7 @@ function LuaScript.loader(project)
     moduleRequire = function(name)
         if name == "Engine" then
             return setmetatable({}, {__index = function(_, key)
-                if project.plugins.scripts[key] then return assert(project.plugins:loadScript(key)) end
+                if registry.scripts[key] then return assert(registry:loadScript(key)) end
                 return require("Engine")[key]
             end})
         end
@@ -40,6 +37,21 @@ function LuaScript.loader(project)
         assert(ok, value)
         modules[reference] = value == nil and true or value
         return modules[reference]
+    end
+    return moduleRequire
+end
+
+-- 검증용 프로젝트 뷰는 원본 레지스트리의 로딩 캐시를 공유하지 않는다.
+function LuaScript.loader(project)
+    if project then
+        project.plugins = project.plugins or require("project.PluginRegistry").new(project,
+            not project.rootPath and {manifests = {}, enabled = {}} or nil)
+        if project.plugins.project ~= project then project.plugins = project.plugins:forProject(project) end
+    end
+    local loaded, visiting = {}, {}
+    local moduleRequire = project and LuaScript.moduleLoader(project, project.plugins) or require
+    local function environment()
+        return setmetatable({require = moduleRequire}, {__index = _G})
     end
     local function load(reference, expectedKind, depth)
         if expectedKind == "script" and (reference == "Script" or project.plugins and project.plugins.scripts[reference]) then
