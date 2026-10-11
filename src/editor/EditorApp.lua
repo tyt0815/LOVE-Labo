@@ -400,8 +400,12 @@ function EditorApp:updateInspectorTarget()
     end
     self.levelInspectorTarget.level = self.level
     self.inspector.classInspector:setTarget(target)
+    local propertyTop
+    if object and not self.inspector.classInspector.preview then propertyTop = self.inspector:getPropertyTop() end
+    -- 미리보기를 제외한 실제 패널 크기로 계산해야 매 프레임 스크롤이 다시 0으로 clamp되지 않는다.
+    local bottom = (self.inspector.y or 0) + (self.inspector.height or love.graphics.getHeight() - self.statusHeight)
     self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
-        self.inspector.width, love.graphics.getHeight() - self.statusHeight, object and self.inspector:getPropertyTop(), self.inspector.y)
+        self.inspector.width, bottom, propertyTop, self.inspector.y)
     return object
 end
 
@@ -765,6 +769,8 @@ function EditorApp:initializeUI()
         hierarchy = self.canvas:addChild(hierarchy),
         inspector = self.canvas:addChild(inspector)
     }
+    self.previewPanel = require("editor.ui.PreviewPanel").new(self)
+    slots.preview = self.canvas:addChild(self.previewPanel)
     self.menuBar = require("editor.ui.MenuBar").new(self)
     slots.menu = self.canvas:addChild(self.menuBar, {z = 102})
     if self.statusHeight > 0 then

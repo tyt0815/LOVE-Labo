@@ -30,6 +30,8 @@ function PrefabDocument:save(project)
     local saved, saveError = Fs.writeAtomic(path, text)
     if not saved then return false, saveError end
     self.savedSnapshot = text
+    local previewOk, previewError = require("editor.PreviewCache").save(project, self.assetId)
+    self.previewError = not previewOk and previewError or nil
     return true
 end
 

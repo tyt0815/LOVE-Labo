@@ -128,6 +128,10 @@ return Player
         shot("script-placement")
         assert(app.assetBrowser.assetOperations:import(assert(project:resolveAssetFile("Assets/Player.png")), "Assets/UI"))
         app.assetBrowser:openFolder("Assets/UI"); shot("asset-import")
+        assert(app:inspectAsset("Assets/PF_Player.prefab"))
+        assert(app.previewPanel:setBackground({230, 230, 230})); shot("preview-live")
+        assert(app:saveInspectedDocument()); app.assetBrowser:openFolder("Assets"); shot("preview-thumbnail")
+        assert(app:inspectAsset("Assets/Player.png")); shot("preview-image")
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

@@ -87,6 +87,8 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 
 ## 스크립트 배치와 외부 파일·폴더 임포트
 
+`asset.preview --asset Assets/PF_Player.prefab --output D:/Captures/Player.png`은 초기화·업데이트 없이 PNG를 출력합니다. [인스턴스 캡처·배경 설정](guide/preview.md)을 참고하세요.
+
 `instance.add --level Assets/L_Start.level --script Assets/Behavior.lua --x 20 --y 40`은 빈 LObject에 해당 오브젝트 스크립트를 부착합니다. `--parent <인스턴스 ID>`로 자손 배치도 가능합니다. Prefab과 script를 동시에 지정하지 않습니다.
 
 `asset.import --input C:/Images/Player.png --folder "Assets/User Plugins/MyPlugin"`은 파일을 복사합니다. input은 폴더도 가능하며 name으로 새 이름을 지정할 수 있습니다. 기존 파일·메타데이터를 덮어쓰지 않고 파일시스템 링크는 따라가지 않습니다.

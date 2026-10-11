@@ -14,13 +14,14 @@ function Thumbnail:clear()
 end
 
 function Thumbnail:beginFrame()
+    if self.revision ~= self.project.thumbnailRevision then self:clear(); self.revision = self.project.thumbnailRevision end
     self.budget = 2
 end
 
 function Thumbnail:get(entry)
     if entry.type ~= "file" or entry.isLink then return nil end
     local extension = entry.name:match("%.([^%.]+)$")
-    if not extension or not SUPPORTED_EXTENSIONS[extension:lower()] or (entry.size or 0) > 16 * 1024 * 1024 then return nil end
+    if not extension or not (SUPPORTED_EXTENSIONS[extension:lower()] or extension:lower() == "prefab") or (entry.size or 0) > 16 * 1024 * 1024 then return nil end
     self.clock = self.clock + 1
     local cached = self.entries[entry.reference]
     if cached then cached.used = self.clock; return cached.image end
@@ -30,8 +31,9 @@ function Thumbnail:get(entry)
     local source, canvas, data
     love.graphics.push("all")
     local ok, result = pcall(function()
-        local path = assert(self.project:resolveAssetFile(entry.reference))
-        local bytes = assert(Fs.read(path))
+        local bytes
+        if extension:lower() == "prefab" then bytes = assert(require("editor.PreviewCache").read(self.project, entry.reference))
+        else bytes = assert(self.project:readAsset(entry.reference)) end
         assert(#bytes <= 16 * 1024 * 1024, "Thumbnail source is too large")
         source = love.graphics.newImage(love.filesystem.newFileData(bytes, entry.name))
         canvas = love.graphics.newCanvas(SIZE, SIZE)

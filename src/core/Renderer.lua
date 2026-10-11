@@ -9,12 +9,12 @@ local function visit(object, fn)
         fn(entry.script)
     end
 end
-function Renderer.drawObjects(objects, imageFor, toScreen, zoom)
-    local drawn, ctx = false, context(imageFor)
+function Renderer.drawObjects(objects, imageFor, toScreen, zoom, drawContext)
+    local drawn, ctx = false, drawContext or context(imageFor)
     for _, entry in ipairs(require("core.ScriptOrder").entries(objects, Render)) do
         local script = entry.script
         if script.owner and script.owner.scripts[script.id] == script then
-            local world = script:getWorldTransform()
+            local world = ctx.transform and ctx:transform(script) or script:getWorldTransform()
             local x, y = toScreen(world.x, world.y)
             local a, b, c, d = Transform.basis(world)
             local affine, z = love.math.newTransform(), zoom or 1

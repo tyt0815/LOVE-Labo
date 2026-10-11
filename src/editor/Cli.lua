@@ -63,6 +63,7 @@ local api = {required = required, absolute = absolute, revision = revision, chec
     basicResult = basicResult, value = value, setProperty = setProperty, properties = properties}
 local COMMANDS = {"project.create", "project.info", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
     "plugin.list", "plugin.create", "plugin.enable", "plugin.disable", "plugin.plan",
+    "asset.preview",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
     "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
@@ -94,7 +95,7 @@ local function execute(request)
     local project = assert(Project.open(absolute(required(request, "project"))))
     local readOnlyCommand = command:match("%.get$") or command:match("%.list$") or command:match("%.tree$")
         or command:match("%.validate$") or command:match("%.simulate$") or command:match("%.pointer$") or command:match("%.view$")
-        or command == "export" or command == "asset.copy" or command == "project.set-default"
+        or command == "asset.preview" or command == "export" or command == "asset.copy" or command == "project.set-default"
     if not readOnlyCommand then
         for _, field in ipairs({"prefab", "level", "asset"}) do
             if request[field] and type(request[field]) == "string" then assert(not project:isReadOnly(request[field]), "Labo plugin assets are read-only") end
@@ -118,6 +119,24 @@ local function execute(request)
         if command == "plugin.plan" then return {plugins = assert(operations.plan(project, required(request, "name"), request.enabled ~= false))} end
         local ok, result = operations.apply(project, required(request, "name"), enabled, request.confirm == true or request.confirm == "true")
         assert(ok, result); return {changed = result}
+    end
+    if command == "asset.preview" then
+        local descriptor = {reference = request.asset}
+        if request.instance then
+            local doc = assert(require("editor.LevelDocument").load(assert(project:resolveAssetFile(required(request, "level")))))
+            assert(doc.level:findLObject(tonumber(request.instance)), "Instance not found")
+            descriptor = {data = doc.level:toData(), instance = tonumber(request.instance)}
+        else required(request, "asset") end
+        local model = require("editor.Preview").new(project, descriptor)
+        local output = absolute(required(request, "output"))
+        assert(output:lower():match("%.png$"), "Preview output must be PNG")
+        local size = tonumber(request.size or 256)
+        assert(size and size % 1 == 0 and size >= 16 and size <= 2048, "Preview size must be 16–2048")
+        local background = request.background
+        if type(background) == "string" then background = assert(Json.decode(background)) end
+        local called, ok, err = pcall(model.png, model, output, size, background)
+        model:release(); assert(called and ok, called and err or ok)
+        return {output = output, width = size, height = size, lifecycleExecuted = false}
     end
     local extra = require("editor.CliAssets").execute(project, request, api)
     if extra then return extra end

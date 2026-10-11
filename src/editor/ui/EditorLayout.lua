@@ -50,7 +50,11 @@ function Layout:arrange(width, height)
     self.canvas:setSlotBounds(self.slots.hierarchy, 0, top, app.hierarchy.width, math.max(0, self.editorHeight - top))
     self.canvas:setSlotBounds(self.slots.center, app.hierarchy.width, top,
         math.max(0, width - app.hierarchy.width - app.inspector.width), math.max(0, self.editorHeight - top))
-    self.canvas:setSlotBounds(self.slots.inspector, width - app.inspector.width, top, app.inspector.width, math.max(0, workspaceHeight - top))
+    local previewHeight = self.slots.preview and math.max(100, math.min(app.previewHeight or browserHeight, math.max(100, workspaceHeight - top - 180))) or 0
+    local inspectorHeight = math.max(0, workspaceHeight - top - previewHeight)
+    self.canvas:setSlotBounds(self.slots.inspector, width - app.inspector.width, top, app.inspector.width, inspectorHeight)
+    self.previewTop = top + inspectorHeight
+    if self.slots.preview then self.canvas:setSlotBounds(self.slots.preview, width - app.inspector.width, self.previewTop, app.inspector.width, previewHeight) end
     if self.slots.menu then self.canvas:setSlotBounds(self.slots.menu, 0, 0, width, top) end
     if self.slots.assets then self.canvas:setSlotBounds(self.slots.assets, 0, self.editorHeight, width - app.inspector.width, browserHeight) end
     if self.slots.status then self.canvas:setSlotBounds(self.slots.status, 0, workspaceHeight, width, app.statusHeight) end
@@ -63,7 +67,8 @@ function Layout:edgesAt(x, y)
     edges.inspector = math.abs(x - (self.width - app.inspector.width)) <= 3
     edges.assets = app.assetBrowser and not app.assetBrowser.collapsed
         and math.abs(y - self.editorHeight) <= 4 and x <= self.width - app.inspector.width + 3
-    if edges.hierarchy or edges.inspector or edges.assets then return edges end
+    edges.preview = self.slots.preview and x >= self.width - app.inspector.width and math.abs(y - self.previewTop) <= 4
+    if edges.hierarchy or edges.inspector or edges.assets or edges.preview then return edges end
 end
 
 function Layout:resize(x, y)
@@ -71,6 +76,7 @@ function Layout:resize(x, y)
     if self.drag.hierarchy then app.hierarchy.width = math.max(140, math.min(x, self.width - app.inspector.width - 160)) end
     if self.drag.inspector then app.inspector.width = math.max(180, math.min(self.width - x, self.width - app.hierarchy.width - 160)) end
     if self.drag.assets then app.assetBrowserHeight = math.max(100, math.min(self.workspaceHeight - y, self.workspaceHeight - 160)) end
+    if self.drag.preview then app.previewHeight = math.max(100, math.min(self.workspaceHeight - y, self.workspaceHeight - 180)) end
     self:arrange(self.width, self.height)
 end
 

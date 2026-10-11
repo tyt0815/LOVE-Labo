@@ -139,7 +139,9 @@ function Registry.rebuild(project)
         if not wrote then return false, err end
     end
     project.assetPaths, project.assetIds, project.assetMetadata = paths, ids, metadata
+    project.assetRevision = (project.assetRevision or 0) + 1
     if project.plugins then
+        project.plugins.loaded = {}
         for name, script in pairs(project.plugins.scripts) do
             if script.id and paths[script.id] then project.plugins.assetScripts[paths[script.id]] = name end
         end

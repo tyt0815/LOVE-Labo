@@ -8,6 +8,12 @@ function Prefab.decode(text)
     if data.formatVersion ~= 1 and data.formatVersion ~= 2 and data.formatVersion ~= 3 and data.formatVersion ~= 4 then return nil, "Unsupported Prefab format" end
     if data.formatVersion ~= 4 then return nil, "Legacy Prefab: convert to the attached-script format before opening" end
     if data.name ~= nil and (type(data.name) ~= "string" or data.name:match("^%s*$")) then return nil, "Invalid Prefab root name" end
+    if data.previewBackground ~= nil then
+        if type(data.previewBackground) ~= "table" or #data.previewBackground ~= 3 then return nil, "Invalid preview RGB" end
+        for _, channel in ipairs(data.previewBackground) do
+            if type(channel) ~= "number" or channel ~= channel or channel < 0 or channel > 255 then return nil, "Invalid preview RGB" end
+        end
+    end
     local attachments, attachmentError = require("project.ScriptAttachments").validate(data.scripts)
     if not attachments then return nil, attachmentError end
     data.scripts = attachments
