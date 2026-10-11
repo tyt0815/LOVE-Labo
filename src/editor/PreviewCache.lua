@@ -20,8 +20,7 @@ function Cache.save(project, reference)
         return bytes
     end
     snapshot.readAsset, snapshot.readSource, snapshot.draftAssets = read, read, {}
-    snapshot.plugins = setmetatable({project = snapshot, plugins = project.plugins.plugins, scripts = project.plugins.scripts,
-        enabled = project.plugins.enabled, assetScripts = project.plugins.assetScripts, loaded = {}}, require("project.PluginRegistry"))
+    snapshot.plugins = project.plugins:forProject(snapshot)
     local model
     local ok, result = pcall(function()
         model = require("editor.Preview").new(snapshot, {reference = reference})
@@ -29,7 +28,7 @@ function Cache.save(project, reference)
             local source = script.source
             local plugin = project.plugins.scripts[source]
             if plugin then source = plugin.id end
-            if source then read(snapshot, source) end
+            if source and source ~= "Script" then read(snapshot, source) end
             local class = getmetatable(script)
             while class do
                 local inheritedPlugin = project.plugins.scripts[class.scriptType]

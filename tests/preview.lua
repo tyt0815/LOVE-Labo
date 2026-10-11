@@ -79,4 +79,10 @@ add("Inspector wheel scroll survives drawing with a large independent preview pa
     app.inspectorSource = "scene"; app.sceneView:setSelection({object}); app:updateInspectorTarget(); app:draw()
     scrollAndDraw()
 end)
+add("Visual Prefabs with the core Script attachment generate saved thumbnails", function()
+    local p, doc, editor = fixture()
+    assert(editor:addScript("root", "Script", "base")); assert(doc:save(p))
+    assert(require("editor.PreviewCache").save(p, doc.assetId))
+    Assert.truthy(require("editor.PreviewCache").read(p, doc.assetId))
+end)
 return tests
