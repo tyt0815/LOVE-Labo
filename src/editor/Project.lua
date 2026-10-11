@@ -115,7 +115,8 @@ function Project.create(parentPath, name)
         if not created then return rollback(err) end
         createdDirectories[#createdDirectories + 1] = directory
     end
-    local files = {{path = fs.join(root, Project.FILE_NAME), text = text}}
+    local files = {{path = fs.join(root, Project.FILE_NAME), text = text},
+        {path = fs.join(root, "plugins.json"), text = assert(Json.encode({version = 1, enabled = Json.array({})}, true))}}
     for _, file in ipairs(require("editor.ProjectInstructions").files()) do
         files[#files + 1] = {path = fs.join(root, file.name), text = file.text}
     end
@@ -168,6 +169,9 @@ function Project.open(rootPath)
     if not layoutReady then return nil, layoutError end
     project.defaultLevelReference = data.defaultLevelReference
     project.name = data.name
+    local pluginsOk, plugins = pcall(require("project.PluginRegistry").new, project)
+    if not pluginsOk then return nil, tostring(plugins) end
+    project.plugins = plugins
     local recovered, recoverError = require("editor.AssetRegistry").recoverMove(project)
     if not recovered then return nil, recoverError end
     local rebuilt, rebuildError = project:rebuildAssetIndex()
@@ -178,6 +182,7 @@ function Project.open(rootPath)
 end
 
 function Project:rebuildAssetIndex(skipRecovery, skipMigration)
+    if self.plugins then self.pluginAssets = require("editor.PluginAssets").new(self) end
     if not skipRecovery then
         local recovered, err = require("editor.AssetRegistry").recoverMove(self)
         if not recovered then return false, err end
@@ -217,12 +222,16 @@ function Project:getAssetReference(reference)
         if not path then return nil, "Asset ID is missing: " .. reference end
         return path
     end
-    return type(reference) == "string" and reference:gsub("^Sources/", "Assets/Scripts/") or reference
+    reference = type(reference) == "string" and reference:gsub("^Sources/", "Assets/Scripts/") or reference
+    return require("project.PluginCompatibility").reference(reference)
 end
 
 function Project:referenceForPath(path)
     if type(path) ~= "string" then return nil end
     local normalized = path:gsub("\\", "/")
+    if self.pluginAssets then for prefix, mount in pairs(self.pluginAssets.mounts) do
+        if normalized:lower():sub(1, #mount.path + 1) == mount.path:lower() .. "/" then return prefix .. normalized:sub(#mount.path + 1) end
+    end end
     local prefix = self.rootPath:gsub("/+$", "") .. "/"
     if normalized:lower():sub(1, #prefix) ~= prefix:lower() then return nil end
     local reference = normalized:sub(#prefix + 1)
@@ -240,6 +249,11 @@ end
 function Project:listDirectory(reference)
     if type(reference) ~= "string" or (reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/") then
         return nil, "Folder must be inside Assets"
+    end
+    local valid, validationError = validateReference(reference)
+    if not valid then return nil, validationError end
+    if self.pluginAssets and (self.pluginAssets.groups[reference] or self.pluginAssets:mount(reference)) then
+        return self.pluginAssets:list(reference)
     end
     local path, err = self:resolvePath(reference)
     if not path then return nil, err end
@@ -260,6 +274,12 @@ function Project:listDirectory(reference)
     for _, entry in ipairs(entries) do
         if not require("editor.AssetRegistry").isInternal(entry.name) then
             entry.reference = reference .. "/" .. entry.name
+            visible[#visible + 1] = entry
+        end
+    end
+    if reference == "Assets" and self.pluginAssets then
+        for _, entry in ipairs(self.pluginAssets:list(reference)) do
+            for _, physical in ipairs(visible) do if physical.name == entry.name then return nil, "Reserved plugin mount folder: " .. entry.name end end
             visible[#visible + 1] = entry
         end
     end
@@ -285,6 +305,14 @@ function Project:resolveProjectFile(reference)
     if type(reference) ~= "string" or (reference:sub(1, 7) ~= "Assets/") then
         return nil, "File must be inside Assets"
     end
+    local valid, validationError = validateReference(reference)
+    if not valid then return nil, validationError end
+    if self.pluginAssets and self.pluginAssets:mount(reference) then
+        local path, info = self.pluginAssets:info(reference)
+        if not path then return nil, info end
+        if info.type ~= "file" then return nil, "Expected a plugin asset file" end
+        return path
+    end
     local path, err = self:resolvePath(reference)
     if not path then return nil, err end
     local fs, current = filesystem(), self.rootPath
@@ -303,6 +331,9 @@ function Project:checkedEntry(reference)
     if type(reference) ~= "string" or (reference ~= "Assets" and reference:sub(1, 7) ~= "Assets/") then
         return nil, "Entry must be inside Assets"
     end
+    local valid, validationError = validateReference(reference)
+    if not valid then return nil, validationError end
+    if self.pluginAssets and (self.pluginAssets.groups[reference] or self.pluginAssets:mount(reference)) then return self.pluginAssets:info(reference) end
     local path, err = self:resolvePath(reference)
     if not path then return nil, err end
     local fs, current, last = filesystem(), self.rootPath, nil
@@ -367,6 +398,7 @@ end
 
 function Project:createEntry(folder, kind, name, options)
     options = options or {}
+    if self:isReadOnly(folder) then return false, "Labo plugins and plugin mount folders are read-only" end
     local valid, err = Project.isValidName(name)
     if not valid then return false, err end
     if kind == "lua" then name = require("editor.ClassName").fromModule(name, "LuaScript") end
@@ -395,7 +427,7 @@ function Project:createEntry(folder, kind, name, options)
     if kind == "lua" and options.parentReference then
         local parent, err = require("project.LuaScript").load(self, options.parentReference, options.scriptKind)
         if not parent then return false, err end
-        parentId = require("Engine")[options.parentReference] and options.parentReference or self:getAssetId(self:getAssetReference(options.parentReference))
+        parentId = (options.parentReference == "Script" or self.plugins and self.plugins.scripts[options.parentReference]) and options.parentReference or self:getAssetId(self:getAssetReference(options.parentReference))
         if not parentId then return false, "Parent script is not registered" end
     end
     local fs, createdDirectories, createdFiles, createdReferences = filesystem(), {}, {}, {}
@@ -408,16 +440,18 @@ function Project:createEntry(folder, kind, name, options)
         local current = ""
         for segment in reference:gmatch("[^/]+") do
             current = current == "" and segment or current .. "/" .. segment
-            local path, pathError = self:resolvePath(current)
-            if not path then return false, pathError end
-            local info, infoError = fs.info(path)
-            if infoError then return false, infoError end
-            if info then
-                if info.type ~= "directory" or info.isLink then return false, "Parent is not a regular folder" end
-            else
-                local ok, createError = fs.mkdir(path)
-                if not ok then return false, createError end
-                createdDirectories[#createdDirectories + 1] = path
+            if not (self.pluginAssets and self.pluginAssets.groups[current]) then
+                local path, pathError = self:resolvePath(current)
+                if not path then return false, pathError end
+                local info, infoError = fs.info(path)
+                if infoError then return false, infoError end
+                if info then
+                    if info.type ~= "directory" or info.isLink then return false, "Parent is not a regular folder" end
+                else
+                    local ok, createError = fs.mkdir(path)
+                    if not ok then return false, createError end
+                    createdDirectories[#createdDirectories + 1] = path
+                end
             end
         end
         return true
@@ -459,7 +493,8 @@ function Project:createEntry(folder, kind, name, options)
         if fs.info(assert(self:resolvePath(reference))) then return false, "Level file already exists" end
         local level = options.level or require("editor.Level").new()
         assert(level:setScriptReference(self:getAssetId(options.scriptReference) or options.scriptReference))
-        if not options.level and not options.empty then
+        if not options.level and not options.empty and self.plugins and self.plugins.scripts.Camera
+            and self.plugins.enabled[self.plugins.scripts.Camera.plugin] then
             local camera = assert(level:addLObject(0, 0, nil, "Camera"))
             camera.scripts = {{id = "camera", source = "Camera"}}
             level.mainCamera = {authoringId = camera.authoringId, script = "camera"}
@@ -481,6 +516,8 @@ function Project:createEntry(folder, kind, name, options)
 end
 
 function Project:deletionEntries(reference)
+    if self:isReadOnly(reference) then return false, "Plugin entry is read-only" end
+    if self.pluginAssets and self.pluginAssets.mounts[reference] then return false, "Plugin root cannot be deleted; disable it in Plugins" end
     if type(reference) == "string" and require("editor.AssetRegistry").isInternal(reference) then
         return false, "Metadata cannot be deleted separately"
     end
@@ -542,6 +579,8 @@ function Project:deleteEntry(reference)
 end
 
 function Project:moveEntry(source, destination)
+    if self:isReadOnly(source) or self:isReadOnly(destination) then return false, "Plugin entry is read-only" end
+    if self.pluginAssets and self.pluginAssets.mounts[source] then return false, "Plugin root cannot be moved" end
     if source == "Assets" then return false, "Project roots cannot be moved" end
     if type(destination) ~= "string" then return false, "Enter a destination path" end
     if source:match("^[^/]+") ~= destination:match("^[^/]+") then return false, "Keep the entry in its Assets root" end
@@ -633,12 +672,25 @@ function Project:resolvePath(reference)
     if not valid then
         return nil, err
     end
+    if self.pluginAssets then
+        local mounted = self.pluginAssets:path(reference)
+        if mounted then return mounted end
+    end
 
     if self.rootPath:sub(-1) == "/" then
         return self.rootPath .. reference
     end
 
     return self.rootPath .. "/" .. reference
+end
+
+function Project:isReadOnly(reference)
+    reference = self:getAssetReference(reference)
+    if type(reference) ~= "string" then return false end
+    if self.pluginAssets then
+        return self.pluginAssets:readOnly(reference)
+    end
+    return false
 end
 
 return Project

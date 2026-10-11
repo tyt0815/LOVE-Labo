@@ -12,7 +12,7 @@ function MainCamera.resolve(world, value)
     for _, object in ipairs(world.lobjects) do
         if object.authoringId == value.authoringId then
             local script = object.scripts[value.script]
-            if script and script:isA(require("core.CameraScript")) then return script end
+            if script and script.camera then return script end
         end
     end
 end
@@ -25,7 +25,7 @@ function MainCamera.choices(project, level, object)
     if not ok then return nil, configureError end
     local result = {}
     for _, name in ipairs(preview:getScriptOrder()) do
-        if preview.scripts[name]:isA(require("core.CameraScript")) then
+        if preview.scripts[name].camera then
             result[#result + 1] = {authoringId = object.authoringId, script = name}
         end
     end

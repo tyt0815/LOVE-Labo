@@ -5,13 +5,14 @@ function Package.new(manifest)
     for reference, meta in pairs(manifest.metadata or {}) do
         self.assetIds[reference], self.assetPaths[meta.id] = meta.id, reference
     end
+    self.plugins = require("project.PluginRegistry").new(self, manifest.plugins or {manifests = {}, enabled = {}})
     return self
 end
 function Package:getAssetReference(reference)
     if require("project.AssetId").isValid(reference) then
         return self.assetPaths[reference], "Asset ID is missing: " .. reference
     end
-    return reference
+    return require("project.PluginCompatibility").reference(reference)
 end
 function Package:getAssetId(reference) return self.assetIds[reference] end
 function Package:resolve(reference, root)

@@ -1,5 +1,8 @@
 # 카메라와 화면 UI
 
+
+Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그인](plugins.md)을 활성화합니다. 새 프로젝트에서는 모두 꺼져 있습니다.
+
 ## Main Camera
 
 빈 곳을 클릭해 레벨 Details를 열고 Camera 그룹의 Main Camera 스포이드를 누릅니다. Camera 스크립트가 부착된 인스턴스를 고르고, 여러 개면 부착 ID를 선택합니다. 레벨에는 `{authoringId, script}`를 저장합니다.
@@ -22,14 +25,14 @@ Canvas 스크립트가 붙은 LObject는 화면 좌표계를 시작합니다. �
 
 ```text
 Hud LObject [Canvas]
-└─ Panel LObject [Rect]
+└─ Panel LObject [RectBounds]
    └─ Button LObject [Sprite, Pointer]
 
 대괄호: 오브젝트가 소유하는 부착 스크립트
 Pointer.boundsSource → 같은 Button의 Sprite 부착 ID
 ```
 
-Rect는 보이지 않는 영역입니다. 그림에는 Sprite, 클릭에는 Pointer 또는 사용자 hitTest를 부착합니다. fillParent는 가장 가까운 부모 오브젝트의 영역을 사용합니다. 정확히 채우려면 자손 Transform을 기본값으로 둡니다. 앵커·자동 레이아웃·자손 클리핑은 제공하지 않습니다.
+RectBounds는 게임에서 그림을 그리지 않는 영역입니다. 편집 화면에서는 경계를 표시하고 PIE에서는 숨깁니다. 그림에는 Sprite, 클릭에는 Pointer 또는 사용자 hitTest를 부착합니다. fillParent는 가장 가까운 부모 오브젝트의 영역을 사용합니다. 정확히 채우려면 자손 Transform을 기본값으로 둡니다. 앵커·자동 레이아웃·자손 클리핑은 제공하지 않습니다.
 
 ## 표시와 입력 순서
 

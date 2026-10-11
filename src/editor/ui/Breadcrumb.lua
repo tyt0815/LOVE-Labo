@@ -32,11 +32,13 @@ function Breadcrumb:items()
     local font = love.graphics.getFont()
     for name in self.path:gmatch("[^/]+") do
         reference = reference == "" and name or reference .. "/" .. name
-        local current = reference == self.path
-        local width = (current and Fonts.boldFor(font) or font):getWidth(name)
-        result[#result + 1] = { label = name, reference = reference, current = current, x = left,
-            y = self.y + 2, w = width, h = self.height - 4 }
-        left = left + width + font:getWidth(SEPARATOR)
+        if not self.root or reference == self.root or reference:sub(1, #self.root + 1) == self.root .. "/" then
+            local current = reference == self.path
+            local width = (current and Fonts.boldFor(font) or font):getWidth(name)
+            result[#result + 1] = { label = name, reference = reference, current = current, x = left,
+                y = self.y + 2, w = width, h = self.height - 4 }
+            left = left + width + font:getWidth(SEPARATOR)
+        end
     end
     return result
 end

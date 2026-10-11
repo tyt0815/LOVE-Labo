@@ -80,3 +80,7 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 ```
 
 위 명령은 에디터를 패키징하고 실제 CLI로 스크립트·Prefab·레벨을 생성한다. 부착 순서, 초기화·업데이트, 포인터, 사용자 draw와 독립 게임 Export를 검증한다. 결과는 `build/cli-export-<고유값>/Game.love`와 `game-report.json`에 남는다.
+
+## 플러그인 관리
+
+`plugin.list`, `plugin.create`, `plugin.plan`, `plugin.enable`, `plugin.disable`을 지원합니다. 의존성을 함께 변경하려면 `--confirm true`를 사용합니다. [상태 표시·에셋 탐색·JSON 예제](guide/plugins.md)를 참고하세요.

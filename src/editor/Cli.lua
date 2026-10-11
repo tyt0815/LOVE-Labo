@@ -62,6 +62,7 @@ end
 local api = {required = required, absolute = absolute, revision = revision, checkRevision = checkRevision,
     basicResult = basicResult, value = value, setProperty = setProperty, properties = properties}
 local COMMANDS = {"project.create", "project.info", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
+    "plugin.list", "plugin.create", "plugin.enable", "plugin.disable", "plugin.plan",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
     "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
@@ -91,6 +92,33 @@ local function execute(request)
         return {project = project.rootPath, name = project.name}
     end
     local project = assert(Project.open(absolute(required(request, "project"))))
+    local readOnlyCommand = command:match("%.get$") or command:match("%.list$") or command:match("%.tree$")
+        or command:match("%.validate$") or command:match("%.simulate$") or command:match("%.pointer$") or command:match("%.view$")
+        or command == "export" or command == "asset.copy" or command == "project.set-default"
+    if not readOnlyCommand then
+        for _, field in ipairs({"prefab", "level", "asset"}) do
+            if request[field] and type(request[field]) == "string" then assert(not project:isReadOnly(request[field]), "Labo plugin assets are read-only") end
+        end
+    end
+    if command:match("^plugin%.") then
+        local operations = require("editor.PluginOperations")
+        if command == "plugin.list" then
+            local result = {}
+            for _, name in ipairs(project.plugins:names()) do
+                local plugin = project.plugins.plugins[name]
+                result[#result + 1] = {name = name, origin = plugin.origin, enabled = project.plugins.enabled[name] == true, dependencies = plugin.dependencies}
+            end
+            return {plugins = result}
+        end
+        if command == "plugin.create" then
+            local ok, result = operations.create(project, required(request, "name"), request.dependencies)
+            assert(ok, result); return result
+        end
+        local enabled = command ~= "plugin.disable"
+        if command == "plugin.plan" then return {plugins = assert(operations.plan(project, required(request, "name"), request.enabled ~= false))} end
+        local ok, result = operations.apply(project, required(request, "name"), enabled, request.confirm == true or request.confirm == "true")
+        assert(ok, result); return {changed = result}
+    end
     local extra = require("editor.CliAssets").execute(project, request, api)
     if extra then return extra end
     if command == "project.info" then return {project = project.rootPath, name = project.name, defaultLevel = project.defaultLevelReference, assets = project.assetMetadata} end
@@ -98,7 +126,7 @@ local function execute(request)
         local kind = command:match("^(.-)%.")
         local folder = request.folder or "Assets"
         local parent = kind == "class" and request.parent
-        local builtin = ({Script = true, Camera = true, Sprite = true, Pointer = true, Rect = true, Canvas = true})[parent or ""]
+        local builtin = parent == "Script" or project.plugins.scripts[parent or ""]
         local options = {scriptKind = request.type or builtin and "script" or (parent and assert(project:getScriptKind(parent))) or "script",
             parentReference = parent, scriptReference = request.class, empty = request.empty == true or request.empty == "true"}
         local capturedDocument, capturedObject, capturedPaths, capturedLevelBytes

@@ -4,8 +4,8 @@ LObject에 스크립트를 여러 개 부착합니다. 모든 스크립트가 �
 
 ```text
 LObject — 소유 → Transform, 자손 LObject, Script 인스턴스 목록
-Script ← 상속 — Camera / Sprite / Pointer / Rect / Canvas / 사용자 정의
-Bounds ← 의존 — Sprite / Pointer / Rect의 선택적 영역 계산
+Script ← 상속 — Camera / Sprite / Pointer / RectBounds / Canvas / 사용자 정의
+Bounds ← 의존 — Sprite / Pointer / RectBounds의 선택적 영역 계산
 ```
 
 Prefab Inspector의 **Add Script**에서 기본 스크립트나 Lua 에셋을 고릅니다. `s1` 같은 부착 ID는 프로퍼티 재정의·참조의 키이며 파일 이름과 별개입니다. 그룹의 Remove로 제거하고 헤더 우클릭으로 순서를 바꿉니다. 같은 Lua 파일을 여러 번 부착해도 상태는 독립적입니다. **배치 인스턴스에서도 로컬 스크립트를 추가·제거·정렬할 수 있습니다. 상속한 스크립트는 고정하며 값만 수정합니다.**
@@ -15,7 +15,7 @@ Prefab Inspector의 **Add Script**에서 기본 스크립트나 Lua 에셋을 �
 | Camera | viewWidth, viewHeight, zoom; 공용 카메라 투영 |
 | Sprite | image, fillParent, sortingOrder; 이미지 그리기 |
 | Pointer | 사각형 또는 boundsSource, inputPriority, blockPointer; 포인터 소비 |
-| Rect | width, height, fillParent; 보이지 않는 영역 |
+| RectBounds | width, height, fillParent; 보이지 않는 영역 |
 | Canvas | width, height, matchViewport; 화면 좌표계 시작 |
 
 선언된 `properties`만 Inspector에 표시됩니다. `group`을 지정하면 별도 그룹으로 묶이며 기본 그룹은 부착 ID와 스크립트 타입입니다. number/string/boolean 외에 image, object, script, prefab를 지원합니다. `lobjectTemplate`은 prefab의 호환 별칭입니다. object는 같은 계층·레벨의 LObject, script는 그 오브젝트의 특정 부착 인스턴스입니다.

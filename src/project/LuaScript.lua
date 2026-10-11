@@ -10,6 +10,8 @@ end
 
 -- 한 로드 범위 안에서만 클래스를 공유한다. 다음 검사·Play에서는 소스를 다시 읽는다.
 function LuaScript.loader(project)
+    if project then project.plugins = project.plugins or require("project.PluginRegistry").new(project,
+        not project.rootPath and {manifests = {}, enabled = {}} or nil) end
     local loaded, visiting = {}, {}
     local modules, loadingModules = {}, {}
     local moduleRequire
@@ -17,6 +19,12 @@ function LuaScript.loader(project)
         return setmetatable({require = moduleRequire}, {__index = _G})
     end
     moduleRequire = function(name)
+        if name == "Engine" then
+            return setmetatable({}, {__index = function(_, key)
+                if project.plugins.scripts[key] then return assert(project.plugins:loadScript(key)) end
+                return require("Engine")[key]
+            end})
+        end
         local reference = type(name) == "string" and "Assets/" .. name:gsub("%.", "/") .. ".lua"
         if not reference or not project:getAssetId(reference) then return require(name) end
         if modules[reference] ~= nil then return modules[reference] end
@@ -34,10 +42,13 @@ function LuaScript.loader(project)
         return modules[reference]
     end
     local function load(reference, expectedKind, depth)
-        local builtin = expectedKind == "script" and ({Script = true, Camera = true, Sprite = true, Pointer = true, Rect = true, Canvas = true})[reference] and require("Engine")[reference]
-        if builtin then return builtin end
+        if expectedKind == "script" and (reference == "Script" or project.plugins and project.plugins.scripts[reference]) then
+            return project.plugins:loadScript(reference)
+        end
         local canonical, referenceError = project:getAssetReference(reference)
         if not canonical then return nil, referenceError end
+        local pluginScript = project.plugins.assetScripts and project.plugins.assetScripts[canonical]
+        if pluginScript then return project.plugins:loadScript(pluginScript) end
         local key = project:getAssetId(canonical) or canonical
         if visiting[key] then return nil, "Lua Class inheritance cycle: " .. canonical end
         if (depth or 0) > 64 then return nil, "Lua Class inheritance is too deep" end
@@ -59,7 +70,11 @@ function LuaScript.loader(project)
         local function fail(err) visiting[key] = nil; return nil, err end
         local parent
         if class.extends ~= nil then
-            parent = kind == "script" and ({Script = true, Camera = true, Sprite = true, Pointer = true, Rect = true, Canvas = true})[class.extends] and require("Engine")[class.extends] or nil
+            if kind == "script" and (class.extends == "Script" or project.plugins and project.plugins.scripts[class.extends]) then
+                local parentError
+                parent, parentError = project.plugins:loadScript(class.extends)
+                if not parent then return fail(parentError) end
+            end
             if not parent and not Id.isValid(class.extends) then return fail("extends must be a script asset ID or built-in script") end
             local parentError
             if not parent then parent, parentError = load(class.extends, kind, (depth or 0) + 1) end

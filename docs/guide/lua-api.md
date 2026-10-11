@@ -1,5 +1,8 @@
 # Lua API와 생명주기
 
+
+Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그인](plugins.md)을 활성화합니다. 새 프로젝트에서는 모두 꺼져 있습니다.
+
 Lua 파일은 스크립트 정의 테이블을 반환합니다. LObject를 상속하지 않습니다. `self`는 부착마다 생성되는 스크립트이고 `self.owner`는 Transform과 자손을 가진 LObject입니다. Lua 5.1/LuaJIT와 일반 LÖVE API를 사용할 수 있습니다.
 
 ```lua
@@ -26,7 +29,7 @@ return Movement
 
 `beginPlay(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 초기화 중 추가된 스크립트도 초기화하며 실행 중인 콜백에 재진입하지 않습니다. 부모 오브젝트에서 자손으로, 같은 오브젝트에서는 부착 순서로 실행합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
 
-`extends = "Sprite"`처럼 기본 스크립트를 확장하거나 다른 Lua 스크립트의 에셋 ID를 부모로 지정할 수 있습니다. `require("Engine")`은 LObject, Script, Camera, Sprite, Pointer, Rect, Canvas를 제공합니다. 프로젝트 내부 일반 모듈은 `require("Helpers.Math")`로 `Assets/Helpers/Math.lua`를 읽습니다.
+활성화한 플러그인의 `extends = "Sprite"`를 사용하거나 다른 Lua 스크립트의 에셋 ID를 부모로 지정할 수 있습니다. `require("Engine")`은 LObject·Script·일반 API를 제공하며 Camera·Sprite·Pointer·RectBounds·Canvas는 해당 플러그인을 활성화해야 사용합니다. 프로젝트 내부 일반 모듈은 `require("Helpers.Math")`로 `Assets/Helpers/Math.lua`를 읽습니다.
 
 | API | 역할 |
 |---|---|

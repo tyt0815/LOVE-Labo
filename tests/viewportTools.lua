@@ -140,9 +140,9 @@ add("Snap panel consumes pointer and text input and rejects invalid units", func
         view.spriteAssets = {
             preview = function(_, authoring)
                 local preview = assert(require("core.LObject").new(1, authoring))
-                preview:addScript("first", require("Engine").Sprite, {image = "preview"})
+                preview:addScript("first", require("plugins.LaboEssentials.Assets.Sprite"), {image = "preview"})
                 local child = assert(require("core.LObject").new(2, {transform = {x = 80, y = 30}}))
-                child:attachTo(preview); child:addScript("second", require("Engine").Sprite, {image = "preview"})
+                child:attachTo(preview); child:addScript("second", require("plugins.LaboEssentials.Assets.Sprite"), {image = "preview"})
                 return preview
             end,
             image = function() return image end,
@@ -346,7 +346,7 @@ add("Rotation and scale persist duplicate and enter an independent Runtime world
 end)
 
 add("Rotated scaled Sprites render and select using the same transform", function()
-    local E = require("Engine")
+    local E = setmetatable({Sprite = require("plugins.LaboEssentials.Assets.Sprite")}, {__index = require("Engine")})
     local object = assert(require("core.LObject").new(1, {transform = {x = 50, y = 60, rotation = 90, scaleX = 2, scaleY = 3}}))
     local child = assert(require("core.LObject").new(2, {transform = {x = 10, y = 0}}))
     child:attachTo(object)
@@ -485,7 +485,7 @@ end)
 
 add("Selected rendering bounds include every transformed Sprite and hide missing images", function()
     local object = assert(require("core.LObject").new(1, {transform = {x = 60, y = 60, rotation = 90, scaleX = 2, scaleY = 3}}))
-    local Sprite = require("Engine").Sprite
+    local Sprite = require("plugins.LaboEssentials.Assets.Sprite")
     object:addScript("first", Sprite, {image = "image"})
     local child = assert(require("core.LObject").new(2, {transform = {x = 20, y = 0}}))
     child:attachTo(object); child:addScript("second", Sprite, {image = "image"})
@@ -530,7 +530,7 @@ end)
 add("XY rotations project Sprite geometry and share render picking and outline matrices", function()
     local T, Renderer = require("core.Transform"), require("core.SpriteRenderer")
     local object = assert(require("core.LObject").new(1, {transform = {x = 80, y = 80, rotationX = 60, rotationY = 60}}))
-    object:addScript("sprite", require("Engine").Sprite, {image = "example"})
+    object:addScript("sprite", require("plugins.LaboEssentials.Assets.Sprite"), {image = "example"})
     local x, y = T.point(object.transform, 8, 4)
     near(87, x); near(82, y)
     local lx, ly = T.inversePoint(object.transform, x, y)

@@ -1,5 +1,8 @@
 # 스크립트와 Prefab
 
+
+Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그인](plugins.md)을 활성화합니다. 새 프로젝트에서는 모두 꺼져 있습니다.
+
 **Lua 스크립트는 행동 정의**, **Prefab은 오브젝트 계층과 부착 구성의 저장 에셋**, **인스턴스는 레벨에 배치한 실체**입니다. LObject에는 여러 스크립트를 부착할 수 있습니다.
 
 ![Prefab Inspector](images/prefab-details.png)

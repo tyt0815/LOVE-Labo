@@ -139,6 +139,11 @@ function Registry.rebuild(project)
         if not wrote then return false, err end
     end
     project.assetPaths, project.assetIds, project.assetMetadata = paths, ids, metadata
+    if project.plugins then
+        for name, script in pairs(project.plugins.scripts) do
+            if script.id and paths[script.id] then project.plugins.assetScripts[paths[script.id]] = name end
+        end
+    end
     project.assetIdsByLower = {}
     for reference, id in pairs(ids) do project.assetIdsByLower[reference:lower()] = id end
     local text = assert(Json.encode({version = 1, paths = paths}, true)) .. "\n"
@@ -153,7 +158,7 @@ function Registry.migrate(project, projectData)
         return project:getAssetId(reference) or reference
     end
     for _, reference in pairs(project.assetPaths) do
-        if reference:match("%.level$") or reference:match("%.prefab$") then
+        if not project:isReadOnly(reference) and (reference:match("%.level$") or reference:match("%.prefab$")) then
             local path = assert(project:resolvePath(reference))
             local text, readError = Fs.read(path)
             if not text then return false, readError end

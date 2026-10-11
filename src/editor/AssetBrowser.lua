@@ -169,29 +169,37 @@ end
 function AssetBrowser:rebuildTree()
     self.tree = {}
     local function visit(reference, name, depth)
-        self.tree[#self.tree + 1] = { reference = reference, name = name, depth = depth }
-        if not self.expanded[reference] then return end
+        local node = {reference = reference, name = name, depth = depth, hasChildren = false}
+        self.tree[#self.tree + 1] = node
         if not self.children[reference] then
-            local entries, err = self.project:listDirectory(reference)
+            local entries, err = require("editor.AssetFolders").list(self.project, reference)
             if not entries then self.error = err; return end
             self.children[reference] = entries
         end
+        for _, entry in ipairs(self.children[reference]) do
+            if entry.type == "directory" and not entry.isLink then node.hasChildren = true; break end
+        end
+        if not self.expanded[reference] then return end
         for _, entry in ipairs(self.children[reference]) do
             if entry.type == "directory" and not entry.isLink then
                 visit(entry.reference, entry.name, depth + 1)
             end
         end
     end
-    visit("Assets", "Assets", 0)
+    for _, root in ipairs(require("editor.AssetFolders").roots(self.project, "Assets")) do visit(root.reference, root.name, 0) end
     self:clampScroll()
 end
 
 function AssetBrowser:openFolder(reference)
     if self.drag and self.drag.active then return false, "Finish or cancel the drag first" end
-    local entries, err = self.project:listDirectory(reference)
+    local entries, err = require("editor.AssetFolders").list(self.project, reference)
     if not entries then self.error = err; return false, err end
     self.folder, self.entries, self.error = reference, entries, nil
     self.breadcrumb.path = reference
+    self.breadcrumb.root = "Assets"
+    for group in pairs(self.project.pluginAssets and self.project.pluginAssets.groups or {}) do
+        if reference == group or reference:sub(1, #group + 1) == group .. "/" then self.breadcrumb.root = group; break end
+    end
     self.thumbnails:clear()
     self.children[reference] = entries
     self.selectedReference, self.selectedReferences, self.fileScroll = nil, {}, 0
@@ -264,7 +272,7 @@ function AssetBrowser:reveal(value)
 end
 
 function AssetBrowser:goUp()
-    if self.folder == "Assets" then return false end
+    if self.folder == "Assets" or self.project.pluginAssets and self.project.pluginAssets.groups[self.folder] then return false end
     return self:openFolder(self.folder:match("^(.*)/[^/]+$"))
 end
 
@@ -341,7 +349,7 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
     if self.treeSlot.widget:containsPoint(x, y) then
         local node = self.tree[index + self.treeScroll]
         if not node then return true end
-        if x < self.treeSlot.widget.x + Ui.METRICS.contentPaddingX + 18 + node.depth * 14 then
+        if node.hasChildren and x < self.treeSlot.widget.x + Ui.METRICS.contentPaddingX + 18 + node.depth * 14 then
             self.expanded[node.reference] = not self.expanded[node.reference]
             self:rebuildTree()
         elseif node.reference == "Assets" then self:openFolder(node.reference)
@@ -598,8 +606,9 @@ function AssetBrowser:showContextMenu(x, y)
                 action = function() self:showCreateDialog(folder, kind) end }
         end
     end
-    local items = { { label = "New", children = newItems } }
-    if entry and entry.reference ~= "Assets" then
+    local items = { { label = "New", children = newItems, enabled = not self.project:isReadOnly(folder) } }
+    if entry and entry.reference ~= "Assets" and not self.project:isReadOnly(entry.reference)
+        and not (self.project.pluginAssets and self.project.pluginAssets.mounts[entry.reference]) then
         items[#items + 1] = { label = "Move", enabled = not entry.isLink,
             action = function() self:showMoveSelectionDialog(entry) end }
         items[#items + 1] = { label = "Rename", enabled = not entry.isLink and #self:getSelectedEntries() <= 1,
@@ -712,7 +721,7 @@ function AssetBrowser:drawTree()
             Ui.treeRow({x = view.x, y = rowY, w = view.width, h = ROW}, node.reference == self.folder)
             Ui.treeLines(view.x + Ui.METRICS.contentPaddingX, rowY, ROW, node.depth, 14, highlights[i])
             local arrowX, arrowY = view.x + Ui.METRICS.contentPaddingX + node.depth * 14, rowY + ROW / 2
-            Ui.chevron(arrowX, arrowY, self.expanded[node.reference])
+            if node.hasChildren then Ui.chevron(arrowX, arrowY, self.expanded[node.reference]) end
             Ui.text(node.name, view.x + Ui.METRICS.contentPaddingX + 16 + node.depth * 14, rowY + 5, view.width - Ui.METRICS.contentPaddingX - 26 - node.depth * 14)
         end
     end

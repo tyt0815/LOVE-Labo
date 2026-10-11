@@ -21,6 +21,7 @@ function PrefabDocument:isDirty()
 end
 
 function PrefabDocument:save(project)
+    if project:isReadOnly(self.assetId) then return false, "Labo plugin assets are read-only" end
     -- 이동 후에도 ID로 현재 파일 위치를 찾는다.
     local path, err = project:resolveAssetFile(self.assetId)
     if not path then return false, err end

@@ -1,4 +1,3 @@
-local Pointer = require("core.PointerScript")
 local Transform = require("core.Transform")
 local Input = {}
 local CALLBACKS = {down = "onPointerDown", up = "onPointerUp", move = "onPointerMove"}

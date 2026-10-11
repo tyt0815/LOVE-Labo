@@ -23,4 +23,5 @@ function Pointer:hitTest(context, x, y)
     if target then return target:hitTest(context, x, y) end
     return Bounds.hitTest(self, context, x, y)
 end
+function Pointer:drawEditor(context) context:bounds(self:getBoundsSource()) end
 return Pointer

@@ -25,11 +25,14 @@ function Bar.new(app)
 end
 function Bar:buttons()
     return {{label = "File", name = "file", x = self.x + 8, y = self.y + 3, w = 58, h = 26},
-        {label = "Run", name = "run", x = self.x + 70, y = self.y + 3, w = 58, h = 26}}
+        {label = "Run", name = "run", x = self.x + 70, y = self.y + 3, w = 58, h = 26},
+        {label = "Plugins", name = "plugins", x = self.x + 132, y = self.y + 3, w = 80, h = 26}}
 end
 function Bar:items(name)
     local app = self.app
     local editable = not app:isPlaying()
+    if name == "plugins" then return {{label = "Manage Plugins...", enabled = app.project ~= nil and editable,
+        action = function() require("editor.ui.PluginDialog").new(app) end}} end
     if name == "run" then return {
         {label = "Play", shortcut = "F5", enabled = editable, action = function() app:startPlay() end},
         {label = "Stop", shortcut = "F5", enabled = not editable, action = function() app:stopPlay() end}}

@@ -25,13 +25,13 @@ self는 스크립트이며 self.owner.transform, self.owner:getScript(id)로 오
 일반 Lua 필드는 Inspector에 노출되지 않는다. properties에 number/string/boolean/object/script/image/prefab를 선언한다.
 group으로 프로퍼티를 묶는다. object 참조는 authoringId, script 참조는 {authoringId=ID, script="부착ID"}로 저장한다.
 
-require("Engine")은 LObject, Script, Camera, Sprite, Pointer, Rect, Canvas를 제공한다.
+require("Engine")은 LObject, Script와 공간·바운드 API를 제공한다. Camera, Sprite, Pointer, RectBounds, Canvas는 LaboEssentials를 활성화한 경우에만 제공된다. 새 부착에는 RectBounds를 사용하며 기존 Rect 별칭은 읽기 호환성을 유지한다.
 편의 스크립트는 Script를 직접 상속하며 별도의 컴포넌트 계층·루트 컴포넌트는 없다.
 Camera의 viewWidth/viewHeight는 논리 화면 크기이고 zoom은 배율이다. World의 setActiveCamera로 전환한다.
 Canvas는 화면 중심을 원점으로 하는 픽셀 좌표계를 시작한다. Pointer의 boundsSource는 같은 오브젝트의 스크립트 ID다.
 onPointerDown/up/move에서 true를 반환하면 입력을 소비한다. 직접 hitTest/getLocalBounds를 구현할 수도 있다.
 world:spawnLObject(prefab, transform, overrides)로 Prefab 계층을 생성하고 world:removeLObject(object)로 자손까지 제거한다.
-world:openLevel(reference)은 프레임 경계에서 레벨을 전환한다. 새 레벨은 기본 Camera와 Main Camera 지정을 포함한다.
+world:openLevel(reference)은 프레임 경계에서 레벨을 전환한다. Camera 플러그인이 활성화된 프로젝트의 새 레벨에만 기본 Camera와 Main Camera 지정을 포함한다.
 
 ## 데이터와 CLI
 

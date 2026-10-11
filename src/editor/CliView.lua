@@ -14,7 +14,7 @@ function Operations.execute(project, level, request)
     for _, object in ipairs(world.lobjects) do
         for _, name in ipairs(object:getScriptOrder()) do
             local script = object.scripts[name]
-            if script:isA(require("core.CanvasScript")) then
+            if script.canvas then
                 local x, y, width, height = script:getBounds({viewport = viewport})
                 result.canvases[#result.canvases + 1] = {authoringId = object.authoringId, script = name,
                     x = x, y = y, width = width, height = height}

@@ -13,7 +13,7 @@ function Scripts.bind(project, target)
         id = id or "s" .. number
         if used[id] or not id:match("^[%a_][%w_]*$") then return false, "Invalid or duplicate script ID" end
         data.scripts = data.scripts or {}
-        data.scripts[#data.scripts + 1] = {id = id, source = require("Engine")[source] and source or project:getAssetId(project:getAssetReference(source))}
+        data.scripts[#data.scripts + 1] = {id = id, source = (source == "Script" or project.plugins.scripts[source]) and source or project:getAssetId(project:getAssetReference(source))}
         return true, id
     end
     target.removeScript = function(current, id)

@@ -25,13 +25,13 @@ function FolderTree:rebuild()
             or reference:lower():sub(1, #self.excluded + 1) == self.excluded:lower() .. "/") then return end
         self.nodes[#self.nodes + 1] = {reference = reference, depth = depth, name = reference:match("[^/]+$")}
         if not self.expanded[reference] then return end
-        local entries, err = self.project:listDirectory(reference)
+        local entries, err = require("editor.AssetFolders").list(self.project, reference)
         if not entries then self.error = err; return end
         for _, entry in ipairs(entries) do
             if entry.type == "directory" and not entry.isLink then visit(entry.reference, depth + 1) end
         end
     end
-    visit(self.root, 0)
+    for _, root in ipairs(require("editor.AssetFolders").roots(self.project, self.root)) do visit(root.reference, 0) end
     self:clampScroll()
 end
 

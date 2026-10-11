@@ -86,7 +86,7 @@ end
 function World:cancelPointer() self.pointerCaptures = {} end
 function World:setActiveCamera(camera)
     if camera == nil then self.activeCamera = nil; return true end
-    if type(camera) ~= "table" or type(camera.isA) ~= "function" or not camera:isA(require("core.CameraScript")) then return false, "Expected CameraScript" end
+    if type(camera) ~= "table" or not camera.camera or type(camera.getViewSize) ~= "function" or type(camera.getViewTransform) ~= "function" then return false, "Expected a camera script" end
     for _, object in ipairs(self.lobjects) do
         if camera.owner == object and object.scripts[camera.name] == camera then self.activeCamera = camera; return true end
     end
@@ -97,7 +97,7 @@ function World:getActiveCamera()
     for _, object in ipairs(self.lobjects) do
         for _, name in ipairs(object:getScriptOrder()) do
             local script = object.scripts[name]
-            if script:isA(require("core.CameraScript")) then
+            if script.camera then
                 if script == self.activeCamera then return script end
                 first = first or script
             end

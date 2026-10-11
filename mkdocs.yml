@@ -21,6 +21,7 @@ nav:
   - 사용자 매뉴얼:
       - 첫 프로젝트와 실행: guide/getting-started.md
       - 에디터 화면과 선택: guide/editor.md
+      - 플러그인: guide/plugins.md
       - 스크립트와 Prefab: guide/objects.md
       - 카메라와 화면 UI: guide/camera-ui.md
       - 저장과 게임 Export: guide/export.md

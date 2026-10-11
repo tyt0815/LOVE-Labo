@@ -10,4 +10,5 @@ function Canvas:getLocalBounds(context)
     assert(width >= 0 and height >= 0, "Invalid canvas size")
     return -width / 2, -height / 2, width, height
 end
+function Canvas:drawEditor(context) context:bounds(self) end
 return Canvas

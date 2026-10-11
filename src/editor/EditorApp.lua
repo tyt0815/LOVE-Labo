@@ -421,6 +421,7 @@ function EditorApp:saveAllDocuments()
     return true
 end
 function EditorApp:saveCurrentDocument(path)
+    if not path and self.project and self.documentAssetId and self.project:isReadOnly(self.documentAssetId) then return false, "Labo plugin assets are read-only; use Save Level As" end
     if not path and not self.document.path and self.project then
         self:showSaveLevelDialog()
         return true
@@ -500,6 +501,7 @@ function EditorApp:saveCurrentDocumentAs(reference)
     end
 
     self.documentReference = reference
+    if self.levelInspectorTarget then self.levelInspectorTarget.readOnly = self.project:isReadOnly(reference) end
 
     return true
 end
@@ -599,6 +601,9 @@ function EditorApp:openProjectDocument(
 end
 
 function EditorApp:initializeUI()
+    if self.levelInspectorTarget and self.project and self.documentReference then
+        self.levelInspectorTarget.readOnly = self.project:isReadOnly(self.documentReference)
+    end
     local Widget = require("editor.ui.Widget")
     local Canvas = require("editor.ui.Canvas")
     local Root = require("editor.ui.Root")
@@ -1009,7 +1014,7 @@ function EditorApp:pickReferenceAt(x, y)
             local index = math.floor((y - tree.y) / require("editor.Ui").METRICS.treeRowHeight) + 1 + self.assetBrowser.treeScroll
             local node = self.assetBrowser.tree[index]
             if node then
-                if x < tree.x + require("editor.Ui").METRICS.contentPaddingX + 18 + node.depth * 14 then
+                if node.hasChildren and x < tree.x + require("editor.Ui").METRICS.contentPaddingX + 18 + node.depth * 14 then
                     self.assetBrowser.expanded[node.reference] = not self.assetBrowser.expanded[node.reference]; self.assetBrowser:rebuildTree()
                 else self.assetBrowser:openFolder(node.reference) end
                 return

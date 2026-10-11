@@ -162,6 +162,7 @@ function ClassInspector:updateOptions()
 end
 
 function ClassInspector:selectParent(value)
+    if self.target.readOnly then return false, "Labo plugin assets are read-only" end
     self:commitEdit()
     local snapshot = self.target.getSnapshot and self.target.getSnapshot()
     local class, err, parentTarget
@@ -200,6 +201,7 @@ function ClassInspector:selectParent(value)
 end
 
 function ClassInspector:setProperty(name, value)
+    if self.target.readOnly then return false, "Labo plugin assets are read-only" end
     if name == "$mainCamera" and self.target.mainCameraDetails then
         if value == false then return self.target:setMainCamera(nil) end
         self.error = "Use the eyedropper to select a camera instance"; return false
@@ -777,9 +779,11 @@ end
 function ClassInspector:showAddScript(y)
     if not self.target.addScript then return false end
     local options = {}
-    for _, name in ipairs({"Script", "Camera", "Sprite", "Pointer", "Rect", "Canvas"}) do options[#options + 1] = {label = name, value = name} end
+    for _, name in ipairs(self.project.plugins:scriptNames()) do options[#options + 1] = {label = name, value = name} end
     for _, reference in ipairs(self.project:listScripts("script") or {}) do
-        options[#options + 1] = {label = resourceName(reference), value = self.project:getAssetId(reference)}
+        if not self.project.plugins.assetScripts[reference] then
+            options[#options + 1] = {label = resourceName(reference), value = self.project:getAssetId(reference)}
+        end
     end
     local rect = self:attachmentRect(y)
     return require("editor.ui.ScriptPicker").new(self.root, rect, options, function(source)

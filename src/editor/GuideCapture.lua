@@ -9,6 +9,9 @@ function Capture.run(args)
         assert(Fs.mkdir(directory))
         assert(love.window.setMode(1440, 900, {resizable = false}))
         local project = assert(require("editor.Project").create(directory, "GuideExample"))
+        for _, name in ipairs({"LaboEssentials"}) do
+            assert(require("editor.PluginOperations").apply(project, name, true, true))
+        end
         assert(project:createEntry("Assets", "level", "L_Start"))
         local app = require("editor.EditorApp").new(nil, project)
         assert(app:openProjectDocument("Assets/L_Start.level", true))
@@ -113,6 +116,12 @@ return Player
             shot("inspector-hover", {x = details.left + 45, y = details.propertyTop + row.offset - details.scroll + 16})
         end end
         app:showObjectMenu(140, 140, nil); shot("context-empty"); app.uiRoot:keypressed("escape")
+        for _, name in ipairs({"OptionalUi", "SampleA", "SampleB", "SampleC"}) do assert(require("editor.PluginOperations").create(project, name)) end
+        assert(require("editor.PluginOperations").create(project, "DemoPlugin", {"LaboEssentials", "OptionalUi", "Unavailable"}))
+        local pluginDialog = require("editor.ui.PluginDialog").new(app)
+        pluginDialog.expanded.DemoPlugin = true; shot("plugins")
+        pluginDialog:toggle("LaboEssentials"); assert(pluginDialog.error); shot("plugin-errors")
+        app.uiRoot:keypressed("escape")
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

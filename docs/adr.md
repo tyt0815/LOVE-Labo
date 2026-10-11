@@ -59,3 +59,6 @@
 - [0056. Prefab 생성과 기존 계층 연결](adr/0056-create-prefab-and-connect-instances.md)
 
 - [0057. 연속 목록 행과 Prefab 소속 글자색](adr/0057-list-hover-and-prefab-text-colors.md)
+- [0058. 기능 스크립트 플러그인과 에셋 마운트](adr/0058-plugins-and-mounted-assets.md)
+- [0062. 플러그인 탐색 루트를 Assets와 나란히 표시](adr/0062-plugin-browser-roots.md)
+- [0063. 기본 기능 플러그인 통합과 편집 영역 표시](adr/0063-essentials-plugin-and-editor-bounds.md)

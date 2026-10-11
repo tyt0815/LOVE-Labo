@@ -16,14 +16,13 @@ function Tree.new(project, kind)
         self.expanded[key] = kind ~= "lua"
     end
     if kind == "lua" then
-        local parents = {Camera = "script", Sprite = "script", Pointer = "script", Rect = "script", Canvas = "script"}
-        for _, name in ipairs({"Camera", "Sprite", "Pointer", "Rect", "Canvas"}) do
-            local parent = self.records["builtin:" .. parents[name]]
+        for _, name in ipairs(project.plugins:scriptNames()) do if name ~= "Script" then
+            local parent = self.records["builtin:script"]
             local node = {reference = "builtin:" .. name, name = name, kind = "script", parentReference = name, children = {}}
             node.parent = parent.reference
             self.records[node.reference] = node
             parent.children[#parent.children + 1] = node
-        end
+        end end
     end
     local loader = require("project.LuaScript").loader(project)
     for reference, meta in pairs(project.assetMetadata or {}) do

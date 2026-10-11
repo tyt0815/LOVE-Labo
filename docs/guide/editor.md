@@ -31,6 +31,8 @@ Atom Light에서는 호버한 항목의 배경이 조금 어두워지고, 선택
 
 ![폴더 트리의 호버와 선택](images/tree-hover.png)
 
+에셋 브라우저 폴더뷰는 하위 폴더가 있는 행에만 펼치기·접기 화살표를 표시합니다. 파일만 있거나 비어 있는 폴더는 화살표 없이 선택·탐색합니다.
+
 ![계층의 호버와 Prefab 글자색](images/hierarchy-hover.png)
 
 ![에셋 카드 호버](images/asset-hover.png)

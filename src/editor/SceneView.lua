@@ -465,7 +465,6 @@ function SceneView:getCameraBounds(camera)
     return points
 end
 function SceneView:drawCameraBounds()
-    local Camera = require("core.CameraScript")
     for _, object in ipairs(self.level.lobjects) do
         local preview = self.spriteAssets:preview(object)
         if preview then

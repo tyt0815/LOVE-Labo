@@ -38,6 +38,7 @@ function Operations.execute(project, request, api)
         else source = assert(project:resolveProjectFile(assert(project:getAssetReference(api.required(request, "asset"))))) end
         local info = assert(Fs.info(source)); assert(info.type == "file" and not info.isLink, "Expected a regular file")
         local folder = request.folder or "Assets"
+        assert(not project:isReadOnly(folder), "Labo plugin assets are read-only")
         if command == "asset.copy" then
             local original = assert(project:getAssetReference(request.asset))
             assert(original:match("^[^/]+") == folder:match("^[^/]+"), "Keep the copy in its Assets root")
@@ -69,6 +70,7 @@ function Operations.execute(project, request, api)
         local bytes = assert(Fs.read(path)); api.checkRevision(request, bytes)
         local kind = assert(project:getScriptKind(reference))
         if command == "class.set-source" then
+            assert(not project:isReadOnly(reference), "Labo plugin assets are read-only")
             local text = api.required(request, "source")
             assert(type(text) == "string", "Source must be a string")
             local view = setmetatable({readSource = function(_, requested)

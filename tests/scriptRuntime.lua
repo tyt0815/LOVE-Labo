@@ -1,5 +1,6 @@
 local Assert = require("tests.Assert")
-local Engine = require("Engine")
+local Engine = setmetatable({}, {__index = require("Engine")})
+for _, name in ipairs({"Camera", "Sprite", "Pointer", "Rect", "Canvas"}) do Engine[name] = require("plugins.LaboEssentials.Assets." .. (name == "Rect" and "RectBounds" or name)) end
 local World = require("core.World")
 local tests = {}
 local function add(name, fn) tests[#tests + 1] = {name = name, fn = fn} end

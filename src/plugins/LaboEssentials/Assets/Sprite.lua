@@ -17,4 +17,5 @@ function Sprite:getLocalBounds(context)
     local image = context:image(self.image)
     if image then return -image:getWidth() / 2, -image:getHeight() / 2, image:getWidth(), image:getHeight() end
 end
+function Sprite:drawEditor(context) context:bounds(self) end
 return Sprite

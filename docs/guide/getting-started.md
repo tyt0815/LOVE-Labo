@@ -1,5 +1,8 @@
 # 첫 프로젝트와 실행
 
+
+Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그인](plugins.md)을 활성화합니다. 새 프로젝트에서는 모두 꺼져 있습니다.
+
 LÖVE Labo는 LÖVE 11.5 기반 2D 작업 환경입니다. 개발 실행은 `love src`, 배포본은 Labo.exe를 사용합니다.
 
 1. 시작 화면의 New project에서 이름과 부모 폴더를 선택합니다. 기존 폴더는 덮어쓰지 않습니다.

@@ -13,10 +13,11 @@ function Verification.run(args)
         check("external settings", not love.filesystem.getInfo("editor/settings.json"))
         check("bundled fonts", love.filesystem.getInfo("editor/fonts/NanumSquareRoundR.ttf"))
         check("component API removed", require("Engine").SceneComponent == nil and require("Engine").LObjectComponent == nil)
-        check("script API available", require("Engine").Script and require("Engine").Camera)
+        check("script API available", require("Engine").Script and love.filesystem.getInfo("plugins/LaboEssentials/plugin.json"))
         assert(not Fs.info(directory), "Verification directory must not exist")
         assert(Fs.mkdir(directory)); ownsDirectory = true
         local project = assert(require("editor.Project").create(directory, "PackageTest"))
+        for _, name in ipairs({"LaboEssentials"}) do assert(require("editor.PluginOperations").apply(project, name, true, true)) end
         local Cli = require("editor.Cli")
         local function run(command, fields)
             fields = fields or {}; fields.command, fields.project = command, project.rootPath
@@ -55,7 +56,7 @@ return Movement
         check("flat script groups", inspector.tree == nil and inspector.class.properties["movement.speed"])
         assert(app:inspectAsset("Assets/PF_Player.prefab")); app:draw(); app:recordHistory()
         check("Prefab scripts editable", inspector.target.addScript and inspector.target.removeScript)
-        assert(inspector.target:addScript("Rect", "rect")); inspector:reload(); app:recordHistory()
+        assert(inspector.target:addScript("RectBounds", "rect")); inspector:reload(); app:recordHistory()
         check("attachment visible", inspector.preview.scripts.rect ~= nil)
         assert(app:undoRedo(-1)); check("attachment Undo", inspector.preview.scripts.rect == nil)
         assert(app:undoRedo(1)); check("attachment Redo", inspector.preview.scripts.rect ~= nil)

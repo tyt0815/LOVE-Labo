@@ -33,6 +33,7 @@ function Editor:recipe()
     return recipe, err
 end
 function Editor:renameObject(path, name)
+    if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     if type(name) ~= "string" or name:match("^%s*$") then return false, "Name cannot be empty" end
     local recipe, err = self:recipe()
     if not recipe then return false, err end
@@ -99,9 +100,10 @@ function Editor:target(path)
     target.instance, target.hideParent, target.parentOwnerId = false, false, self.document.assetId
     if node.isInherited then target.hideParent = true end
     target.documentKey = self.document.assetId
-    target.addScript = function(_, source, id) return self:addScript(node.path, source, id) end
+    target.readOnly = self.project:isReadOnly(self.document.assetId)
+    target.addScript = not target.readOnly and function(_, source, id) return self:addScript(node.path, source, id) end or nil
     target.removeScript = function(_, id) return self:removeScript(node.path, id) end
-    target.canRemoveScript = function(_, id) return not self:scriptInherited(node.path, id) end
+    target.canRemoveScript = function(_, id) return not target.readOnly and not self:scriptInherited(node.path, id) end
     target.moveScript = function(_, id, index) return self:moveScript(node.path, id, index) end
     target.prefabScope, target.scopeByPath = true, byPath
     local baseBindings = inherited.bindings
@@ -193,6 +195,7 @@ function Editor:target(path)
     return target
 end
 function Editor:insertChild(reference, name, parentPath)
+    if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     local recipe, err = self:recipe()
     if not recipe then return false, err end
     local path = parentPath or self.selected
@@ -244,6 +247,7 @@ function Editor:addInstance(level, object, parentPath)
     return true, nil, path
 end
 function Editor:addScript(path, source, id)
+    if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     local recipe, err = self:recipe()
     if not recipe then return false, err end
     local node = recipe.byPath[path]
@@ -255,7 +259,7 @@ function Editor:addScript(path, source, id)
     if not id:match("^[%a_][%w_]*$") or ids[id] then return false, "Invalid or duplicate script ID" end
     local record = self:record(path, true)
     record.scripts = record.scripts or {}
-    local canonical = require("Engine")[source] and source or self.project:getAssetId(self.project:getAssetReference(source))
+    local canonical = (source == "Script" or self.project.plugins.scripts[source]) and source or self.project:getAssetId(self.project:getAssetReference(source))
     record.scripts[#record.scripts + 1] = {id = id, source = canonical}
     for index = #(record.removedScripts or {}), 1, -1 do
         if record.removedScripts[index] == id then table.remove(record.removedScripts, index) end
@@ -264,6 +268,7 @@ function Editor:addScript(path, source, id)
     return true, id
 end
 function Editor:removeScript(path, id)
+    if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     if self:scriptInherited(path, id) then return false, "Inherited scripts cannot be removed" end
     local recipe, err = self:recipe()
     if not recipe then return false, err end
@@ -283,6 +288,7 @@ function Editor:removeScript(path, id)
     self.onChanged(); return true
 end
 function Editor:moveScript(path, id, index)
+    if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     if self:scriptInherited(path, id) then return false, "Inherited scripts cannot be reordered" end
     local recipe, err = self:recipe()
     if not recipe then return false, err end
@@ -299,6 +305,7 @@ function Editor:moveScript(path, id, index)
     self:record(path, true).scriptOrder = order; self.onChanged(); return true
 end
 function Editor:dropObject(path, destination, mode)
+    if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     local recipe, err = self:recipe(); if not recipe then return false, err end
     local node, target = recipe.byPath[path], recipe.byPath[destination]
     if not node then return false, "Missing dragged object" end

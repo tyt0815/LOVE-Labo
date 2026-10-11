@@ -32,6 +32,13 @@ function Export.write(project, level, output)
         end
     end
     for _, folder in ipairs({"core", "project", "runtime"}) do collect(folder) end
+    local plugins = project.plugins:export()
+    for _, plugin in ipairs(plugins.manifests) do
+        for name, file in pairs(plugin.scripts) do
+            local id = plugin.scriptIds and plugin.scriptIds[name]
+            add("plugins/" .. plugin.name .. "/" .. file, id and project:readSource(id) or project.plugins.plugins[plugin.name].read(file))
+        end
+    end
     add("Engine.lua", assert(love.filesystem.read("Engine.lua")))
     add("main.lua", [[local host = require("runtime.Host")
 love.load = host.load
@@ -67,7 +74,7 @@ end
     end
     local data = level:toData()
     data.lobjects = Json.array(data.lobjects)
-    add("game.json", assert(Json.encode({version = 1, level = data, metadata = metadata}, true)))
+    add("game.json", assert(Json.encode({version = 1, level = data, metadata = metadata, plugins = plugins}, true)))
     local bytes = require("editor.Zip").encode(entries)
     local made, makeError = ensureFolder(Fs.parent(output))
     if not made then return false, makeError end

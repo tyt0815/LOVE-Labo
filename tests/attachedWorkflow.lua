@@ -11,6 +11,9 @@ local function fixture(fn)
     local root = Fs.join(love.filesystem.getSourceBaseDirectory(), "build")
     local name = "AttachedTest_" .. tostring(os.time()) .. "_" .. sequence .. "_" .. love.math.random(100000, 999999)
     local project = assert(Project.create(root, name))
+    for _, plugin in ipairs({"LaboEssentials"}) do
+        assert(require("editor.PluginOperations").apply(project, plugin, true, true))
+    end
     return fn(project)
 end
 local function run(project, command, fields)
@@ -50,7 +53,7 @@ add("New project has one Assets root and generated instructions preserve user ed
         Assert.truthy(Fs.read(Fs.join(project.rootPath, "AGENTS.md")):find("https://tyt0815.github.io/LOVE-Labo/", 1, true))
         assert(Fs.writeAtomic(Fs.join(project.rootPath, "AGENTS.md"), "custom")); assert(Project.open(project.rootPath))
         Assert.equal("custom", Fs.read(Fs.join(project.rootPath, "AGENTS.md")))
-        local browser = require("editor.AssetBrowser").new(project); Assert.equal(1, #browser.tree)
+        local browser = require("editor.AssetBrowser").new(project); Assert.equal(2, #browser.tree)
         assert(Fs.removeDirectory(Fs.join(project.rootPath, "Assets"))); assert(Project.open(project.rootPath))
         Assert.truthy(Fs.info(Fs.join(project.rootPath, "Assets")))
     end)
@@ -83,7 +86,7 @@ add("Unified Assets permits scripts images Prefabs and levels in the same featur
         local source = run(project, "class.create", {folder = "Assets/Player", name = "Movement"}).assetId
         run(project, "prefab.create", {folder = "Assets/Player", name = "PF_Player"})
         run(project, "level.create", {folder = "Assets/Player", name = "L_Start", empty = true})
-        Assert.equal("script", project:getScriptKind(source)); Assert.equal(1, #project:listScripts("script"))
+        Assert.equal("script", project:getScriptKind(source)); Assert.equal(6, #project:listScripts("script"))
         Assert.equal(false, project:createEntry("Sources", "lua", "Wrong", {scriptKind = "script"}))
     end)
 end)
@@ -176,7 +179,7 @@ add("Default levels attach Camera directly and main-camera selection survives se
         Assert.equal(nil, run(project, "level.get", {level = levelId}).data.mainCamera)
         local empty = run(project, "level.create", {name = "L_Empty", empty = true}).assetId
         Assert.equal(0, #run(project, "level.get", {level = empty}).data.lobjects)
-        Assert.equal(0, #project:listScripts("script"))
+        Assert.equal(5, #project:listScripts("script"))
     end)
 end)
 add("Main Camera eyedropper chooses attached Camera scripts and reset restores Auto", function()
@@ -595,7 +598,7 @@ add("Script picker filters and attaches through the instance Inspector", functio
         local picker = inspector:showAddScript(400)
         app.uiRoot:textinput("Rect"); Assert.equal(1, #picker:matches())
         app.uiRoot:keypressed("return")
-        Assert.equal("Rect", object.scripts[1].source); Assert.truthy(inspector.preview.scripts.s1)
+        Assert.equal("RectBounds", object.scripts[1].source); Assert.truthy(inspector.preview.scripts.s1)
         assert(inspector.target:removeScript("s1")); inspector:reload()
     end)
 end)
