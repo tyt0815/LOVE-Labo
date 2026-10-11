@@ -633,7 +633,7 @@ function AssetBrowser:showRenameDialog(entry, rect)
     if not rect then
         self:reveal(entry.reference)
         for i, item in ipairs(self.entries) do if item.reference == entry.reference then rect = self:entryBounds(i) end end
-        if rect and self.viewMode ~= "list" then rect = {x = rect.x + 7, y = rect.y + 98, w = rect.w - 10, h = 26} end
+        if rect and self.viewMode ~= "list" then rect = {x = rect.x + 10, y = rect.y + 98, w = rect.w - 20, h = 26} end
     end
     if not rect then return false, "Entry is not visible" end
     self:setSelection({entry})
@@ -792,16 +792,17 @@ function AssetBrowser:drawFiles()
             local x, y = view.x + Ui.METRICS.contentPaddingX + column * CARD_WIDTH, view.y + 8 + row * CARD_HEIGHT
             if y + CARD_HEIGHT > view.y and y < view.y + view.height then
                 Ui.row({x = x, y = y, w = CARD_WIDTH, h = CARD_HEIGHT}, self:isSelected(entry.reference))
+                local thumbnailX = x + (CARD_WIDTH - 88) / 2
                 if entry.type ~= "directory" then
                     Theme.setColor("thumbnailBackground")
-                    love.graphics.rectangle("fill", x + 9, y + 6, 88, 88, 6, 6)
+                    love.graphics.rectangle("fill", thumbnailX, y + 6, 88, 88, 6, 6)
                 end
                 local thumbnail = self.thumbnails:get(entry)
                 if thumbnail then
                     love.graphics.setColor(1, 1, 1, 1)
-                    love.graphics.draw(thumbnail, x + 9, y + 6)
-                else self:drawIcon(entry, x + 9, y + 6) end
-                Ui.textLines(entry.name, x + 7, y + 98, CARD_WIDTH - 20, 2)
+                    love.graphics.draw(thumbnail, thumbnailX, y + 6)
+                else self:drawIcon(entry, thumbnailX, y + 6) end
+                Ui.textLines(entry.name, x + 10, y + 98, CARD_WIDTH - 20, 2)
             end
         end
         if self.ping and self.ping.reference == entry.reference then
