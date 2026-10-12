@@ -8,7 +8,7 @@ function Cache.paths(project, reference)
     local directory = Fs.join(project.rootPath, ".labo/Thumbnails")
     return Fs.join(directory, id .. ".png"), Fs.join(directory, id .. ".json"), directory
 end
-function Cache.save(project, reference)
+function Cache.save(project, reference, notify)
     local png, receipt, directory = Cache.paths(project, reference)
     if not png then return false, "Asset is not registered" end
     local dependencies = {}
@@ -44,7 +44,7 @@ function Cache.save(project, reference)
         assert(Fs.writeAtomic(receipt, assert(Json.encode({version = 1, dependencies = dependencies}, true))))
     end)
     if model then model:release() end
-    project.thumbnailRevision = (project.thumbnailRevision or 0) + 1
+    if notify ~= false then project.thumbnailRevision = (project.thumbnailRevision or 0) + 1 end
     if not ok then return false, tostring(result) end
     return true
 end
@@ -60,5 +60,16 @@ function Cache.read(project, reference)
         if not current or hash(current) ~= expected then return nil end
     end
     return Fs.read(png)
+end
+function Cache.ensure(project, reference)
+    local canonical, referenceError = project:getAssetReference(reference)
+    if not canonical or not canonical:lower():match("%.prefab$") then return nil, referenceError or "Thumbnail requires a Prefab", false end
+    local bytes = Cache.read(project, reference)
+    if bytes then return bytes, nil, false end
+    -- 브라우저의 지연 생성은 다른 셀의 캐시를 초기화하지 않는다.
+    local ok, err = Cache.save(project, reference, false)
+    if not ok then return nil, err, false end
+    bytes = Cache.read(project, reference)
+    return bytes, not bytes and "Thumbnail cache could not be read" or nil, true
 end
 return Cache

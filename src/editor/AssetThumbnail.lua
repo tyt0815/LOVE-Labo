@@ -32,7 +32,7 @@ function Thumbnail:get(entry)
     love.graphics.push("all")
     local ok, result = pcall(function()
         local bytes
-        if extension:lower() == "prefab" then bytes = assert(require("editor.PreviewCache").read(self.project, entry.reference))
+        if extension:lower() == "prefab" then bytes = assert(require("editor.PreviewCache").ensure(self.project, entry.reference))
         else bytes = assert(self.project:readAsset(entry.reference)) end
         assert(#bytes <= 16 * 1024 * 1024, "Thumbnail source is too large")
         source = love.graphics.newImage(love.filesystem.newFileData(bytes, entry.name))

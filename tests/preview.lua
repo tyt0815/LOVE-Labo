@@ -14,7 +14,7 @@ function Visual.draw(self) love.graphics.setColor(1, 0, 0, 1); love.graphics.rec
 return Visual
 ]]))
     assert(p:rebuildAssetIndex()); assert(p:createEntry("Assets", "prefab", "PF_Visual"))
-    local doc = assert(require("editor.PrefabDocument").load(p, "Assets/PF_Visual.prefab"))
+    local doc = assert(require("editor.PrefabDocument").beginPlay(p, "Assets/PF_Visual.prefab"))
     p.draftAssets = {[doc.assetId] = doc}
     local editor = require("editor.PrefabEditor").new(p, doc, function() p.draftRevision = (p.draftRevision or 0) + 1 end, function() end)
     assert(editor:addScript("root", p:getAssetId("Assets/Visual.lua"), "visual"))
@@ -84,5 +84,50 @@ add("Visual Prefabs with the core Script attachment generate saved thumbnails", 
     assert(editor:addScript("root", "Script", "base")); assert(doc:save(p))
     assert(require("editor.PreviewCache").save(p, doc.assetId))
     Assert.truthy(require("editor.PreviewCache").read(p, doc.assetId))
+end)
+add("Browser generates missing saved thumbnails without including drafts or clearing frame caches", function()
+    local p, doc = fixture()
+    local cache = require("editor.PreviewCache")
+    doc.data.previewBackground = {0, 100, 200}
+    assert(Fs.writeAtomic(assert(p:resolveAssetFile(doc.assetId)), assert(require("project.Prefab").encodeData(doc.data))))
+    Assert.equal(nil, cache.read(p, doc.assetId))
+    doc.data.previewBackground = {200, 0, 0}
+    local revision = p.thumbnailRevision
+    local thumbnails = require("editor.AssetThumbnail").new(p)
+    thumbnails:beginFrame()
+    local entry = {type = "file", name = "PF_Visual.prefab", reference = "Assets/PF_Visual.prefab"}
+    local thumbnail = thumbnails:get(entry)
+    Assert.truthy(thumbnail); Assert.equal(revision, p.thumbnailRevision)
+    local bytes = assert(cache.read(p, doc.assetId))
+    local image = love.image.newImageData(love.filesystem.newFileData(bytes, "thumbnail.png"))
+    local r, g, b = image:getPixel(0, 0)
+    Assert.equal(0, r); Assert.truthy(g > 0.38 and g < 0.40); Assert.truthy(b > 0.78 and b < 0.79)
+    image:release()
+    thumbnails:beginFrame(); Assert.equal(thumbnail, thumbnails:get(entry))
+    local reused, err, generated = cache.ensure(p, doc.assetId)
+    Assert.equal(bytes, reused); Assert.equal(nil, err); Assert.equal(false, generated)
+    local source = assert(Fs.read(assert(p:resolveSourceFile("Assets/Visual.lua"))))
+    assert(Fs.writeAtomic(assert(p:resolveSourceFile("Assets/Visual.lua")), source:gsub("default = 10", "default = 40")))
+    thumbnails:clear(); thumbnails:beginFrame(); Assert.truthy(thumbnails:get(entry))
+    Assert.truthy(bytes ~= cache.read(p, doc.assetId)); thumbnails:clear()
+end)
+add("Empty Prefabs are attempted once per browser cache and CLI creates saved visual thumbnails", function()
+    local p, doc = fixture()
+    assert(Fs.writeAtomic(assert(p:resolveAssetFile(doc.assetId)), assert(require("project.Prefab").encodeData(doc.data))))
+    local first = require("editor.Cli").execute({command = "asset.thumbnail", project = p.rootPath, asset = doc.assetId})
+    Assert.equal(true, first.generated); Assert.equal(false, first.lifecycleExecuted); Assert.truthy(Fs.info(first.output))
+    local second = require("editor.Cli").execute({command = "asset.thumbnail", project = p.rootPath, asset = doc.assetId})
+    Assert.equal(false, second.generated)
+    assert(p:createEntry("Assets", "prefab", "PF_Empty"))
+    local thumbnails = require("editor.AssetThumbnail").new(p)
+    local entry = {type = "file", name = "PF_Empty.prefab", reference = "Assets/PF_Empty.prefab"}
+    local cache, attempts = require("editor.PreviewCache"), 0
+    local ensure = cache.ensure
+    cache.ensure = function(...) attempts = attempts + 1; return ensure(...) end
+    local ok, err = pcall(function()
+        thumbnails:beginFrame(); Assert.equal(nil, thumbnails:get(entry))
+        thumbnails:beginFrame(); Assert.equal(nil, thumbnails:get(entry)); Assert.equal(1, attempts)
+    end)
+    cache.ensure = ensure; thumbnails:clear(); assert(ok, err)
 end)
 return tests

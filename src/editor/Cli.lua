@@ -77,7 +77,7 @@ local api = {required = required, absolute = absolute, revision = revision, chec
     basicResult = basicResult, value = value, setProperty = setProperty, properties = properties, propertyName = propertyName}
 local COMMANDS = {"project.create", "project.info", "project.refresh", "project.repair-plan", "project.repair", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
     "plugin.list", "plugin.create", "plugin.enable", "plugin.disable", "plugin.plan",
-    "asset.preview", "project.examples",
+    "asset.preview", "asset.thumbnail", "project.examples",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
     "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
@@ -115,7 +115,7 @@ local function execute(request)
     end
     local readOnlyCommand = command:match("%.get$") or command:match("%.list$") or command:match("%.tree$")
         or command:match("%.validate$") or command:match("%.simulate$") or command:match("%.pointer$") or command:match("%.view$")
-        or command == "asset.preview" or command == "export" or command == "asset.copy" or command == "project.set-default"
+        or command == "asset.preview" or command == "asset.thumbnail" or command == "export" or command == "asset.copy" or command == "project.set-default"
     if not readOnlyCommand then
         for _, field in ipairs({"prefab", "level", "asset"}) do
             if request[field] and type(request[field]) == "string" then assert(not project:isReadOnly(request[field]), "Labo plugin assets are read-only") end
@@ -139,6 +139,14 @@ local function execute(request)
         if command == "plugin.plan" then return {plugins = assert(operations.plan(project, required(request, "name"), request.enabled ~= false))} end
         local ok, result = operations.apply(project, required(request, "name"), enabled, request.confirm == true or request.confirm == "true")
         assert(ok, result); return {changed = result}
+    end
+    if command == "asset.thumbnail" then
+        local reference = required(request, "asset")
+        local cache = require("editor.PreviewCache")
+        local bytes, err, generated = cache.ensure(project, reference)
+        assert(bytes, err)
+        local output, receipt = cache.paths(project, reference)
+        return {output = output, receipt = receipt, generated = generated, bytes = #bytes, lifecycleExecuted = false}
     end
     if command == "asset.preview" then
         local descriptor = {reference = request.asset}

@@ -25,6 +25,7 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | script create/list/get/set-source | --name, --parent Script/Camera/Sprite/Pointer/Rect/Canvas 또는 Lua 에셋, --script, --source (Lua 코드 문자열). class.*도 호환 별칭 |
 | folder create | --folder, --name |
 | asset list/get/import/copy/move/rename/delete | --asset, --folder, --name; move의 --destination은 최종 파일 경로 |
+| asset thumbnail | --asset Prefab; 브라우저와 같은 저장값 캐시를 생성·재사용하고 output·receipt·generated 반환. 생명주기와 초안 저장 없이 수행 |
 | prefab create/get/tree/set/reset/set-parent | --prefab, --node root 또는 root/ID, --property, --value-json, --parent |
 | prefab create --level --instance --link | 기존 계층에서 에셋 생성 후 원본 연결 및 레벨 저장; --link 생략 시 캡처만 수행 |
 | prefab script add | --prefab, --node, --source, 선택 --script 사용자 이름; 내부 UUID 자동 생성 |
@@ -93,6 +94,8 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 ## 스크립트 배치와 외부 파일·폴더 임포트
 
 `asset.preview --asset Assets/PF_Player.prefab --output D:/Captures/Player.png`은 초기화·업데이트 없이 PNG를 출력합니다. [인스턴스 캡처·배경 설정](guide/preview.md)을 참고하세요.
+
+창 없이 시작하는 실제 CLI의 썸네일 생성·캐시 갱신·재사용과 Prefab·이미지 PNG 출력은 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verifyThumbnailCli.ps1`로 검증합니다. 검증 프로젝트와 출력은 build의 새 폴더에 보관합니다.
 
 `instance.add --level Assets/L_Start.level --script Assets/Behavior.lua --x 20 --y 40`은 빈 LObject에 해당 오브젝트 스크립트를 부착합니다. `--parent <인스턴스 ID>`로 자손 배치도 가능합니다. Prefab과 script를 동시에 지정하지 않습니다.
 

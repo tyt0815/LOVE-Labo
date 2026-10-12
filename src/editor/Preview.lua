@@ -12,6 +12,12 @@ function Preview.color(value)
     return {value[1], value[2], value[3]}
 end
 function Preview.new(project, descriptor)
+    -- CLI는 창 없이 시작하므로 이미지·Canvas를 만들기 전에 컨텍스트를 준비한다.
+    if not love.window.isOpen() then
+        local opened, windowError = love.window.setMode(1, 1, {borderless = true, resizable = false, vsync = 0})
+        assert(opened, windowError or "Could not create preview graphics context")
+        love.window.minimize()
+    end
     local self = setmetatable({project = project, images = {}, dependencies = {}, background = {255, 255, 255}}, Preview)
     local reference = descriptor.reference and project:getAssetReference(descriptor.reference)
     if reference and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[(reference:match("%.([^%.]+)$") or ""):lower()] then
