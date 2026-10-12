@@ -26,15 +26,15 @@ add("Only defined update and draw callbacks are registered including inherited c
     local class = Engine.Script:extend({update = function(self, dt) self.owner.transform.x = self.owner.transform.x + dt end})
     require("core.ScriptRuntime").attach(a, "update", class:extend({})); require("core.ScriptRuntime").attach(a, "draw", Engine.Script:extend({draw = function() end}))
     Assert.equal(1, #a.updateScripts); Assert.equal(1, #a.drawScripts)
-    assert(a:beginPlay(world)); assert(world:update(2)); Assert.equal(2, a.transform.x)
+    assert(a:load(world)); assert(world:update(2)); Assert.equal(2, a.transform.x)
     require("core.ScriptRuntime").detach(a, "update"); assert(world:update(2)); Assert.equal(2, a.transform.x)
 end)
-add("beginPlay attachment is initialized exactly once without recursion", function()
+add("load attachment is initialized exactly once without recursion", function()
     local calls = 0
-    local child = Engine.Script:extend({beginPlay = function() calls = calls + 1 end})
-    local parent = Engine.Script:extend({beginPlay = function(self) calls = calls + 1; require("core.ScriptRuntime").attach(self.owner, "child", child) end})
+    local child = Engine.Script:extend({load = function() calls = calls + 1 end})
+    local parent = Engine.Script:extend({load = function(self) calls = calls + 1; require("core.ScriptRuntime").attach(self.owner, "child", child) end})
     local world = World.new(); local a = object(world); require("core.ScriptRuntime").attach(a, "parent", parent)
-    assert(a:beginPlay(world)); assert(a:beginPlay(world)); Assert.equal(2, calls)
+    assert(a:load(world)); assert(a:load(world)); Assert.equal(2, calls)
 end)
 add("Update removal and addition during callback use a stable frame boundary", function()
     local world = World.new(); local a = object(world); local calls = {}
@@ -44,7 +44,7 @@ add("Update removal and addition during callback use a stable frame boundary", f
         if self.owner.scripts.second then require("core.ScriptRuntime").detach(self.owner, "second"); require("core.ScriptRuntime").attach(self.owner, "added", added) end
     end}))
     require("core.ScriptRuntime").attach(a, "second", Engine.Script:extend({update = function() error("removed callback must not run") end}))
-    assert(a:beginPlay(world)); assert(world:update(0)); Assert.equal(1, #calls)
+    assert(a:load(world)); assert(world:update(0)); Assert.equal(1, #calls)
     assert(world:update(0)); Assert.equal("added", calls[3])
 end)
 add("Object hierarchy order precedes attachment order and empty objects receive no update call", function()
@@ -53,7 +53,7 @@ add("Object hierarchy order precedes attachment order and empty objects receive 
     local class = Engine.Script:extend({update = function(self) calls[#calls + 1] = self.id end})
     require("core.ScriptRuntime").attach(parent, "parent1", class); require("core.ScriptRuntime").attach(parent, "parent2", class); require("core.ScriptRuntime").attach(child, "child", class)
     empty.update = function() error("empty object must not update") end
-    assert(parent:beginPlay(world)); assert(child:beginPlay(world)); assert(world:update(0))
+    assert(parent:load(world)); assert(child:load(world)); assert(world:update(0))
     Assert.equal("parent1", calls[1]); Assert.equal("parent2", calls[2]); Assert.equal("child", calls[3])
 end)
 add("Camera script uses owner transform and supports designation auto fallback and letterbox", function()
@@ -99,7 +99,7 @@ end)
 add("Runtime callback errors are contained and invalid property schemas are rejected", function()
     local world = World.new(); local a = object(world)
     require("core.ScriptRuntime").attach(a, "fail", Engine.Script:extend({update = function() error("expected error") end}))
-    assert(a:beginPlay(world)); local ok, err = world:update(0); Assert.equal(false, ok); Assert.truthy(err:find("expected error", 1, true))
+    assert(a:load(world)); local ok, err = world:update(0); Assert.equal(false, ok); Assert.truthy(err:find("expected error", 1, true))
     Assert.equal(false, pcall(Engine.Script.extend, Engine.Script, {properties = {owner = {type = "number", default = 0}}}))
     Assert.equal(false, pcall(Engine.Script.extend, Engine.Script, {update = 1}))
 end)
@@ -114,15 +114,15 @@ add("Runtime object removal clears descendants captures and pending updates", fu
     local world = World.new(); local a, b = object(world), object(world); b:attachTo(a)
     local pointer = require("core.ScriptRuntime").attach(a, "pointer", Engine.Pointer, {blockPointer = true})
     require("core.ScriptRuntime").attach(b, "fail", Engine.Script:extend({update = function() error("removed child") end}))
-    assert(a:beginPlay(world)); assert(b:beginPlay(world)); assert(world:dispatchPointer("down", 0, 0, 1))
+    assert(a:load(world)); assert(b:load(world)); assert(world:dispatchPointer("down", 0, 0, 1))
     Assert.equal(pointer, world.pointerCaptures[1]); assert(world:removeLObject(a))
     Assert.equal(0, #world.lobjects); Assert.equal(nil, next(world.pointerCaptures)); assert(world:update(0))
 end)
 add("Removing an initializing script does not skip the next attachment", function()
     local world = World.new(); local a = object(world); local initialized = false
-    require("core.ScriptRuntime").attach(a, "first", Engine.Script:extend({beginPlay = function(self) require("core.ScriptRuntime").detach(self.owner, self.id) end}))
-    require("core.ScriptRuntime").attach(a, "second", Engine.Script:extend({beginPlay = function() initialized = true end}))
-    assert(a:beginPlay(world)); Assert.equal(true, initialized)
+    require("core.ScriptRuntime").attach(a, "first", Engine.Script:extend({load = function(self) require("core.ScriptRuntime").detach(self.owner, self.id) end}))
+    require("core.ScriptRuntime").attach(a, "second", Engine.Script:extend({load = function() initialized = true end}))
+    assert(a:load(world)); Assert.equal(true, initialized)
 end)
 add("Drawing tolerates removal of the current object and queued descendants", function()
     local world = World.new(); local a, b = object(world), object(world); b:attachTo(a)
@@ -145,16 +145,16 @@ add("Pointer callbacks may delete their owner or their attachment", function()
     end
 end)
 add("Properties cannot shadow lifecycle callbacks or Script methods", function()
-    for _, name in ipairs({"update", "draw", "beginPlay", "isA", "getBounds", "getWorldTransform", "onPointerDown", "new", "extend"}) do
+    for _, name in ipairs({"update", "draw", "load", "isA", "getBounds", "getWorldTransform", "onPointerDown", "new", "extend"}) do
         Assert.equal(false, pcall(Engine.Script.extend, Engine.Script, {properties = {[name] = {type = "number", default = 1}}}))
     end
 end)
 add("Deleting an object during initialization stops remaining callbacks", function()
     local world = World.new(); local a = object(world)
-    require("core.ScriptRuntime").attach(a, "remove", Engine.Script:extend({beginPlay = function(self) assert(world:removeLObject(self.owner)) end}))
-    local later = require("core.ScriptRuntime").attach(a, "later", Engine.Script:extend({beginPlay = function(self) self.owner.transform.x = 123 end}))
-    assert(a:beginPlay(world)); Assert.equal(nil, later.hasBegunPlay); Assert.equal(nil, a.world)
-    assert(a:beginPlay(world)); Assert.equal(nil, a.world)
+    require("core.ScriptRuntime").attach(a, "remove", Engine.Script:extend({load = function(self) assert(world:removeLObject(self.owner)) end}))
+    local later = require("core.ScriptRuntime").attach(a, "later", Engine.Script:extend({load = function(self) self.owner.transform.x = 123 end}))
+    assert(a:load(world)); Assert.equal(nil, later.hasLoaded); Assert.equal(nil, a.world)
+    assert(a:load(world)); Assert.equal(nil, a.world)
 end)
 add("Draw sorting ignores pointer priority and referenced bounds sorting", function()
     local world = World.new(); local a, b = object(world), object(world)
@@ -184,14 +184,14 @@ end)
 add("Common enabled gates update drawing and pointer capture without repeating initialization", function()
     local world = World.new(); local owner = object(world)
     local class = Engine.Script:extend({
-        beginPlay = function(self) self.starts = (self.starts or 0) + 1 end,
+        load = function(self) self.starts = (self.starts or 0) + 1 end,
         update = function(self) self.updates = (self.updates or 0) + 1 end,
         draw = function() end,
         getLocalBounds = function() return -10, -10, 20, 20 end,
         onPointerDown = function() return true end,
     })
     local script = require("core.ScriptRuntime").attach(owner, "test", class)
-    assert(owner:beginPlay(world)); assert(world:update(1)); assert(world:dispatchPointer("down", 0, 0, 1))
+    assert(owner:load(world)); assert(world:update(1)); assert(world:dispatchPointer("down", 0, 0, 1))
     Assert.equal(script, world.pointerCaptures[1]); script.enabled = false
     assert(world:update(1)); assert(world:dispatchPointer("up", 0, 0, 1))
     Assert.equal(nil, world.pointerCaptures[1]); Assert.equal(1, script.updates)

@@ -33,7 +33,7 @@ function Spawner.bind(project, world, loadClass)
             for _, node in ipairs(template.hierarchy.nodes) do
                 local pending = objects[node.path]
                 if pending and pending.world == world then
-                    local begun, beginError = pending:beginPlay(world)
+                    local begun, beginError = pending:load(world)
                     if not begun then return nil, beginError end
                 end
             end

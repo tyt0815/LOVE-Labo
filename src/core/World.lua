@@ -125,7 +125,7 @@ function World:update(dt)
         return false, validationError
     end
 
-    -- 이번 프레임 중 생성된 객체는 beginPlay만 즉시 호출하고 다음 프레임부터 update한다.
+    -- 이번 프레임 중 생성된 객체는 load만 즉시 호출하고 다음 프레임부터 update한다.
     if self.updateOrderDirty or not self.updateObjects then
         self.updateObjects = {}
         for _, object in ipairs(require("core.ScriptOrder").objects(self.lobjects)) do
@@ -165,10 +165,10 @@ end
 
 function World:setLevelScript(script)
     if type(script) ~= "table" then return false, "level script must be a table" end
-    for _, name in ipairs({ "beginPlay", "load", "update" }) do
+    for _, name in ipairs({ "load", "update" }) do
         if script[name] ~= nil and type(script[name]) ~= "function" then return false, "invalid level script callback: " .. name end
     end
-    local callback = script.beginPlay or script.load
+    local callback = script.load
     if callback then
         local ok, result, err = pcall(callback, self)
         if not ok or result == false then return false, "level script load failed: " .. tostring(ok and err or result) end

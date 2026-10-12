@@ -322,7 +322,7 @@ asset path를 runtime drawable 자체로 취급하지 않는다. Rendering 전�
 
 # 11. Project Loader / Public API
 
-모듈 파일·클래스 테이블은 PascalCase, 함수·변수는 camelCase, 상수는 UPPER_SNAKE_CASE와 공백 네 칸을 사용한다. main.lua·conf.lua, LÖVE 콜백·메타메서드·외부 API는 예외다. 공개 초기화·렌더링·생성 이름은 beginPlay·draw·getLocalBounds·spawnLObject이며 [ADR 0036](adr/0036-code-conventions-and-module-names.md)에 전수 정리와 호환성 범위를 기록한다.
+모듈 파일·클래스 테이블은 PascalCase, 함수·변수는 camelCase, 상수는 UPPER_SNAKE_CASE와 공백 네 칸을 사용한다. main.lua·conf.lua, LÖVE 콜백·메타메서드·외부 API는 예외다. 공개 초기화·렌더링·생성 이름은 load·draw·getLocalBounds·spawnLObject이며 [ADR 0036](adr/0036-code-conventions-and-module-names.md)에 전수 정리와 호환성 범위를 기록한다.
 
 Project Lua가 Core 내부 파일 경로에 직접 의존하지 않도록 Public facade를 둔다.
 

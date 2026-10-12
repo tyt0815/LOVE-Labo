@@ -23,12 +23,12 @@ function LObject:getScriptsByClass(class)
     for _, id in ipairs(self.scriptOrder) do if self.scripts[id]:isA(class) then result[#result + 1] = self.scripts[id] end end
     return result
 end
-function LObject:beginPlay(world)
+function LObject:load(world)
     if world and self.world ~= world then return true end
-    self.world, self.hasBegunPlay = world, true
+    self.world, self.hasLoaded = world, true
     if world then world.updateOrderDirty = true end
-    if self.beginningPlay then return true end
-    self.beginningPlay = true
+    if self.loadingScripts then return true end
+    self.loadingScripts = true
     local ok, err = pcall(function()
         -- 콜백이 새 스크립트를 부착해도 재진입하지 않고 동일 초기화 경계에서 처리한다.
         local initialized = 0
@@ -37,19 +37,19 @@ function LObject:beginPlay(world)
             local pending
             for _, id in ipairs(self.scriptOrder) do
                 local script = self.scripts[id]
-                if script and script.owner == self and not script.hasBegunPlay then pending = script; break end
+                if script and script.owner == self and not script.hasLoaded then pending = script; break end
             end
             if not pending then break end
             initialized = initialized + 1
-            assert(initialized <= 4096, "Too many scripts added during beginPlay")
-            pending.hasBegunPlay = true
-            if pending.beginPlay then
-                local result, errorText = pending:beginPlay(world)
+            assert(initialized <= 4096, "Too many scripts added during load")
+            pending.hasLoaded = true
+            if pending.load then
+                local result, errorText = pending:load(world)
                 assert(result ~= false, errorText)
             end
         end
     end)
-    self.beginningPlay = nil
+    self.loadingScripts = nil
     return ok, not ok and tostring(err) or nil
 end
 function LObject:update(dt)

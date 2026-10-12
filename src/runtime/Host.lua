@@ -16,7 +16,7 @@ function Host.load(args)
         world = assert(require("runtime.WorldLoader").create(project, manifest.level))
         return true
     end)
-    -- 배포 검증은 실제 게임 호스트에서 beginPlay·update·렌더링을 실행한 뒤 종료한다.
+    -- 배포 검증은 실제 게임 호스트에서 load·update·렌더링을 실행한 뒤 종료한다.
     for i, value in ipairs(args or {}) do
         if value == "--verify-game" then
             Host.update(1 / 60); Host.draw()

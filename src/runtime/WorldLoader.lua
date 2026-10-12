@@ -60,7 +60,7 @@ function Loader.bind(project, data, world, loadClass)
     return true, complete, loadClass
 end
 
--- 검증 단계에서는 build·참조 해석까지만 수행하고 beginPlay를 실행하지 않는다.
+-- 검증 단계에서는 build·참조 해석까지만 수행하고 load를 실행하지 않는다.
 function Loader.prepare(project, data)
     local _, cameraError = require("project.MainCamera").copy(type(data) == "table" and data.mainCamera)
     if cameraError then return nil, cameraError end
@@ -89,7 +89,7 @@ function Loader.activate(project, world, class, initial, loadClass)
     require("runtime.LevelTransition").bind(project, world)
     for _, object in ipairs(initial) do
         if object.world == world then
-            local ok, err = object:beginPlay(world)
+            local ok, err = object:load(world)
             if not ok then return nil, err end
         end
     end

@@ -4,10 +4,10 @@ local Motion = {properties = {
     title = {type = "string", default = "Moving object"},
     target = {type = "object", default = false}, sibling = {type = "script", default = false}
 }}
-function Motion.beginPlay(self)
+function Motion.load(self)
     self.originY, self.elapsed = self.owner.transform.y, 0
     local x, y = self:getWorldPosition()
-    self.owner.world.debug:log(self.title .. " beginPlay at " .. x .. ", " .. y)
+    self.owner.world.debug:log(self.title .. " load at " .. x .. ", " .. y)
 end
 function Motion.update(self, dt)
     self.elapsed = self.elapsed + dt

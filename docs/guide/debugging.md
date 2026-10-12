@@ -15,7 +15,7 @@
 스크립트의 `self.owner.world.debug`, 레벨 스크립트의 `world.debug`를 사용합니다.
 
 ```lua
-function Example.beginPlay(self)
+function Example.load(self)
     local debug = self.owner.world.debug
     debug:log("Started", {color = {255, 150, 40}, marker = "!"})
     debug:screenLog("Ready", {key = "state", lifespan = 3})
@@ -52,7 +52,7 @@ function Example.drawEditor(self, context)
 end
 ```
 
-`drawEditor`는 Scene View에서만 호출합니다. `context`에는 위 도형 메서드와 `selected`, 테마 RGBA 배열 `color`가 있습니다. 매번 계산하므로 도형의 lifespan은 편집 표시에서 사용하지 않습니다. 게임 초기화가 실행되지 않으므로 `beginPlay`에서만 만든 값에 의존하지 마세요. Camera 플러그인의 카메라 범위도 이 방법으로 표시합니다.
+`drawEditor`는 Scene View에서만 호출합니다. `context`에는 위 도형 메서드와 `selected`, 테마 RGBA 배열 `color`가 있습니다. 매번 계산하므로 도형의 lifespan은 편집 표시에서 사용하지 않습니다. 게임 초기화가 실행되지 않으므로 `load`에서만 만든 값에 의존하지 마세요. Camera 플러그인의 카메라 범위도 이 방법으로 표시합니다.
 
 LaboEssentials의 Camera·RectBounds·Canvas·Sprite·Pointer는 편집 화면에서 경계를 표시합니다. Pointer는 boundsSource로 지정한 스크립트의 실제 영역을 사용합니다. 이미지가 없는 Sprite나 크기가 0인 영역은 표시하지 않습니다. **PIE의 Game View와 배포 게임에는 이 경계를 표시하지 않습니다.** Play에서 직접 호출한 일시적인 디버그 도형은 별도로 표시됩니다.
 

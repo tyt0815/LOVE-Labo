@@ -119,13 +119,13 @@ add("Level API queues switches without changing the current update snapshot", fu
     Assert.equal(false, nextWorld:openLevel("Assets/No.level")); Assert.equal(1, #nextWorld.lobjects)
     Assert.equal(false, nextWorld:openLevel("Assets/Bad.prefab"))
 end)
-add("Failed destination beginPlay retains current World and reports a transition error", function()
+add("Failed destination load retains current World and reports a transition error", function()
     local Json = require("project.Json")
     local project = {
         getAssetReference = function(_, ref) return ref end, getAssetId = function() end,
         readAsset = function() return assert(Json.encode({formatVersion = 3, lobjects = {}, scriptReference = "Assets/Fail.lua"})) end,
         getScriptKind = function() return "level" end, resolveSourceFile = function() return "Assets/Fail.lua" end,
-        readSource = function() return "return {beginPlay = function() error('destination failed') end}" end
+        readSource = function() return "return {load = function() error('destination failed') end}" end
     }
     local world = assert(require("runtime.WorldLoader").create(project, {lobjects = {}}))
     assert(world:openLevel("Assets/Fail.level"))

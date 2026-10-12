@@ -5,7 +5,7 @@
 ## 오브젝트와 스크립트
 
 LObject는 Transform과 부모·자손을 가진다. 스크립트는 오브젝트를 상속하지 않고 독립 인스턴스로 부착된다.
-Lua 파일은 properties와 선택적인 beginPlay(world), update(dt), draw(context)를 가진 테이블을 반환한다.
+Lua 파일은 properties와 선택적인 load(world), update(dt), draw(context)를 가진 테이블을 반환한다.
 self는 스크립트이며 self.owner.transform, self.owner:getScript(id)로 오브젝트·다른 스크립트를 사용한다.
 일반 Lua 필드는 Inspector에 노출되지 않는다. properties에 number/string/boolean/object/script/image/prefab를 선언한다.
 group으로 프로퍼티를 묶는다. object 참조는 authoringId, script 참조는 {authoringId=ID, script="부착ID"}로 저장한다.

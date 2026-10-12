@@ -6,7 +6,7 @@
 local Spawner = {properties = {
     projectile = {type = "prefab", default = false},
 }}
-function Spawner:beginPlay(world)
+function Spawner:load(world)
     if self.projectile ~= false then
         self.spawned = assert(world:spawnLObject(self.projectile, {x = 200, y = 0}))
     end

@@ -31,7 +31,7 @@ local MOVE = [[-- labo-script: script
 local Move = {properties = {speed = {type = "number", default = 10, group = "Movement"},
 target = {type = "object", default = false}, sibling = {type = "script", default = false},
 projectile = {type = "prefab", default = false}}}
-function Move.beginPlay(self) self.started = true end
+function Move.load(self) self.started = true end
 function Move.update(self, dt) self.owner.transform.x = self.owner.transform.x + self.speed * dt end
 return Move
 ]]
@@ -255,7 +255,7 @@ add("Runtime spawn accepts Prefabs and script code can attach behavior to empty 
         local world = assert(require("runtime.WorldLoader").create(project, level:toData()))
         local spawned = assert(world:spawnLObject(prefab, {x = 20, y = 30}))
         Assert.truthy(spawned:getScriptByName("move").started); assert(world:update(1)); Assert.equal(30, spawned.transform.x)
-        local empty = assert(world:addLObject({transform = {x = 0, y = 0}})); assert(empty:beginPlay(world))
+        local empty = assert(world:addLObject({transform = {x = 0, y = 0}})); assert(empty:load(world))
         require("core.ScriptRuntime").attach(empty, "move", source); Assert.truthy(empty:getScriptByName("move").started)
         Assert.equal(nil, world:spawnLObject(source))
     end)
@@ -480,10 +480,10 @@ add("Capturing a generated branch retains inherited script attachments", functio
         Assert.equal(321, world.lobjects[1]:getScriptByName("rect").width)
     end)
 end)
-add("Loader and spawned Prefabs skip children removed during beginPlay", function()
+add("Loader and spawned Prefabs skip children removed during load", function()
     fixture(function(project)
-        local remove = script(project, "RemoveChild", 'return {beginPlay = function(self, world) world:removeLObject(self.owner.children[1]) end}')
-        local fail = script(project, "FailIfInitialized", 'return {beginPlay = function() error("removed child initialized") end}')
+        local remove = script(project, "RemoveChild", 'return {load = function(self, world) world:removeLObject(self.owner.children[1]) end}')
+        local fail = script(project, "FailIfInitialized", 'return {load = function() error("removed child initialized") end}')
         local prefab = run(project, "prefab.create", {name = "PF_Remove"}).assetId
         run(project, "prefab.script.add", {prefab = prefab, source = remove, script = "remove"})
         local child = run(project, "prefab.child.add", {prefab = prefab}).node
@@ -498,7 +498,7 @@ add("Simulation fails when a requested level cannot initialize", function()
     fixture(function(project)
         local destination = run(project, "level.create", {name = "L_Failing", empty = true}).assetId
         local levelScript = run(project, "script.create", {name = "FailingLevel", type = "level"}).assetId
-        run(project, "script.set-source", {script = levelScript, source = 'return {beginPlay = function() error("transition initialization failed") end}'})
+        run(project, "script.set-source", {script = levelScript, source = 'return {load = function() error("transition initialization failed") end}'})
         run(project, "level.set-parent", {level = destination, parent = levelScript})
         local travel = script(project, "Travel", 'return {update = function(self) assert(self.owner.world:openLevel("' .. destination .. '")) end}')
         local prefab = run(project, "prefab.create", {name = "PF_Travel"}).assetId
@@ -1087,7 +1087,7 @@ add("Level require shares attachment and spawn classes while separate Worlds rel
         local reference = project:getAssetId("Assets/LookupLevel.lua")
         assert(Fs.writeAtomic(assert(project:resolveSourceFile(reference)), string.format([[local Motion = require("Move")
 local LookupLevel = {}
-function LookupLevel.beginPlay(world)
+function LookupLevel.load(world)
     local owner = world.lobjects[1]
     assert(owner:getScriptByClass(Motion) == owner:getScriptByName("move"))
     assert(#owner:getScriptsByClass(Motion) == 1)

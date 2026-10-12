@@ -1,5 +1,5 @@
 local LevelDemo = {properties = {welcome = {type = "string", default = "API examples ready"}}}
-function LevelDemo.beginPlay(world)
+function LevelDemo.load(world)
     world.exampleElapsed = 0
     world.debug:screenLog(world.properties.welcome, {key = "welcome", lifespan = 5})
 end

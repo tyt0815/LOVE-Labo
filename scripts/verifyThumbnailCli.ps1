@@ -18,7 +18,7 @@ $taskProject = (invokeThumbnailRequest @{command = 'project.create'; parent = $t
 $taskScript = invokeThumbnailRequest @{command = 'script.create'; project = $taskProject; name = 'Visual'}
 $taskSource = @'
 local Visual = {properties = {width = {type = "number", default = 20}}}
-function Visual.beginPlay() error("Thumbnail must not run beginPlay") end
+function Visual.load() error("Thumbnail must not run load") end
 function Visual.update() error("Thumbnail must not run update") end
 function Visual.getLocalBounds(self) return -self.width / 2, -10, self.width, 20 end
 function Visual.draw(self) love.graphics.setColor(1, 0, 0, 1); love.graphics.rectangle("fill", -self.width / 2, -10, self.width, 20) end

@@ -7,7 +7,7 @@ local function fixture()
         "DebugTest_" .. os.time() .. "_" .. love.math.random(100000, 999999)))
     assert(project:createEntry("Assets", "lua", "DebugExample", {scriptKind = "script"}))
     assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/DebugExample.lua")), [[local DebugExample = {}
-function DebugExample.beginPlay(self)
+function DebugExample.load(self)
     self.owner.world.debug:log("Started", {color = {10, 20, 30}})
     self.owner.world.debug:screenLog("Ready", {key = "state", lifespan = 1})
 end
@@ -39,7 +39,7 @@ add("Debug queues replace keyed screen messages, expire after presentation, and 
     Assert.equal(false, pcall(session.screenLog, session, "bad", {color = {256, 0, 0}}))
     Assert.equal(false, pcall(session.line, session, 0, 0, nil, 1))
 end)
-add("Debug injection reaches beginPlay and level transitions while standalone Worlds are no-op", function()
+add("Debug injection reaches load and level transitions while standalone Worlds are no-op", function()
     local project, level = fixture()
     local normal = assert(require("runtime.WorldLoader").create(project, level:toData()))
     Assert.equal(require("core.Debug"), normal.debug); assert(normal:update(0))
@@ -51,7 +51,7 @@ add("Debug injection reaches beginPlay and level transitions while standalone Wo
     assert(world:openLevel("Assets/L_Next.level")); local candidate = assert(world:takeLevelTransition())
     Assert.equal(session, candidate.debug); Assert.equal("Started", session.history[3].text)
 end)
-add("Editor log panel scrolls independently and editing draws callbacks without beginPlay", function()
+add("Editor log panel scrolls independently and editing draws callbacks without load", function()
     local project, level = fixture()
     local app = require("editor.EditorApp").new(nil, project); app.level = level; app.sceneView.level = level
     app:draw(); Assert.equal(0, #app.debugSession.history); Assert.equal(nil, app.spriteAssets.error)

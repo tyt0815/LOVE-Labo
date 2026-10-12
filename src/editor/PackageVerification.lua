@@ -27,7 +27,7 @@ function Verification.run(args)
         run("script.set-source", {class = source, source = [[-- labo-script: script
 local Movement = {properties = {speed = {type = "number", default = 10, group = "Movement"},
 started = {type = "boolean", default = false}}}
-function Movement.beginPlay(self) self.started = true end
+function Movement.load(self) self.started = true end
 function Movement.update(self, dt) self.owner.transform.x = self.owner.transform.x + self.speed * dt end
 return Movement
 ]]})
@@ -62,7 +62,7 @@ return Movement
         assert(app:undoRedo(1)); check("attachment Redo", inspector.preview:getScriptByName("rect") ~= nil)
         assert(inspector.target:removeScript("rect")); inspector:reload()
         assert(inspector:setProperty("movement.speed", 25))
-        assert(app:startPlay()); check("runtime beginPlay", app.runtimeWorld.lobjects[2]:getScriptByName("movement").started)
+        assert(app:startPlay()); check("runtime load", app.runtimeWorld.lobjects[2]:getScriptByName("movement").started)
         assert(app.runtimeWorld:update(1)); check("live unsaved override", app.runtimeWorld.lobjects[2].transform.x == 25)
         app:draw(); app:stopPlay(); check("Stop preserves authoring", player.transform.x == 0)
         check("unsaved draft Export", require("editor.Export").write(project, app.level, Fs.join(directory, "Game.love")))

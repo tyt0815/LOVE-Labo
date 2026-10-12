@@ -21,7 +21,7 @@ $taskMovement = invokeLaboRequest @{command = 'script.create'; project = $taskPr
 $taskMovementCode = @'
 -- labo-script: script
 local Movement = {properties = {speed = {type = "number", default = 10}, started = {type = "boolean", default = false}}}
-function Movement.beginPlay(self) self.started = true end
+function Movement.load(self) self.started = true end
 function Movement.update(self, dt) self.owner.transform.x = self.owner.transform.x + self.speed * dt end
 return Movement
 '@

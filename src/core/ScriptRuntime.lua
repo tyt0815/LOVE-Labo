@@ -11,8 +11,8 @@ function Runtime.attach(self, id, class, overrides, name)
     if script.update then self.updateScripts[#self.updateScripts + 1] = script end
     if script.draw then self.drawScripts[#self.drawScripts + 1] = script end
     if self.world then self.world.updateOrderDirty = true end
-    if self.hasBegunPlay and not self.beginningPlay then
-        local ok, err = self:beginPlay(self.world)
+    if self.hasLoaded and not self.loadingScripts then
+        local ok, err = self:load(self.world)
         if not ok then Runtime.detach(self, id); error(err, 0) end
     end
     return script

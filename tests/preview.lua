@@ -7,14 +7,14 @@ local function fixture()
         "PreviewTest_" .. os.time() .. "_" .. love.math.random(100000, 999999)))
     assert(p:createEntry("Assets", "lua", "Visual", {scriptKind = "script"}))
     assert(Fs.writeAtomic(assert(p:resolveSourceFile("Assets/Visual.lua")), [[local Visual = {properties = {width = {type = "number", default = 10}}}
-function Visual.beginPlay() error("Preview must not beginPlay") end
+function Visual.load() error("Preview must not load") end
 function Visual.update() error("Preview must not update") end
 function Visual.getLocalBounds(self) return -self.width / 2, -5, self.width, 10 end
 function Visual.draw(self) love.graphics.setColor(1, 0, 0, 1); love.graphics.rectangle("fill", -self.width / 2, -5, self.width, 10) end
 return Visual
 ]]))
     assert(p:rebuildAssetIndex()); assert(p:createEntry("Assets", "prefab", "PF_Visual"))
-    local doc = assert(require("editor.PrefabDocument").beginPlay(p, "Assets/PF_Visual.prefab"))
+    local doc = assert(require("editor.PrefabDocument").load(p, "Assets/PF_Visual.prefab"))
     p.draftAssets = {[doc.assetId] = doc}
     local editor = require("editor.PrefabEditor").new(p, doc, function() p.draftRevision = (p.draftRevision or 0) + 1 end, function() end)
     assert(editor:addScript("root", p:getAssetId("Assets/Visual.lua"), "visual"))
@@ -26,7 +26,7 @@ add("Live previews use draft values without lifecycle callbacks or authoring mut
     target:setOverrides(values)
     local model = require("editor.Preview").new(p, {reference = doc.assetId})
     Assert.equal(30, model.objects[1]:getScriptByName("visual").width)
-    Assert.equal(false, model.objects[1]:getScriptByName("visual").hasBegunPlay == true)
+    Assert.equal(false, model.objects[1]:getScriptByName("visual").hasLoaded == true)
     local before = assert(require("project.Prefab").encodeData(doc.data))
     local canvas = love.graphics.newCanvas(80, 80); love.graphics.setCanvas(canvas)
     assert(model:draw({x = 0, y = 0, w = 80, h = 80})); love.graphics.setCanvas()

@@ -1,6 +1,7 @@
 # 0069. 스크립트 부착 식별자와 편집 구성 및 활성 상태
 
 - 상태: 승인·구현
+- 초기화 콜백 명칭은 [ADR 0070](0070-load-lifecycle-callback.md)의 load로 통일한다.
 - 부분 대체: [0050](0050-attached-scripts-and-unified-assets.md), [0052](0052-local-scripts-and-fixed-inherited-topology.md)의 런타임 부착·제거 API
 
 ## 배경과 제약
@@ -23,7 +24,7 @@ LObject는 getScriptByName, getScriptById, getScriptByClass, getScriptsByClass�
 
 World 준비 시 한 로더를 생성해 레벨 클래스·부착 구성·이후 Spawn에 전달한다. 레벨 콜백의 require도 같은 캐시를 사용한다. 캐시는 World 준비 범위에 한정하며 새 World를 준비할 때 소스를 다시 읽는다. draw 후보 목록의 활성 필터 외에 각 호출 직전에도 enabled를 검사하여 앞선 콜백의 비활성화가 같은 프레임에 적용되도록 한다.
 
-모든 Script에는 enabled=true가 있다. false는 update·draw·포인터 입력을 중단하며 카메라 선택에서 제외한다. beginPlay는 초기화를 위해 한 번 실행한다. Canvas는 비활성화되어도 자손의 좌표계 정의를 유지한다. 비활성 포인터의 캡처는 다음 입력 처리 시 해제한다.
+모든 Script에는 enabled=true가 있다. false는 update·draw·포인터 입력을 중단하며 카메라 선택에서 제외한다. load는 초기화를 위해 한 번 실행한다. Canvas는 비활성화되어도 자손의 좌표계 정의를 유지한다. 비활성 포인터의 캡처는 다음 입력 처리 시 해제한다.
 
 편집·로딩 구성은 내부 ScriptRuntime에 분리한다. 독립 로컬 부착을 복제하면 새 UUID를 발급하고 복제 범위의 스크립트 참조를 재연결한다. 원본 Prefab에서 상속한 부착은 원본 ID를 유지한다. Prefab 캡처·원본 연결은 기존 부착 ID를 보존하여 기존 인스턴스 참조를 유지한다.
 

@@ -5,7 +5,7 @@ local __CLASS__ = {}
 __CLASS__.properties = {}
 
 -- Play 시작 시 새 Runtime World를 초기화한다.
-function __CLASS__.beginPlay(world)
+function __CLASS__.load(world)
 end
 
 -- 매 프레임 호출된다. dt는 초 단위다.

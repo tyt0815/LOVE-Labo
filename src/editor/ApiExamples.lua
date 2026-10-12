@@ -19,7 +19,7 @@ local function assignScriptIds(level)
     if level.mainCamera then level.mainCamera.script = ids[level.mainCamera.authoringId][level.mainCamera.script] or level.mainCamera.script end
 end
 local LEVEL = [[local LevelDemo = {properties = {welcome = {type = "string", default = "API examples ready"}}}
-function LevelDemo.beginPlay(world)
+function LevelDemo.load(world)
     world.exampleElapsed = 0
     world.debug:screenLog(world.properties.welcome, {key = "welcome", lifespan = 5})
 end
@@ -32,10 +32,10 @@ local MOTION = [[local Motion = {properties = {
     title = {type = "string", default = "Moving object"},
     target = {type = "object", default = false}, sibling = {type = "script", default = false}
 }}
-function Motion.beginPlay(self)
+function Motion.load(self)
     self.originY, self.elapsed = self.owner.transform.y, 0
     local x, y = self:getWorldPosition()
-    self.owner.world.debug:log(self.title .. " beginPlay at " .. x .. ", " .. y)
+    self.owner.world.debug:log(self.title .. " load at " .. x .. ", " .. y)
 end
 function Motion.update(self, dt)
     self.elapsed = self.elapsed + dt

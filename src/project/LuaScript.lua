@@ -90,7 +90,7 @@ function LuaScript.loader(project)
             if not parent then return fail(parentError) end
         end
         if kind == "script" then
-            if class.build or class.load then return fail("Use beginPlay and editor-authored script attachments; build/load callbacks are no longer supported") end
+            if class.build or class.beginPlay then return fail("Use load and editor-authored script attachments; build/beginPlay callbacks are no longer supported") end
             parent = parent or require("core.Script")
             class.scriptType = canonical:match("([^/]+)%.lua$")
             local valid, script = pcall(parent.extend, parent, class)
@@ -112,12 +112,9 @@ function LuaScript.loader(project)
             if declaration.group ~= nil and (type(declaration.group) ~= "string" or declaration.group == "") then return fail("Property group must be a non-empty string") end
             schema[name] = {type = declaration.type, default = declaration.default, group = declaration.group or schema[name] and schema[name].group}
         end
-        for _, name in ipairs({"build", "beginPlay", "load", "update"}) do
+        for _, name in ipairs({"build", "load", "update"}) do
             if class[name] ~= nil and type(class[name]) ~= "function" then return fail(name .. " must be a function") end
         end
-        -- 기존 load 선언도 자신의 beginPlay로 승격하여 새 부모와의 상속을 유지한다.
-        if class.beginPlay == nil and class.load ~= nil then class.beginPlay = class.load end
-        if class.load == nil and class.beginPlay ~= nil then class.load = class.beginPlay end
         class.properties, class.super = schema, parent
         classNames[class] = canonical:match("([^/]+)%.lua$") or canonical
         if parent then setmetatable(class, {__index = parent}) end

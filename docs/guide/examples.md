@@ -8,10 +8,10 @@ Scene View 위의 ▶로 실행합니다. 화면의 두 열 버튼은 Canvas 아
 
 | 버튼·오브젝트 | 확인하는 동작 |
 |---|---|
-| Motion and Property References | beginPlay·update, number·boolean·string·object·script 프로퍼티, getWorldPosition/getWorldTransform |
+| Motion and Property References | load·update, number·boolean·string·object·script 프로퍼티, getWorldPosition/getWorldTransform |
 | Inherited Transform Child | 부모의 이동·Z 회전이 자손 Sprite에 합성됨 |
 | Spawn | Prefab 템플릿 참조와 spawnLObject로 Sprite·Motion 오브젝트 생성 |
-| Raw | World.addLObject와 beginPlay로 빈 오브젝트 생성. 렌더링 스크립트가 없어 보이지 않음 |
+| Raw | World.addLObject와 load로 빈 오브젝트 생성. 렌더링 스크립트가 없어 보이지 않음 |
 | Bounds | Bounds.hitTest/getBounds, CoordinateSpace, Viewport의 월드·화면 좌표 변환 |
 | Remove | 마지막으로 생성한 오브젝트 제거 |
 | Attach | 생성한 오브젝트를 움직이는 부모에 부착·분리 |
@@ -23,7 +23,7 @@ Scene View 위의 ▶로 실행합니다. 화면의 두 열 버튼은 Canvas 아
 | 모든 버튼 | Pointer 상속, down/up/move, blockPointer, inputPriority, sortingOrder, 영역 판정 |
 | Screen Space Text | Text 스크립트의 줄바꿈·정렬·크기, Canvas 기반 화면 공간 텍스트 |
 | 편집 화면 | Camera·RectBounds·Canvas·Sprite·Pointer의 drawEditor 영역 표시 |
-| LevelDemo.lua | 레벨 beginPlay/update와 world.properties, 레벨 전환 시 새 초기화 |
+| LevelDemo.lua | 레벨 load/update와 world.properties, 레벨 전환 시 새 초기화 |
 
 Spawn을 누른 뒤 Attach·Scripts·Remove를 순서대로 확인합니다. 화면 바깥으로 드래그해서 놓아도 Pointer capture가 up 이벤트를 전달합니다. ⏸로 멈추면 Update·게임 입력·일시적 디버그 표시 수명이 멈추고, ▶는 같은 Runtime World를 이어서 실행합니다. ■는 편집 모드로 복귀합니다.
 
