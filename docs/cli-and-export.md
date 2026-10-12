@@ -102,3 +102,33 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 `asset.import --input C:/Images/Player.png --folder "Assets/User Plugins/MyPlugin"`은 파일을 복사합니다. input은 폴더도 가능하며 name으로 새 이름을 지정할 수 있습니다. 기존 파일·메타데이터를 덮어쓰지 않고 파일시스템 링크는 따라가지 않습니다.
 
 스크립트 프로퍼티 조회 결과의 schema·values 키는 `사용자이름.프로퍼티`이며 `scriptIds`가 이름과 UUID를 연결합니다. prefab get은 최상위, instance get은 properties.scriptIds에서 확인합니다. 이름 또는 ID로 편집할 수 있으며 저장된 script 참조와 Main Camera는 내부 ID를 사용합니다. `instance set`/`prefab set`의 `이름.enabled`로 활성 상태를 편집합니다.
+
+## 일반 Script 이벤트 검증
+
+`level.events`는 레벨을 초기화하고 일반 LÖVE 이벤트를 부착 Script에 전달한 뒤 Transform·프로퍼티 상태를 반환합니다. 레벨을 저장하지 않습니다. 입력 소비를 수행하는 `level.pointer`와 독립된 명령입니다.
+
+```json
+{
+  "command": "level.events",
+  "project": "C:/Games/MyGame",
+  "level": "Assets/Examples/L_InputEvents.level",
+  "width": 1280,
+  "height": 720,
+  "events": [
+    {"name": "keypressed", "args": ["right", "right", false]},
+    {"name": "textinput", "args": ["Hello"]},
+    {"name": "mousepressed", "args": [640, 360, 1, false, 1]},
+    {"name": "mousereleased", "args": [1500, 900, 1, false, 1]}
+  ]
+}
+```
+
+`Labo-cli.exe --cli --request request.json`으로 실행합니다. `--events-json`으로 이벤트 배열을 전달할 수도 있습니다. 이벤트는 1~1000개이며 이름은 [지원 Script 콜백](guide/lua-api.md#löve-이벤트-콜백)으로 제한됩니다. 좌표는 지정한 화면의 호스트 좌표이고 카메라 레터박스와 게임 영역 원점 변환을 적용합니다. `--debug`는 로그를 결과에 포함합니다. 게임 업데이트·Pointer 판정은 실행하지 않습니다. 실제 Joystick 객체가 필요한 조이스틱·게임패드 이벤트는 JSON CLI로 주입하지 않습니다.
+
+Export의 실제 Host 검증에는 기존 `--verify-game`과 함께 `--verify-events <이벤트 배열 JSON 파일>`을 사용합니다.
+
+```powershell
+love Game.love --verify-game report.json --verify-events events.json
+```
+
+`events.json`은 위 `events` 배열만 저장한 파일입니다. 실제 Host 콜백을 호출하므로 마우스 이벤트는 기존 Pointer도 처리합니다. 검증은 초기화·한 프레임 업데이트·렌더링 후 이벤트를 전달하고 보고서를 저장한 뒤 종료합니다.

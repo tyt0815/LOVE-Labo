@@ -85,19 +85,19 @@ end
 
 function love.mousepressed(x, y, button, istouch, presses)
     if app then
-        app:mousepressed(x, y, button, presses)
+        app:mousepressed(x, y, button, presses, istouch)
     end
 end
 
-function love.mousereleased(x, y, button)
+function love.mousereleased(x, y, button, istouch, presses)
     if app and app.mousereleased then
-        app:mousereleased(x, y, button)
+        app:mousereleased(x, y, button, istouch, presses)
     end
 end
 
-function love.mousemoved(x, y, dx, dy)
+function love.mousemoved(x, y, dx, dy, istouch)
     if app and app.mousemoved then
-        app:mousemoved(x, y, dx, dy)
+        app:mousemoved(x, y, dx, dy, istouch)
     end
 end
 
@@ -138,9 +138,9 @@ function love.textedited(text, start, length)
     if app and app.textedited then app:textedited(text, start, length) end
 end
 
-function love.keypressed(key)
+function love.keypressed(key, scancode, isrepeat)
     if app then
-        app:keypressed(key)
+        app:keypressed(key, scancode, isrepeat)
     end
 end
 
@@ -151,4 +151,18 @@ end
 function love.quit()
     if app and app.viewportControls then app.viewportControls:commit() end
     if app and app.focus then app:focus(false) end
+end
+
+function love.resize()
+    if app and app.updateSceneViewport then app:updateSceneViewport() end
+end
+
+-- 에디터가 직접 처리하지 않는 LÖVE 이벤트도 동일한 게임 전달 경로를 사용한다.
+for _, name in ipairs(require("core.ScriptEvents").names) do
+    if love[name] == nil then
+        local eventName = name
+        love[name] = function(...)
+            if app and app.gameEvent then return app:gameEvent(eventName, ...) end
+        end
+    end
 end

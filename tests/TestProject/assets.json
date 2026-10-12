@@ -6,6 +6,17 @@
       "scriptKind": "script",
       "version": 1
     },
+    "Assets/Examples/InputEvents.lua": {
+      "hash": "703930faa241d77d182113ce0aaa4b05cab4191c6f63b6fd0a9a3b2bea317184",
+      "id": "17ecece5-b84e-42de-97dc-75e467c8f5fb",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/L_InputEvents.level": {
+      "hash": "0f2933590f271e9ea2812966e4e16427961a912b347d6120d5f0babe5ff1f2f0",
+      "id": "06bc0deb-d9b3-4e8c-a09a-b39bedd49f55",
+      "version": 1
+    },
     "Assets/Examples/LevelDemo.lua": {
       "hash": "77e0957eed9f1d43e072abcde9cae20093fe5f4c76138eb4969d48c35b08a135",
       "id": "6a8f6dcf-d978-4b4c-afcc-110ebcbcced5",

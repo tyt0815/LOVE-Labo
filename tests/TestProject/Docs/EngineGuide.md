@@ -33,3 +33,7 @@ Labo-cli.exe --cli level pointer --project <경로> --space screen --x 640 --y 3
 
 기본 레벨이 없으면 --level을 지정한다. 복잡한 값은 --request <UTF-8 JSON 파일>을 사용한다.
 level.simulate는 초기화·업데이트 결과를 반환하며 파일을 수정하거나 draw를 실행하지 않는다.
+
+## 일반 LÖVE 이벤트
+
+부착 Script에서 keypressed/keyreleased·textinput/textedited·마우스·터치·컨트롤러·focus/mousefocus/visible/resize 콜백을 구현한다. 반환값으로 소비하지 않으며 enabled=false·Pause는 전달을 멈춘다. 전역 love 콜백을 덮어쓰지 않는다. 마우스·터치는 실제 게임 영역 왼쪽 위 기준 픽셀 좌표다. Assets/Examples/L_InputEvents.level에서 검수한다. level.events CLI는 {name,args} 이벤트 배열을 받아 상태를 반환한다.

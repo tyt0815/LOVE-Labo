@@ -84,7 +84,11 @@ function World:dispatchPointer(kind, x, y, button, dx, dy, context)
     if not ok then self:cancelPointer(); return false, "Pointer input failed: " .. tostring(result) end
     return true, result
 end
-function World:cancelPointer() self.pointerCaptures = {} end
+function World:dispatchEvent(name, ...) return require("core.ScriptEvents").dispatch(self, name, ...) end
+function World:cancelPointer()
+    self.pointerCaptures = {}
+    require("core.ScriptEvents").cancel(self)
+end
 function World:setActiveCamera(camera)
     if camera == nil then self.activeCamera = nil; return true end
     if type(camera) ~= "table" or not camera.camera or type(camera.getViewSize) ~= "function" or type(camera.getViewTransform) ~= "function" then return false, "Expected a camera script" end

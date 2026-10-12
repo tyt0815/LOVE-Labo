@@ -72,3 +72,5 @@
 - [0068. 카메라 비율의 실제 게임 영역과 레터박스](adr/0068-camera-letterbox-for-world-and-screen-ui.md)
 - [0069. 스크립트 부착 식별자와 편집 구성 및 활성 상태](adr/0069-script-identity-and-editor-authored-attachments.md)
 - [0070. 초기화 콜백 이름을 load로 통일한다](adr/0070-load-lifecycle-callback.md)
+
+- [0071. LÖVE 이벤트를 부착 스크립트에 전달한다](adr/0071-love-events-on-attached-scripts.md)

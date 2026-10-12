@@ -80,7 +80,7 @@ local COMMANDS = {"project.create", "project.info", "project.refresh", "project.
     "asset.preview", "asset.thumbnail", "project.examples",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
-    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
+    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.events", "level.view", "level.set-camera",
     "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.script.rename", "instance.reorder", "export"}
 local function execute(request)
     local command = required(request, "command")
@@ -114,7 +114,7 @@ local function execute(request)
         assert(ok, err); return require("editor.AssetRepair").plan(project)
     end
     local readOnlyCommand = command:match("%.get$") or command:match("%.list$") or command:match("%.tree$")
-        or command:match("%.validate$") or command:match("%.simulate$") or command:match("%.pointer$") or command:match("%.view$")
+        or command:match("%.validate$") or command:match("%.simulate$") or command:match("%.events$") or command:match("%.pointer$") or command:match("%.view$")
         or command == "asset.preview" or command == "asset.thumbnail" or command == "export" or command == "asset.copy" or command == "project.set-default"
     if not readOnlyCommand then
         for _, field in ipairs({"prefab", "level", "asset"}) do
@@ -317,6 +317,9 @@ local function execute(request)
         local result = require("editor.CliSimulation").execute(project, level, request); result.revision = revision(bytes); return result
     elseif command == "level.view" then
         local result = require("editor.CliView").execute(project, level, request)
+        result.revision = revision(bytes); return result
+    elseif command == "level.events" then
+        local result = require("editor.CliEvents").execute(project, level, request)
         result.revision = revision(bytes); return result
     elseif command == "level.pointer" then
         local result = require("editor.CliPointer").execute(project, level, request)

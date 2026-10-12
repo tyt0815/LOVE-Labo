@@ -16,11 +16,25 @@ function Host.load(args)
         world = assert(require("runtime.WorldLoader").create(project, manifest.level))
         return true
     end)
+    if world then Host.event("resize") end
     -- 배포 검증은 실제 게임 호스트에서 load·update·렌더링을 실행한 뒤 종료한다.
     for i, value in ipairs(args or {}) do
         if value == "--verify-game" then
             Host.update(1 / 60); Host.draw()
-            for _, argument in ipairs(args) do
+            for index, argument in ipairs(args) do
+                if argument == "--verify-events" then
+                    attempt(function()
+                        local file = assert(io.open(assert(args[index + 1]), "rb"))
+                        local bytes = file:read("*a"); file:close()
+                        local events = assert(Json.decode(bytes))
+                        for _, event in ipairs(events) do
+                            assert(require("core.ScriptEvents").supported[event.name], "Unsupported script event")
+                            Host[event.name](unpack(event.args))
+                            if failure then return false, failure end
+                        end
+                        return true
+                    end)
+                end
                 if argument == "--verify-pointer" then
                     local width, height = love.graphics.getDimensions()
                     Host.mousepressed(width / 2, height / 2, 1)
@@ -60,7 +74,10 @@ function Host.update(dt)
         attempt(function() return world:update(dt) end)
         if world then
             local candidate = world:takeLevelTransition()
-            if candidate then world = candidate end
+            if candidate then
+                world = candidate
+                Host.event("resize")
+            end
         end
     end
 end
@@ -99,8 +116,30 @@ function Host.pointer(kind, x, y, button, dx, dy)
         return require("core.Viewport").new(world, 0, 0, width, height):dispatchPointer(world, kind, x, y, button, dx, dy, function(_, reference) return image(reference) end)
     end)
 end
-function Host.mousepressed(x, y, button) return Host.pointer("down", x, y, button) end
-function Host.mousereleased(x, y, button) return Host.pointer("up", x, y, button) end
-function Host.mousemoved(x, y, dx, dy) return Host.pointer("move", x, y, 1, dx, dy) end
-function Host.focus(focused) if not focused and world then world:cancelPointer() end end
+local Events = require("core.ScriptEvents")
+function Host.event(name, ...)
+    if not world then return end
+    local args, count = {...}, select("#", ...)
+    return attempt(function()
+        local width, height = love.graphics.getDimensions()
+        local viewport = require("core.Viewport").new(world, 0, 0, width, height)
+        if name == "resize" then args = {viewport.width, viewport.height}; count = 2 end
+        if name == "focus" and not args[1] then world:cancelPointer() end
+        return Events.screen(world, viewport, name, unpack(args, 1, count))
+    end)
+end
+for _, name in ipairs(Events.names) do
+    local eventName = name
+    Host[name] = function(...) return Host.event(eventName, ...) end
+end
+local function mouse(name, kind, x, y, button, istouch, presses)
+    Host.event(name, x, y, button, istouch, presses)
+    return Host.pointer(kind, x, y, button)
+end
+function Host.mousepressed(...) return mouse("mousepressed", "down", ...) end
+function Host.mousereleased(...) return mouse("mousereleased", "up", ...) end
+function Host.mousemoved(x, y, dx, dy, istouch)
+    Host.event("mousemoved", x, y, dx, dy, istouch)
+    return Host.pointer("move", x, y, 1, dx, dy)
+end
 return Host

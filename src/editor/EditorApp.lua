@@ -165,6 +165,32 @@ function EditorApp:setMainCamera(value)
     self:recordHistory()
     return true
 end
+function EditorApp:gameEvent(name, ...)
+    if not self.runtimeWorld or self.paused then return false end
+    local input = name ~= "resize" and name ~= "focus" and name ~= "visible" and name ~= "mousefocus"
+    if input and (self.uiRoot.popup or self.objectPick) then return false end
+    local positional = name == "wheelmoved" or name:match("^mouse") and name ~= "mousefocus" or name:match("^touch")
+    if input and not positional and self.uiRoot.focused ~= self.sceneWidget then return false end
+    local viewport = self.gameView:runtimeViewport(self.runtimeWorld)
+    if not viewport then return false end
+    local ok, err = require("core.ScriptEvents").screen(self.runtimeWorld, viewport, name, ...)
+    if not ok then
+        self.runtimeError = err; self.runtimeWorld:cancelPointer(); self.runtimeWorld = nil
+    end
+    return ok, err
+end
+
+function EditorApp:updateGameSize()
+    if not self.runtimeWorld or self.paused then return end
+    local viewport = self.gameView:runtimeViewport(self.runtimeWorld)
+    if not viewport then return end
+    local world = self.runtimeWorld
+    if world.eventWidth ~= viewport.width or world.eventHeight ~= viewport.height then
+        world.eventWidth, world.eventHeight = viewport.width, viewport.height
+        self:gameEvent("resize", viewport.width, viewport.height)
+    end
+end
+
 function EditorApp:handleGamePointer(kind, x, y, button, dx, dy)
     if not self.runtimeWorld or self.paused then return false end
     local ok, result = self.gameView:dispatchPointer(self.runtimeWorld, kind, x, y, button, dx, dy)
@@ -182,7 +208,11 @@ end
 
 function EditorApp:startPlay()
     self:cancelObjectPick()
-    if self:isPlaying() and self.paused then self.paused = false; return true end
+    if self:isPlaying() and self.paused then
+        self.paused = false
+        self:updateSceneViewport()
+        return self.runtimeWorld ~= nil, self.runtimeError
+    end
     if self:isPlaying() then
         return false, "editor is already playing"
     end
@@ -198,13 +228,16 @@ function EditorApp:startPlay()
     if not world then self.runtimeError = worldError; return false, worldError end
     self.runtimeError, self.runtimeWorld, self.paused = nil, world, false
     self.gameView.world = world
+    self.uiRoot.focused = self.sceneWidget
 
     -- Play 중 hidden Scene View drag/pan 상태가 남아 있지 않게 정리한다.
     self.sceneView:cancelDrag(false)
     self.sceneView.isPanning = false
     if self.uiRoot.focused == self.viewportControls then self.uiRoot.focused = self.sceneWidget end
 
-    return true
+    -- 첫 update 전에 실제 게임 영역 크기를 초기화한다.
+    self:updateSceneViewport()
+    return self.runtimeWorld ~= nil, self.runtimeError
 end
 
 function EditorApp:pausePlay()
@@ -961,6 +994,7 @@ end
 function EditorApp:updateSceneViewport()
     self.viewportControls.enabled = not self:isPlaying()
     self.uiLayout:arrange(love.graphics.getDimensions())
+    self:updateGameSize()
 end
 
 function EditorApp:update(dt)
@@ -970,12 +1004,17 @@ function EditorApp:update(dt)
     if self.sceneView.ping then self.sceneView.ping.remaining = self.sceneView.ping.remaining - dt; if self.sceneView.ping.remaining <= 0 then self.sceneView.ping = nil end end
     self.uiRoot:update(dt)
     if self.runtimeWorld and not self.paused then
+        self:updateGameSize()
+        if not self.runtimeWorld then return false, self.runtimeError end
         local ok, updated, err = pcall(self.runtimeWorld.update, self.runtimeWorld, dt)
         if not ok then err, updated = tostring(updated), false end
         if updated == false then self.runtimeError = err; self.runtimeWorld = nil end
         if self.runtimeWorld then
             local candidate, transitionError = self.runtimeWorld:takeLevelTransition()
-            if candidate then self.runtimeWorld, self.runtimeError = candidate, nil
+            if candidate then
+                self.runtimeWorld, self.runtimeError = candidate, nil
+                self:updateSceneViewport()
+                if not self.runtimeWorld then return false, self.runtimeError end
             elseif transitionError then self.runtimeError = transitionError end
         end
         return updated, err
@@ -1145,8 +1184,9 @@ function EditorApp:pickReferenceAt(x, y)
     local ok = inspector:applyPicked(pick.name, value)
     if ok then self:cancelObjectPick(); self:updateInspectorTarget() end
 end
-function EditorApp:mousepressed(x, y, button, presses)
+function EditorApp:mousepressed(x, y, button, presses, istouch)
     self:updateSceneViewport()
+    self:gameEvent("mousepressed", x, y, button, istouch, presses)
     if self.objectPick then
         if button == 2 then self:cancelObjectPick(); return true end
         if button == 1 then
@@ -1160,7 +1200,8 @@ function EditorApp:mousepressed(x, y, button, presses)
     self:updateSceneViewport()
 end
 
-function EditorApp:mousereleased(x, y, button)
+function EditorApp:mousereleased(x, y, button, istouch, presses)
+    self:gameEvent("mousereleased", x, y, button, istouch, presses)
     if self.objectPick and self.objectPick.scrollbar then
         self.objectPick.scrollbar:dispatch("mousereleased", x, y, button); self.objectPick.scrollbar = nil
         return true
@@ -1175,8 +1216,9 @@ function EditorApp:mousereleased(x, y, button)
     end
 end
 
-function EditorApp:mousemoved(x, y, dx, dy)
+function EditorApp:mousemoved(x, y, dx, dy, istouch)
     self:updateSceneViewport()
+    self:gameEvent("mousemoved", x, y, dx, dy, istouch)
     if self.objectPick then
         if self.objectPick.scrollbar then self.objectPick.scrollbar:dispatch("mousemoved", x, y) end
         love.mouse.setCursor(self.pickCursor); return
@@ -1190,6 +1232,7 @@ function EditorApp:mousemoved(x, y, dx, dy)
 end
 
 function EditorApp:focus(focused)
+    self:gameEvent("focus", focused)
     if focused then return end
     if self.runtimeWorld then self.runtimeWorld:cancelPointer() end
     self:cancelObjectPick()
@@ -1198,22 +1241,26 @@ function EditorApp:focus(focused)
     if self.viewportControls.numberDrag then self.viewportControls:dispatch("cancel") end
     self.uiRoot:cancelCapture()
 end
-function EditorApp:wheelmoved(_, amount)
+function EditorApp:wheelmoved(horizontal, amount)
     self:updateSceneViewport()
     local x, y = love.mouse.getPosition()
+    local viewport = self.runtimeWorld and self.gameView:runtimeViewport(self.runtimeWorld)
+    if viewport and x >= viewport.x and x < viewport.x + viewport.width and y >= viewport.y and y < viewport.y + viewport.height then
+        self:gameEvent("wheelmoved", horizontal, amount); return
+    end
     self.uiRoot:wheelmoved(x, y, amount)
 end
 
 function EditorApp:textinput(text)
     if self.uiRoot.popup then return self.uiRoot:textinput(text) end
-    if self:isPlaying() then return end
+    if self:isPlaying() then return self:gameEvent("textinput", text) end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
     return self.uiRoot:textinput(text)
 end
 
 function EditorApp:textedited(text, start, length)
     if self.uiRoot.popup then return self.uiRoot:textedited(text, start, length) end
-    if self:isPlaying() then return end
+    if self:isPlaying() then return self:gameEvent("textedited", text, start, length) end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
     return self.uiRoot:textedited(text, start, length)
 end
@@ -1232,7 +1279,7 @@ function EditorApp:handleSceneKey(key)
     return true
 end
 
-function EditorApp:keypressed(key)
+function EditorApp:keypressed(key, scancode, isrepeat)
     if key == "r" and love.keyboard.isDown("lctrl", "rctrl") and self.project and not self.uiRoot.popup
         and not self.inspector:isEditing() and not self.viewportControls.editing then return self:refreshProject() end
     if self.objectPick then
@@ -1257,7 +1304,7 @@ function EditorApp:keypressed(key)
         if self:isPlaying() and not self.paused then return self:stopPlay() end
         return self:startPlay()
     end
-    if self:isPlaying() then return end
+    if self:isPlaying() then return self:gameEvent("keypressed", key, scancode, isrepeat) end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
     if not controlDown and not self.inspector:isEditing() and not self.viewportControls.editing
         and (key == "w" or key == "e" or key == "r") then return self:handleSceneKey(key) end

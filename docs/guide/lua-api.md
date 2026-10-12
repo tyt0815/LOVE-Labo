@@ -71,3 +71,45 @@ if movement then movement.enabled = false end
 ![스크립트 헤더의 Copy ID와 Rename](images/script-context.svg)
 
 ① Copy ID는 내부 식별자를 복사합니다. ② Rename은 사용자 이름을 편집합니다. ③ 돋보기와 X는 원본 찾기와 로컬 부착 제거입니다.
+
+## LÖVE 이벤트 콜백
+
+부착 Script에 다음 콜백을 구현합니다. 전역 `love.keypressed` 등을 직접 덮어쓰지 않습니다. 기본 제공 플러그인 없이도 사용할 수 있습니다.
+
+![LÖVE 이벤트 전달 구조](images/script-events.svg)
+
+| 종류 | Script 콜백과 인자 |
+|---|---|
+| 키보드 | `keypressed(key, scancode, isrepeat)`, `keyreleased(key, scancode)` |
+| 문자 | `textinput(text)`, `textedited(text, start, length)` |
+| 마우스 | `mousepressed(x, y, button, istouch, presses)`, `mousereleased(x, y, button, istouch, presses)` |
+| 이동·휠 | `mousemoved(x, y, dx, dy, istouch)`, `wheelmoved(x, y)` |
+| 터치 | `touchpressed(id, x, y, dx, dy, pressure)`, `touchreleased(...)`, `touchmoved(...)` — 세 콜백의 인자는 동일 |
+| 조이스틱 | `joystickpressed(joystick, button)`, `joystickreleased(joystick, button)`, `joystickaxis(joystick, axis, value)`, `joystickhat(joystick, hat, direction)` |
+| 게임패드 | `gamepadpressed(joystick, button)`, `gamepadreleased(joystick, button)`, `gamepadaxis(joystick, axis, value)` |
+| 장치 연결 | `joystickadded(joystick)`, `joystickremoved(joystick)` |
+| 창 상태 | `focus(focused)`, `mousefocus(focused)`, `visible(visible)` |
+| 게임 영역 크기 | `resize(width, height)` |
+
+```lua
+local Player = {}
+function Player:keypressed(key, scancode, isrepeat)
+    if key == "right" then
+        self.owner.transform.x = self.owner.transform.x + 20
+    end
+end
+function Player:mousepressed(x, y, button, istouch, presses)
+    self.clickX, self.clickY = x, y
+end
+return Player
+```
+
+부모부터 자손, 같은 객체에서는 부착 순서로 활성 Script에 전달합니다. 반환값은 무시하므로 `return true`로 다른 Script의 입력을 막지 않습니다. 메뉴 상태에 따른 처리 여부는 게임 코드에서 결정합니다. 이벤트 도중 비활성화·제거된 대상은 건너뛰고 새로 Spawn한 대상은 다음 이벤트부터 받습니다. 콜백 예외는 런타임 오류로 표시합니다. 콜백 이름을 프로퍼티 이름으로 사용할 수 없습니다.
+
+`x/y`는 레터박스를 제외한 실제 게임 화면 왼쪽 위 기준의 픽셀 좌표입니다. `dx/dy`는 그대로 전달합니다. 월드 좌표가 필요하면 실제 게임 영역 크기로 만든 `Engine.Viewport`의 `screenToWorld(x, y)`를 사용합니다. 영역 밖에서 시작한 입력은 전달하지 않으며, 안에서 시작한 입력의 이동·해제는 밖에서도 받습니다. 기존 Pointer의 `onPointerDown/Up/Move`는 별도의 영역 판정 기능이며 일반 마우스 이벤트 다음에 처리됩니다. 두 방식을 함께 구현하면 각각 호출됩니다.
+
+Editor에서는 Game View가 포커스를 가진 경우 키보드·문자·컨트롤러 입력을 전달합니다. 실행 시 Game View에 포커스를 주며 다른 패널을 클릭한 뒤에는 게임 화면을 클릭해 돌아옵니다. 팝업·스포이드·Pause 중에는 입력을 전달하지 않습니다. F5·저장 등 에디터 단축키가 우선하며 Export에는 이 제한이 없습니다. 휠은 커서가 실제 게임 영역 안에 있을 때 전달합니다.
+
+`focus/mousefocus/visible`은 호스트 창 상태입니다. `resize`는 게임 영역의 실제 크기이며 최초 실행과 레벨 전환 때 새 World의 첫 `update` 전에 전달됩니다. 이후 Editor에서는 레이아웃 변경, Export에서는 창 크기 변경을 반영합니다. Pause 중 생긴 영역 변경은 재개 시 다음 `update` 전에 반영됩니다. 논리 해상도·월드 크기와 다릅니다.
+
+`quit`, 파일·폴더 드롭, `threaderror`, `lowmemory`, `displayrotated`, `run/conf/errorhandler`는 Script 이벤트로 제공하지 않습니다. 레벨 Lua 스크립트는 기존 `load/update`를 유지합니다. [이벤트 예제](examples.md#löve-이벤트-예제)와 [CLI 검증](../cli-and-export.md#일반-script-이벤트-검증)을 참고합니다.

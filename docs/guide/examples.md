@@ -44,3 +44,16 @@ Labo-cli.exe --cli project examples --project D:/Games/MyGame
 `Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `sortingOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
 
 `Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `sortingOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
+
+## LÖVE 이벤트 예제
+
+테스트 프로젝트에서 **Assets/Examples/L_InputEvents.level**을 열고 ▶로 실행합니다. `InputEvents 1` 오브젝트에 `InputEvents.lua`가 부착되어 있습니다.
+
+- 왼쪽·오른쪽 방향키: 사각형을 이동합니다.
+- 문자 입력: 입력한 내용을 화면에 표시합니다.
+- 클릭·휠: 이벤트 이름·횟수·게임 화면 기준 좌표를 표시합니다.
+- 게임 화면 안에서 누른 뒤 밖에서 놓기: 해제 콜백이 전달됩니다.
+- Pause: 입력이 멈춥니다. Resume 후 같은 상태에서 계속합니다.
+- 다른 패널을 클릭하면 키 입력은 게임에 전달되지 않습니다. 게임 화면을 클릭해 포커스를 돌려줍니다.
+
+이 예제는 Pointer를 사용하지 않고 일반 LÖVE 이벤트 콜백과 `love.graphics`로 구현합니다. `L_InputEvents.level`을 Export하면 같은 코드를 독립 게임에서 확인할 수 있습니다. 이 추가 검수 레벨은 저장소 테스트 프로젝트에 제공하며 `project.examples`가 생성하는 기존 API 예제와는 별개입니다.

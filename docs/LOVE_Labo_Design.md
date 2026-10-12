@@ -534,3 +534,7 @@ World.debug는 배포에서 no-op이며 Editor Play와 CLI의 명시적 디버�
 Play·Pause·Stop은 고정된 버튼이다. Pause는 같은 Runtime World를 유지하고 Update·게임 입력·디버그 수명을 정지하며 렌더링·에디터 UI는 계속 실행한다. 테마 기반 초록·주황 테두리와 활성 버튼으로 상태를 구분한다. 게임 기능에는 테스트 프로젝트 Assets/Examples의 검수용 예제 오브젝트·레벨을 함께 제공한다. 상세 실행 상태는 [ADR 0067](adr/0067-fixed-play-pause-stop-controls.md)을 따른다.
 
 버튼바는 뷰포트 밖 상단 중앙이며 계층·Inspector 상단과 정렬한다. 실행 화면은 카메라의 기준 비율을 유지한 최대 영역을 사용하고 남는 공간은 검은 레터박스로 표시한다. Canvas와 렌더링·입력·CLI 좌표도 이 실제 게임 영역을 기준으로 한다. 상세 계약은 [ADR 0068](adr/0068-camera-letterbox-for-world-and-screen-ui.md)을 따른다.
+
+## 일반 LÖVE 이벤트 연결
+
+Host가 소유한 LÖVE 이벤트는 같은 이름·인자의 부착 Script 콜백으로 전달한다. 반환값 소비·입력 액션 시스템은 추가하지 않는다. 실제 게임 영역 좌표와 Editor 포커스·Pause 경계는 [ADR 0071](adr/0071-love-events-on-attached-scripts.md)을 따른다.

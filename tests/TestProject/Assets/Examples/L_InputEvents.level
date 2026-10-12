@@ -1,0 +1,40 @@
+{
+  "formatVersion": 3,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "name": "Camera 1",
+      "scripts": [
+        {
+          "id": "4262a886-258c-4fac-9519-4f9ffc0bd8a5",
+          "name": "Camera",
+          "source": "Camera"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 2,
+      "name": "InputEvents 1",
+      "scripts": [
+        {
+          "id": "0c164a82-5fab-44aa-a96c-e238bba84e2c",
+          "name": "InputEvents",
+          "source": "17ecece5-b84e-42de-97dc-75e467c8f5fb"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  ],
+  "mainCamera": {
+    "authoringId": 1,
+    "script": "4262a886-258c-4fac-9519-4f9ffc0bd8a5"
+  },
+  "propertyOverrides": {}
+}

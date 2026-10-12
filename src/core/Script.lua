@@ -3,6 +3,7 @@ local Script = {properties = {enabled = {type = "boolean", default = true, group
 local RESERVED = {owner = true, properties = true, id = true, name = true, source = true, hasLoaded = true,
     load = true, update = true, draw = true, drawEditor = true, onPointerDown = true, onPointerUp = true, onPointerMove = true,
     pointer = true, camera = true, canvas = true, super = true, scriptType = true}
+for _, name in ipairs(require("core.ScriptEvents").names) do RESERVED[name] = true end
 Script.__index = function(instance, name)
     if Script.properties[name] then return instance.properties[name] end
     return Script[name]
@@ -26,6 +27,9 @@ function Script:extend(definition)
     end
     for _, callback in ipairs({"load", "update", "draw", "drawEditor", "getLocalBounds", "hitTest", "onPointerDown", "onPointerUp", "onPointerMove"}) do
         assert(definition[callback] == nil or type(definition[callback]) == "function", callback .. " must be a function")
+    end
+    for _, name in ipairs(require("core.ScriptEvents").names) do
+        assert(definition[name] == nil or type(definition[name]) == "function", name .. " must be a function")
     end
     definition.properties, definition.super = schema, self
     definition.pointer = definition.pointer or self.pointer or definition.onPointerDown ~= nil or definition.onPointerUp ~= nil or definition.onPointerMove ~= nil

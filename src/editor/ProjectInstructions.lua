@@ -39,6 +39,7 @@ world:openLevel(reference)은 프레임 경계에서 레벨을 전환한다. Cam
 
 모든 에셋은 Assets 아래에 있으며 assets.json의 ID로 참조한다. Docs는 게임 Export에 포함하지 않는다.
 Prefab 형식은 4, 레벨 형식은 3이다. 이전 Sources는 Assets/Scripts로 이동하지만 옛 컴포넌트 코드·Prefab은 수동 전환해야 한다.
+부착 Script는 keypressed/keyreleased, textinput/textedited, 마우스·터치·조이스틱·게임패드, focus/mousefocus/visible/resize 콜백을 LÖVE 이름·인자로 구현한다. 전역 love 콜백을 덮어쓰지 않는다. 반환값 소비는 없고 enabled=false는 전달하지 않는다. 마우스·터치는 실제 게임 화면 왼쪽 위 기준 픽셀 좌표다. Editor에서는 Game View 포커스·팝업·Pause·에디터 단축키 경계를 따른다.
 스크립트는 공통 enabled로 실행을 켜고 끈다. 런타임 addScript/removeScript는 제공하지 않으며 부착·제거는 편집 작업이다.
 Prefab의 scripts는 {id,source,name} 목록, overrides.scripts는 부착 ID별 프로퍼티 재정의다.
 
@@ -50,6 +51,7 @@ Labo-cli.exe --cli level simulate --project <경로> --frames 60 --dt 0.0166667
 Labo-cli.exe --cli level pointer --project <경로> --space screen --x 640 --y 360
 
 기본 레벨이 없으면 --level을 지정한다. 복잡한 값은 --request <UTF-8 JSON 파일>을 사용한다.
+level.events는 events 또는 --events-json 배열의 {name,args}를 같은 Script 이벤트 경로로 전달하고 상태를 반환한다. 문서를 저장하지 않고 draw·update·Pointer 판정은 실행하지 않는다.
 level.simulate는 초기화·업데이트 결과를 반환하며 파일을 수정하거나 draw를 실행하지 않는다. --debug로 로그·도형 기록도 확인한다.
 ]]}
     }
