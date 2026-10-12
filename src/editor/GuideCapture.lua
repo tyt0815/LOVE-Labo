@@ -138,7 +138,7 @@ return Player
         app.inspectorSource = "scene"; app.sceneView:setSelection({area}); app:updateInspectorTarget(); shot("editor-areas")
         assert(app:startPlay()); app.statusWidget:toggle()
         app.debugSession:log("Play started")
-        app.debugSession:log("Object selected", {color = {0, 120, 255}})
+        app.debugSession:log("Object selected", {color = {0, 120, 255}, marker = "!"})
         app.debugSession:log("Debug overlay ready")
         app.debugSession:screenLog("Ready", {key = "state", lifespan = 30})
         app.debugSession:screenLog("Camera active", {lifespan = 30})

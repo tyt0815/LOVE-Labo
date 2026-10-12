@@ -36,7 +36,8 @@ end
 function Layout:arrange(width, height)
     local app = self.app
     local top = app.menuBar and app.menuBar.HEIGHT or 0
-    local workspaceHeight = math.max(0, height - (app.statusHeight or 0))
+    -- 패널의 위아래 6px 여백이 중복되지 않게 로그바 쪽 경계를 8px 겹친다.
+    local workspaceHeight = math.max(0, height - (app.statusHeight or 0) + ((app.statusHeight or 0) > 0 and 8 or 0))
     app.hierarchy.width = math.max(140, math.min(app.hierarchy.width, math.max(140, width - app.inspector.width - 160)))
     app.inspector.width = math.max(180, math.min(app.inspector.width, math.max(180, width - app.hierarchy.width - 160)))
     local browserHeight = 0

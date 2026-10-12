@@ -66,3 +66,4 @@
 - [0062. 플러그인 탐색 루트를 Assets와 나란히 표시](adr/0062-plugin-browser-roots.md)
 - [0063. 기본 기능 플러그인 통합과 편집 영역 표시](adr/0063-essentials-plugin-and-editor-bounds.md)
 - [0064. 최신 로그 한 줄과 겹쳐 펼치는 기록 패널](adr/0064-persistent-latest-log-and-overlay.md)
+- [0065. 오류 발생과 오류 표시를 분리](adr/0065-error-occurrence-logging.md)

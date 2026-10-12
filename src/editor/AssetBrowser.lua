@@ -226,7 +226,7 @@ function AssetBrowser:refresh(keepPopup)
         self.entries = {}
         local root = self.folder:match("^[^/]+")
         if self.folder ~= root then self:openFolder(root) end
-        self.error = err
+        require("editor.ErrorLog").restore(self, "error", err)
         self:rebuildTree()
     elseif selected then
         for _, entry in ipairs(self.entries) do

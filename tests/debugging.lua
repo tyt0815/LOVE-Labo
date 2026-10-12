@@ -113,4 +113,80 @@ add("Collapsed log keeps the latest line after time passes", function()
     local ok, err = pcall(app.statusWidget.render, app.statusWidget); Ui.text = original
     assert(ok, err); Assert.truthy(seen)
 end)
+add("Expanded history grows upward excludes the latest entry and aligns custom markers", function()
+    local p = fixture(); local app = require("editor.EditorApp").new(nil, p)
+    local panel, session = app.statusWidget, app.debugSession
+    session:log("Oldest", {marker = "!"}); session:log("Previous"); session:log("Latest", {marker = "한"})
+    Assert.equal("!", session.history[1].marker); Assert.equal("-", session.history[2].marker)
+    Assert.equal("한", session.history[3].marker)
+    for _, marker in ipairs({"", "ab", "\n", false}) do
+        Assert.equal(false, pcall(session.log, session, "Invalid", {marker = marker}))
+    end
+    Assert.equal(3, #session.history)
+    panel:toggle()
+    local Ui, seen, counts = require("editor.Ui"), {}, {}
+    local original = Ui.text
+    Ui.text = function(text, x, y, ...)
+        seen[text], counts[text] = {x = x, y = y}, (counts[text] or 0) + 1
+        return original(text, x, y, ...)
+    end
+    local ok, err = pcall(panel.render, panel); Ui.text = original; assert(ok, err)
+    Assert.equal(1, counts.Latest)
+    Assert.truthy(seen.Oldest.y < seen.Previous.y and seen.Previous.y < seen.Latest.y)
+    Assert.equal(seen.Latest.x, seen.Previous.x); Assert.equal(seen.Latest.x, seen.Oldest.x)
+    Assert.equal(22, seen.Latest.y - seen.Previous.y)
+    Assert.equal(22, seen.Previous.y - seen.Oldest.y)
+    Assert.equal(seen.Previous.y, seen["-"].y); Assert.equal(seen.Oldest.y, seen["!"].y)
+    Assert.equal(4, panel:summaryY() + 6 - (app.assetBrowser.y + app.assetBrowser.height - 6))
+end)
+add("Repeated error assignments are recorded without duplicating persistent display state", function()
+    local p = fixture(); local app = require("editor.EditorApp").new(nil, p)
+    app.runtimeError = "Repeated error"
+    for _ = 1, 8 do app:draw() end
+    Assert.equal(1, #app.debugSession.history)
+    app.runtimeError = "Repeated error"; app.runtimeError = "Repeated error"
+    Assert.equal(3, #app.debugSession.history)
+    for _, entry in ipairs(app.debugSession.history) do Assert.equal("Error: Repeated error", entry.text) end
+    app.runtimeError = nil; app:draw(); Assert.equal(3, #app.debugSession.history)
+    app.debugSession:log("Same log"); app.debugSession:log("Same log")
+    Assert.equal(5, #app.debugSession.history)
+end)
+add("Each rejected Scene View drop produces one log even when the error text repeats", function()
+    local p = fixture(); local app = require("editor.EditorApp").new(nil, p)
+    local browser = app.assetBrowser
+    local vx, vy, width, height = app.sceneView:getViewport()
+    local x, y = vx + width / 2, vy + height / 2
+    for attempt = 1, 3 do
+        browser.drag = {active = true, entry = {type = "directory", reference = "Assets", name = "Assets"}}
+        browser:dragReleased(x, y, 1)
+        for _ = 1, 8 do app:draw() end
+        Assert.equal(attempt, #app.debugSession.history)
+        Assert.equal("Drop a Prefab into the Scene View", browser.error)
+    end
+end)
+add("Refreshing an externally deleted folder logs once and retains the original error", function()
+    local p = fixture(); local app = require("editor.EditorApp").new(nil, p)
+    local browser, path = app.assetBrowser, assert(p:resolvePath("Assets/Vanishing"))
+    for attempt = 1, 2 do
+        assert(Fs.mkdir(path)); assert(browser:openFolder("Assets/Vanishing")); assert(Fs.removeDirectory(path))
+        local ok, err = browser:refresh()
+        Assert.equal(false, ok); Assert.truthy(err)
+        Assert.equal("Assets", browser.folder); Assert.equal(err, browser.error)
+        Assert.equal(attempt, #app.debugSession.history)
+        Assert.equal("Error: " .. tostring(err), app.debugSession.latest.text)
+        for _ = 1, 3 do app:draw() end
+        Assert.equal(attempt, #app.debugSession.history)
+    end
+end)
+add("Restoring error display does not suppress a subsequent identical failure", function()
+    local session = require("editor.DebugSession").new()
+    local source = {}; local ErrorLog = require("editor.ErrorLog")
+    ErrorLog.watch(source, "error", session)
+    source.error = "Failure"; source.error = nil
+    ErrorLog.restore(source, "error", "Failure")
+    Assert.equal("Failure", source.error); Assert.equal(1, #session.history)
+    source.error = "Failure"; Assert.equal(2, #session.history)
+    local unobserved = {}; ErrorLog.restore(unobserved, "error", "Visible")
+    Assert.equal("Visible", unobserved.error)
+end)
 return tests

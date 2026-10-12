@@ -15,7 +15,11 @@ function Session.new()
 end
 function Session:log(text, settings)
     local color = options(settings)
-    local entry = {text = tostring(text), color = color, time = self.time}
+    local marker = settings and settings.marker
+    if marker == nil then marker = "-" end
+    assert(type(marker) == "string" and require("utf8").len(marker) == 1
+        and not marker:find("%c"), "Debug log marker must be one printable character")
+    local entry = {text = tostring(text), color = color, time = self.time, marker = marker}
     self.history[#self.history + 1] = entry
     if #self.history > 1000 then table.remove(self.history, 1) end
     self.latest, self.revision = entry, self.revision + 1

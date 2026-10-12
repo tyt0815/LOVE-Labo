@@ -10,8 +10,12 @@ function Panel.new(app)
     self.handlers = {
         draw = function() self:render() end,
         mousepressed = function(_, x, y, button)
+            if self.expanded then
+                local handled, captured = self.scrollbar:dispatch("mousepressed", x, y, button)
+                if handled then return handled, captured end
+            end
             if button == 1 and y >= self:summaryY() then self:toggle(); return true end
-            return self.scrollbar:dispatch("mousepressed", x, y, button)
+            return false
         end,
         mousemoved = function(_, ...) return self.scrollbar:dispatch("mousemoved", ...) end,
         mousereleased = function(_, ...) return self.scrollbar:dispatch("mousereleased", ...) end,
@@ -31,7 +35,7 @@ function Panel:toggle()
 end
 function Panel:render()
     local session = self.app.debugSession
-    local rows, height = #session.history, math.max(0, self.height - Panel.HEIGHT - 16)
+    local rows, height = math.max(0, #session.history - 1), math.max(0, self.height - Panel.HEIGHT + 2)
     local maximum = math.max(0, rows * 22 - height)
     if self.revision ~= session.revision then self.scroll = maximum; self.revision = session.revision end
     self.scroll = math.max(0, math.min(maximum, self.scroll))
@@ -49,11 +53,13 @@ function Panel:render()
     end
     if self.expanded then
         love.graphics.intersectScissor(self.x + 12, self.y + 8, self.width - 34, height)
-        for index, entry in ipairs(session.history) do
-            local y = self.y + 8 + (index - 1) * 22 - self.scroll
-            if y + 22 >= self.y + 8 and y < summaryY - 8 then
-                Ui.text(entry.text, self.x + 14, y, self.width - 40,
-                    {entry.color[1] / 255, entry.color[2] / 255, entry.color[3] / 255, 1})
+        for index = 1, rows do
+            local entry = session.history[index]
+            local y = summaryY + 10 - (rows - index + 1) * 22 + maximum - self.scroll
+            if y + 22 >= self.y + 8 and y < summaryY + 10 then
+                local color = {entry.color[1] / 255, entry.color[2] / 255, entry.color[3] / 255, 1}
+                Ui.text(entry.marker or "-", self.x + 10, y, 14, color, false, "center")
+                Ui.text(entry.text, self.x + 32, y, self.width - 58, color)
             end
         end
         love.graphics.setScissor(self.x, self.y, self.width, self.height); self.scrollbar:draw()

@@ -928,6 +928,11 @@ function EditorApp:initializeUI()
         end
     end
     self.uiLayout = require("editor.ui.EditorLayout").new(self, self.canvas, slots)
+    local ErrorLog = require("editor.ErrorLog")
+    ErrorLog.watch(self, "runtimeError", self.debugSession)
+    for _, source in pairs({self.assetBrowser, self.inspector.classInspector, self.spriteAssets, self.viewportControls, self.hierarchy}) do
+        ErrorLog.watch(source, "error", self.debugSession)
+    end
     self:updateSceneViewport()
 end
 
@@ -961,13 +966,6 @@ function EditorApp:draw()
     local x, y = love.mouse.getPosition()
     Ui.beginFrame(x, y)
     Theme.clear("background")
-    local err = self.runtimeError or self.assetBrowser and self.assetBrowser.error
-        or self.inspector.classInspector and self.inspector.classInspector.error
-        or self.spriteAssets and self.spriteAssets.error or self.viewportControls.error
-    if err ~= self.lastLoggedError then
-        if err then self.debugSession:log("Error: " .. tostring(err), {color = {255, 80, 80}}) end
-        self.lastLoggedError = err
-    end
     self.uiRoot:draw()
     self.debugSession:finishFrame()
 end
