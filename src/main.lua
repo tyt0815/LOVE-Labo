@@ -149,6 +149,7 @@ function love.focus(focused)
 end
 
 function love.quit()
+    if app and app.isPlaying and app:isPlaying() then app:stopPlay() end
     if app and app.viewportControls then app.viewportControls:commit() end
     if app and app.focus then app:focus(false) end
 end

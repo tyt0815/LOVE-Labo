@@ -35,7 +35,7 @@ function Capture.run(args)
         app.inspector.classInspector:selectScript(app.level.lobjects[1].scripts[1].id); shot("camera-details")
         assert(project:createEntry("Assets", "lua", "Player", {scriptKind = "script"}))
         assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/Player.lua")), [[-- labo-script: script
-local Player = {extends = "Sprite", properties = {speed = {type = "number", default = 100, group = "Movement"}}}
+local Player = {extends = "0619e599-48f0-49c5-92b5-aa4a81476f8c", properties = {speed = {type = "number", default = 100, group = "Movement"}}}
 return Player
 ]]))
         local image = love.image.newImageData(64, 64)
@@ -139,6 +139,32 @@ return Player
         end
         assert(app.assetBrowser.assetOperations:import(assert(project:resolveAssetFile("Assets/Player.png")), "Assets/UI"))
         app.assetBrowser:openFolder("Assets/UI"); shot("asset-import")
+        for index, entry in ipairs(app.assetBrowser.entries) do
+            if entry.type == "file" then
+                local rect = app.assetBrowser:entryBounds(index)
+                app.assetBrowser:showContextMenu(rect.x + rect.w / 2, rect.y + rect.h / 2)
+                shot("asset-copy-id"); app.uiRoot:keypressed("escape"); break
+            end
+        end
+        local function u32(value)
+            return string.char(value % 256, math.floor(value / 256) % 256, math.floor(value / 65536) % 256, math.floor(value / 16777216) % 256)
+        end
+        local pcm = string.rep("\0", 4410)
+        local wav = "RIFF" .. u32(36 + #pcm) .. "WAVEfmt " .. u32(16) .. string.char(1, 0, 1, 0)
+            .. u32(22050) .. u32(44100) .. string.char(2, 0, 16, 0) .. "data" .. u32(#pcm) .. pcm
+        assert(Fs.writeAtomic(assert(project:resolvePath("Assets/UI/Tone.wav")), wav))
+        assert(project:createEntry("Assets", "lua", "AudioDemo", {scriptKind = "script"}))
+        assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/AudioDemo.lua")), [[local AudioDemo = {properties = {clip = {type = "audio", default = false}}}
+return AudioDemo]]))
+        assert(project:rebuildAssetIndex()); app.assetBrowser:refresh()
+        assert(app:placeAsset("Assets/AudioDemo.lua", vx + vw / 2, vy + vh / 2))
+        local audioInspector = app.inspector.classInspector
+        local audioField = audioInspector.preview.scriptOrder[1] .. ".clip"
+        assert(audioInspector:setProperty(audioField, project:getAssetId("Assets/UI/Tone.wav")))
+        for _, row in ipairs(audioInspector.rows) do
+            if row.name == audioField then audioInspector.scroll = math.max(0, row.offset - 150) end
+        end
+        shot("audio-property")
         assert(app:inspectAsset("Assets/PF_Player.prefab"))
         assert(app.previewPanel:setBackground({230, 230, 230})); shot("preview-live")
         assert(app:saveInspectedDocument()); app.assetBrowser:openFolder("Assets"); shot("preview-thumbnail")

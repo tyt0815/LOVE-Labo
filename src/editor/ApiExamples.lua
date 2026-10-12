@@ -47,7 +47,7 @@ end
 return Motion
 ]]
 local ACTIONS = [[local Engine = require("Engine")
-local Actions = {extends = "Pointer", properties = {
+local Actions = {extends = "__POINTER_ID__", properties = {
     action = {type = "string", default = "Debug", group = "Actions"},
     caption = {type = "string", default = "Click"}, template = {type = "prefab", default = false},
     image = {type = "image", default = false},
@@ -113,7 +113,8 @@ function Examples.create(project)
     end
     assert(operations.apply(project, "LaboEssentials", true, true))
     assert(project:createEntry("Assets", "folder", "Examples"))
-    for name, bytes in pairs({Motion = MOTION, Actions = ACTIONS, LevelDemo = LEVEL}) do
+    local actions = ACTIONS:gsub("__POINTER_ID__", assert(project.plugins.scripts.Pointer.id))
+    for name, bytes in pairs({Motion = MOTION, Actions = actions, LevelDemo = LEVEL}) do
         assert(project:createEntry(folder, "lua", name, {scriptKind = name == "LevelDemo" and "level" or "script"}))
         assert(Fs.writeAtomic(assert(project:resolveSourceFile(folder .. "/" .. name .. ".lua")), bytes))
     end

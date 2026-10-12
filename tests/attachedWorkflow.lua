@@ -1049,6 +1049,48 @@ add("CLI script rename preserves UUID references names and inherited attachment 
         Assert.equal("Extra", result.data.scripts[1].name)
     end)
 end)
+add("Asset browser copies asset IDs for project and readonly plugin files but not folders", function()
+    fixture(function(project)
+        local source = script(project, "CopyTarget", MOVE)
+        local app = EditorApp.new(nil, project); app:draw()
+        local browser = app.assetBrowser
+        local clipboard, copied = love.system.setClipboardText
+        love.system.setClipboardText = function(value) copied = value end
+        local ok, err = pcall(function()
+            for _, folder in ipairs({"Assets", "Assets/Labo Plugins/LaboEssentials"}) do
+                browser:openFolder(folder); app:draw()
+                local target = folder == "Assets" and "CopyTarget.lua" or "Pointer.lua"
+                local found = false
+                for index, entry in ipairs(browser.entries) do
+                    if entry.name == target then
+                        local rect = browser:entryBounds(index)
+                        browser:showContextMenu(rect.x + rect.w / 2, rect.y + rect.h / 2)
+                        for _, item in ipairs(app.uiRoot.popup.panels[1].items) do
+                            if item.label == "Copy ID" then
+                                item.action(); Assert.equal(project:getAssetId(entry.reference), copied); found = true
+                            end
+                        end
+                        app.uiRoot:dismissPopup(); break
+                    end
+                end
+                Assert.equal(true, found)
+            end
+            Assert.equal(source, project:getAssetId("Assets/CopyTarget.lua"))
+            browser:openFolder("Assets"); assert(project:createEntry("Assets", "folder", "FolderWithoutId"))
+            browser:refresh(); app:draw()
+            for index, entry in ipairs(browser.entries) do
+                if entry.name == "FolderWithoutId" then
+                    local rect = browser:entryBounds(index)
+                    browser:showContextMenu(rect.x + rect.w / 2, rect.y + rect.h / 2)
+                    for _, item in ipairs(app.uiRoot.popup.panels[1].items) do Assert.truthy(item.label ~= "Copy ID") end
+                    app.uiRoot:dismissPopup(); return
+                end
+            end
+            error("Missing folder")
+        end)
+        love.system.setClipboardText = clipboard; assert(ok, err)
+    end)
+end)
 add("Inspector script context copies UUID and picker labels omit Lua extensions", function()
     fixture(function(project)
         local _, prefab = player(project)

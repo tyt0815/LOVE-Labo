@@ -22,7 +22,7 @@ function Events.dispatch(world, name, ...)
     end
     for _, entry in ipairs(pending) do
         local object, script = entry.object, entry.script
-        if object.world == world and script.owner == object and object.scripts[script.id] == script and script.enabled ~= false then
+        if object.world == world and not object.removing and not script.hasUnloaded and script.owner == object and object.scripts[script.id] == script and script.enabled ~= false then
             local ok, err = pcall(script[name], script, ...)
             if not ok then return false, "Script " .. script.name .. " " .. name .. " failed: " .. tostring(err) end
         end

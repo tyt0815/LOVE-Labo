@@ -95,11 +95,15 @@ function Definition.resolveReferences(values, schema, objects, project)
             if not objects[value] then return false, "Missing LObject reference: " .. tostring(value) end
             values[name] = objects[value]
             end
-        elseif (declaration.type == "image" or Schema.isTemplate(declaration.type)) and value ~= false then
+        elseif (Schema.isResource(declaration.type) or Schema.isTemplate(declaration.type)) and value ~= false then
             local path, err
             if Schema.isTemplate(declaration.type) then path, err = require("project.LObjectTemplate").source(project, value)
             else path, err = project:resolveAssetFile(value) end
             if not path then return false, err end
+            if declaration.type == "audio" then
+                local valid, audioError = require("project.AssetData").validateAudio(project, value)
+                if not valid then return false, audioError end
+            end
             values[name] = project:getAssetId(value) or value
         end
     end

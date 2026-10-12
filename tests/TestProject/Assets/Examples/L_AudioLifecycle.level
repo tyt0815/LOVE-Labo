@@ -1,0 +1,45 @@
+{
+  "formatVersion": 3,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "name": "Camera 1",
+      "scripts": [
+        {
+          "id": "63125e72-060e-428c-9336-9ff509212aa7",
+          "name": "Camera",
+          "source": "Camera"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 2,
+      "name": "AudioLifecycle 1",
+      "scriptOverrides": {
+        "c0b24ff9-2c24-454d-9ea5-a4f5d75e3932": {
+          "sound": "ee568d7a-1ec0-4b7d-8798-a568eaa672eb"
+        }
+      },
+      "scripts": [
+        {
+          "id": "c0b24ff9-2c24-454d-9ea5-a4f5d75e3932",
+          "name": "AudioLifecycle",
+          "source": "c69cb4b9-99d9-4ddd-a8d6-792a8dfb4e04"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  ],
+  "mainCamera": {
+    "authoringId": 1,
+    "script": "63125e72-060e-428c-9336-9ff509212aa7"
+  },
+  "propertyOverrides": {}
+}

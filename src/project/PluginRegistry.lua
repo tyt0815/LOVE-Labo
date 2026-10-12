@@ -208,6 +208,8 @@ function Registry:loadScript(name)
             if definition.extends then
                 parent = self.scripts[definition.extends] and assert(self:loadScript(definition.extends))
                     or assert(require("project.LuaScript").load(self.project, definition.extends, "script"))
+                local source = self.scripts[definition.extends]
+                if source then definition.extends = source.id end
             end
             definition.scriptType = name; definition = parent:extend(definition)
         end

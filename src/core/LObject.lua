@@ -52,7 +52,17 @@ function LObject:load(world)
     self.loadingScripts = nil
     return ok, not ok and tostring(err) or nil
 end
+function LObject:unload()
+    local pending = {}; for _, id in ipairs(self.scriptOrder) do pending[#pending + 1] = self.scripts[id] end
+    local firstError
+    for index = #pending, 1, -1 do
+        local ok, err = require("core.ScriptRuntime").unload(pending[index])
+        if not ok and not firstError then firstError = err end
+    end
+    return firstError == nil, firstError
+end
 function LObject:update(dt)
+    if self.removing then return true end
     local pending = {}; for _, script in ipairs(self.updateScripts) do pending[#pending + 1] = script end
     for _, script in ipairs(pending) do
         if script.owner == self and self.scripts[script.id] == script and script.enabled ~= false then

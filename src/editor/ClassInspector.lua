@@ -222,13 +222,16 @@ function ClassInspector:setProperty(name, value)
         if not valid then self.error = err; return false end
         value = valid[declaration.field]
     end
-    if (declaration.type == "image" or Schema.isTemplate(declaration.type)) and value ~= false then
+    if (Schema.isResource(declaration.type) or Schema.isTemplate(declaration.type)) and value ~= false then
         local reference, err = self.project:getAssetReference(value)
         if not reference then self.error = err; return false end
         if Schema.isTemplate(declaration.type) then
             local template
             template, err = require("project.LObjectTemplate").resolve(self.project, value)
             if not template then self.error = err; return false end
+        elseif declaration.type == "audio" then
+            local valid, audioError = require("project.AssetData").validateAudio(self.project, value)
+            if not valid then self.error = audioError; return false end
         else
             local extension = reference:lower():match("%.([^%.]+)$")
             if not reference:match("^Assets/") or not ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension or ""] then
@@ -274,7 +277,7 @@ function ClassInspector:isEditing() return self.editing ~= nil end
 
 function ClassInspector:propertyRect(name, top)
     if self.class.properties[name].type == "image" then return self:imageRects(top - 3).selector end
-    if Schema.isTemplate(self.class.properties[name].type) or (self.class.properties[name].type == "object" or self.class.properties[name].type == "script") then
+    if self.class.properties[name].type == "audio" or Schema.isTemplate(self.class.properties[name].type) or (self.class.properties[name].type == "object" or self.class.properties[name].type == "script") then
         local rect = self:referenceRects(top - 3).selector
         return rect
     end
@@ -361,6 +364,11 @@ function ClassInspector:pickCandidate(name, reference, object)
         local template, err = require("project.LObjectTemplate").resolve(self.project, reference)
         return template and template.reference or nil, err
     end
+    if declaration.type == "audio" then
+        local path, err = reference and self.project:getAssetReference(reference)
+        if not path or not require("project.AssetData").isAudio(path) then return nil, err or "Select an audio asset" end
+        return self.project:getAssetId(path) or path
+    end
     if declaration.type == "image" then
         if not reference then return nil, "Select an image asset" end
         local path, err = self.project:getAssetReference(reference)
@@ -384,12 +392,13 @@ function ClassInspector:choices(name, value)
         for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
             options[#options + 1] = {label = "LObject " .. object.authoringId, value = object.authoringId}
         end
-    elseif kind == "image" or Schema.isTemplate(kind) then
+    elseif Schema.isResource(kind) or Schema.isTemplate(kind) then
         local references = {}
         for reference in pairs(self.project.assetMetadata or {}) do
             if reference:lower():match("%.(.*)$") then
                 local extension = reference:lower():match("%.([^%.]+)$")
                 if kind == "image" and reference:match("^Assets/") and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[extension]
+                    or kind == "audio" and require("project.AssetData").isAudio(reference)
                     or Schema.isTemplate(kind) and require("project.LObjectTemplate").source(self.project, reference) then references[#references + 1] = reference end
             end
         end
@@ -613,7 +622,7 @@ function ClassInspector:draw()
                 Ui.thumbnail(self:thumbnail(value), imageRects.preview)
                 Ui.eyedropperButton(imageRects.assign, self.isPicking and self.isPicking(name))
                 Ui.browseButton(imageRects.browse, value ~= false)
-            elseif Schema.isTemplate(declaration.type) or (declaration.type == "object" or declaration.type == "script") then
+            elseif declaration.type == "audio" or Schema.isTemplate(declaration.type) or (declaration.type == "object" or declaration.type == "script") then
                 local actions = self:referenceRects(y)
                 rect = actions.selector
                 Ui.eyedropperButton(actions.assign, self.isPicking and self.isPicking(name))
@@ -628,7 +637,7 @@ function ClassInspector:draw()
             if (declaration.type == "object" or declaration.type == "script") then
                 Ui.button("", rect, false, self:objectLabel(value, name) .. ". Use the eyedropper to pick a target.")
                 Ui.text(self:objectLabel(value, name), rect.x + 4, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, math.max(0, rect.w - 8))
-            elseif declaration.type == "image" or Schema.isTemplate(declaration.type) then
+            elseif Schema.isResource(declaration.type) or Schema.isTemplate(declaration.type) then
                 local choice = self:choices(name, value)
                 choice:setBounds(rect.x, rect.y, rect.w, rect.h)
                 choice:draw()
@@ -744,7 +753,7 @@ function ClassInspector:mousepressed(x, y, button)
         if name and y >= rowTop and y < rowTop + row.height then
             local declaration = self.class.properties[name]
             local actions = declaration.type == "image" and self:imageRects(rowTop)
-                or (Schema.isTemplate(declaration.type) or (declaration.type == "object" or declaration.type == "script")) and self:referenceRects(rowTop)
+                or (declaration.type == "audio" or Schema.isTemplate(declaration.type) or (declaration.type == "object" or declaration.type == "script")) and self:referenceRects(rowTop)
             if actions and Ui.contains(x, y, actions.assign) then
                 self:commitEdit()
                 local ok, err
@@ -779,7 +788,7 @@ function ClassInspector:mousepressed(x, y, button)
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
             if (declaration.type == "object" or declaration.type == "script") then return true end
-            if declaration.type == "image" or Schema.isTemplate(declaration.type) then
+            if Schema.isResource(declaration.type) or Schema.isTemplate(declaration.type) then
                 local choice = self:choices(name, value)
                 local rect = self:propertyRect(name, top)
                 choice:setBounds(rect.x, rect.y, rect.w, rect.h)

@@ -83,6 +83,9 @@ function LuaScript.loader(project)
                 local parentError
                 parent, parentError = project.plugins:loadScript(class.extends)
                 if not parent then return fail(parentError) end
+                -- 과거 공개 이름은 읽기 호환으로만 해석하고 로딩한 정의는 ID로 정규화한다.
+                local source = project.plugins.scripts[class.extends]
+                class.extends = source and source.id or nil
             end
             if not parent and not Id.isValid(class.extends) then return fail("extends must be a script asset ID or built-in script") end
             local parentError

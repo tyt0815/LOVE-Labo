@@ -31,6 +31,7 @@ function World.new()
 end
 
 function World:addLObject(initialState)
+    if self.disposed then return nil, "World is disposed" end
     local lobject, createError =
         LObject.new(
             self.nextRuntimeId,
@@ -54,10 +55,12 @@ function World:addLObject(initialState)
 end
 
 function World:spawnLObject(template, transform, overrides)
+    if self.disposed then return nil, "World is disposed" end
     if not self.spawnLObjectFactory then return nil, "World has no LObjectTemplate loader" end
     return self.spawnLObjectFactory(template, transform, overrides)
 end
 function World:removeLObject(object)
+    if object.removing and object.world == self then return true end
     local live = false
     for _, current in ipairs(self.lobjects) do if current == object then live = true end end
     if not live then return false, "Object does not belong to this World" end
@@ -67,6 +70,16 @@ function World:removeLObject(object)
         for _, child in ipairs(current.children) do visit(child) end
     end
     visit(object); object:attachTo(nil)
+    local cleanupError
+    local ordered = require("core.ScriptOrder").objects(self.lobjects)
+    for _, current in ipairs(ordered) do if removed[current] then current.removing = true end end
+    for index = #ordered, 1, -1 do
+        local current = ordered[index]
+        if removed[current] then
+            local ok, err = current:unload()
+            if not ok and not cleanupError then cleanupError = err end
+        end
+    end
     for index = #self.lobjects, 1, -1 do
         local current = self.lobjects[index]
         if removed[current] then
@@ -77,7 +90,27 @@ function World:removeLObject(object)
     end
     for button, script in pairs(self.pointerCaptures or {}) do if not script.owner then self.pointerCaptures[button] = nil end end
     self.updateOrderDirty = true
-    return true
+    return cleanupError == nil, cleanupError
+end
+function World:dispose()
+    if self.disposed then return true end
+    self.disposed = true
+    self:cancelPointer()
+    local pending = {}; for _, object in ipairs(self.lobjects) do pending[#pending + 1] = object end
+    local cleanupError
+    for index = #pending, 1, -1 do
+        local object = pending[index]
+        if object.world == self then
+            local ok, err = self:removeLObject(object)
+            if not ok and not cleanupError then cleanupError = err end
+        end
+    end
+    return cleanupError == nil, cleanupError
+end
+function World:getAssetData(reference)
+    if self.disposed then return nil, "World is disposed" end
+    if not self.assetDataLoader then return nil, "World has no asset data loader" end
+    return self.assetDataLoader(reference)
 end
 function World:dispatchPointer(kind, x, y, button, dx, dy, context)
     local ok, result = pcall(require("core.PointerInput").dispatch, self, kind, x, y, button, dx, dy, context)
@@ -112,6 +145,7 @@ function World:getActiveCamera()
 end
 
 function World:openLevel(reference)
+    if self.disposed then return false, "World is disposed" end
     if not self.openLevelRequest then return false, "World has no Level loader" end
     local called, ok, err = pcall(self.openLevelRequest, reference)
     if not called then return false, tostring(ok) end
@@ -122,6 +156,7 @@ function World:takeLevelTransition()
     return self.applyLevelRequest()
 end
 function World:update(dt)
+    if self.disposed then return false, "World is disposed" end
     local valid, validationError =
         validateDeltaTime(dt)
 

@@ -538,3 +538,9 @@ Play·Pause·Stop은 고정된 버튼이다. Pause는 같은 Runtime World를 �
 ## 일반 LÖVE 이벤트 연결
 
 Host가 소유한 LÖVE 이벤트는 같은 이름·인자의 부착 Script 콜백으로 전달한다. 반환값 소비·입력 액션 시스템은 추가하지 않는다. 실제 게임 영역 좌표와 Editor 포커스·Pause 경계는 [ADR 0071](adr/0071-love-events-on-attached-scripts.md)을 따른다.
+
+## 에셋 상속 참조와 자원 수명
+
+새 Script·Level 부모 참조는 플러그인도 에셋 ID를 기록한다. 에셋 브라우저에서 Copy ID로 얻으며 동명 파일은 다른 폴더에서 허용한다. 기존 공개 이름은 읽기 호환으로 유지한다. [ADR 0072](adr/0072-script-parent-asset-ids-and-copy-id.md)를 따른다.
+
+audio 프로퍼티는 에셋 참조를 저장하고 World.getAssetData로 LÖVE FileData를 읽는다. 재생·볼륨·Pause 등은 게임 코드의 일반 LÖVE API가 담당한다. 초기화한 부착 Script는 객체 제거·세션 종료 시 unload()에서 자원을 정리하며, 실패 경로도 World.dispose로 정리한다. [ADR 0073](adr/0073-audio-asset-data-and-script-unload.md)를 따른다.

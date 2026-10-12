@@ -31,7 +31,7 @@ return Movement
 
 이전 프로젝트의 `beginPlay` 선언과 직접 호출은 `load`로 바꿉니다. 호출 시점과 초기화 동작은 같습니다. 에셋을 읽거나 에디터 미리보기를 만들 때 호출하는 함수가 아닙니다.
 
-활성화한 플러그인의 `extends = "Sprite"`를 사용하거나 다른 Lua 스크립트의 에셋 ID를 부모로 지정할 수 있습니다. `require("Engine")`은 LObject·Script·일반 API를 제공하며 Camera·Sprite·Pointer·RectBounds·Canvas는 해당 플러그인을 활성화해야 사용합니다. 프로젝트 내부 일반 모듈은 `require("Helpers.Math")`로 `Assets/Helpers/Math.lua`를 읽습니다.
+사용자·플러그인 스크립트 모두 `extends = "부모 에셋 UUID"`로 상속합니다. 에셋 브라우저에서 부모 파일을 우클릭하고 **Copy ID**로 ID를 복사합니다. `extends`를 생략하면 기반 Script를 사용합니다. 과거 `extends = "Sprite"` 같은 공개 이름은 읽기 호환으로 유지하지만 새 생성 코드와 예제는 ID를 기록합니다. 서로 다른 폴더의 동명 스크립트도 ID로 구별하므로 전역 이름 중복 금지는 없습니다. `require("Engine")`은 LObject·Script·일반 API를 제공하며 Camera·Sprite·Pointer·RectBounds·Canvas는 해당 플러그인을 활성화해야 사용합니다. 프로젝트 내부 일반 모듈은 `require("Helpers.Math")`로 `Assets/Helpers/Math.lua`를 읽습니다.
 
 | API | 역할 |
 |---|---|
@@ -113,3 +113,36 @@ Editor에서는 Game View가 포커스를 가진 경우 키보드·문자·컨�
 `focus/mousefocus/visible`은 호스트 창 상태입니다. `resize`는 게임 영역의 실제 크기이며 최초 실행과 레벨 전환 때 새 World의 첫 `update` 전에 전달됩니다. 이후 Editor에서는 레이아웃 변경, Export에서는 창 크기 변경을 반영합니다. Pause 중 생긴 영역 변경은 재개 시 다음 `update` 전에 반영됩니다. 논리 해상도·월드 크기와 다릅니다.
 
 `quit`, 파일·폴더 드롭, `threaderror`, `lowmemory`, `displayrotated`, `run/conf/errorhandler`는 Script 이벤트로 제공하지 않습니다. 레벨 Lua 스크립트는 기존 `load/update`를 유지합니다. [이벤트 예제](examples.md#löve-이벤트-예제)와 [CLI 검증](../cli-and-export.md#일반-script-이벤트-검증)을 참고합니다.
+
+## 오디오와 자원 정리
+
+```lua
+local Sound = {properties = {clip = {type = "audio", default = false}}}
+function Sound:load(world)
+    if self.clip then
+        local data = assert(world:getAssetData(self.clip))
+        self.audioSource = love.audio.newSource(data, "static")
+        data:release()
+    end
+end
+function Sound:keypressed(key)
+    if key == "space" and self.audioSource then self.audioSource:play() end
+end
+function Sound:unload()
+    if self.audioSource then
+        self.audioSource:stop()
+        self.audioSource:release()
+        self.audioSource = nil
+    end
+    -- 종료 중에도 self.owner로 원래 오브젝트에 접근할 수 있다.
+end
+return Sound
+```
+
+`world:getAssetData(reference)`는 프로젝트·플러그인 에셋을 LÖVE FileData로 읽습니다. ID 또는 에셋 경로를 받아 실패 시 `nil, error`를 반환합니다. 반환한 FileData는 게임 코드가 소유하며 더 이상 필요하지 않으면 `release()`합니다. 재생 Source를 만드는 방식은 [LÖVE 공식 newSource 문서](https://love2d.org/wiki/love.audio.newSource)를 따릅니다. ID와 부착의 내부 필드인 `self.source` 대신 `self.audioSource` 같은 별도 필드에 네이티브 자원을 보관합니다.
+
+`unload()`는 오브젝트에 부착된 Script의 종료 콜백입니다. 오브젝트 제거 시 자손부터 부모, 각 오브젝트에서는 부착 역순으로 호출합니다. 성공적인 레벨 전환·Play 종료·게임 종료·런타임 오류에서도 남은 오브젝트의 Script를 정리합니다. `load`를 시작한 Script만 한 번 호출하며, enabled=false도 정리합니다. 초기화 도중 실패한 Script도 부분적으로 만든 자원을 정리할 수 있습니다. Preview·에셋 검증은 load/unload를 호출하지 않습니다.
+
+종료 중에는 `self.owner`와 `self.owner.world`를 사용할 수 있습니다. unload에는 별도 인자를 전달하지 않습니다. 한 unload가 예외를 발생시켜도 나머지를 정리한 뒤 오류를 보고합니다. 반환값은 무시하며 unload는 입력 이벤트나 활성 상태 변경 콜백이 아닙니다. World 전체가 종료된 뒤에는 Spawn·레벨 전환·업데이트를 실행할 수 없습니다. Level Lua 스크립트의 콜백 종류는 이번에 변경하지 않습니다.
+
+[오디오·종료 예제](examples.md#오디오와-종료-콜백-예제)에서 직접 검수할 수 있습니다.

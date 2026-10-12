@@ -1,6 +1,6 @@
 local TEMPLATE = [[-- labo-script: level
 local __CLASS__ = {}
--- 다른 Level 클래스를 상속하려면 .luaassets.json의 ID를 지정한다.
+-- 다른 Level 클래스를 상속하려면 에셋 브라우저의 Copy ID로 부모 에셋 ID를 복사한다.
 -- __CLASS__.extends = "부모 클래스 ID"
 __CLASS__.properties = {}
 

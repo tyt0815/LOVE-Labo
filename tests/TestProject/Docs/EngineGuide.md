@@ -37,3 +37,7 @@ level.simulate는 초기화·업데이트 결과를 반환하며 파일을 수�
 ## 일반 LÖVE 이벤트
 
 부착 Script에서 keypressed/keyreleased·textinput/textedited·마우스·터치·컨트롤러·focus/mousefocus/visible/resize 콜백을 구현한다. 반환값으로 소비하지 않으며 enabled=false·Pause는 전달을 멈춘다. 전역 love 콜백을 덮어쓰지 않는다. 마우스·터치는 실제 게임 영역 왼쪽 위 기준 픽셀 좌표다. Assets/Examples/L_InputEvents.level에서 검수한다. level.events CLI는 {name,args} 이벤트 배열을 받아 상태를 반환한다.
+
+## 에셋 ID와 오디오·종료
+
+사용자·플러그인 부모 상속은 extends에 에셋 UUID를 지정하며 브라우저 우클릭 Copy ID로 얻는다. audio 프로퍼티로 오디오를 지정하고 world:getAssetData(id)의 FileData를 love.audio.newSource에 넘긴다. 오브젝트에 부착한 Script의 unload()에서 직접 만든 자원을 stop/release한다. Assets/Examples/L_AudioLifecycle.level에서 Space·Delete·N·Stop을 검수한다.

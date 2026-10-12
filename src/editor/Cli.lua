@@ -38,6 +38,11 @@ local function setProperty(project, target, name, item)
         pixels:release()
         item = project:getAssetId(project:getAssetReference(item)) or item
     end
+    if declaration.type == "audio" and item ~= false then
+        local valid, err = require("project.AssetData").validateAudio(project, item)
+        assert(valid, err)
+        item = project:getAssetId(project:getAssetReference(item)) or item
+    end
     if declaration.type == "object" and item ~= false then
         local found = false
         for _, object in ipairs(target.level and target.level.lobjects or {}) do if object.authoringId == item then found = true end end

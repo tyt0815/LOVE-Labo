@@ -1,7 +1,7 @@
 local Schema = require("core.PropertySchema")
 local Script = {properties = {enabled = {type = "boolean", default = true, group = "Script"}}, scriptType = "Script"}
-local RESERVED = {owner = true, properties = true, id = true, name = true, source = true, hasLoaded = true,
-    load = true, update = true, draw = true, drawEditor = true, onPointerDown = true, onPointerUp = true, onPointerMove = true,
+local RESERVED = {owner = true, properties = true, id = true, name = true, source = true, hasLoaded = true, hasUnloaded = true,
+    load = true, unload = true, update = true, draw = true, drawEditor = true, onPointerDown = true, onPointerUp = true, onPointerMove = true,
     pointer = true, camera = true, canvas = true, super = true, scriptType = true}
 for _, name in ipairs(require("core.ScriptEvents").names) do RESERVED[name] = true end
 Script.__index = function(instance, name)
@@ -25,7 +25,7 @@ function Script:extend(definition)
         assert(field.group == nil or type(field.group) == "string" and field.group ~= "", "Invalid property group")
         schema[name] = {type = field.type, default = field.default, group = field.group}
     end
-    for _, callback in ipairs({"load", "update", "draw", "drawEditor", "getLocalBounds", "hitTest", "onPointerDown", "onPointerUp", "onPointerMove"}) do
+    for _, callback in ipairs({"load", "unload", "update", "draw", "drawEditor", "getLocalBounds", "hitTest", "onPointerDown", "onPointerUp", "onPointerMove"}) do
         assert(definition[callback] == nil or type(definition[callback]) == "function", callback .. " must be a function")
     end
     for _, name in ipairs(require("core.ScriptEvents").names) do

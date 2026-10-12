@@ -1,5 +1,13 @@
 -- 에디터·로더 전용 부착 구성. 게임 공개 API에서는 제공하지 않는다.
 local Runtime = {}
+function Runtime.unload(script)
+    if not script.hasLoaded or script.hasUnloaded then return true end
+    -- 재진입이나 콜백 오류가 있어도 같은 부착을 두 번 종료하지 않는다.
+    script.hasUnloaded = true
+    if not script.unload then return true end
+    local ok, err = pcall(script.unload, script)
+    return ok, not ok and "Script " .. script.name .. " unload failed: " .. tostring(err) or nil
+end
 function Runtime.attach(self, id, class, overrides, name)
     assert(not self:getScriptByName(name or id), "Duplicate script name")
     assert(type(id) == "string" and require("core.ScriptId").isValid(id) and not self.scripts[id], "Invalid or duplicate script ID")
@@ -19,12 +27,14 @@ function Runtime.attach(self, id, class, overrides, name)
 end
 function Runtime.detach(self, id)
     local script = assert(self.scripts[id], "Missing script")
+    local ok, err = Runtime.unload(script)
     self.scripts[id] = nil
     for _, list in ipairs({self.scriptOrder, self.updateScripts, self.drawScripts}) do
         for index = #list, 1, -1 do if list[index] == id or list[index] == script then table.remove(list, index) end end
     end
     script.owner = nil
     if self.world then self.world.updateOrderDirty = true end
+    assert(ok, err)
     return script
 end
 return Runtime

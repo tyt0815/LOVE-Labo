@@ -44,6 +44,7 @@ function Export.write(project, level, output)
 love.load = host.load
 love.update = host.update
 love.draw = host.draw
+love.quit = host.quit
 for _, name in ipairs(require("core.ScriptEvents").names) do love[name] = host[name] end
 ]])
     add("conf.lua", [[function love.conf(t)

@@ -1,8 +1,14 @@
 {
   "assets": {
     "Assets/Examples/Actions.lua": {
-      "hash": "99b61c2ffb9c6ecd16fcdf7c3676f5087466fdbfcd6f0496f1b7c4bd1e3d3b6b",
+      "hash": "84f429ff84cbaff9a3f17008da67ed26051e304f8f68eb81ddbba4939f17571c",
       "id": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/AudioLifecycle.lua": {
+      "hash": "ca6c8b56b4c33865c9998aac92ce1e0702eb067947521fa2771a432c5a1c9b8c",
+      "id": "c69cb4b9-99d9-4ddd-a8d6-792a8dfb4e04",
       "scriptKind": "script",
       "version": 1
     },
@@ -10,6 +16,11 @@
       "hash": "703930faa241d77d182113ce0aaa4b05cab4191c6f63b6fd0a9a3b2bea317184",
       "id": "17ecece5-b84e-42de-97dc-75e467c8f5fb",
       "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/L_AudioLifecycle.level": {
+      "hash": "7072f3c3ed0d02c9bab20cc7d3c0a5d5e257d546a0251d2852ab73016937730c",
+      "id": "e1e3cd73-330f-4a4c-8575-45cd255df777",
       "version": 1
     },
     "Assets/Examples/L_InputEvents.level": {
@@ -37,6 +48,11 @@
     "Assets/Examples/Tile.png": {
       "hash": "655c01e6cd5d4dca6110fb0f8053f7ee6e6432c449ab0b4812e3d4fdcb50f62f",
       "id": "99223763-e7eb-4567-9b30-ed61131008aa",
+      "version": 1
+    },
+    "Assets/Examples/Tone.wav": {
+      "hash": "797b32faf94366fc5af8f937344c30db91a78f2d5618c6b64bcc80eed08b99d8",
+      "id": "ee568d7a-1ec0-4b7d-8798-a568eaa672eb",
       "version": 1
     },
     "Assets/L_ApiExamples.level": {

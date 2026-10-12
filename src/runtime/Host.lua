@@ -4,8 +4,23 @@ local world, project, failure
 local images = {}
 local function attempt(callback)
     local ok, result, err = pcall(callback)
-    if not ok or result == false then failure = tostring(ok and err or result); world = nil; return false end
+    if not ok or result == false then
+        failure = tostring(ok and err or result)
+        local previous = world; world = nil
+        if previous then
+            local cleaned, cleanupError = previous:dispose()
+            if not cleaned then failure = failure .. "\n" .. tostring(cleanupError) end
+        end
+        return false
+    end
     return true
+end
+function Host.quit()
+    local previous = world; world = nil
+    if previous then
+        local ok, err = previous:dispose()
+        if not ok then print(err) end
+    end
 end
 
 function Host.load(args)

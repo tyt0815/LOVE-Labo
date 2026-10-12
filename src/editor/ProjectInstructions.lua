@@ -28,12 +28,15 @@ self는 스크립트이며 self.owner.transform, self.owner:getScriptByName(name
 group으로 프로퍼티를 묶는다. object 참조는 authoringId, script 참조는 {authoringId=ID, script="부착ID"}로 저장한다.
 
 require("Engine")은 LObject, Script와 공간·바운드 API를 제공한다. Camera, Sprite, Pointer, RectBounds, Canvas는 LaboEssentials를 활성화한 경우에만 제공된다. 새 부착에는 RectBounds를 사용하며 기존 Rect 별칭은 읽기 호환성을 유지한다.
+사용자·플러그인 부모 상속은 extends에 에셋 UUID를 지정한다. 브라우저 우클릭 Copy ID는 파일 ID이고 Inspector Copy ID는 부착 ID다. 기반 Script는 extends를 생략한다. 기존 공개 이름은 읽기 호환이다. 다른 폴더의 동명 스크립트는 허용한다.
 편의 스크립트는 Script를 직접 상속하며 별도의 컴포넌트 계층·루트 컴포넌트는 없다.
 Camera의 viewWidth/viewHeight는 논리 화면 크기이고 zoom은 배율이다. World의 setActiveCamera로 전환한다.
 Canvas는 화면 중심을 원점으로 하는 픽셀 좌표계를 시작한다. Pointer의 boundsSource는 같은 오브젝트의 스크립트 ID다.
 onPointerDown/up/move에서 true를 반환하면 입력을 소비한다. 직접 hitTest/getLocalBounds를 구현할 수도 있다.
 world:spawnLObject(prefab, transform, overrides)로 Prefab 계층을 생성하고 world:removeLObject(object)로 자손까지 제거한다.
 world:openLevel(reference)은 프레임 경계에서 레벨을 전환한다. Camera 플러그인이 활성화된 프로젝트의 새 레벨에만 기본 Camera와 Main Camera 지정을 포함한다.
+
+audio={type="audio", default=false}로 WAV·OGG·MP3·FLAC 참조를 노출한다. world:getAssetData(id)는 직접 소유할 LÖVE FileData를 반환한다. love.audio.newSource(data,"static"/"stream")로 재생한다. 객체 제거·Play 종료·전환·오류 시 Script:unload()가 초기화한 각 부착에 한 번 호출되며 self.owner를 사용할 수 있다. enabled=false도 정리한다. 자원은 unload에서 stop/release하며 self.source는 메타데이터이므로 self.audioSource처럼 별도 필드를 쓴다.
 
 ## 데이터와 CLI
 

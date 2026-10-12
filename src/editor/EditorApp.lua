@@ -88,7 +88,7 @@ function EditorApp:setDocument(document)
 
     -- Runtime World는 현재 document의 Level snapshot에서 만들어진다.
     -- document가 바뀌면 이전 Runtime은 폐기한다.
-    self.runtimeWorld = nil
+    self:discardRuntime()
     self.paused = false
 
     self.document = document
@@ -165,6 +165,16 @@ function EditorApp:setMainCamera(value)
     self:recordHistory()
     return true
 end
+function EditorApp:discardRuntime(errorText)
+    local world = self.runtimeWorld
+    self.runtimeWorld = nil
+    if world then
+        local ok, err = world:dispose()
+        if not ok then errorText = errorText and errorText .. "\n" .. err or err end
+    end
+    if errorText then self.runtimeError = errorText end
+    return errorText == nil, errorText
+end
 function EditorApp:gameEvent(name, ...)
     if not self.runtimeWorld or self.paused then return false end
     local input = name ~= "resize" and name ~= "focus" and name ~= "visible" and name ~= "mousefocus"
@@ -175,7 +185,7 @@ function EditorApp:gameEvent(name, ...)
     if not viewport then return false end
     local ok, err = require("core.ScriptEvents").screen(self.runtimeWorld, viewport, name, ...)
     if not ok then
-        self.runtimeError = err; self.runtimeWorld:cancelPointer(); self.runtimeWorld = nil
+        self:discardRuntime(err)
     end
     return ok, err
 end
@@ -194,7 +204,7 @@ end
 function EditorApp:handleGamePointer(kind, x, y, button, dx, dy)
     if not self.runtimeWorld or self.paused then return false end
     local ok, result = self.gameView:dispatchPointer(self.runtimeWorld, kind, x, y, button, dx, dy)
-    if not ok then self.runtimeError = result; self.runtimeWorld:cancelPointer(); self.runtimeWorld = nil; return false end
+    if not ok then self:discardRuntime(result); return false end
     return true, result
 end
 
@@ -254,11 +264,10 @@ function EditorApp:stopPlay()
     end
 
     -- Runtime 변경을 authoring Level에 write-back하지 않고 통째로 폐기한다.
-    self.runtimeWorld:cancelPointer()
-    self.runtimeWorld = nil
+    local ok, err = self:discardRuntime()
     self.debugSession:clearOverlay()
 
-    return true
+    return ok, err
 end
 
 function EditorApp:resolveDocumentReferences()
@@ -707,7 +716,7 @@ function EditorApp:initializeUI()
         draw = function()
             if self:isPlaying() then
                 local ok, err = pcall(self.gameView.draw, self.gameView, self.runtimeWorld)
-                if not ok then self.runtimeError = tostring(err); self.runtimeWorld:cancelPointer(); self.runtimeWorld = nil end
+                if not ok then self:discardRuntime(tostring(err)) end
             else self.sceneView:draw() end
             if self:isPlaying() then
                 love.graphics.push("all"); Theme.setColor(self.paused and "playPaused" or "playRunning"); love.graphics.setLineWidth(2)
@@ -1008,11 +1017,11 @@ function EditorApp:update(dt)
         if not self.runtimeWorld then return false, self.runtimeError end
         local ok, updated, err = pcall(self.runtimeWorld.update, self.runtimeWorld, dt)
         if not ok then err, updated = tostring(updated), false end
-        if updated == false then self.runtimeError = err; self.runtimeWorld = nil end
+        if updated == false then self:discardRuntime(err) end
         if self.runtimeWorld then
             local candidate, transitionError = self.runtimeWorld:takeLevelTransition()
             if candidate then
-                self.runtimeWorld, self.runtimeError = candidate, nil
+                self.runtimeWorld, self.runtimeError = candidate, transitionError
                 self:updateSceneViewport()
                 if not self.runtimeWorld then return false, self.runtimeError end
             elseif transitionError then self.runtimeError = transitionError end
@@ -1057,7 +1066,7 @@ function EditorApp:beginObjectPick(name, parentPath)
     local declaration = name ~= "$parent" and inspector.class.properties[name]
     local kind = name == "$attachScript" and "attachment" or name == "$mainCamera" and "camera" or name == "$child" and "child" or declaration and declaration.type or name == "$parent" and "parent"
     if kind == "child" and (not self.prefabEditor or inspector.target ~= self.prefabInspectorTarget) then return false, "Open a Prefab before adding children" end
-    if kind ~= "attachment" and kind ~= "camera" and kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "script" and kind ~= "image" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
+    if kind ~= "attachment" and kind ~= "camera" and kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "script" and kind ~= "image" and kind ~= "audio" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
     if (kind == "object" or kind == "script") and inspector.target.level ~= self.level and not inspector.target.prefabScope then return false, "Pick an instance reference on a level or placed instance" end
     if self.objectPick then self:cancelObjectPick(); return true end
     self.inspector:commitEdit(); self.uiRoot:cancelCapture(); self.uiRoot:dismissPopup()

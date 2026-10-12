@@ -608,6 +608,12 @@ function AssetBrowser:showContextMenu(x, y)
         end
     end
     local items = { { label = "New", children = newItems, enabled = not self.project:isReadOnly(folder) } }
+    if entry and entry.type == "file" and not entry.isLink then
+        local assetId = self.project:getAssetId(entry.reference)
+        if assetId then
+            items[#items + 1] = {label = "Copy ID", action = function() love.system.setClipboardText(assetId) end}
+        end
+    end
     if entry and entry.reference ~= "Assets" and not self.project:isReadOnly(entry.reference)
         and not (self.project.pluginAssets and self.project.pluginAssets.mounts[entry.reference]) then
         items[#items + 1] = { label = "Move", enabled = not entry.isLink,

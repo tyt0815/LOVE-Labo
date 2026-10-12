@@ -74,3 +74,6 @@
 - [0070. 초기화 콜백 이름을 load로 통일한다](adr/0070-load-lifecycle-callback.md)
 
 - [0071. LÖVE 이벤트를 부착 스크립트에 전달한다](adr/0071-love-events-on-attached-scripts.md)
+
+- [0072. 스크립트 부모 참조를 에셋 ID로 작성하고 브라우저에서 복사한다](adr/0072-script-parent-asset-ids-and-copy-id.md)
+- [0073. 오디오 에셋은 LÖVE 데이터로 연결하고 Script unload에서 정리한다](adr/0073-audio-asset-data-and-script-unload.md)

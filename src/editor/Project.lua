@@ -427,8 +427,11 @@ function Project:createEntry(folder, kind, name, options)
     if kind == "lua" and options.parentReference then
         local parent, err = require("project.LuaScript").load(self, options.parentReference, options.scriptKind)
         if not parent then return false, err end
-        parentId = (options.parentReference == "Script" or self.plugins and self.plugins.scripts[options.parentReference]) and options.parentReference or self:getAssetId(self:getAssetReference(options.parentReference))
-        if not parentId then return false, "Parent script is not registered" end
+        if options.parentReference ~= "Script" then
+            local pluginSource = self.plugins and self.plugins.scripts[options.parentReference]
+            parentId = pluginSource and pluginSource.id or self:getAssetId(self:getAssetReference(options.parentReference))
+            if not require("project.AssetId").isValid(parentId) then return false, "Parent script has no asset ID" end
+        end
     end
     local fs, createdDirectories, createdFiles, createdReferences = filesystem(), {}, {}, {}
     local function rollback(errorText)

@@ -57,3 +57,14 @@ Labo-cli.exe --cli project examples --project D:/Games/MyGame
 - 다른 패널을 클릭하면 키 입력은 게임에 전달되지 않습니다. 게임 화면을 클릭해 포커스를 돌려줍니다.
 
 이 예제는 Pointer를 사용하지 않고 일반 LÖVE 이벤트 콜백과 `love.graphics`로 구현합니다. `L_InputEvents.level`을 Export하면 같은 코드를 독립 게임에서 확인할 수 있습니다. 이 추가 검수 레벨은 저장소 테스트 프로젝트에 제공하며 `project.examples`가 생성하는 기존 API 예제와는 별개입니다.
+
+## 오디오와 종료 콜백 예제
+
+테스트 프로젝트에서 **Assets/Examples/L_AudioLifecycle.level**을 열고 ▶로 실행합니다. `AudioLifecycle.lua`의 `sound` 프로퍼티는 함께 제공한 `Tone.wav`의 ID를 참조합니다.
+
+- Space: 직접 만든 LÖVE Source로 짧은 음을 재생합니다.
+- Delete: 오브젝트를 제거하고 그 Script의 unload에서 Source를 정리합니다.
+- N: 같은 레벨로 전환하며 이전 오브젝트를 정리하고 새 오브젝트를 초기화합니다.
+- Stop: 남은 오브젝트를 정리합니다. 에디터 로그에서 `AudioLifecycle unloaded`를 확인합니다.
+
+Inspector의 sound 필드로 다른 오디오 에셋을 선택할 수 있습니다. 이 예제는 프로젝트 전용 코드이며 새 재생 플러그인·오디오 매니저는 추가하지 않습니다. CLI의 `level.simulate --debug`에서도 종료 로그를 확인할 수 있습니다. CLI는 audio 모듈이 꺼져 있으므로 예제는 파일만 읽고 재생하지 않습니다.

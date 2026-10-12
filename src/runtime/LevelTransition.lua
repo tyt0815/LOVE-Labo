@@ -25,11 +25,14 @@ function Transition.bind(project, world)
         pending.world.debug = world.debug
         local called, candidate, err = pcall(require("runtime.WorldLoader").activate, project, pending.world, pending.class, pending.initial, pending.loadClass)
         if not called or not candidate then
+            pending.world:dispose()
             world.levelTransitionError = tostring(called and err or candidate)
             return nil, world.levelTransitionError
         end
         candidate.levelReference = pending.reference
-        return candidate
+        local ok, cleanupError = world:dispose()
+        if not ok then candidate.levelTransitionError = cleanupError end
+        return candidate, cleanupError
     end
 end
 return Transition

@@ -1,5 +1,5 @@
 local Engine = require("Engine")
-local Actions = {extends = "Pointer", properties = {
+local Actions = {extends = "6a3d80b6-38e4-4e0c-92d1-2338a55c2e30", properties = {
     action = {type = "string", default = "Debug", group = "Actions"},
     caption = {type = "string", default = "Click"}, template = {type = "prefab", default = false},
     image = {type = "image", default = false},

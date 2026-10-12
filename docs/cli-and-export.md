@@ -132,3 +132,15 @@ love Game.love --verify-game report.json --verify-events events.json
 ```
 
 `events.json`은 위 `events` 배열만 저장한 파일입니다. 실제 Host 콜백을 호출하므로 마우스 이벤트는 기존 Pointer도 처리합니다. 검증은 초기화·한 프레임 업데이트·렌더링 후 이벤트를 전달하고 보고서를 저장한 뒤 종료합니다.
+
+## 오디오 프로퍼티와 임시 세션 종료
+
+기존 `asset import`로 오디오 파일을 가져오고, `instance set` 또는 `prefab set`으로 `audio` 프로퍼티에 에셋 ID를 지정합니다. GUI와 같은 확장자·LÖVE 디코더 검증을 수행합니다.
+
+```powershell
+Labo-cli.exe --cli asset import --project D:/Games/MyGame --input D:/Sounds/Tone.wav --folder Assets
+Labo-cli.exe --cli instance set --project D:/Games/MyGame --level Assets/Examples/L_AudioLifecycle.level --instance 2 --property AudioLifecycle.sound --value 오디오에셋UUID
+Labo-cli.exe --cli level simulate --project D:/Games/MyGame --level Assets/Examples/L_AudioLifecycle.level --frames 1 --debug
+```
+
+`level.simulate`, `level.events`, `level.pointer`는 완료·실패 시 임시 Runtime World를 정리하고 초기화한 Script의 unload를 호출합니다. simulate의 레벨 전환 후 최종 World도 정리합니다. 결과의 인스턴스 상태는 종료 직전에 읽고 debug 기록에는 종료 로그도 포함합니다. 에셋 검증·정적 Preview·Export 생성은 게임 load/unload를 실행하지 않습니다. 새 재생 CLI는 추가하지 않고 LÖVE Source 제어는 게임 코드에 둡니다.

@@ -8,6 +8,33 @@ local function project()
     return assert(require("editor.Project").create(Fs.join(love.filesystem.getSourceBaseDirectory(), "build"),
         "PluginTest_" .. os.time() .. "_" .. love.math.random(100000, 999999)))
 end
+add("Plugin parent names generate asset ID inheritance and survive source renames", function()
+    local p = project()
+    assert(Operations.create(p, "Gameplay")); assert(Operations.apply(p, "Gameplay", true, true))
+    local parentId = p.plugins.scripts.Gameplay.id
+    assert(p:createEntry("Assets", "lua", "Child", {scriptKind = "script", parentReference = "Gameplay"}))
+    local bytes = assert(p:readSource("Assets/Child.lua"))
+    Assert.truthy(bytes:find(parentId, 1, true)); Assert.equal(nil, bytes:find('extends = "Gameplay"', 1, true))
+    assert(p:moveEntry("Assets/User Plugins/Gameplay/Gameplay.lua", "Assets/User Plugins/Gameplay/Renamed.lua"))
+    local class = assert(require("project.LuaScript").load(p, "Assets/Child.lua", "script"))
+    Assert.equal(parentId, class.extends)
+    Assert.equal(assert(p.plugins:loadScript("Gameplay")), class.super)
+    assert(p:createEntry("Assets", "lua", "Plain", {scriptKind = "script", parentReference = "Script"}))
+    Assert.equal(nil, assert(p:readSource("Assets/Plain.lua")):find("extends", 1, true))
+end)
+
+add("Scripts in different folders can share names while inheritance remains identified by asset ID", function()
+    local p = project()
+    for _, folder in ipairs({"A", "B"}) do
+        assert(p:createEntry("Assets", "folder", folder))
+        assert(p:createEntry("Assets/" .. folder, "lua", "Same", {scriptKind = "script"}))
+    end
+    local first, second = p:getAssetId("Assets/A/Same.lua"), p:getAssetId("Assets/B/Same.lua")
+    Assert.truthy(first ~= second)
+    assert(p:createEntry("Assets", "lua", "Child", {scriptKind = "script", parentReference = second}))
+    Assert.equal(second, assert(require("project.LuaScript").load(p, "Assets/Child.lua", "script")).extends)
+    Assert.equal(false, p:createEntry("Assets/A", "lua", "Same", {scriptKind = "script"}))
+end)
 add("Fresh projects contain no enabled plugin scripts or default Camera", function()
     local p = project()
     Assert.equal(1, #p.plugins:scriptNames()); Assert.equal("Script", p.plugins:scriptNames()[1])

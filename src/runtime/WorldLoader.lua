@@ -66,6 +66,7 @@ function Loader.prepare(project, data)
     if cameraError then return nil, cameraError end
     local world, err = require("core.World").fromLevelData(data)
     if not world then return nil, err end
+    world.assetDataLoader = function(reference) return require("project.AssetData").read(project, reference) end
     -- 레벨의 require와 부착·Spawn이 같은 클래스 테이블을 사용한다.
     local loadClass = LuaScript.loader(project)
     local class
@@ -85,17 +86,21 @@ function Loader.prepare(project, data)
 end
 
 function Loader.activate(project, world, class, initial, loadClass)
+    local function fail(err)
+        local ok, cleanupError = world:dispose()
+        return nil, tostring(err) .. (not ok and "\n" .. tostring(cleanupError) or "")
+    end
     require("runtime.PrefabSpawner").bind(project, world, loadClass)
     require("runtime.LevelTransition").bind(project, world)
     for _, object in ipairs(initial) do
         if object.world == world then
             local ok, err = object:load(world)
-            if not ok then return nil, err end
+            if not ok then return fail(err) end
         end
     end
     if class then
         local ok, err = world:setLevelScript(class)
-        if not ok then return nil, err end
+        if not ok then return fail(err) end
     end
     return world
 end
@@ -104,5 +109,14 @@ function Loader.create(project, data, debugSession)
     if not world then return nil, class end
     if debugSession then world.debug = debugSession end
     return Loader.activate(project, world, class, initial, loadClass)
+end
+-- CLI처럼 실행 결과만 읽는 임시 세션은 실패 경로에서도 반드시 정리한다.
+function Loader.run(project, data, debugSession, callback)
+    local world = assert(Loader.create(project, data, debugSession))
+    local ok, result = pcall(callback, world, function(current) world = current end)
+    local cleaned, cleanupError = world:dispose()
+    assert(ok, tostring(result) .. (not cleaned and "\n" .. tostring(cleanupError) or ""))
+    assert(cleaned, cleanupError)
+    return result
 end
 return Loader
