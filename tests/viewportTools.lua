@@ -141,9 +141,9 @@ add("Snap panel consumes pointer and text input and rejects invalid units", func
         view.spriteAssets = {
             preview = function(_, authoring)
                 local preview = assert(require("core.LObject").new(1, authoring))
-                preview:addScript("first", require("plugins.LaboEssentials.Assets.Sprite"), {image = "preview"})
+                require("core.ScriptRuntime").attach(preview, "first", require("plugins.LaboEssentials.Assets.Sprite"), {image = "preview"})
                 local child = assert(require("core.LObject").new(2, {transform = {x = 80, y = 30}}))
-                child:attachTo(preview); child:addScript("second", require("plugins.LaboEssentials.Assets.Sprite"), {image = "preview"})
+                child:attachTo(preview); require("core.ScriptRuntime").attach(child, "second", require("plugins.LaboEssentials.Assets.Sprite"), {image = "preview"})
                 return preview
             end,
             image = function() return image end,
@@ -351,7 +351,7 @@ add("Rotated scaled Sprites render and select using the same transform", functio
     local object = assert(require("core.LObject").new(1, {transform = {x = 50, y = 60, rotation = 90, scaleX = 2, scaleY = 3}}))
     local child = assert(require("core.LObject").new(2, {transform = {x = 10, y = 0}}))
     child:attachTo(object)
-    local sprite = child:addScript("sprite", E.Sprite, {image = "example"})
+    local sprite = require("core.ScriptRuntime").attach(child, "sprite", E.Sprite, {image = "example"})
     local x, y = sprite:getWorldPosition()
     near(50, x); near(80, y)
     local data = love.image.newImageData(20, 10)
@@ -487,10 +487,10 @@ end)
 add("Selected rendering bounds include every transformed Sprite and hide missing images", function()
     local object = assert(require("core.LObject").new(1, {transform = {x = 60, y = 60, rotation = 90, scaleX = 2, scaleY = 3}}))
     local Sprite = require("plugins.LaboEssentials.Assets.Sprite")
-    object:addScript("first", Sprite, {image = "image"})
+    require("core.ScriptRuntime").attach(object, "first", Sprite, {image = "image"})
     local child = assert(require("core.LObject").new(2, {transform = {x = 20, y = 0}}))
-    child:attachTo(object); child:addScript("second", Sprite, {image = "image"})
-    object:addScript("missing", Sprite, {image = "missing"})
+    child:attachTo(object); require("core.ScriptRuntime").attach(child, "second", Sprite, {image = "image"})
+    require("core.ScriptRuntime").attach(object, "missing", Sprite, {image = "missing"})
     local data = love.image.newImageData(20, 10)
     local image = love.graphics.newImage(data)
     data:release()
@@ -531,7 +531,7 @@ end)
 add("XY rotations project Sprite geometry and share render picking and outline matrices", function()
     local T, Renderer = require("core.Transform"), require("core.SpriteRenderer")
     local object = assert(require("core.LObject").new(1, {transform = {x = 80, y = 80, rotationX = 60, rotationY = 60}}))
-    object:addScript("sprite", require("plugins.LaboEssentials.Assets.Sprite"), {image = "example"})
+    require("core.ScriptRuntime").attach(object, "sprite", require("plugins.LaboEssentials.Assets.Sprite"), {image = "example"})
     local x, y = T.point(object.transform, 8, 4)
     near(87, x); near(82, y)
     local lx, ly = T.inversePoint(object.transform, x, y)
@@ -669,7 +669,7 @@ return Counter]]))
     local buttons = app.playControls:buttons()
     Assert.equal(app.hierarchy.y, app.playControls.y)
     Assert.equal(app.inspector.y, app.playControls.y)
-    Assert.equal(app.sceneWidget.y, app.viewportToolbar.y + app.viewportToolbar.height + require("editor.Ui").METRICS.viewportToolbarGap - 12)
+    Assert.equal(app.sceneWidget.y, app.viewportToolbar.y + app.viewportToolbar.height + require("editor.Ui").METRICS.viewportToolbarGap - require("editor.Ui").METRICS.panelGap)
     Assert.equal(app.sceneWidget.x + app.sceneWidget.width / 2, buttons[2].x + buttons[2].w / 2)
     Assert.truthy(buttons[1].y + buttons[1].h <= app.sceneWidget.y + 6)
     Assert.equal(true, buttons[1].enabled); Assert.equal(false, buttons[2].enabled); Assert.equal(false, buttons[3].enabled)
@@ -695,7 +695,7 @@ add("Camera letterbox clips screen UI and ignores new clicks while preserving ca
         onPointerDown = function(self) self.downs = (self.downs or 0) + 1; return true end,
         onPointerUp = function(self, event) self.released = true; self.inside = event.inside; return true end,
         draw = function() love.graphics.setColor(0, 1, 0, 1); love.graphics.rectangle("fill", -100, -100, 200, 200) end})
-    local script = object:addScript("screen", class)
+    local script = require("core.ScriptRuntime").attach(object, "screen", class)
     local view = require("core.Viewport").new(world, 0, 0, 100, 100)
     Assert.equal(25, view.y); Assert.equal(50, view.height); Assert.equal(100, view.width)
     assert(view:dispatchPointer(world, "down", 50, 5, 1)); Assert.equal(nil, script.downs)
@@ -709,6 +709,20 @@ add("Camera letterbox clips screen UI and ignores new clicks while preserving ca
     local _, barGreen = pixels:getPixel(50, 5); local _, gameGreen = pixels:getPixel(50, 50)
     Assert.equal(0, barGreen); Assert.equal(1, gameGreen)
     pixels:release(); canvas:release()
+end)
+add("PIE uses the entire panel interior without a heading and preserves camera letterbox", function()
+    local view = require("editor.GameView").new()
+    view:setViewport(20, 30, 204, 104)
+    local inset = require("editor.Ui").METRICS.panelGap / 2
+    local viewport = view:runtimeViewport(nil)
+    Assert.equal(20 + inset, viewport.x); Assert.equal(30 + inset, viewport.y)
+    Assert.equal(204 - inset * 2, viewport.width); Assert.equal(104 - inset * 2, viewport.height)
+    local camera = {getViewSize = function() return 100, 100 end, getViewTransform = function() return {x = 0, y = 0} end}
+    local world = {getActiveCamera = function() return camera end}
+    viewport = view:runtimeViewport(world)
+    Assert.equal(30 + inset, viewport.y); Assert.equal(104 - inset * 2, viewport.height)
+    Assert.equal(viewport.height, viewport.width)
+    Assert.equal(122, viewport.x + viewport.width / 2)
 end)
 add("Viewport toolbar avoids control overlap and exposes its actual panel gap", function()
     local app = require("editor.EditorApp").new()
@@ -727,7 +741,7 @@ add("Viewport toolbar avoids control overlap and exposes its actual panel gap", 
     local previous = metrics.viewportToolbarGap
     metrics.viewportToolbarGap = 24
     app:updateSceneViewport()
-    local actual = app.sceneWidget.y + 6 - (toolbar.y + toolbar.height - 6)
+    local actual = app.sceneWidget.y + metrics.panelGap / 2 - (toolbar.y + toolbar.height - metrics.panelGap / 2)
     metrics.viewportToolbarGap = previous
     app:updateSceneViewport()
     Assert.equal(24, actual)
@@ -746,7 +760,7 @@ add("Game View leaves empty LObjects invisible and draws attached scripts", func
         pixels:release(); return alpha
     end
     Assert.equal(0, alphaAtObject())
-    object:addScript("visual", require("core.Script"):extend({draw = function()
+    require("core.ScriptRuntime").attach(object, "visual", require("core.Script"):extend({draw = function()
         love.graphics.setColor(0, 1, 0, 1); love.graphics.rectangle("fill", -8, -8, 16, 16)
     end}))
     Assert.equal(1, alphaAtObject()); canvas:release()

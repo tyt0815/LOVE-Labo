@@ -1,9 +1,18 @@
 local Schema = require("core.PropertySchema")
-local Script = {properties = {}, scriptType = "Script"}
+local Script = {properties = {enabled = {type = "boolean", default = true, group = "Script"}}, scriptType = "Script"}
 local RESERVED = {owner = true, properties = true, id = true, name = true, source = true, hasBegunPlay = true,
     beginPlay = true, update = true, draw = true, drawEditor = true, onPointerDown = true, onPointerUp = true, onPointerMove = true,
     pointer = true, camera = true, canvas = true, super = true, scriptType = true}
-Script.__index = Script
+Script.__index = function(instance, name)
+    if Script.properties[name] then return instance.properties[name] end
+    return Script[name]
+end
+Script.__newindex = function(instance, name, value)
+    if Script.properties[name] then
+        assert(Schema.validValue(Script.properties[name].type, value), "Invalid script property")
+        instance.properties[name] = value
+    else rawset(instance, name, value) end
+end
 function Script:extend(definition)
     definition = definition or {}
     local schema = {}

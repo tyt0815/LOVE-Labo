@@ -13,7 +13,7 @@ function Renderer.drawObjects(objects, imageFor, toScreen, zoom, drawContext)
     local drawn, ctx = false, drawContext or context(imageFor)
     for _, entry in ipairs(require("core.ScriptOrder").entries(objects, Render)) do
         local script = entry.script
-        if script.owner and script.owner.scripts[script.id] == script then
+        if script.owner and script.owner.scripts[script.id] == script and script.enabled ~= false then
             local world = ctx.transform and ctx:transform(script) or script:getWorldTransform()
             local x, y = toScreen(world.x, world.y)
             local a, b, c, d = Transform.basis(world)
@@ -61,7 +61,7 @@ function Renderer.drawWorld(world, imageFor, viewport)
     for _, entry in ipairs(require("core.ScriptOrder").entries(world.lobjects, Render)) do
         local script = entry.script
         local owner = script.owner
-        if owner and owner.world == world and owner.scripts[script.id] == script then
+        if owner and owner.world == world and owner.scripts[script.id] == script and script.enabled ~= false then
             local transform = Space.transform(script)
             local x, y = Transform.point(transform, 0, 0)
             local ax, ay = Transform.point(transform, 1, 0)

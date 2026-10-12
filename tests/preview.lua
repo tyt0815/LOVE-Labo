@@ -25,8 +25,8 @@ add("Live previews use draft values without lifecycle callbacks or authoring mut
     local target = assert(editor:target("root")); local values = target:getOverrides(); values["visual.width"] = 30
     target:setOverrides(values)
     local model = require("editor.Preview").new(p, {reference = doc.assetId})
-    Assert.equal(30, model.objects[1].scripts.visual.width)
-    Assert.equal(false, model.objects[1].scripts.visual.hasBegunPlay == true)
+    Assert.equal(30, model.objects[1]:getScriptByName("visual").width)
+    Assert.equal(false, model.objects[1]:getScriptByName("visual").hasBegunPlay == true)
     local before = assert(require("project.Prefab").encodeData(doc.data))
     local canvas = love.graphics.newCanvas(80, 80); love.graphics.setCanvas(canvas)
     assert(model:draw({x = 0, y = 0, w = 80, h = 80})); love.graphics.setCanvas()

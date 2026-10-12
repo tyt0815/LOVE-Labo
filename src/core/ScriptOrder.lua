@@ -26,7 +26,7 @@ function Order.entries(objects, capability, predicate)
         if capability == "draw" then candidates = object.drawScripts
         else for _, id in ipairs(object.scriptOrder) do candidates[#candidates + 1] = object.scripts[id] end end
         for _, script in ipairs(candidates) do
-            if script[capability] and (not predicate or predicate(script)) then
+            if script[capability] and script.enabled ~= false and (not predicate or predicate(script)) then
                 entries[#entries + 1] = {script = script, index = indices[script] or sequence, sequence = #entries + 1}
             end
         end

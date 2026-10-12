@@ -27,7 +27,8 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | asset list/get/import/copy/move/rename/delete | --asset, --folder, --name; move의 --destination은 최종 파일 경로 |
 | prefab create/get/tree/set/reset/set-parent | --prefab, --node root 또는 root/ID, --property, --value-json, --parent |
 | prefab create --level --instance --link | 기존 계층에서 에셋 생성 후 원본 연결 및 레벨 저장; --link 생략 시 캡처만 수행 |
-| prefab script add | --prefab, --node, --source, 선택 --script 부착 ID |
+| prefab script add | --prefab, --node, --source, 선택 --script 사용자 이름; 내부 UUID 자동 생성 |
+| prefab script rename | --prefab, --node, --script 이름 또는 ID, --name 새 이름 |
 | prefab script remove | --prefab, --node, --script |
 | prefab script move | --prefab, --node, --script, --index (1부터) |
 | prefab child add/remove/rename | --prefab, --node, --template 또는 --instance, --name |
@@ -37,7 +38,8 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | level view/set-camera | 투영 정보; --instance, --script로 Main Camera 지정 |
 | level simulate | --frames 0..10000, --dt, --debug; 파일 수정 없이 beginPlay/update 결과와 스크립트 상태 반환, draw는 실행하지 않음. --debug는 에디터 로그·도형 기록도 반환 |
 | level pointer | --space world/screen, --x, --y, --width, --height, --events-json; 이벤트마다 최신 카메라로 좌표 변환 |
-| instance add/get/list/set/reset/rename/reparent/duplicate/delete | --instance 또는 --instances, --prefab, --parent; 재정의 프로퍼티는 movement.speed처럼 부착 ID 포함 |
+| instance add/get/list/set/reset/rename/reparent/duplicate/delete | --instance 또는 --instances, --prefab, --parent; 재정의 프로퍼티는 movement.speed처럼 사용자 이름 또는 내부 ID 포함 |
+| instance script rename | --instance, --script 이름 또는 ID, --name 새 이름 |
 | instance script add/remove/move | --instance, --source, --script, --index; 로컬 부착만 제거·정렬 |
 | instance reorder | --instances 또는 --instance, --destination 인스턴스 ID, --mode before/after |
 | export | --output; 검증 후 독립 게임 .love 생성 |
@@ -95,3 +97,5 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 `instance.add --level Assets/L_Start.level --script Assets/Behavior.lua --x 20 --y 40`은 빈 LObject에 해당 오브젝트 스크립트를 부착합니다. `--parent <인스턴스 ID>`로 자손 배치도 가능합니다. Prefab과 script를 동시에 지정하지 않습니다.
 
 `asset.import --input C:/Images/Player.png --folder "Assets/User Plugins/MyPlugin"`은 파일을 복사합니다. input은 폴더도 가능하며 name으로 새 이름을 지정할 수 있습니다. 기존 파일·메타데이터를 덮어쓰지 않고 파일시스템 링크는 따라가지 않습니다.
+
+스크립트 프로퍼티 조회 결과의 schema·values 키는 `사용자이름.프로퍼티`이며 `scriptIds`가 이름과 UUID를 연결합니다. prefab get은 최상위, instance get은 properties.scriptIds에서 확인합니다. 이름 또는 ID로 편집할 수 있으며 저장된 script 참조와 Main Camera는 내부 ID를 사용합니다. `instance set`/`prefab set`의 `이름.enabled`로 활성 상태를 편집합니다.

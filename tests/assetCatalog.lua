@@ -102,8 +102,9 @@ add("API examples use ordinary project assets and exercise spawn attach scripts 
     local actions = {}
     local text
     for _, object in ipairs(world.lobjects) do
-        if object.scripts.action then actions[object.scripts.action.action] = object.scripts.action end
-        if object.scripts.text then text = object.scripts.text end
+        local action = object:getScriptByName("action")
+        if action then actions[action.action] = action end
+        if object:getScriptByName("text") then text = object:getScriptByName("text") end
     end
     Assert.truthy(text); local _, _, width, height = text:getLocalBounds()
     Assert.equal(680, width); Assert.truthy(height >= 32)

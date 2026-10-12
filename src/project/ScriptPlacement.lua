@@ -10,7 +10,7 @@ function Placement.add(project, level, reference, x, y, parent)
     local source = assert(project:getAssetReference(reference))
     local id = assert(project:getAssetId(source), "Script asset is not registered")
     local object = assert(level:addLObject(x or 0, y or 0, nil, source:match("([^/]+)%.lua$")))
-    object.scripts = {{id = "s1", source = id}}
+    object.scripts = {{id = require("project.AssetId").new(), name = require("project.LuaScript").name(class) or "Script", source = id}}
     if parent then object.parentAuthoringId = parent.authoringId end
     return object
 end

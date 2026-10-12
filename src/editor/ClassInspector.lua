@@ -201,12 +201,16 @@ function ClassInspector:selectParent(value)
 end
 
 function ClassInspector:setProperty(name, value)
+    local prefix, field = name:match("^(.*)%.([^.]+)$")
+    local script = prefix and self.preview and (self.preview:getScriptById(prefix) or self.preview:getScriptByName(prefix))
+    if script then name = script.id .. "." .. field end
     if self.target.readOnly then return false, "Labo plugin assets are read-only" end
     if name == "$mainCamera" and self.target.mainCameraDetails then
         if value == false then return self.target:setMainCamera(nil) end
         self.error = "Use the eyedropper to select a camera instance"; return false
     end
     local declaration = self.class and self.class.properties[name]
+    if declaration and declaration.type == "script" and self.target.resolveScriptReference then value = self.target:resolveScriptReference(value) end
     if not declaration or not LuaScript.validValue(declaration.type, value) then
         self.error = "Invalid value for " .. name
         return false
@@ -318,8 +322,12 @@ function ClassInspector:objectLabel(value, name)
     for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
         if object.authoringId == (type(value) == "table" and value.authoringId or value) then
             local label = object.name or "LObject " .. tostring(value)
-            if type(value) == "table" then label = label .. " / " .. value.script end
-            if name == "$mainCamera" then label = label .. " / " .. self.target.data.mainCamera.script end
+            local scriptId = type(value) == "table" and value.script or name == "$mainCamera" and self.target.data.mainCamera.script
+            if scriptId then
+                local definition = require("project.PrefabHierarchy").authoringDefinition(self.project, self.target.level, object)
+                local attachment = definition and require("project.ScriptAttachments").find(definition.attachments, scriptId)
+                label = label .. " / " .. (attachment and attachment.name or "Missing Script")
+            end
             return label
         end
     end
@@ -448,7 +456,8 @@ function ClassInspector:rebuildRows()
                 return a < b
             end)
             local key = (script and "script:" .. script or "object") .. "/" .. group
-            local label = script and (script .. " (" .. defaultGroup .. ")" .. (group ~= defaultGroup and " / " .. group or "")) or group
+            local displayName = script and self.preview and self.preview.scripts[script] and self.preview.scripts[script].name or script
+            local label = script and (displayName .. " (" .. defaultGroup .. ")" .. (group ~= defaultGroup and " / " .. group or "")) or group
             local header = {scriptId = script, header = true, label = label, groupKey = key, height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}
             rows[#rows + 1] = header
             if self.groupExpanded[key] ~= false then
@@ -582,8 +591,14 @@ function ClassInspector:draw()
             self.tree:draw()
             Ui.resizeGrip(self:treeGrip(self.tree))
         elseif row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
-            PropertyLayout.group(self.left, self.contentWidth or self.width, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false)
-            if row.scriptId and self.target.removeScript and (not self.target.canRemoveScript or self.target:canRemoveScript(row.scriptId)) then Ui.button("Remove", self:scriptActionRect(y), false, "Remove this script attachment", true) end
+            PropertyLayout.group(self.left, self.contentWidth or self.width, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false, row.scriptId and 60 or 0)
+            if row.scriptId then
+                local actions = self:scriptHeaderRects(y)
+                Ui.browseButton(actions.browse, self:scriptSource(row.scriptId) ~= nil, "Locate script asset")
+                if self.target.removeScript and (not self.target.canRemoveScript or self.target:canRemoveScript(row.scriptId)) then
+                    Ui.closeButton(actions.remove, "Remove this script attachment")
+                end
+            end
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             Ui.row({x = self.left + Ui.METRICS.contentPaddingX, y = y, w = (self.contentWidth or self.width) - 2 * Ui.METRICS.contentPaddingX, h = row.height}, false)
             PropertyLayout.separators(self.left, self.width, y, row.height, self.width - (self.contentWidth or self.width))
@@ -641,6 +656,7 @@ function ClassInspector:mousepressed(x, y, button)
     if button == 1 and not self.target.instance and self.onSave and Ui.contains(x, y, self:saveRect()) then self:commitEdit(); self.onSave(); return true end
     if y < self.propertyTop or y >= self.propertyTop + self.propertyHeight then self:commitEdit(); return true end
     if button == 2 and self.target.moveScript then
+        self:commitEdit()
         for _, row in ipairs(self.rows) do
             local top = self.propertyTop + row.offset - self.scroll
             if row.header and row.scriptId and y >= top and y < top + row.height then
@@ -651,6 +667,15 @@ function ClassInspector:mousepressed(x, y, button)
                     if ok then self:reload() else self.error = err end
                 end
                 require("editor.ui.ContextMenu").new(self.root):show(x, y, {
+                    {label = "Copy ID", action = function() love.system.setClipboardText(id) end},
+                    {label = "Rename", enabled = self.target.renameScript ~= nil, action = function()
+                        local rect = {x = self.left + Ui.METRICS.contentPaddingX + 26, y = top + 3, w = math.max(60, self.width - 120), h = 26}
+                        require("editor.ui.InlineRename").new(self.root, rect, self.preview.scripts[id].name, function(name)
+                            local ok, err = self.target:renameScript(id, name)
+                            if ok then self:reload() end
+                            return ok, err
+                        end)
+                    end},
                     {label = "Move Up", enabled = index > 1, action = function() move(index - 1) end},
                     {label = "Move Down", enabled = index < #self.preview.scriptOrder, action = function() move(index + 1) end}})
                 return true
@@ -689,14 +714,24 @@ function ClassInspector:mousepressed(x, y, button)
     for _, row in ipairs(self.rows) do
         local name = row.name
         local top = self.propertyTop + row.offset - self.scroll
-        if Ui.contains(x, y, self:scriptActionRect(top)) then
-            if row.scriptActions and self.target.addScript then self:commitEdit(); self:showAddScript(top); return true end
-            if row.header and row.scriptId and self.target.removeScript then
-                self:commitEdit()
-                local ok, err = self.target:removeScript(row.scriptId)
-                if ok then self:reload() else self.error = err end
+        if row.header and row.scriptId then
+            local actions = self:scriptHeaderRects(top)
+            if Ui.contains(x, y, actions.browse) then
+                local source = self:scriptSource(row.scriptId)
+                if source then return self:reveal(source) end
                 return true
             end
+            if Ui.contains(x, y, actions.remove) then
+                if self.target.removeScript and (not self.target.canRemoveScript or self.target:canRemoveScript(row.scriptId)) then
+                    self:commitEdit()
+                    local ok, err = self.target:removeScript(row.scriptId)
+                    if ok then self:reload() else self.error = err end
+                end
+                return true
+            end
+        end
+        if Ui.contains(x, y, self:scriptActionRect(top)) then
+            if row.scriptActions and self.target.addScript then self:commitEdit(); self:showAddScript(top); return true end
         end
         if row.header and y >= top and y < top + row.height then
             self:commitEdit()
@@ -771,13 +806,24 @@ end
 function ClassInspector:scriptActionRect(y)
     return {x = self.left + (self.contentWidth or self.width) - Ui.METRICS.contentPaddingX - 90, y = y + 3, w = 90, h = 26}
 end
+function ClassInspector:scriptHeaderRects(y)
+    local right = self.left + (self.contentWidth or self.width) - Ui.METRICS.contentPaddingX
+    return {browse = {x = right - 56, y = y + 3, w = 26, h = 26}, remove = {x = right - 26, y = y + 3, w = 26, h = 26}}
+end
+function ClassInspector:scriptSource(id)
+    local script = self.preview and self.preview.scripts[id]
+    local source = script and script.source
+    local plugin = source and self.project.plugins.scripts[source]
+    if plugin then source = plugin.id end
+    return source and self.project:getAssetId(source) and source or nil
+end
 function ClassInspector:showAddScript(y)
     if not self.target.addScript then return false end
     local options = {}
     for _, name in ipairs(self.project.plugins:scriptNames()) do options[#options + 1] = {label = name, value = name} end
     for _, reference in ipairs(self.project:listScripts("script") or {}) do
         if not self.project.plugins.assetScripts[reference] then
-            options[#options + 1] = {label = resourceName(reference), value = self.project:getAssetId(reference)}
+            options[#options + 1] = {label = resourceName(reference):gsub("%.lua$", ""), value = self.project:getAssetId(reference)}
         end
     end
     local rect = self:attachmentRect(y)

@@ -32,7 +32,7 @@ function Capture.run(args)
         end
         app:draw(); shot("level-details")
         app.sceneView:setSelection({app.level.lobjects[1]}); app.inspectorSource = "scene"; app:updateInspectorTarget()
-        app.inspector.classInspector:selectScript("camera"); shot("camera-details")
+        app.inspector.classInspector:selectScript(app.level.lobjects[1].scripts[1].id); shot("camera-details")
         assert(project:createEntry("Assets", "lua", "Player", {scriptKind = "script"}))
         assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/Player.lua")), [[-- labo-script: script
 local Player = {extends = "Sprite", properties = {speed = {type = "number", default = 100, group = "Movement"}}}
@@ -124,8 +124,19 @@ return Player
         app.uiRoot:keypressed("escape")
         local vx, vy, vw, vh = app.sceneView:getViewport()
         assert(app:placeAsset("Assets/Player.lua", vx + vw / 2, vy + vh / 2))
-        assert(app.inspector.classInspector:setProperty("s1.image", project:getAssetId("Assets/Player.png")))
+        local placed = app.inspector.classInspector
+        assert(placed:setProperty(placed.preview.scriptOrder[1] .. ".image", project:getAssetId("Assets/Player.png")))
         shot("script-placement")
+        app:draw()
+        for _, row in ipairs(placed.rows) do
+            if row.header and row.scriptId then
+                local y = placed.propertyTop + row.offset - placed.scroll
+                if y >= placed.propertyTop and y + row.height <= placed.propertyTop + placed.propertyHeight then
+                    placed:mousepressed(placed.left + 60, y + 12, 2)
+                    shot("script-context"); app.uiRoot:keypressed("escape"); break
+                end
+            end
+        end
         assert(app.assetBrowser.assetOperations:import(assert(project:resolveAssetFile("Assets/Player.png")), "Assets/UI"))
         app.assetBrowser:openFolder("Assets/UI"); shot("asset-import")
         assert(app:inspectAsset("Assets/PF_Player.prefab"))

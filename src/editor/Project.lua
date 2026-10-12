@@ -499,8 +499,9 @@ function Project:createEntry(folder, kind, name, options)
         if not options.level and not options.empty and self.plugins and self.plugins.scripts.Camera
             and self.plugins.enabled[self.plugins.scripts.Camera.plugin] then
             local camera = assert(level:addLObject(0, 0, nil, "Camera"))
-            camera.scripts = {{id = "camera", source = "Camera"}}
-            level.mainCamera = {authoringId = camera.authoringId, script = "camera"}
+            local scriptId = require("project.AssetId").new()
+            camera.scripts = {{id = scriptId, name = "Camera", source = "Camera"}}
+            level.mainCamera = {authoringId = camera.authoringId, script = scriptId}
         end
         local text, encodeError = require("editor.LevelFile").encode(level)
         if not text then return rollback(encodeError) end

@@ -1,6 +1,6 @@
 # 플러그인
 
-새 프로젝트에는 활성 플러그인이 없습니다. LObject와 스크립트 실행·공간 API만 제공하며 **LaboEssentials**를 켜면 Camera·Sprite·Pointer·RectBounds·Canvas·Text·Text·Text·Text를 함께 사용할 수 있습니다. 필요한 스크립트만 오브젝트에 부착합니다.
+새 프로젝트에는 활성 플러그인이 없습니다. LObject와 스크립트 실행·공간 API만 제공하며 **LaboEssentials**를 켜면 Camera·Sprite·Pointer·RectBounds·Canvas·Text를 함께 사용할 수 있습니다. 필요한 스크립트만 오브젝트에 부착합니다.
 
 1. 상단 **Project → Plugins...**를 엽니다.
 2. 체크박스로 활성화합니다. 필요한 플러그인이 꺼져 있으면 함께 켤 목록을 확인합니다.

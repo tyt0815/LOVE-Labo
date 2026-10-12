@@ -15,15 +15,7 @@ function LuaScript.moduleLoader(project, registry)
     local function environment()
         return setmetatable({require = moduleRequire}, {__index = _G})
     end
-    moduleRequire = function(name)
-        if name == "Engine" then
-            return setmetatable({}, {__index = function(_, key)
-                if registry.scripts[key] then return assert(registry:loadScript(key)) end
-                return require("Engine")[key]
-            end})
-        end
-        local reference = type(name) == "string" and "Assets/" .. name:gsub("%.", "/") .. ".lua"
-        if not reference or not project:getAssetId(reference) then return require(name) end
+    local function loadModule(reference)
         if modules[reference] ~= nil then return modules[reference] end
         assert(not loadingModules[reference], "Project module cycle: " .. reference)
         loadingModules[reference] = true
@@ -38,7 +30,18 @@ function LuaScript.moduleLoader(project, registry)
         modules[reference] = value == nil and true or value
         return modules[reference]
     end
-    return moduleRequire
+    moduleRequire = function(name)
+        if name == "Engine" then
+            return setmetatable({}, {__index = function(_, key)
+                if registry.scripts[key] then return assert(registry:loadScript(key)) end
+                return require("Engine")[key]
+            end})
+        end
+        local reference = type(name) == "string" and "Assets/" .. name:gsub("%.", "/") .. ".lua"
+        if not reference or not project:getAssetId(reference) then return require(name) end
+        return loadModule(reference)
+    end
+    return moduleRequire, loadModule
 end
 
 -- 검증용 프로젝트 뷰는 원본 레지스트리의 로딩 캐시를 공유하지 않는다.
@@ -49,10 +52,8 @@ function LuaScript.loader(project)
         if project.plugins.project ~= project then project.plugins = project.plugins:forProject(project) end
     end
     local loaded, visiting = {}, {}
-    local moduleRequire = project and LuaScript.moduleLoader(project, project.plugins) or require
-    local function environment()
-        return setmetatable({require = moduleRequire}, {__index = _G})
-    end
+    local loadModule = require
+    if project then local moduleRequire; moduleRequire, loadModule = LuaScript.moduleLoader(project, project.plugins) end
     local function load(reference, expectedKind, depth)
         if expectedKind == "script" and (reference == "Script" or project.plugins and project.plugins.scripts[reference]) then
             return project.plugins:loadScript(reference)
@@ -70,12 +71,8 @@ function LuaScript.loader(project)
         if loaded[key] then return loaded[key] end
         local path, pathError = project:resolveSourceFile(key)
         if not path then return nil, pathError end
-        local text, readError = project:readSource(key)
-        if not text then return nil, readError end
-        local chunk, compileError = loadstring(text, "@" .. canonical)
-        if not chunk then return nil, compileError end
-        setfenv(chunk, environment())
-        local ok, class = pcall(chunk)
+        -- require로 가져온 클래스와 실제 부착 클래스가 같은 테이블을 사용한다.
+        local ok, class = pcall(loadModule, canonical)
         if not ok then return nil, tostring(class) end
         if type(class) ~= "table" or getmetatable(class) then return nil, "Lua Class must return a plain table" end
         visiting[key] = true
@@ -93,7 +90,7 @@ function LuaScript.loader(project)
             if not parent then return fail(parentError) end
         end
         if kind == "script" then
-            if class.build or class.load then return fail("Use beginPlay and owner:addScript; build/load callbacks are no longer supported") end
+            if class.build or class.load then return fail("Use beginPlay and editor-authored script attachments; build/load callbacks are no longer supported") end
             parent = parent or require("core.Script")
             class.scriptType = canonical:match("([^/]+)%.lua$")
             local valid, script = pcall(parent.extend, parent, class)

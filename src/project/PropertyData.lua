@@ -16,7 +16,7 @@ function PropertyData.validateScripts(values)
     if type(values) ~= "table" then return nil, "Script overrides must be an object" end
     local result = {}
     for name, properties in pairs(values) do
-        if type(name) ~= "string" or not name:match("^[%a_][%w_]*$") then return nil, "Invalid script name" end
+        if not require("core.ScriptId").isValid(name) then return nil, "Invalid script ID" end
         local validated, err = PropertyData.validate(properties)
         if not validated then return nil, err end
         result[name] = validated

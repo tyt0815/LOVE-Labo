@@ -70,3 +70,4 @@
 - [0066. 중앙 에셋 목록과 검토 후 참조 복구](adr/0066-central-asset-catalog-and-reference-repair.md)
 - [0067. 고정 실행·일시정지·정지 버튼과 상태 테두리](adr/0067-fixed-play-pause-stop-controls.md)
 - [0068. 카메라 비율의 실제 게임 영역과 레터박스](adr/0068-camera-letterbox-for-world-and-screen-ui.md)
+- [0069. 스크립트 부착 식별자와 편집 구성 및 활성 상태](adr/0069-script-identity-and-editor-authored-attachments.md)

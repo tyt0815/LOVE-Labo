@@ -23,7 +23,7 @@ LObject는 Transform과 부모·자손을 가진다. 스크립트는 오브젝�
 Lua 파일은 properties와 선택적인 beginPlay(world), update(dt), draw(context)를 가진 테이블을 반환한다.
 편집 화면 표시는 drawEditor(context)에서 도형을 계산한다. 이때 beginPlay/update는 실행되지 않는다.
 world.debug:log/screenLog/point/line/circle/rect/polygon은 Editor Play에서만 표시되고 배포에서는 no-op이다.
-self는 스크립트이며 self.owner.transform, self.owner:getScript(id)로 오브젝트·다른 스크립트를 사용한다.
+self는 스크립트이며 self.owner.transform, self.owner:getScriptByName(name), getScriptById(id), getScriptByClass(class), getScriptsByClass(class)로 오브젝트·다른 스크립트를 사용한다.
 일반 Lua 필드는 Inspector에 노출되지 않는다. properties에 number/string/boolean/object/script/image/prefab를 선언한다.
 group으로 프로퍼티를 묶는다. object 참조는 authoringId, script 참조는 {authoringId=ID, script="부착ID"}로 저장한다.
 
@@ -39,7 +39,8 @@ world:openLevel(reference)은 프레임 경계에서 레벨을 전환한다. Cam
 
 모든 에셋은 Assets 아래에 있으며 assets.json의 ID로 참조한다. Docs는 게임 Export에 포함하지 않는다.
 Prefab 형식은 4, 레벨 형식은 3이다. 이전 Sources는 Assets/Scripts로 이동하지만 옛 컴포넌트 코드·Prefab은 수동 전환해야 한다.
-Prefab의 scripts는 {id,source,label} 목록, overrides.scripts는 부착 ID별 프로퍼티 재정의다.
+스크립트는 공통 enabled로 실행을 켜고 끈다. 런타임 addScript/removeScript는 제공하지 않으며 부착·제거는 편집 작업이다.
+Prefab의 scripts는 {id,source,name} 목록, overrides.scripts는 부착 ID별 프로퍼티 재정의다.
 
 Labo-cli.exe --cli help
 Labo-cli.exe --cli script create --project <경로> --name Movement

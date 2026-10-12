@@ -12,14 +12,14 @@ function Pointer:getBoundsSource()
     local source, visited = self, {}
     while source.pointer and source.boundsSource ~= "" do
         assert(not visited[source], "Cyclic pointer boundsSource"); visited[source] = true
-        source = assert(source.owner.scripts[source.boundsSource], "Missing pointer boundsSource")
+        source = assert((source.owner:getScriptById(source.boundsSource) or source.owner:getScriptByName(source.boundsSource)), "Missing pointer boundsSource")
         assert(source.getLocalBounds, "boundsSource must provide bounds")
     end
     return source
 end
 function Pointer:hitTest(context, x, y)
     self:getBoundsSource()
-    local target = self.boundsSource ~= "" and self.owner.scripts[self.boundsSource]
+    local target = self.boundsSource ~= "" and (self.owner:getScriptById(self.boundsSource) or self.owner:getScriptByName(self.boundsSource))
     if target then return target:hitTest(context, x, y) end
     return Bounds.hitTest(self, context, x, y)
 end

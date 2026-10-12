@@ -11,19 +11,16 @@ Scene View 위의 ▶로 실행합니다. 화면의 두 열 버튼은 Canvas 아
 | Motion and Property References | beginPlay·update, number·boolean·string·object·script 프로퍼티, getWorldPosition/getWorldTransform |
 | Inherited Transform Child | 부모의 이동·Z 회전이 자손 Sprite에 합성됨 |
 | Spawn | Prefab 템플릿 참조와 spawnLObject로 Sprite·Motion 오브젝트 생성 |
-| Raw | World.addLObject, addScript, beginPlay로 빈 오브젝트부터 구성 |
+| Raw | World.addLObject와 beginPlay로 빈 오브젝트 생성. 렌더링 스크립트가 없어 보이지 않음 |
 | Bounds | Bounds.hitTest/getBounds, CoordinateSpace, Viewport의 월드·화면 좌표 변환 |
 | Remove | 마지막으로 생성한 오브젝트 제거 |
 | Attach | 생성한 오브젝트를 움직이는 부모에 부착·분리 |
-| Scripts | 생성한 오브젝트에 Motion 스크립트를 추가·제거. 먼저 Spawn |
-| Properties | 실행 중 프로퍼티를 바꿔 움직임을 켜고 끄며 Transform.point 결과 기록 |
+| Scripts | 생성한 오브젝트의 Motion.enabled를 켜고 끔. 먼저 Spawn |
+| Properties | 이름·ID·클래스 조회와 복수 조회를 확인하고 프로퍼티·활성 상태 및 Transform.point 결과 기록 |
 | Camera | getActiveCamera/setActiveCamera와 zoom 변경. 화면 좌표 버튼은 이동하지 않음 |
 | Debug | point·line·circle·rect·polygon, screenLog·log·marker |
 | Next / Back | openLevel로 L_ApiNext·L_ApiExamples 사이 전환 |
 | 모든 버튼 | Pointer 상속, down/up/move, blockPointer, inputPriority, sortingOrder, 영역 판정 |
-| Screen Space Text | Text 스크립트의 줄바꿈·정렬·크기, Canvas 기반 화면 공간 텍스트 |
-| Screen Space Text | Text 스크립트의 줄바꿈·정렬·크기, Canvas 기반 화면 공간 텍스트 |
-| Screen Space Text | Text 스크립트의 줄바꿈·정렬·크기, Canvas 기반 화면 공간 텍스트 |
 | Screen Space Text | Text 스크립트의 줄바꿈·정렬·크기, Canvas 기반 화면 공간 텍스트 |
 | 편집 화면 | Camera·RectBounds·Canvas·Sprite·Pointer의 drawEditor 영역 표시 |
 | LevelDemo.lua | 레벨 beginPlay/update와 world.properties, 레벨 전환 시 새 초기화 |

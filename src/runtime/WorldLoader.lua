@@ -2,8 +2,8 @@ local Loader = {}
 local LuaScript = require("project.LuaScript")
 local Definition = require("project.ObjectDefinition")
 
-function Loader.bind(project, data, world)
-    local loadClass = LuaScript.loader(project)
+function Loader.bind(project, data, world, loadClass)
+    loadClass = loadClass or LuaScript.loader(project)
     local initial, byId, dataById = {}, {}, {}
     for i, object in ipairs(world.lobjects) do initial[i] = object; byId[object.authoringId] = object end
     local authored = {}
@@ -66,16 +66,18 @@ function Loader.prepare(project, data)
     if cameraError then return nil, cameraError end
     local world, err = require("core.World").fromLevelData(data)
     if not world then return nil, err end
+    -- 레벨의 require와 부착·Spawn이 같은 클래스 테이블을 사용한다.
+    local loadClass = LuaScript.loader(project)
     local class
     if data.scriptReference then
         if not project then return nil, "Level script requires a project" end
-        class, err = LuaScript.load(project, data.scriptReference, "level")
+        class, err = loadClass(data.scriptReference, "level")
         if not class then return nil, err end
     end
     world.properties, err = LuaScript.values(class, data.propertyOverrides)
     if not world.properties then return nil, err end
     world.levelPropertySchema = class and class.properties
-    local ok, initial, loadClass = Loader.bind(project, data, world)
+    local ok, initial = Loader.bind(project, data, world, loadClass)
     if not ok then return nil, initial end
     local camera = require("project.MainCamera").resolve(world, data.mainCamera)
     if camera then assert(world:setActiveCamera(camera)) end

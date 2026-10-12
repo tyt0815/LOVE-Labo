@@ -89,7 +89,7 @@ function World:setActiveCamera(camera)
     if camera == nil then self.activeCamera = nil; return true end
     if type(camera) ~= "table" or not camera.camera or type(camera.getViewSize) ~= "function" or type(camera.getViewTransform) ~= "function" then return false, "Expected a camera script" end
     for _, object in ipairs(self.lobjects) do
-        if camera.owner == object and object.scripts[camera.name] == camera then self.activeCamera = camera; return true end
+        if camera.owner == object and object.scripts[camera.id] == camera then self.activeCamera = camera; return true end
     end
     return false, "Camera must belong to this World"
 end
@@ -98,7 +98,7 @@ function World:getActiveCamera()
     for _, object in ipairs(self.lobjects) do
         for _, name in ipairs(object:getScriptOrder()) do
             local script = object.scripts[name]
-            if script.camera then
+            if script.camera and script.enabled ~= false then
                 if script == self.activeCamera then return script end
                 first = first or script
             end

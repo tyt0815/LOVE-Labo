@@ -10,7 +10,7 @@ function Input.dispatch(world, kind, x, y, button, dx, dy, context)
     world.pointerCaptures = world.pointerCaptures or {}
     local live = {}; for _, object in ipairs(world.lobjects) do live[object] = true end
     for id, script in pairs(world.pointerCaptures) do
-        if not live[script.owner] or script.owner.scripts[script.name] ~= script or script.properties.enabled == false then world.pointerCaptures[id] = nil end
+        if not live[script.owner] or script.owner.scripts[script.id] ~= script or script.properties.enabled == false then world.pointerCaptures[id] = nil end
     end
     if kind == "down" then world.pointerCaptures[button] = nil end
     local candidates, seen = {}, {}

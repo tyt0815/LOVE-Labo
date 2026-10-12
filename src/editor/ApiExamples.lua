@@ -1,6 +1,23 @@
 local Fs = require("editor.HostFileSystem")
 local Json = require("project.Json")
 local Examples = {}
+local function assignScriptIds(level)
+    local ids = {}
+    for _, object in ipairs(level.lobjects) do
+        object.scripts, ids[object.authoringId] = require("project.ScriptAttachments").reidentify(object.scripts)
+        local overrides = {}
+        for id, fields in pairs(object.scriptOverrides or {}) do overrides[ids[object.authoringId][id] or id] = fields end
+        object.scriptOverrides = overrides
+    end
+    for _, object in ipairs(level.lobjects) do
+        for _, fields in pairs(object.scriptOverrides or {}) do
+            for _, value in pairs(fields) do
+                if type(value) == "table" and value.script and ids[value.authoringId] then value.script = ids[value.authoringId][value.script] or value.script end
+            end
+        end
+    end
+    if level.mainCamera then level.mainCamera.script = ids[level.mainCamera.authoringId][level.mainCamera.script] or level.mainCamera.script end
+end
 local LEVEL = [[local LevelDemo = {properties = {welcome = {type = "string", default = "API examples ready"}}}
 function LevelDemo.beginPlay(world)
     world.exampleElapsed = 0
@@ -50,9 +67,7 @@ function Actions.onPointerDown(self, event)
     world.debug:log(self.action .. " pointer down", {marker = ">"})
     if self.action == "Spawn" then world.exampleSpawn = assert(Engine.spawnLObject(world, self.template, {x = 150, y = 220}))
     elseif self.action == "Raw" then
-        local object = assert(world:addLObject({name = "Raw object", transform = {x = 150, y = 220}}))
-        assert(object:addScript("sprite", Engine.Sprite, {image = self.image}))
-        assert(object:addScript("motion", "Assets/Examples/Motion.lua")); assert(object:beginPlay(world)); world.exampleSpawn = object
+        world.exampleSpawn = assert(world:addLObject({name = "Empty object", transform = {x = 150, y = 220}}))
     elseif self.action == "Bounds" then
         local x, y = self:getWorldPosition(); local hit = Engine.Bounds.hitTest(self, {}, x, y)
         local width, height = select(3, self:getBounds({}))
@@ -63,12 +78,17 @@ function Actions.onPointerDown(self, event)
     elseif self.action == "Remove" and spawned and spawned.world then world:removeLObject(spawned); world.exampleSpawn = nil
     elseif self.action == "Attach" and spawned and spawned.world then spawned:attachTo(spawned.parent and nil or self.target)
     elseif self.action == "Scripts" and spawned and spawned.world then
-        if spawned.scripts.extra then spawned:removeScript("extra") else assert(spawned:addScript("extra", "Assets/Examples/Motion.lua", {speed = 70})) end
+        local motion = spawned:getScriptByName("motion")
+        if motion then motion.enabled = not motion.enabled end
     elseif self.action == "Camera" then
         local camera = world:getActiveCamera(); assert(world:setActiveCamera(camera)); camera.zoom = camera.zoom == 1 and 1.5 or 1
     elseif self.action == "Next" then assert(Engine.openLevel(world, self.nextLevel))
     elseif self.action == "Properties" and self.target then
-        local motion = self.target.scripts.motion; motion.enabled = not motion.enabled
+        local motion = self.target:getScriptByName("motion")
+        local class = require("Examples.Motion")
+        assert(self.target:getScriptById(motion.id) == motion and self.target:getScriptByClass(class) == motion)
+        world.debug:log("Matching scripts: " .. #self.target:getScriptsByClass(class))
+        motion.enabled = not motion.enabled
         local t = self.target:getWorldTransform(); local x, y = Engine.Transform.point(t, 10, 10)
         world.debug:log("Property toggled; transformed point " .. x .. ", " .. y)
     else
@@ -107,8 +127,11 @@ function Examples.create(project)
     assert(project:createEntry(folder, "prefab", "PF_Spawned"))
     local doc = assert(require("editor.PrefabDocument").load(project, folder .. "/PF_Spawned.prefab"))
     local editor = require("editor.PrefabEditor").new(project, doc, function() end, function() end)
-    assert(editor:addScript("root", motionId, "motion")); assert(editor:addScript("root", "Sprite", "sprite"))
-    doc.data.overrides.scripts = {sprite = {image = imageId}}
+    local motionAdded, motionAttachment = editor:addScript("root", motionId, "motion")
+    assert(motionAdded, motionAttachment)
+    local spriteAdded, spriteAttachment = editor:addScript("root", "Sprite", "sprite")
+    assert(spriteAdded, spriteAttachment)
+    doc.data.overrides.scripts = {[spriteAttachment] = {image = imageId}}
     assert(doc:save(project))
     assert(project:createEntry("Assets", "level", "L_ApiExamples", {empty = true}))
     assert(project:createEntry("Assets", "level", "L_ApiNext", {empty = true}))
@@ -134,7 +157,6 @@ function Examples.create(project)
         button.scriptOverrides = {action = {action = action, caption = action, template = doc.assetId, image = imageId,
             nextLevel = project:getAssetId("Assets/L_ApiNext.level"), target = parent.authoringId}}
     end
-    assert(Fs.writeAtomic(assert(project:resolveAssetFile("Assets/L_ApiExamples.level")), assert(require("editor.LevelFile").encode(level))))
     local nextLevel = Level.new()
     assert(nextLevel:setScriptReference(level.scriptReference)); nextLevel.propertyOverrides = {welcome = "Second level - press Back"}
     nextLevel.lobjects = require("project.PrefabHierarchy").copy(level.lobjects)
@@ -142,6 +164,9 @@ function Examples.create(project)
     for _, object in ipairs(nextLevel.lobjects) do if object.scriptOverrides and object.scriptOverrides.action and object.scriptOverrides.action.action == "Next" then
         object.scriptOverrides.action.caption = "Back"; object.scriptOverrides.action.nextLevel = project:getAssetId("Assets/L_ApiExamples.level")
     end end
+    nextLevel.mainCamera = require("project.MainCamera").copy(level.mainCamera)
+    assignScriptIds(level); assignScriptIds(nextLevel)
+    assert(Fs.writeAtomic(assert(project:resolveAssetFile("Assets/L_ApiExamples.level")), assert(require("editor.LevelFile").encode(level))))
     assert(Fs.writeAtomic(assert(project:resolveAssetFile("Assets/L_ApiNext.level")), assert(require("editor.LevelFile").encode(nextLevel))))
     assert(project:rebuildAssetIndex())
     return true, {level = "Assets/L_ApiExamples.level", nextLevel = "Assets/L_ApiNext.level", folder = folder}

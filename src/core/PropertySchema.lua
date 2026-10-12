@@ -3,7 +3,7 @@ function Schema.isTemplate(kind) return kind == "lobjectTemplate" or kind == "pr
 function Schema.validValue(kind, value)
     if kind == "script" then
         return value == false or type(value) == "table" and type(value.authoringId) == "number"
-            and value.authoringId >= 1 and value.authoringId % 1 == 0 and type(value.script) == "string" and value.script:match("^[%a_][%w_]*$") ~= nil
+            and value.authoringId >= 1 and value.authoringId % 1 == 0 and require("core.ScriptId").isValid(value.script)
     end
     if kind == "object" then return value == false or type(value) == "number" and value >= 1 and value % 1 == 0 and value < math.huge end
     if kind == "image" or Schema.isTemplate(kind) then return value == false or type(value) == "string" and value ~= "" end

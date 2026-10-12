@@ -32,6 +32,8 @@ function Definition.resolve(project, reference, loader, excludedId)
         result.attachments = Attachments.merge(result.attachments, layer.scripts, layer.removedScripts)
         result.attachments = Attachments.reorder(result.attachments, layer.scriptOrder)
         for id, fields in pairs(layer.overrides.scripts or {}) do
+            local attachment = Attachments.find(result.attachments, id)
+            id = attachment and attachment.id or id
             result.scripts[id] = result.scripts[id] or {}
             for name, value in pairs(fields) do result.scripts[id][name] = value end
         end
@@ -55,6 +57,8 @@ function Definition.configure(object, definition, propertyOverrides, scriptOverr
     local list = Attachments.merge(definition.attachments, attachments)
     local fields = Copy.copyScripts(definition.scripts)
     for id, values in pairs(scriptOverrides or {}) do
+        local attachment = Attachments.find(list, id)
+        id = attachment and attachment.id or id
         fields[id] = fields[id] or {}
         for name, value in pairs(values) do fields[id][name] = value end
     end
@@ -63,7 +67,7 @@ function Definition.configure(object, definition, propertyOverrides, scriptOverr
         for _, attachment in ipairs(list) do
             local class, loadError = definition.scriptLoader(attachment.source, "script")
             assert(class, loadError)
-            local script = object:addScript(attachment.id, class, fields[attachment.id])
+            local script = require("core.ScriptRuntime").attach(object, attachment.id, class, fields[attachment.id], attachment.name or attachment.label or attachment.id)
             script.source, script.label = attachment.source, attachment.label
             present[attachment.id] = true
         end
@@ -78,7 +82,7 @@ function Definition.resolveReferences(values, schema, objects, project)
         if declaration.type == "script" and value ~= false then
             if not value.owner then
                 local object = objects[value.authoringId]
-                local script = object and object.scripts[value.script]
+                local script = object and (object:getScriptById(value.script) or object:getScriptByName(value.script))
                 if not script then return false, "Missing script reference" end
                 values[name] = script
             end
@@ -122,9 +126,18 @@ function Definition.inspectorTarget(project, data, definition, level, label)
     end
     local target = {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,
         class = {properties = schema, scriptTypes = scriptTypes, className = "LObject"}, preview = object,
+        resolveScriptReference = function(_, value)
+            if type(value) ~= "table" or not level then return value end
+            local referenced = level:findLObject(value.authoringId)
+            local referencedDefinition = referenced and require("project.PrefabHierarchy").authoringDefinition(project, level, referenced)
+            local attachment = referencedDefinition and Attachments.find(referencedDefinition.attachments, value.script)
+            return attachment and {authoringId = value.authoringId, script = attachment.id} or value
+        end,
         getOverrides = function(target)
             local values = {}
             for id, fields in pairs(target.data.scriptOverrides or {}) do
+                local script = target.preview:getScriptById(id) or target.preview:getScriptByName(id)
+                id = script and script.id or id
                 for field, value in pairs(fields) do values[id .. "." .. field] = value end
             end
             if target.data.transform then
@@ -136,7 +149,13 @@ function Definition.inspectorTarget(project, data, definition, level, label)
             local scripts = {}
             local transform = target.data.transform and assert(Transform.copy(target.data.transform))
             for name, value in pairs(values) do
-                local id, field = name:match("^([^.]+)%.(.+)$")
+                local id, field = name:match("^(.*)%.([^.]+)$")
+                local script = id and (target.preview:getScriptById(id) or target.preview:getScriptByName(id))
+                id = script and script.id or id
+                local declaration = id and schema[id .. "." .. field]
+                if declaration and declaration.type == "script" and type(value) == "table" and level and not level.prefabScope then
+                    value = target:resolveScriptReference(value)
+                end
                 if id == "$transform" then if transform then transform[field] = value end
                 elseif id then scripts[id] = scripts[id] or {}; scripts[id][field] = value end
             end

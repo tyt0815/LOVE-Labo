@@ -14,7 +14,7 @@ function Operations.execute(project, request, api)
     local target = assert(editor:target(nodePath))
     local command, changed = request.command, false
     if command == "prefab.set" or command == "prefab.reset" then
-        local name = api.required(request, "property")
+        local name = api.propertyName(target, api.required(request, "property"))
         local declaration = assert(target.class.properties[name], "Unknown property: " .. name)
         local item
         if command == "prefab.reset" then item = declaration.default else item = api.value(request) end
@@ -32,6 +32,9 @@ function Operations.execute(project, request, api)
     elseif command == "prefab.script.add" then
         local ok, id = editor:addScript(nodePath, api.required(request, "source"), request.script)
         assert(ok, id); changed = true
+    elseif command == "prefab.script.rename" then
+        local ok, err = editor:renameScript(nodePath, api.required(request, "script"), api.required(request, "name"))
+        assert(ok, err); changed = true
     elseif command == "prefab.script.remove" then
         local ok, err = editor:removeScript(nodePath, api.required(request, "script"))
         assert(ok, err); changed = true

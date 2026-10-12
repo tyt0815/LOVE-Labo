@@ -1,377 +1,394 @@
 {
-    "formatVersion": 3,
-    "lobjects": [
+  "formatVersion": 3,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "name": "Main Camera 1",
+      "scripts": [
         {
-            "authoringId": 1,
-            "name": "Main Camera 1",
-            "scripts": [
-                {
-                    "id": "camera",
-                    "source": "Camera"
-                }
-            ],
-            "transform": {
-                "x": 0,
-                "y": 0
-            }
-        },
-        {
-            "authoringId": 2,
-            "name": "Motion and Property References 1",
-            "scriptOverrides": {
-                "motion": {
-                    "sibling": {
-                        "authoringId": 2,
-                        "script": "sprite"
-                    },
-                    "target": 3
-                },
-                "sprite": {
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "motion",
-                    "source": "3defeca7-bbad-4be8-b9a2-564875422203"
-                },
-                {
-                    "id": "sprite",
-                    "source": "Sprite"
-                },
-                {
-                    "id": "bounds",
-                    "source": "RectBounds"
-                }
-            ],
-            "transform": {
-                "x": -160,
-                "y": 220
-            }
-        },
-        {
-            "authoringId": 3,
-            "name": "Inherited Transform Child 1",
-            "parentAuthoringId": 2,
-            "scriptOverrides": {
-                "sprite": {
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "sprite",
-                    "source": "Sprite"
-                }
-            ],
-            "transform": {
-                "x": 90,
-                "y": 0
-            }
-        },
-        {
-            "authoringId": 4,
-            "name": "Screen Space Canvas 1",
-            "scripts": [
-                {
-                    "id": "canvas",
-                    "source": "Canvas"
-                }
-            ],
-            "transform": {
-                "x": 0,
-                "y": 0
-            }
-        },
-        {
-            "authoringId": 5,
-            "name": "Spawn Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Spawn",
-                    "caption": "Spawn",
-                    "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": -190,
-                "y": -90
-            }
-        },
-        {
-            "authoringId": 6,
-            "name": "Remove Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Remove",
-                    "caption": "Remove",
-                    "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": 190,
-                "y": -90
-            }
-        },
-        {
-            "authoringId": 7,
-            "name": "Attach Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Attach",
-                    "caption": "Attach",
-                    "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": -190,
-                "y": -40
-            }
-        },
-        {
-            "authoringId": 8,
-            "name": "Scripts Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Scripts",
-                    "caption": "Scripts",
-                    "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": 190,
-                "y": -40
-            }
-        },
-        {
-            "authoringId": 9,
-            "name": "Camera Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Camera",
-                    "caption": "Camera",
-                    "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": -190,
-                "y": 10
-            }
-        },
-        {
-            "authoringId": 10,
-            "name": "Properties Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Properties",
-                    "caption": "Properties",
-                    "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": 190,
-                "y": 10
-            }
-        },
-        {
-            "authoringId": 11,
-            "name": "Debug Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Debug",
-                    "caption": "Debug",
-                    "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": -190,
-                "y": 60
-            }
-        },
-        {
-            "authoringId": 12,
-            "name": "Next Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Next",
-                    "caption": "Back",
-                    "nextLevel": "b3c66a66-f009-40fb-aa41-d92e1cad3a94",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": 190,
-                "y": 60
-            }
-        },
-        {
-            "authoringId": 13,
-            "name": "Raw Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Raw",
-                    "caption": "Raw",
-                    "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": -190,
-                "y": 110
-            }
-        },
-        {
-            "authoringId": 14,
-            "name": "Bounds Button 1",
-            "parentAuthoringId": 4,
-            "scriptOverrides": {
-                "action": {
-                    "action": "Bounds",
-                    "caption": "Bounds",
-                    "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
-                    "target": 2,
-                    "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-                    "image": "99223763-e7eb-4567-9b30-ed61131008aa"
-                }
-            },
-            "scripts": [
-                {
-                    "id": "action",
-                    "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
-                }
-            ],
-            "transform": {
-                "x": 190,
-                "y": 110
-            }
-        },
-        {
-            "authoringId": 15,
-            "name": "Screen Space Text",
-            "parentAuthoringId": 4,
-            "transform": {
-                "x": -340,
-                "y": -165,
-                "rotation": 0,
-                "rotationX": 0,
-                "rotationY": 0,
-                "scaleX": 1,
-                "scaleY": 1
-            },
-            "scripts": [
-                {
-                    "id": "text",
-                    "source": "Text"
-                }
-            ],
-            "scriptOverrides": {
-                "text": {
-                    "text": "Labo API Examples\nClick a button to try each API",
-                    "width": 680,
-                    "align": "center",
-                    "fontSize": 16,
-                    "red": 0.15,
-                    "green": 0.2,
-                    "blue": 0.3
-                }
-            }
+          "id": "6391575c-6f45-4feb-837a-8f0addd8bd61",
+          "source": "Camera",
+          "name": "camera"
         }
-    ],
-    "mainCamera": {
-        "authoringId": 1,
-        "script": "camera"
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
     },
-    "propertyOverrides": {
-        "welcome": "Second level - press Back"
+    {
+      "authoringId": 2,
+      "name": "Motion and Property References 1",
+      "scriptOverrides": {
+        "064a4bb7-efdc-42c3-809b-24a8ce2d0a0f": {
+          "sibling": {
+            "authoringId": 2,
+            "script": "327a0c7e-d9ac-4ed2-afe1-cff43ed90f43"
+          },
+          "target": 3
+        },
+        "327a0c7e-d9ac-4ed2-afe1-cff43ed90f43": {
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "064a4bb7-efdc-42c3-809b-24a8ce2d0a0f",
+          "source": "3defeca7-bbad-4be8-b9a2-564875422203",
+          "name": "motion"
+        },
+        {
+          "id": "327a0c7e-d9ac-4ed2-afe1-cff43ed90f43",
+          "source": "Sprite",
+          "name": "sprite"
+        },
+        {
+          "id": "1581818c-7eb5-419e-a22b-650d7b32268b",
+          "source": "RectBounds",
+          "name": "bounds"
+        }
+      ],
+      "transform": {
+        "x": -160,
+        "y": 220
+      }
     },
-    "scriptReference": "6a8f6dcf-d978-4b4c-afcc-110ebcbcced5",
-    "nextAuthoringId": 16
+    {
+      "authoringId": 3,
+      "name": "Inherited Transform Child 1",
+      "parentAuthoringId": 2,
+      "scriptOverrides": {
+        "85fe6635-db91-43bf-ab3e-517dea59c335": {
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "85fe6635-db91-43bf-ab3e-517dea59c335",
+          "source": "Sprite",
+          "name": "sprite"
+        }
+      ],
+      "transform": {
+        "x": 90,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 4,
+      "name": "Screen Space Canvas 1",
+      "scripts": [
+        {
+          "id": "951c5e7e-154d-4bb4-9a35-f0b96c888e54",
+          "source": "Canvas",
+          "name": "canvas"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 5,
+      "name": "Spawn Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "d18fe808-1652-43e8-9470-e06ed78e0a5b": {
+          "action": "Spawn",
+          "caption": "Spawn",
+          "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "d18fe808-1652-43e8-9470-e06ed78e0a5b",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": -190,
+        "y": -90
+      }
+    },
+    {
+      "authoringId": 6,
+      "name": "Remove Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "99dc9031-3f70-4952-9e9c-2088873e89de": {
+          "action": "Remove",
+          "caption": "Remove",
+          "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "99dc9031-3f70-4952-9e9c-2088873e89de",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": 190,
+        "y": -90
+      }
+    },
+    {
+      "authoringId": 7,
+      "name": "Attach Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "3c331ab1-83ac-4a9a-b874-507537949055": {
+          "action": "Attach",
+          "caption": "Attach",
+          "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "3c331ab1-83ac-4a9a-b874-507537949055",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": -190,
+        "y": -40
+      }
+    },
+    {
+      "authoringId": 8,
+      "name": "Scripts Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "e2b8a9f2-e95e-4e02-a949-1aad2c1abafc": {
+          "action": "Scripts",
+          "caption": "Scripts",
+          "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "e2b8a9f2-e95e-4e02-a949-1aad2c1abafc",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": 190,
+        "y": -40
+      }
+    },
+    {
+      "authoringId": 9,
+      "name": "Camera Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "430d36cc-7baa-4036-a0b2-adc1705c85a9": {
+          "action": "Camera",
+          "caption": "Camera",
+          "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "430d36cc-7baa-4036-a0b2-adc1705c85a9",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": -190,
+        "y": 10
+      }
+    },
+    {
+      "authoringId": 10,
+      "name": "Properties Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "6117516e-1f47-43d3-b72b-2aac92a58b21": {
+          "action": "Properties",
+          "caption": "Properties",
+          "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "6117516e-1f47-43d3-b72b-2aac92a58b21",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": 190,
+        "y": 10
+      }
+    },
+    {
+      "authoringId": 11,
+      "name": "Debug Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "91a382ef-0c57-46fd-a7c9-b19af83a7e31": {
+          "action": "Debug",
+          "caption": "Debug",
+          "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "91a382ef-0c57-46fd-a7c9-b19af83a7e31",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": -190,
+        "y": 60
+      }
+    },
+    {
+      "authoringId": 12,
+      "name": "Next Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "f450c99c-ac54-4671-a424-52d7b532887f": {
+          "action": "Next",
+          "caption": "Back",
+          "nextLevel": "b3c66a66-f009-40fb-aa41-d92e1cad3a94",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "f450c99c-ac54-4671-a424-52d7b532887f",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": 190,
+        "y": 60
+      }
+    },
+    {
+      "authoringId": 13,
+      "name": "Raw Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "a7b15fa3-b404-4afe-ab60-83e12774291d": {
+          "action": "Raw",
+          "caption": "Raw",
+          "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "a7b15fa3-b404-4afe-ab60-83e12774291d",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": -190,
+        "y": 110
+      }
+    },
+    {
+      "authoringId": 14,
+      "name": "Bounds Button 1",
+      "parentAuthoringId": 4,
+      "scriptOverrides": {
+        "6f501e7a-64ae-45e6-9c22-19f8aac8a9c5": {
+          "action": "Bounds",
+          "caption": "Bounds",
+          "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
+          "target": 2,
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        }
+      },
+      "scripts": [
+        {
+          "id": "6f501e7a-64ae-45e6-9c22-19f8aac8a9c5",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+          "name": "action"
+        }
+      ],
+      "transform": {
+        "x": 190,
+        "y": 110
+      }
+    },
+    {
+      "authoringId": 15,
+      "name": "Screen Space Text",
+      "parentAuthoringId": 4,
+      "transform": {
+        "x": -340,
+        "y": -165,
+        "rotation": 0,
+        "rotationX": 0,
+        "rotationY": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "scripts": [
+        {
+          "id": "a943400e-a934-4fa1-b35a-50df40e4e2d7",
+          "source": "Text",
+          "name": "text"
+        }
+      ],
+      "scriptOverrides": {
+        "a943400e-a934-4fa1-b35a-50df40e4e2d7": {
+          "text": "Labo API Examples\nClick a button to try each API",
+          "width": 680,
+          "align": "center",
+          "fontSize": 16,
+          "red": 0.15,
+          "green": 0.2,
+          "blue": 0.3
+        }
+      }
+    }
+  ],
+  "mainCamera": {
+    "authoringId": 1,
+    "script": "6391575c-6f45-4feb-837a-8f0addd8bd61"
+  },
+  "propertyOverrides": {
+    "welcome": "Second level - press Back"
+  },
+  "scriptReference": "6a8f6dcf-d978-4b4c-afcc-110ebcbcced5",
+  "nextAuthoringId": 16
 }

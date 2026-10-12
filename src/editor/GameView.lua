@@ -39,8 +39,9 @@ end
 
 function GameView:runtimeViewport(world)
     local x, y, width, height = self:getViewport()
-    if width <= 24 or height <= 48 then return nil end
-    return require("core.Viewport").new(world, x + 12, y + 36, width - 24, height - 48)
+    local inset = Ui.METRICS.panelGap / 2
+    if width <= inset * 2 or height <= inset * 2 then return nil end
+    return require("core.Viewport").new(world, x + inset, y + inset, width - inset * 2, height - inset * 2)
 end
 function GameView:worldToScreen(x, y)
     local viewport = self:runtimeViewport(self.world)
@@ -92,7 +93,8 @@ function GameView:draw(world)
     local viewport = self:runtimeViewport(world)
     if viewport then
         love.graphics.setColor(0, 0, 0, 1)
-        love.graphics.rectangle("fill", viewportX + 12, viewportY + 36, width - 24, height - 48)
+        local inset = Ui.METRICS.panelGap / 2
+        love.graphics.rectangle("fill", viewportX + inset, viewportY + inset, width - inset * 2, height - inset * 2)
         Theme.setColor("gameBackground")
         love.graphics.rectangle("fill", viewport.x, viewport.y, viewport.width, viewport.height)
         love.graphics.push("all")
@@ -107,15 +109,6 @@ function GameView:draw(world)
         end
     end
     if viewport then love.graphics.pop() end
-
-    Theme.setColor("text")
-
-    Ui.panelHeading(
-        "Game View",
-        viewportX,
-        viewportY,
-        width
-    )
 
     love.graphics.pop()
 end

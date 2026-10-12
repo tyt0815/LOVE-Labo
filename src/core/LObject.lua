@@ -11,32 +11,17 @@ function LObject.new(runtimeId, initial)
         scripts = {}, scriptOrder = {}, updateScripts = {}, drawScripts = {}, properties = {}}, LObject)
 end
 function LObject:getScriptOrder() return self.scriptOrder end
-function LObject:getScript(id) return self.scripts[id] end
-function LObject:addScript(id, class, overrides)
-    assert(type(id) == "string" and id:match("^[%a_][%w_]*$") and not self.scripts[id], "Invalid or duplicate script ID")
-    if type(class) == "string" then class = assert(self.scriptLoader(class, "script")) end
-    assert(type(class) == "table" and type(class.new) == "function", "Expected a script definition")
-    local script = class:new(overrides)
-    script.owner, script.name, script.id = self, id, id
-    self.scripts[id] = script; self.scriptOrder[#self.scriptOrder + 1] = id
-    if script.update then self.updateScripts[#self.updateScripts + 1] = script end
-    if script.draw then self.drawScripts[#self.drawScripts + 1] = script end
-    if self.world then self.world.updateOrderDirty = true end
-    if self.hasBegunPlay and not self.beginningPlay then
-        local ok, err = self:beginPlay(self.world)
-        if not ok then self:removeScript(id); error(err, 0) end
-    end
-    return script
+function LObject:getScriptById(id) return self.scripts[id] end
+function LObject:getScriptByName(name)
+    for _, id in ipairs(self.scriptOrder) do if self.scripts[id].name == name then return self.scripts[id] end end
 end
-function LObject:removeScript(id)
-    local script = assert(self.scripts[id], "Missing script")
-    self.scripts[id] = nil
-    for _, list in ipairs({self.scriptOrder, self.updateScripts, self.drawScripts}) do
-        for index = #list, 1, -1 do if list[index] == id or list[index] == script then table.remove(list, index) end end
-    end
-    script.owner = nil
-    if self.world then self.world.updateOrderDirty = true end
-    return script
+function LObject:getScriptByClass(class)
+    for _, id in ipairs(self.scriptOrder) do if self.scripts[id]:isA(class) then return self.scripts[id] end end
+end
+function LObject:getScriptsByClass(class)
+    local result = {}
+    for _, id in ipairs(self.scriptOrder) do if self.scripts[id]:isA(class) then result[#result + 1] = self.scripts[id] end end
+    return result
 end
 function LObject:beginPlay(world)
     if world and self.world ~= world then return true end
@@ -70,7 +55,7 @@ end
 function LObject:update(dt)
     local pending = {}; for _, script in ipairs(self.updateScripts) do pending[#pending + 1] = script end
     for _, script in ipairs(pending) do
-        if script.owner == self and self.scripts[script.id] == script then
+        if script.owner == self and self.scripts[script.id] == script and script.enabled ~= false then
             local ok, result, err = pcall(script.update, script, dt)
             if not ok or result == false then return false, tostring(ok and err or result) end
         end

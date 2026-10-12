@@ -678,8 +678,9 @@ function EditorApp:initializeUI()
             else self.sceneView:draw() end
             if self:isPlaying() then
                 love.graphics.push("all"); Theme.setColor(self.paused and "playPaused" or "playRunning"); love.graphics.setLineWidth(2)
-                love.graphics.rectangle("line", self.sceneView.viewportX + 6, self.sceneView.viewportY + 6,
-                    math.max(0, self.sceneView.viewportWidth - 12), math.max(0, self.sceneView.viewportHeight - 12), 6, 6)
+                local gap = require("editor.Ui").METRICS.panelGap
+                love.graphics.rectangle("line", self.sceneView.viewportX + gap / 2, self.sceneView.viewportY + gap / 2,
+                    math.max(0, self.sceneView.viewportWidth - gap), math.max(0, self.sceneView.viewportHeight - gap), 6, 6)
                 love.graphics.pop()
             end
         end,
@@ -721,8 +722,9 @@ function EditorApp:initializeUI()
     local toolbarSlot = center:addChild(self.viewportToolbar, {z = 3})
     center.handlers.bounds = function(_, _, _, width, height)
         local barHeight = math.min(self.viewportToolbar:preferredHeight(width), height)
-        -- Ui.panel 양쪽의 6px 여백을 포함해 외곽선 사이 간격을 맞춘다.
-        local sceneTop = math.max(0, barHeight + require("editor.Ui").METRICS.viewportToolbarGap - 12)
+        -- 툴바와 뷰포트는 한 묶음으로 취급해 별도 내부 간격을 유지한다.
+        local metrics = require("editor.Ui").METRICS
+        local sceneTop = math.max(0, barHeight + metrics.viewportToolbarGap - metrics.panelGap)
         sceneSlot.x, sceneSlot.y, sceneSlot.width, sceneSlot.height = 0, sceneTop, width, math.max(0, height - sceneTop)
         toolbarSlot.width, toolbarSlot.height = width, barHeight
     end

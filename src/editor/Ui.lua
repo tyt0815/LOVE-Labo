@@ -8,6 +8,8 @@ Ui.METRICS = {
     contentPaddingX = 16, contentPaddingY = 4,
     buttonPaddingX = 10, buttonGap = 8,
     playBarHeight = 44,
+    -- 이웃한 패널 외곽선 사이의 공통 간격(px). 기존 로그바 간격에 맞춘다.
+    panelGap = 4,
     -- 툴바 하단과 뷰포트 상단 외곽선 사이의 실제 간격(px).
     viewportToolbarGap = 0,
     selectionPaddingX = 0, selectionPaddingY = 0, selectionRadius = 0,
@@ -102,10 +104,19 @@ end
 function Ui.resetHints() Ui.hoverHint = nil end
 
 function Ui.panel(x, y, width, height, backgroundRole)
+    local gap = Ui.METRICS.panelGap
+    local inset = gap / 2
     Theme.setColor(backgroundRole or "panel")
-    love.graphics.rectangle("fill", x + 6, y + 6, math.max(0, width - 12), math.max(0, height - 12), 6, 6)
+    love.graphics.rectangle("fill", x + inset, y + inset, math.max(0, width - gap), math.max(0, height - gap), 6, 6)
     Theme.setColor("panelBorder")
-    love.graphics.rectangle("line", x + 6.5, y + 6.5, math.max(0, width - 13), math.max(0, height - 13), 6, 6)
+    love.graphics.rectangle("line", x + inset + 0.5, y + inset + 0.5, math.max(0, width - gap - 1), math.max(0, height - gap - 1), 6, 6)
+end
+function Ui.closeButton(rect, hint)
+    Ui.button("", rect, false, hint or "Close", true)
+    love.graphics.push("all"); Theme.setColor("textMuted"); love.graphics.setLineWidth(1.5)
+    local x, y = rect.x + rect.w / 2, rect.y + rect.h / 2
+    love.graphics.line(x - 6, y - 6, x + 6, y + 6); love.graphics.line(x - 6, y + 6, x + 6, y - 6)
+    love.graphics.pop()
 end
 
 function Ui.panelTitle(text, x, y, width)

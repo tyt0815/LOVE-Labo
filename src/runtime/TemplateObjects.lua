@@ -17,9 +17,13 @@ function Objects.configure(world, recipe, root, rootOverrides, authored)
         local extra = node.parent and source and {properties = source.data.propertyOverrides, scripts = source.data.scriptOverrides}
             or not node.parent and rootOverrides or {}
         local properties, scripts = Hierarchy.copy(node.overrides.properties or {}), Hierarchy.copy(node.overrides.scripts or {})
+        local attachments = require("project.ScriptAttachments").merge(node.definition.attachments,
+            source and source.data.scripts or not node.parent and rootOverrides.attachments)
         overridden[node.path] = {}
         for name, value in pairs(extra.properties or {}) do properties[name] = value; overridden[node.path][name] = true end
         for name, fields in pairs(extra.scripts or {}) do
+            local attachment = require("project.ScriptAttachments").find(attachments, name)
+            name = attachment and attachment.id or name
             scripts[name] = scripts[name] or {}
             for field, value in pairs(fields) do scripts[name][field] = value; overridden[node.path][name .. "." .. field] = true end
         end

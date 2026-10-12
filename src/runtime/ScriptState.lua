@@ -8,7 +8,7 @@ function State.read(object)
             elseif value.owner then values[name] = {authoringId = value.owner.authoringId, runtimeId = value.owner.runtimeId, script = value.id}
             elseif value.runtimeId then values[name] = {authoringId = value.authoringId, runtimeId = value.runtimeId} end
         end
-        result[id] = values
+        result[object.scripts[id].name] = values
     end
     return result
 end

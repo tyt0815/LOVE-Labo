@@ -14,14 +14,14 @@ end
 return Spawner
 ```
 
-반환값은 루트 LObject 또는 `nil, error`입니다. 내부 참조는 새 계층으로 연결하며 모든 스크립트는 독립 상태를 가집니다. 생성 실패는 추가된 객체를 되돌립니다. `overrides.scripts`에는 부착 ID별 프로퍼티를 지정합니다.
+반환값은 루트 LObject 또는 `nil, error`입니다. 내부 참조는 새 계층으로 연결하며 모든 스크립트는 독립 상태를 가집니다. 생성 실패는 추가된 객체를 되돌립니다. `overrides.scripts`에는 부착 ID별 프로퍼티를 지정합니다. 사용자 이름도 조회 호환 입력으로 지원하지만 저장 참조는 내부 UUID를 사용합니다.
 
 ```lua
 local object, err = world:spawnLObject(prefabId, {x = 100, y = 50}, {
     scripts = {movement = {speed = 250}}
 })
 if object then
-    local movement = object:getScript("movement")
+    local movement = object:getScriptByName("movement")
     world:removeLObject(object) -- 자손과 포인터 캡처도 정리한다.
 end
 ```

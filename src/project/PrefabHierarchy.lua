@@ -141,12 +141,12 @@ function Hierarchy.applyBindings(recipe, objects, overridden)
         if object then
         local script, field = binding.property:match("^([^.]+)%.(.+)$")
         local values
-        if script then values = object.scripts[script] and object.scripts[script].properties
+        if script then local instance = object:getScriptById(script) or object:getScriptByName(script); values = instance and instance.properties
         else values = object.properties end
         if not values then return false, "Missing binding script" end
         if not (overridden and overridden[binding.from] and overridden[binding.from][binding.property]) then
             if not target then return false, "Missing Prefab object binding target" end
-            values[field or binding.property] = binding.toScript and assert(target.scripts[binding.toScript], "Missing script binding target") or target
+            values[field or binding.property] = binding.toScript and assert(target:getScriptById(binding.toScript) or target:getScriptByName(binding.toScript), "Missing script binding target") or target
         end
         end
     end
@@ -311,13 +311,20 @@ function Hierarchy.duplicateData(project, level, object)
     local properties, scripts = Hierarchy.copy(definition.properties), Hierarchy.copy(definition.scripts)
     for name, value in pairs(object.propertyOverrides or {}) do properties[name] = value end
     for name, fields in pairs(object.scriptOverrides or {}) do
+        local attachment = require("project.ScriptAttachments").find(definition.attachments, name)
+        name = attachment and attachment.id or name
         scripts[name] = scripts[name] or {}
         for field, value in pairs(fields) do scripts[name][field] = value end
     end
     local target, targetError = Definition.inspectorTarget(project, object, definition, level)
     if not target then return nil, targetError end
     local referenceFields = {}
-    for name, declaration in pairs(target.class.properties) do if (declaration.type == "object" or declaration.type == "script") then referenceFields[#referenceFields + 1] = name end end
+    for name, declaration in pairs(target.class.properties) do if (declaration.type == "object" or declaration.type == "script") then
+        referenceFields[#referenceFields + 1] = name
+        local prefix, field = name:match("^([^.]+)%.(.+)$")
+        local script = prefix and target.preview:getScriptById(prefix)
+        if script then referenceFields[#referenceFields + 1] = script.name .. "." .. field end
+    end end
     return {definitionReference = nil, scripts = require("project.ScriptAttachments").copy(definition.attachments), propertyOverrides = properties, scriptOverrides = scripts, referenceFields = referenceFields}
 end
 

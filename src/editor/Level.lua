@@ -405,7 +405,7 @@ function Level:removeLObjects(objects, syncingPrefab)
     return next(removed) ~= nil
 end
 function Level:duplicateLObjects(objects)
-    local roots, result, originals, remapped = self:selectionRoots(objects), {}, {}, {}
+    local roots, result, originals, remapped, scriptIds = self:selectionRoots(objects), {}, {}, {}, {}
     for _, object in ipairs(self.lobjects) do originals[#originals + 1] = object end
     local included, baked, referenceFields = {}, {}, {}
     for _, object in ipairs(originals) do
@@ -427,8 +427,11 @@ function Level:duplicateLObjects(objects)
         duplicate.transform = assert(Transform.copy(object.transform))
         duplicate.parentAuthoringId = parentId
         duplicate.propertyOverrides = require("editor.PropertyData").copy(data.propertyOverrides)
-        duplicate.scripts = require("project.ScriptAttachments").copy(data.scripts)
+        duplicate.scripts, scriptIds[object.authoringId] = require("project.ScriptAttachments").reidentify(data.scripts)
         duplicate.scriptOverrides = require("editor.PropertyData").copyScripts(data.scriptOverrides)
+        local fields = {}
+        for id, values in pairs(duplicate.scriptOverrides) do fields[scriptIds[object.authoringId][id] or id] = values end
+        duplicate.scriptOverrides = fields
         duplicate.prefabRemovedPaths = data.prefabRemovedPaths and require("editor.PropertyData").copy(data.prefabRemovedPaths)
         result[#result + 1] = duplicate
         remapped[object.authoringId] = duplicate
@@ -440,11 +443,12 @@ function Level:duplicateLObjects(objects)
         local source = self:findLObject(oldId)
         for _, name in ipairs(referenceFields[oldId] or {}) do
             local script, field = name:match("^([^.]+)%.(.+)$")
+            script = script and (scriptIds[oldId][script] or script)
             local values = script and duplicate.scriptOverrides[script] or duplicate.propertyOverrides
             local value = values and values[field or name]
             local id = type(value) == "table" and value.authoringId or value
             if id and remapped[id] then
-                values[field or name] = type(value) == "table" and {authoringId = remapped[id].authoringId, script = value.script} or remapped[id].authoringId
+                values[field or name] = type(value) == "table" and {authoringId = remapped[id].authoringId, script = scriptIds[id][value.script] or value.script} or remapped[id].authoringId
             end
         end
         if source.prefabRootId and remapped[source.prefabRootId] then

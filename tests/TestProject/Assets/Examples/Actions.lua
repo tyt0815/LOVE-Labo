@@ -19,9 +19,7 @@ function Actions.onPointerDown(self, event)
     world.debug:log(self.action .. " pointer down", {marker = ">"})
     if self.action == "Spawn" then world.exampleSpawn = assert(Engine.spawnLObject(world, self.template, {x = 150, y = 220}))
     elseif self.action == "Raw" then
-        local object = assert(world:addLObject({name = "Raw object", transform = {x = 150, y = 220}}))
-        assert(object:addScript("sprite", Engine.Sprite, {image = self.image}))
-        assert(object:addScript("motion", "Assets/Examples/Motion.lua")); assert(object:beginPlay(world)); world.exampleSpawn = object
+        world.exampleSpawn = assert(world:addLObject({name = "Empty object", transform = {x = 150, y = 220}}))
     elseif self.action == "Bounds" then
         local x, y = self:getWorldPosition(); local hit = Engine.Bounds.hitTest(self, {}, x, y)
         local width, height = select(3, self:getBounds({}))
@@ -32,12 +30,17 @@ function Actions.onPointerDown(self, event)
     elseif self.action == "Remove" and spawned and spawned.world then world:removeLObject(spawned); world.exampleSpawn = nil
     elseif self.action == "Attach" and spawned and spawned.world then spawned:attachTo(spawned.parent and nil or self.target)
     elseif self.action == "Scripts" and spawned and spawned.world then
-        if spawned.scripts.extra then spawned:removeScript("extra") else assert(spawned:addScript("extra", "Assets/Examples/Motion.lua", {speed = 70})) end
+        local motion = spawned:getScriptByName("motion")
+        if motion then motion.enabled = not motion.enabled end
     elseif self.action == "Camera" then
         local camera = world:getActiveCamera(); assert(world:setActiveCamera(camera)); camera.zoom = camera.zoom == 1 and 1.5 or 1
     elseif self.action == "Next" then assert(Engine.openLevel(world, self.nextLevel))
     elseif self.action == "Properties" and self.target then
-        local motion = self.target.scripts.motion; motion.enabled = not motion.enabled
+        local motion = self.target:getScriptByName("motion")
+        local class = require("Examples.Motion")
+        assert(self.target:getScriptById(motion.id) == motion and self.target:getScriptByClass(class) == motion)
+        world.debug:log("Matching scripts: " .. #self.target:getScriptsByClass(class))
+        motion.enabled = not motion.enabled
         local t = self.target:getWorldTransform(); local x, y = Engine.Transform.point(t, 10, 10)
         world.debug:log("Property toggled; transformed point " .. x .. ", " .. y)
     else

@@ -19,7 +19,7 @@ end
 function Layout.groupHeaderHeight(expanded, height)
     return Layout.HEADER_HEIGHT
 end
-function Layout.group(left, width, top, height, label, expanded)
+function Layout.group(left, width, top, height, label, expanded, rightInset)
     local x, w = left + Ui.METRICS.contentPaddingX, width - 2 * Ui.METRICS.contentPaddingX
     local headerHeight = Layout.groupHeaderHeight(expanded, height)
     if expanded then
@@ -31,6 +31,6 @@ function Layout.group(left, width, top, height, label, expanded)
     end
     Ui.button("", {x = x, y = top, w = w, h = headerHeight}, false, "Click to expand or collapse properties.")
     Ui.chevron(x + 10, top + headerHeight / 2, expanded)
-    Ui.text(label, x + 26, top + (headerHeight - love.graphics.getFont():getHeight()) / 2, w - 36)
+    Ui.text(label, x + 26, top + (headerHeight - love.graphics.getFont():getHeight()) / 2, math.max(0, w - 36 - (rightInset or 0)))
 end
 return Layout

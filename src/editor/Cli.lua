@@ -26,7 +26,11 @@ local function value(request)
     return parsed
 end
 local function setProperty(project, target, name, item)
+    local prefix, field = name:match("^(.*)%.([^.]+)$")
+    local script = prefix and target.preview and (target.preview:getScriptById(prefix) or target.preview:getScriptByName(prefix))
+    if script then name = script.id .. "." .. field end
     local declaration = assert(target.class.properties[name], "Unknown property: " .. name)
+    if declaration.type == "script" and target.resolveScriptReference then item = target:resolveScriptReference(item) end
     assert(require("project.LuaScript").validValue(declaration.type, item), "Invalid property value")
     if declaration.type == "image" and item ~= false then
         local path = assert(project:resolveAssetFile(item))
@@ -49,25 +53,35 @@ local function setProperty(project, target, name, item)
     if item == false and item ~= declaration.default then overrides[name] = false end
     target:setOverrides(overrides)
 end
+local function propertyName(target, name)
+    local prefix, field = name:match("^(.*)%.([^.]+)$")
+    local script = prefix and target.preview and (target.preview:getScriptById(prefix) or target.preview:getScriptByName(prefix))
+    return script and script.id .. "." .. field or name
+end
 local function properties(target)
-    local values = {}
+    local values, schema, scriptIds = {}, {}, {}
     local overrides = target:getOverrides()
     for name, declaration in pairs(target.class.properties) do
-        values[name] = overrides[name]
-        if values[name] == nil then values[name] = declaration.default end
+        local prefix, field = name:match("^([^.]+)%.(.+)$")
+        local script = prefix and target.preview and target.preview:getScriptById(prefix)
+        local display = script and script.name .. "." .. field or name
+        values[display] = overrides[name]
+        if values[display] == nil then values[display] = declaration.default end
+        schema[display] = declaration
+        if script then scriptIds[script.name] = script.id end
     end
-    return {schema = target.class.properties, values = values}
+    return {schema = schema, values = values, scriptIds = scriptIds}
 end
 
 local api = {required = required, absolute = absolute, revision = revision, checkRevision = checkRevision,
-    basicResult = basicResult, value = value, setProperty = setProperty, properties = properties}
+    basicResult = basicResult, value = value, setProperty = setProperty, properties = properties, propertyName = propertyName}
 local COMMANDS = {"project.create", "project.info", "project.refresh", "project.repair-plan", "project.repair", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
     "plugin.list", "plugin.create", "plugin.enable", "plugin.disable", "plugin.plan",
     "asset.preview", "project.examples",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
-    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
-    "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.reorder", "export"}
+    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
+    "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.script.rename", "instance.reorder", "export"}
 local function execute(request)
     local command = required(request, "command")
     if command:match("^script%.") then
@@ -247,6 +261,7 @@ local function execute(request)
         local definition = assert(require("project.PrefabHierarchy").authoringDefinition(project, level, object))
         target = assert(require("project.ObjectDefinition").inspectorTarget(project, object, definition, level))
         if command == "instance.script.add" then assert(target:addScript(required(request, "source"), request.script)); changed = true
+        elseif command == "instance.script.rename" then assert(target:renameScript(required(request, "script"), required(request, "name"))); changed = true
         elseif command == "instance.script.remove" then assert(target:removeScript(required(request, "script"))); changed = true
         elseif command == "instance.script.move" then assert(target:moveScript(required(request, "script"), tonumber(required(request, "index")))); changed = true
         elseif command == "instance.reorder" then
@@ -258,7 +273,7 @@ local function execute(request)
             local name = required(request, "name"); assert(type(name) == "string" and name ~= "", "Invalid instance name")
             object.name = name; changed = true
         elseif command == "instance.set" or command == "instance.reset" then
-            local name = required(request, "property")
+            local name = propertyName(target, required(request, "property"))
             local item
             if command == "instance.set" then item = value(request)
             elseif name:match("^transform%.") then
@@ -284,10 +299,10 @@ local function execute(request)
             local candidates = assert(require("project.MainCamera").choices(project, level, level:findLObject(tonumber(request.instance))))
             local selected
             for _, candidate in ipairs(candidates) do
-                if candidate.script == request.script or not request.script and #candidates == 1 then selected = candidate end
+                if candidate.script == request.script or candidate.name == request.script or not request.script and #candidates == 1 then selected = candidate end
             end
             assert(selected, "Choose a Camera script with --script")
-            level.mainCamera = selected
+            level.mainCamera = assert(require("project.MainCamera").copy(selected))
         end
         changed = true
     elseif command == "level.simulate" then
@@ -313,7 +328,7 @@ local function execute(request)
             level.propertyOverrides = require("project.LuaScript").compatibleOverrides(nextClass, level.propertyOverrides)
             target.class = nextClass or {properties = {}}; changed = true
         elseif command ~= "level.get" then
-            local name = required(request, "property")
+            local name = propertyName(target, required(request, "property"))
             local item
             if command == "level.reset" then item = assert(target.class.properties[name], "Unknown property: " .. name).default else item = value(request) end
             setProperty(project, target, name, item); changed = true

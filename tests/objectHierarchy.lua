@@ -50,7 +50,7 @@ add("Runtime root and descendant component follow object parents", function()
     assert(level:reparent({child}, root))
     local world = assert(World.fromLevelData(level:toData()))
     local a, b = world.lobjects[1], world.lobjects[2]
-    local script = b:addScript("child", require("core.Script"):extend({}))
+    local script = require("core.ScriptRuntime").attach(b, "child", require("core.Script"):extend({}))
     Assert.equal(a, b.parent); Assert.equal(b, a.children[1])
     near(110, script:getWorldTransform().x)
     a.transform.rotation = 90

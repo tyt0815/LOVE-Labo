@@ -3,7 +3,7 @@ function MainCamera.copy(value)
     if value == nil or value == false then return nil end
     if type(value) ~= "table" or type(value.authoringId) ~= "number" or value.authoringId < 1
         or value.authoringId % 1 ~= 0 or type(value.script) ~= "string" or value.script == "" then
-        return nil, "Main Camera requires an instance ID and script name"
+        return nil, "Main Camera requires an instance ID and script ID"
     end
     return {authoringId = value.authoringId, script = value.script}
 end
@@ -11,7 +11,7 @@ function MainCamera.resolve(world, value)
     if not value then return end
     for _, object in ipairs(world.lobjects) do
         if object.authoringId == value.authoringId then
-            local script = object.scripts[value.script]
+            local script = object:getScriptById(value.script) or object:getScriptByName(value.script)
             if script and script.camera then return script end
         end
     end
@@ -26,7 +26,7 @@ function MainCamera.choices(project, level, object)
     local result = {}
     for _, name in ipairs(preview:getScriptOrder()) do
         if preview.scripts[name].camera then
-            result[#result + 1] = {authoringId = object.authoringId, script = name}
+            result[#result + 1] = {authoringId = object.authoringId, script = name, name = preview.scripts[name].name}
         end
     end
     if #result == 0 then return nil, "Selected instance has no CameraScript" end

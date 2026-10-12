@@ -49,6 +49,6 @@ Inspector 필드나 Prefab 계층에 에셋·인스턴스를 드래그앤드롭�
 ## 제공 스크립트와 플러그인
 
 - Core에는 LObject·스크립트 실행 및 범용 API만 둔다. 제품에서 제공하는 Camera·Sprite와 향후 추가하는 편의·게임 기능 스크립트는 모두 플러그인으로 구현한다. 새 프로젝트에는 활성화된 제공 스크립트가 없다.
-- 기본 제공 Camera·Sprite·Pointer·RectBounds·Canvas·Text·Text·Text·Text는 `LaboEssentials` 한 플러그인에 묶는다. 스크립트 하나마다 플러그인을 만들지 않고 기능 묶음의 의미로 구분한다.
+- 기본 제공 Camera·Sprite·Pointer·RectBounds·Canvas·Text는 `LaboEssentials` 한 플러그인에 묶는다. 스크립트 하나마다 플러그인을 만들지 않고 기능 묶음의 의미로 구분한다.
 - 플러그인은 Lua뿐 아니라 Assets에서 지원하는 모든 에셋과 폴더를 담을 수 있다. 새 에셋 형식을 추가할 때도 플러그인 탐색·참조·Export에서 같은 계약을 적용한다.
 - 활성 플러그인은 에셋 브라우저에서 `Assets`와 같은 깊이의 `Labo Plugins/<이름>` 또는 `User Plugins/<이름>`에서 탐색한다. 추가 `Plugins` 상위 폴더를 두지 않는다. 내부 마운트 참조와 에셋 ID는 표시 계층과 별도로 유지한다.

@@ -105,6 +105,7 @@ function Editor:target(path)
     target.removeScript = function(_, id) return self:removeScript(node.path, id) end
     target.canRemoveScript = function(_, id) return not target.readOnly and not self:scriptInherited(node.path, id) end
     target.moveScript = function(_, id, index) return self:moveScript(node.path, id, index) end
+    target.renameScript = function(_, id, name) return self:renameScript(node.path, id, name) end
     target.prefabScope, target.scopeByPath = true, byPath
     local baseBindings = inherited.bindings
     for _, binding in ipairs(baseBindings) do
@@ -141,6 +142,12 @@ function Editor:target(path)
         self.document.data = assert(require("editor.Prefab").decode(text)); self.onChanged()
     end
     local set = target.setOverrides
+    target.resolveScriptReference = function(_, value)
+        if type(value) ~= "table" then return value end
+        local referenced = recipe.nodes[value.authoringId]
+        local item = referenced and require("project.ScriptAttachments").find(referenced.definition.attachments, value.script)
+        return item and {authoringId = value.authoringId, script = item.id} or value
+    end
     local parentChanged = false
     target.setParentReference = function(value)
         proxy.definitionReference, parentChanged = value or nil, true
@@ -155,6 +162,18 @@ function Editor:target(path)
         return Definition.inspectorTarget(self.project, {transform = proxy.transform}, definition, scope, "Prefab")
     end
     target.setOverrides = function(current, values, schemaTarget)
+        local normalized = {}
+        for key, value in pairs(values) do
+            local prefix, field = key:match("^(.*)%.([^.]+)$")
+            local script = prefix and (current.preview:getScriptById(prefix) or current.preview:getScriptByName(prefix))
+            key = script and script.id .. "." .. field or key
+            local declaration = current.class.properties[key]
+            if declaration and declaration.type == "script" and type(value) == "table" then
+                value = current:resolveScriptReference(value)
+            end
+            normalized[key] = value
+        end
+        values = normalized
         if schemaTarget then
             schemaTarget.data = proxy
             schemaTarget:setOverrides(values)
@@ -246,7 +265,7 @@ function Editor:addInstance(level, object, parentPath)
     end
     return true, nil, path
 end
-function Editor:addScript(path, source, id)
+function Editor:addScript(path, source, name)
     if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     local recipe, err = self:recipe()
     if not recipe then return false, err end
@@ -254,20 +273,43 @@ function Editor:addScript(path, source, id)
     if not node then return false, "Missing object" end
     local class, loadError = require("project.LuaScript").load(self.project, source, "script")
     if not class then return false, loadError end
-    local ids = {}; for _, item in ipairs(node.definition.attachments) do ids[item.id] = true end
-    if not id then local number = 1; repeat id = "s" .. number; number = number + 1 until not ids[id] end
-    if not id:match("^[%a_][%w_]*$") or ids[id] then return false, "Invalid or duplicate script ID" end
+    local attachments = require("project.ScriptAttachments")
+    if not name then
+        local base = require("project.LuaScript").name(class) or class.scriptType or "Script"
+        name = base; local number = 2
+        while not attachments.uniqueName(node.definition.attachments, name) do name = base .. " " .. number; number = number + 1 end
+    end
+    local valid, nameError = attachments.uniqueName(node.definition.attachments, name)
+    if not valid then return false, nameError end
+    local id = require("project.AssetId").new()
     local record = self:record(path, true)
     record.scripts = record.scripts or {}
     local canonical = (source == "Script" or self.project.plugins.scripts[source]) and source or self.project:getAssetId(self.project:getAssetReference(source))
-    record.scripts[#record.scripts + 1] = {id = id, source = canonical}
+    record.scripts[#record.scripts + 1] = {id = id, name = name, source = canonical}
     for index = #(record.removedScripts or {}), 1, -1 do
         if record.removedScripts[index] == id then table.remove(record.removedScripts, index) end
     end
     self.document.data.formatVersion = 4; self.onChanged()
     return true, id
 end
+function Editor:renameScript(path, query, name)
+    if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
+    local recipe, err = self:recipe(); if not recipe then return false, err end
+    local node = recipe.byPath[path]
+    local attachments = require("project.ScriptAttachments")
+    local item = node and attachments.find(node.definition.attachments, query)
+    if not item then return false, "Missing script" end
+    local valid, nameError = attachments.uniqueName(node.definition.attachments, name, item.id)
+    if not valid then return false, nameError end
+    local record = self:record(path, true); record.scripts = record.scripts or {}
+    local localItem = attachments.find(record.scripts, item.id)
+    if not localItem then localItem = {id = item.id}; record.scripts[#record.scripts + 1] = localItem end
+    localItem.name = name; self.onChanged(); return true
+end
 function Editor:removeScript(path, id)
+    local lookup = self:recipe()
+    local item = lookup and lookup.byPath[path] and require("project.ScriptAttachments").find(lookup.byPath[path].definition.attachments, id)
+    id = item and item.id or id
     if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     if self:scriptInherited(path, id) then return false, "Inherited scripts cannot be removed" end
     local recipe, err = self:recipe()
@@ -288,6 +330,9 @@ function Editor:removeScript(path, id)
     self.onChanged(); return true
 end
 function Editor:moveScript(path, id, index)
+    local lookup = self:recipe()
+    local item = lookup and lookup.byPath[path] and require("project.ScriptAttachments").find(lookup.byPath[path].definition.attachments, id)
+    id = item and item.id or id
     if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     if self:scriptInherited(path, id) then return false, "Inherited scripts cannot be reordered" end
     local recipe, err = self:recipe()
@@ -336,7 +381,7 @@ function Editor:scriptInherited(path, id)
         end
         if node and node.isInherited then
             local localRecord = self:record(path, false)
-            for _, item in ipairs(localRecord and localRecord.scripts or {}) do if item.id == id then return false end end
+            for _, item in ipairs(localRecord and localRecord.scripts or {}) do if item.id == id and item.source then return false end end
             return true
         end
     end
