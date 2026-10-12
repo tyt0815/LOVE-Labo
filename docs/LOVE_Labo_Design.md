@@ -522,3 +522,13 @@ standalone executable packaging
 ## 에디터 디버깅 표시
 
 World.debug는 배포에서 no-op이며 Editor Play와 CLI의 명시적 디버그 검증에만 에디터 서비스를 주입한다. 기록·일시적인 화면 로그·런타임 도형의 구현은 editor 모듈에 두고 Export에서 제외한다. 편집 화면 표시는 Script.drawEditor(context)로 분리하고 초기화·업데이트 없이 준비된 프로퍼티를 사용한다. Camera의 영역 표시도 Camera 플러그인의 콜백으로 구현한다. 수명·키 교체·기록 한계 및 모듈 경계는 [ADR 0061](adr/0061-editor-debug-services-and-draw-callback.md)을 따른다.
+
+## 중앙 에셋 목록과 프로젝트 갱신
+
+프로젝트·플러그인 루트의 assets.json이 에셋 ID·경로·Lua 종류·최근 내용 해시의 원본이다. 파일별 .meta와 plugin.json의 scriptIds를 대체한다. 기존 ID를 유지한 마이그레이션 후 소스 옆의 메타를 제거하며 일반 생성·이동·삭제·Undo도 중앙 목록을 갱신한다. Assets 통합은 유지한다. Project Refresh는 미저장 문서를 보존하고, 끊어진 등록이 있으면 체크박스·수동 파일 트리의 복구 창을 연다. 추측으로 ID를 교체하거나 여러 기존 ID를 한 파일에 연결하지 않는다. 상세 계약은 [ADR 0066](adr/0066-central-asset-catalog-and-reference-repair.md)을 따른다.
+
+## 에디터 실행 상태
+
+Play·Pause·Stop은 고정된 버튼이다. Pause는 같은 Runtime World를 유지하고 Update·게임 입력·디버그 수명을 정지하며 렌더링·에디터 UI는 계속 실행한다. 테마 기반 초록·주황 테두리와 활성 버튼으로 상태를 구분한다. 게임 기능에는 테스트 프로젝트 Assets/Examples의 검수용 예제 오브젝트·레벨을 함께 제공한다. 상세 실행 상태는 [ADR 0067](adr/0067-fixed-play-pause-stop-controls.md)을 따른다.
+
+버튼바는 뷰포트 밖 상단 중앙이며 계층·Inspector 상단과 정렬한다. 실행 화면은 카메라의 기준 비율을 유지한 최대 영역을 사용하고 남는 공간은 검은 레터박스로 표시한다. Canvas와 렌더링·입력·CLI 좌표도 이 실제 게임 영역을 기준으로 한다. 상세 계약은 [ADR 0068](adr/0068-camera-letterbox-for-world-and-screen-ui.md)을 따른다.

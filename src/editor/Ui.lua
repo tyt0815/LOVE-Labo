@@ -7,6 +7,9 @@ Ui.METRICS = {
     titlePaddingX = 16, titlePaddingY = 14, titleFontSize = 15,
     contentPaddingX = 16, contentPaddingY = 4,
     buttonPaddingX = 10, buttonGap = 8,
+    playBarHeight = 44,
+    -- 툴바 하단과 뷰포트 상단 외곽선 사이의 실제 간격(px).
+    viewportToolbarGap = 0,
     selectionPaddingX = 0, selectionPaddingY = 0, selectionRadius = 0,
     -- 트리 행 높이와 모든 계층선의 두께를 여기서 조절한다.
     treeRowHeight = 22, treeLineWidth = 0.3, treeLineHighlightWidth = 1,
@@ -142,7 +145,7 @@ function Ui.label(text, x, y, width)
     Ui.text(text, x, y, width, Theme.color("text"), true)
 end
 
-function Ui.textLines(text, x, y, width, maxLines)
+function Ui.textLines(text, x, y, width, maxLines, color)
     local font = love.graphics.getFont()
     local _, lines = font:getWrap(text, width)
     local count = math.min(#lines, maxLines)
@@ -156,7 +159,7 @@ function Ui.textLines(text, x, y, width, maxLines)
     end
     local lineHeight = font:getHeight() * font:getLineHeight()
     for index = 1, count do
-        Ui.text(lines[index], x, y + (index - 1) * lineHeight, width, nil, false, "center")
+        Ui.text(lines[index], x, y + (index - 1) * lineHeight, width, color, false, "center")
     end
 end
 

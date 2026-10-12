@@ -21,7 +21,7 @@ function AssetBrowser.new(project)
     local self = setmetatable(Canvas.new(), AssetBrowser)
     local state = {
         project = project, folder = "Assets", entries = {}, selectedReference = nil, selectedReferences = {},
-        expanded = { Assets = true }, children = {}, tree = {},
+        expanded = { Assets = true, ["$project"] = true }, children = {}, tree = {},
         treeScroll = 0, fileScroll = 0, collapsed = false,
         x = 0, y = 0, width = 0, height = 0, error = nil,
         viewMode = "thumbnails", panelName = "assets"
@@ -86,8 +86,6 @@ function AssetBrowser.new(project)
     self.breadcrumbSlot = self:addChild(self.breadcrumb, { z = 1 })
     self.handlers.mousepressed = function(_, x, y, button)
         if button ~= 1 then return true end
-        local buttons = self:buttons()
-        if Ui.contains(x, y, buttons.refresh) then self:refresh() end
         return true
     end
     self.handlers.keypressed = function(_, key)
@@ -96,7 +94,7 @@ function AssetBrowser.new(project)
         elseif key == "a" and love.keyboard.isDown("lctrl", "rctrl") then self:setSelection(self.entries)
         elseif key == "delete" then local entries = self:getSelectedEntries(); if entries[1] then self:showDeleteSelectionDialog(entries[1]) end
         elseif key == "backspace" then self:goUp()
-        elseif key == "r" and love.keyboard.isDown("lctrl", "rctrl") then self:refresh()
+        elseif key == "r" and love.keyboard.isDown("lctrl", "rctrl") then if self.onProjectRefresh then self.onProjectRefresh() end
         elseif key == "return" then
             for _, entry in ipairs(self.entries) do
                 if entry.reference == self.selectedReference and entry.type == "directory" and not entry.isLink then
@@ -191,6 +189,7 @@ function AssetBrowser:rebuildTree()
 end
 
 function AssetBrowser:openFolder(reference)
+    if reference == "$project" then reference = "Assets" end
     if self.drag and self.drag.active then return false, "Finish or cancel the drag first" end
     local entries, err = require("editor.AssetFolders").list(self.project, reference)
     if not entries then self.error = err; return false, err end
@@ -294,13 +293,8 @@ end
 
 function AssetBrowser:buttons()
     local function button(x, w) return { x = x, y = self.y + 8, w = w, h = 26 } end
-    local gap = Ui.METRICS.buttonGap
-    local refreshWidth, viewWidth = Ui.buttonWidth("Refresh"), Ui.buttonWidth("View")
-    local refreshX = self.x + self.width - Ui.METRICS.contentPaddingX - refreshWidth
-    return {
-        refresh = button(refreshX, refreshWidth),
-        view = button(refreshX - gap - viewWidth, viewWidth)
-    }
+    local viewWidth = Ui.buttonWidth("View")
+    return {view = button(self.x + self.width - Ui.METRICS.contentPaddingX - viewWidth, viewWidth)}
 end
 
 function AssetBrowser:draw()
@@ -310,7 +304,6 @@ function AssetBrowser:draw()
     Ui.panel(self.x, self.y, self.width, self.height)
     local buttons = self:buttons()
     Ui.panelHeading("Asset Browser", self.x, self.y, math.max(0, buttons.view.x - self.x - Ui.METRICS.buttonGap))
-    Ui.button("Refresh", buttons.refresh, false, "Rescan project files and reload class declarations. Ctrl+R: refresh.", true)
     if not self.collapsed then
         local split = self:treeWidth()
         Ui.panel(self.x + 6, self.y + HEADER, split - 6, self.height - HEADER - 6)
@@ -352,7 +345,7 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
         if node.hasChildren and x < self.treeSlot.widget.x + Ui.METRICS.contentPaddingX + 18 + node.depth * 14 then
             self.expanded[node.reference] = not self.expanded[node.reference]
             self:rebuildTree()
-        elseif node.reference == "Assets" then self:openFolder(node.reference)
+        elseif node.reference == "Assets" or node.reference == "$project" then self:openFolder(node.reference)
         else
             -- 트리 탐색은 release까지 미뤄 이동 중에 현재 폴더가 바뀌지 않게 한다.
             self.drag = {entry = {reference = node.reference, name = node.name, type = "directory"},
@@ -361,6 +354,14 @@ function AssetBrowser:handleContentMousepressed(x, y, button, presses)
         end
     else
         local entry = self:getEntryAtPosition(x, y)
+        if entry and entry.missing then
+            self:selectEntry(entry, false, false)
+            if (presses or 1) >= 2 then
+                if entry.type == "directory" then self:openFolder(entry.reference)
+                elseif self.onRepair then self.onRepair(entry.id) end
+            end
+            return true
+        end
         if self.onSelect then
             local ok, err = self.onSelect(entry and entry.reference)
             if ok == false then self.error = err; return true end
@@ -793,8 +794,9 @@ function AssetBrowser:drawFiles()
             local rowY = view.y + (i - 1 - self.fileScroll) * ROW
             if rowY + ROW > view.y and rowY < view.y + view.height then
                 Ui.row({x = view.x, y = rowY, w = view.width, h = ROW}, self:isSelected(entry.reference))
-                local kind = entry.isLink and "[Link] " or entry.type == "directory" and "[Folder] " or "[File] "
-                Ui.text(kind .. entry.name, view.x + Ui.METRICS.contentPaddingX, rowY + 5, view.width - 2 * Ui.METRICS.contentPaddingX)
+                local kind = entry.missing and "! " or entry.isLink and "[Link] " or entry.type == "directory" and "[Folder] " or "[File] "
+                Ui.text(kind .. entry.name, view.x + Ui.METRICS.contentPaddingX, rowY + 5, view.width - 2 * Ui.METRICS.contentPaddingX,
+                    entry.missing and Theme.color("error") or nil)
             end
         else
             local column, row = (i - 1) % columns, math.floor((i - 1) / columns) - self.fileScroll
@@ -806,12 +808,13 @@ function AssetBrowser:drawFiles()
                     Theme.setColor("thumbnailBackground")
                     love.graphics.rectangle("fill", thumbnailX, y + 6, 88, 88, 6, 6)
                 end
-                local thumbnail = self.thumbnails:get(entry)
+                local thumbnail = not entry.missing and self.thumbnails:get(entry)
                 if thumbnail then
                     love.graphics.setColor(1, 1, 1, 1)
                     love.graphics.draw(thumbnail, thumbnailX, y + 6)
+                elseif entry.missing then Ui.text("!", thumbnailX, y + 34, 88, Theme.color("error"), true, "center")
                 else self:drawIcon(entry, thumbnailX, y + 6) end
-                Ui.textLines(entry.name, x + 10, y + 98, CARD_WIDTH - 20, 2)
+                Ui.textLines(entry.name, x + 10, y + 98, CARD_WIDTH - 20, 2, entry.missing and Theme.color("error") or nil)
             end
         end
         if self.ping and self.ping.reference == entry.reference then

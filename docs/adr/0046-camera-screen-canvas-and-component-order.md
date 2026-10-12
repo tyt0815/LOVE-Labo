@@ -4,6 +4,8 @@
 
 # 0046. 카메라 투영과 화면 Canvas를 분리하고 렌더링·입력 순서를 공유한다
 
+> Canvas의 전체 창 영역 계약은 [ADR 0068](0068-camera-letterbox-for-world-and-screen-ui.md)으로 대체한다.
+
 - 상태: 채택·구현
 - 날짜: 2026-10-10
 - 관련: [ADR 0045](0045-bounds-and-game-pointer-components.md)

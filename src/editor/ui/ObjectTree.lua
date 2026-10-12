@@ -92,15 +92,15 @@ function Tree:dispatch(event, ...)
         self.drag.active = self.drag.active or (x - self.drag.x)^2 + (y - self.drag.y)^2 >= 36
         local target = self:nodeAt(x, y)
         local top = target and self:nameRect(target.key).y or self.y
-        self.drag.intent = require("editor.ui.TreeDrop").intent(target, y, top, ROW_HEIGHT)
+        self.drag.intent = require("editor.ui.TreeDrop").tree(self.nodes, target, y, target and top or self.y + (#self.nodes - self.scroll) * ROW_HEIGHT, ROW_HEIGHT)
         self.drag.yNow = y
     elseif event == "mousereleased" and self.drag then
         local drag = self.drag; self.drag = nil
         local x, y = ...
         if drag.active and x and y and self:containsPoint(x, y) and self.onDrop then
             local target = self:nodeAt(x, y)
-            local intent = require("editor.ui.TreeDrop").intent(target, y, target and self:nameRect(target.key).y or self.y, ROW_HEIGHT)
-            self.onDrop(drag.path, target and target.key, intent.mode)
+            local intent = require("editor.ui.TreeDrop").tree(self.nodes, target, y, target and self:nameRect(target.key).y or self.y + (#self.nodes - self.scroll) * ROW_HEIGHT, ROW_HEIGHT)
+            self.onDrop(drag.path, intent.target and intent.target.key, intent.mode)
         end
     elseif event == "cancel" then self.drag = nil
     elseif event == "wheelmoved" then
@@ -139,7 +139,7 @@ function Tree:draw()
         local rect = self:nameRect(self.drag.intent.target.key)
         Theme.setColor("focus")
         if self.drag.intent.mode == "attach" then love.graphics.rectangle("line", self.x + 2, rect.y, self.width - 4, ROW_HEIGHT)
-        else love.graphics.line(self.x + 2, rect.y + (self.drag.intent.mode == "after" and ROW_HEIGHT or 0), self.x + self.width - 2, rect.y + (self.drag.intent.mode == "after" and ROW_HEIGHT or 0)) end
+        else love.graphics.line(self.x + 8 + self.drag.intent.depth * 14, self.drag.intent.lineY, self.x + self.width - 2, self.drag.intent.lineY) end
     end
     love.graphics.pop()
 end

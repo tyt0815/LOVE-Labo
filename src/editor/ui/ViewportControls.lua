@@ -31,16 +31,20 @@ function Controls.new(view)
 end
 
 function Controls:fieldWidth() return love.graphics.getFont():getWidth("000") + 20 end
-function Controls:preferredWidth() return 244 + 3 * self:fieldWidth() end
-function Controls:preferredHeight(width) return width >= self:preferredWidth() and 56 or 120 end
+function Controls:preferredWidth() return (self.embedded and 212 or 244) + 3 * self:fieldWidth() end
+function Controls:preferredHeight(width)
+    if self.embedded then return width >= self:preferredWidth() and 28 or 92 end
+    return width >= self:preferredWidth() and 56 or 120
+end
 
 function Controls:snapRects()
-    local result, left = {}, self.x + 16
+    local padding = self.embedded and 0 or 16
+    local result, left = {}, self.x + padding
     local wrapped = self.width < self:preferredWidth()
     for index, mode in ipairs(MODES) do
         local buttonWidth = mode == "rotate" and 48 or 58
-        local top = self.y + 14 + (wrapped and (index - 1) * 32 or 0)
-        if wrapped then left = self.x + 16 end
+        local top = self.y + (self.embedded and 0 or 14) + (wrapped and (index - 1) * 32 or 0)
+        if wrapped then left = self.x + padding end
         local fieldWidth = math.min(self:fieldWidth(), math.max(0, self.width - 40 - buttonWidth))
         result[mode] = {button = {x = left, y = top, w = buttonWidth, h = 28},
             field = {x = left + buttonWidth + 8, y = top, w = fieldWidth, h = 28}}
@@ -129,7 +133,7 @@ function Controls:drawControls()
     if not self.visible then return end
     love.graphics.push("all")
     love.graphics.setScissor(self.x, self.y, self.width, self.height)
-    Ui.panel(self.x, self.y, self.width, self.height, "background")
+    if not self.embedded then Ui.panel(self.x, self.y, self.width, self.height, "background") end
     local snapRects = self:snapRects()
     for _, mode in ipairs(MODES) do
         local setting, rects = self.view.snapSettings[mode], snapRects[mode]
@@ -138,6 +142,12 @@ function Controls:drawControls()
         Ui.field(self.editing == mode and Ime.display(self, self.text, self.replace) or tostring(setting.unit), rects.field,
             self.editing == mode, self.editing == mode and self.composition, self)
         Ui.hint(rects.field, self.error or LABELS[mode] .. " snap step in " .. UNIT_LABELS[mode] .. ". Enter: apply. Esc: cancel.")
+    end
+    if not self.enabled then
+        local color = require("editor.Theme").color("panel")
+        love.graphics.setColor(color[1], color[2], color[3], 0.55)
+        love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+        Ui.hint({x = self.x, y = self.y, w = self.width, h = self.height}, "Snapping is unavailable during Play.")
     end
     love.graphics.pop()
 end

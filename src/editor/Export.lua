@@ -35,7 +35,7 @@ function Export.write(project, level, output)
     local plugins = project.plugins:export()
     for _, plugin in ipairs(plugins.manifests) do
         for name, file in pairs(plugin.scripts) do
-            local id = plugin.scriptIds and plugin.scriptIds[name]
+            local id = project.plugins.scripts[name].id
             add("plugins/" .. plugin.name .. "/" .. file, id and project:readSource(id) or project.plugins.plugins[plugin.name].read(file))
         end
     end

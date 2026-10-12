@@ -499,7 +499,7 @@ function ClassInspector:layout(left, width, height, propertyTop, top)
     if not self.dropdown then return end
     self.propertyTop = self.top + 36 + Ui.METRICS.contentPaddingY
     self.propertyBottom = height - 10
-    self.propertyHeight = math.max(0, self.propertyBottom - self.propertyTop - (self.error and 32 or 0))
+    self.propertyHeight = math.max(0, self.propertyBottom - self.propertyTop)
     self:rebuildRows()
     self:layoutTrees()
 end
@@ -542,7 +542,7 @@ function ClassInspector:targetKind()
 end
 function ClassInspector:draw()
     self.thumbnails:beginFrame()
-    local propertyHeight = math.max(0, self.propertyBottom - self.propertyTop - (self.error and 32 or 0))
+    local propertyHeight = math.max(0, self.propertyBottom - self.propertyTop)
     if propertyHeight ~= self.propertyHeight then self.propertyHeight = propertyHeight; self:rebuildRows() end
     if not self.target.instance and self.onSave then Ui.button("Save", self:saveRect(), false, "Save this document", true) end
     self:layoutTrees()
@@ -625,12 +625,7 @@ function ClassInspector:draw()
     end
     self.scrollbar:draw()
     love.graphics.pop()
-    if self.error then
-        local rect = {x = self.left + Ui.METRICS.contentPaddingX, y = self.propertyTop + self.propertyHeight + 4,
-            w = self.width - 2 * Ui.METRICS.contentPaddingX, h = 24}
-        Ui.text(self.error, rect.x, rect.y, rect.w, Theme.color("error"))
-        Ui.hint(rect, self.error)
-    end
+
 end
 
 function ClassInspector:mousepressed(x, y, button)

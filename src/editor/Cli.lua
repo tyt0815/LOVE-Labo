@@ -61,9 +61,9 @@ end
 
 local api = {required = required, absolute = absolute, revision = revision, checkRevision = checkRevision,
     basicResult = basicResult, value = value, setProperty = setProperty, properties = properties}
-local COMMANDS = {"project.create", "project.info", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
+local COMMANDS = {"project.create", "project.info", "project.refresh", "project.repair-plan", "project.repair", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
     "plugin.list", "plugin.create", "plugin.enable", "plugin.disable", "plugin.plan",
-    "asset.preview",
+    "asset.preview", "project.examples",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
     "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.view", "level.set-camera",
@@ -93,6 +93,12 @@ local function execute(request)
         return {project = project.rootPath, name = project.name}
     end
     local project = assert(Project.open(absolute(required(request, "project"))))
+    if command == "project.examples" then local ok, result = require("editor.ApiExamples").create(project); assert(ok, result); return result end
+    if command == "project.repair-plan" or command == "project.refresh" then return require("editor.AssetRepair").plan(project) end
+    if command == "project.repair" then
+        local ok, err = require("editor.AssetRepair").apply(project, request)
+        assert(ok, err); return require("editor.AssetRepair").plan(project)
+    end
     local readOnlyCommand = command:match("%.get$") or command:match("%.list$") or command:match("%.tree$")
         or command:match("%.validate$") or command:match("%.simulate$") or command:match("%.pointer$") or command:match("%.view$")
         or command == "asset.preview" or command == "export" or command == "asset.copy" or command == "project.set-default"

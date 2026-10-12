@@ -69,11 +69,17 @@ local function image(reference)
     return images[reference]
 end
 function Host.draw()
-    love.graphics.clear(0.05, 0.05, 0.07, 1)
+    love.graphics.clear(0, 0, 0, 1)
     if world then
         attempt(function()
             local width, height = love.graphics.getDimensions()
-            require("core.Renderer").drawWorld(world, image, require("core.Viewport").new(world, 0, 0, width, height))
+            local viewport = require("core.Viewport").new(world, 0, 0, width, height)
+            love.graphics.push("all")
+            love.graphics.setColor(0.05, 0.05, 0.07, 1)
+            love.graphics.rectangle("fill", viewport.x, viewport.y, viewport.width, viewport.height)
+            local ok, err = pcall(require("core.Renderer").drawWorld, world, image, viewport)
+            love.graphics.pop()
+            if not ok then error(err, 0) end
             return true
         end)
     end

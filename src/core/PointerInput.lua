@@ -34,7 +34,7 @@ function Input.dispatch(world, kind, x, y, button, dx, dy, context)
             local hitX, hitY = x, y
             if screen and context.screenX ~= nil then hitX, hitY = context.screenX, context.screenY end
             local hit, localX, localY = script:hitTest(context, hitX, hitY)
-            if not screen and context.worldVisible == false then hit = false end
+            if context.worldVisible == false then hit = false end
             if hit or captured == script or seen[script] then
                 local event = {kind = kind, worldX = x, worldY = y, localX = localX, localY = localY,
                     button = button, dx = screen and context.screenDx or dx or 0, dy = screen and context.screenDy or dy or 0,

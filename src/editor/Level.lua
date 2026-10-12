@@ -317,6 +317,7 @@ function Level:reparent(objects, parent)
 end
 function Level:dropObjects(objects, target, mode)
     local roots = self:selectionRoots(objects)
+    for _, object in ipairs(roots) do if object == target then return true end end
     if mode == "attach" or mode == "detach" then
         local parent = mode == "attach" and target or nil
         local detach = parent ~= nil

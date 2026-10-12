@@ -19,6 +19,9 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | 명령 | 용도·주요 인자 |
 |---|---|
 | project create/info/set-default/validate | 생성, 정보, 기본 --level, 전체 검증 |
+| project refresh/repair-plan | 목록 갱신, 끊어진 등록·추천 대상·미등록 후보·revision 조회 |
+| project repair | JSON 요청 revision과 changes[{id,target}] 또는 [{id,delete:true}]로 선택 적용 |
+| project examples | Assets/Examples의 일반 에셋과 검수용 레벨 생성. 기존 예제를 덮어쓰지 않음 |
 | script create/list/get/set-source | --name, --parent Script/Camera/Sprite/Pointer/Rect/Canvas 또는 Lua 에셋, --script, --source (Lua 코드 문자열). class.*도 호환 별칭 |
 | folder create | --folder, --name |
 | asset list/get/import/copy/move/rename/delete | --asset, --folder, --name; move의 --destination은 최종 파일 경로 |

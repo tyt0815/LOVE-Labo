@@ -1,6 +1,7 @@
 # 0011. 에셋 ID·메타데이터와 프로젝트 경로 캐시
 
 - 상태: 채택
+- 저장 구조 대체: [ADR 0066](0066-central-asset-catalog-and-reference-repair.md). ID 참조 원칙은 유지한다.
 - 날짜: 2026-10-08
 - 부분 대체: [ADR 0007](0007-sources-and-level-scripts.md)·[ADR 0010](0010-script-types-and-prefab-creation.md)의 경로 참조와 스크립트 종류의 원본
 

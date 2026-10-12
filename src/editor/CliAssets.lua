@@ -53,19 +53,19 @@ function Operations.execute(project, request, api)
         local reference = folder .. "/" .. name
         assert(not require("editor.AssetRegistry").isInternal(reference), "Metadata cannot be imported separately")
         local destination = assert(project:resolvePath(reference))
+        assert(require("editor.AssetCatalog").checkDestination(project, reference))
         local metadata, metadataError = Fs.info(destination .. ".meta")
         assert(not metadata and not metadataError, metadataError or "Destination metadata already exists")
         assert(Fs.createFile(destination, assert(Fs.read(source))))
-        if command == "asset.copy" then
-            local metadata = Fs.read(source .. ".meta")
-            if metadata then
-                local data = assert(Json.decode(metadata)); data.id = require("project.AssetId").new()
-                local written, err = Fs.createFile(destination .. ".meta", assert(Json.encode(data, true)))
-                if not written then Fs.removeFile(destination); error(err) end
-            end
-        end
+        local metadata = {}
+        for key, value in pairs(project.assetMetadata[assert(project:getAssetReference(request.asset))] or {}) do metadata[key] = value end
+        metadata.id, metadata.scriptName = require("project.AssetId").new(), nil
+        local saved, saveError = require("editor.AssetCatalog").update(project, {[reference] = metadata})
+        if not saved then Fs.removeFile(destination); error(saveError) end
         local indexed, err = project:rebuildAssetIndex()
-        if not indexed then Fs.removeFile(destination); Fs.removeFile(destination .. ".meta"); error(err) end
+        if not indexed then
+            require("editor.AssetCatalog").remove(project, reference); Fs.removeFile(destination); error(err)
+        end
         return api.basicResult(project, reference)
     end
     if command:match("^class%.") and command ~= "class.create" then

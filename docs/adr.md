@@ -67,3 +67,6 @@
 - [0063. 기본 기능 플러그인 통합과 편집 영역 표시](adr/0063-essentials-plugin-and-editor-bounds.md)
 - [0064. 최신 로그 한 줄과 겹쳐 펼치는 기록 패널](adr/0064-persistent-latest-log-and-overlay.md)
 - [0065. 오류 발생과 오류 표시를 분리](adr/0065-error-occurrence-logging.md)
+- [0066. 중앙 에셋 목록과 검토 후 참조 복구](adr/0066-central-asset-catalog-and-reference-repair.md)
+- [0067. 고정 실행·일시정지·정지 버튼과 상태 테두리](adr/0067-fixed-play-pause-stop-controls.md)
+- [0068. 카메라 비율의 실제 게임 영역과 레터박스](adr/0068-camera-letterbox-for-world-and-screen-ui.md)

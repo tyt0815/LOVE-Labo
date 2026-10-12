@@ -20,7 +20,7 @@ world:openLevel(reference)은 프레임 경계에서 레벨을 전환한다. 새
 
 ## 데이터와 CLI
 
-모든 에셋은 Assets 아래에 있으며 .meta의 ID로 참조한다. Docs는 게임 Export에 포함하지 않는다.
+모든 에셋은 Assets 아래에 있으며 assets.json의 ID로 참조한다. Docs는 게임 Export에 포함하지 않는다.
 Prefab 형식은 4, 레벨 형식은 3이다. 이전 Sources는 Assets/Scripts로 이동하지만 옛 컴포넌트 코드·Prefab은 수동 전환해야 한다.
 Prefab의 scripts는 {id,source,label} 목록, overrides.scripts는 부착 ID별 프로퍼티 재정의다.
 

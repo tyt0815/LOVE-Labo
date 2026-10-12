@@ -305,6 +305,7 @@ function Editor:moveScript(path, id, index)
     self:record(path, true).scriptOrder = order; self.onChanged(); return true
 end
 function Editor:dropObject(path, destination, mode)
+    if path == destination then return true end
     if self.project:isReadOnly(self.document.assetId) then return false, "Labo plugin assets are read-only" end
     local recipe, err = self:recipe(); if not recipe then return false, err end
     local node, target = recipe.byPath[path], recipe.byPath[destination]

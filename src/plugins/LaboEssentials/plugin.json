@@ -7,13 +7,7 @@
         "Sprite": "Assets/Sprite.lua",
         "Pointer": "Assets/Pointer.lua",
         "RectBounds": "Assets/RectBounds.lua",
-        "Canvas": "Assets/Canvas.lua"
-    },
-    "scriptIds": {
-        "Camera": "953e5435-cdd1-43e0-9e78-225d81618862",
-        "Sprite": "0619e599-48f0-49c5-92b5-aa4a81476f8c",
-        "Pointer": "6a3d80b6-38e4-4e0c-92d1-2338a55c2e30",
-        "RectBounds": "2910da6c-5e36-40c6-b62c-46d7a3cb96c6",
-        "Canvas": "dd9029e6-e54d-455b-95df-a76477884c1f"
+        "Canvas": "Assets/Canvas.lua",
+        "Text": "Assets/Text.lua"
     }
 }

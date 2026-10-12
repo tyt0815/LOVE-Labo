@@ -106,7 +106,10 @@ function Hierarchy:mousemoved(x, y)
         self.sceneView:setSelection(objects)
     else
         local row = self:rowAt(x, y); drag.target = row and row.object
-        drag.intent = require("editor.ui.TreeDrop").intent(row, y, row and self:nameRect(row.object).y or 0, ROW_HEIGHT)
+        local rows = self:rows()
+        drag.intent = require("editor.ui.TreeDrop").tree(rows, row, y,
+            row and self:nameRect(row.object).y or (self.y or 0) + HEADER_HEIGHT + (#rows - self.scroll) * ROW_HEIGHT, ROW_HEIGHT)
+        drag.target = drag.intent.target and drag.intent.target.object
     end
     return true
 end
@@ -127,8 +130,10 @@ function Hierarchy:mousereleased(x, y, button)
     if button == 1 and drag and drag.active and not drag.marquee and self:containsPoint(x, y) then
         local row = self:rowAt(x, y)
         local top = row and self:nameRect(row.object).y or 0
-        local intent = require("editor.ui.TreeDrop").intent(row, y, top, ROW_HEIGHT)
-        local ok, err = self.level:dropObjects(drag.objects, row and row.object, intent.mode)
+        local rows = self:rows()
+        local intent = require("editor.ui.TreeDrop").tree(rows, row, y,
+            row and top or (self.y or 0) + HEADER_HEIGHT + (#rows - self.scroll) * ROW_HEIGHT, ROW_HEIGHT)
+        local ok, err = self.level:dropObjects(drag.objects, intent.target and intent.target.object, intent.mode)
         self.error = not ok and err or nil
         if ok and row then self.collapsed[row.object.authoringId] = nil end
     end
@@ -169,15 +174,18 @@ function Hierarchy:draw(selected)
                 Theme.setColor("focus")
                 local mode = self.drag.intent and self.drag.intent.mode or "attach"
                 if mode == "attach" then love.graphics.rectangle("line", 6, rowY, self.width - 12, ROW_HEIGHT)
-                else local lineY = rowY + (mode == "after" and ROW_HEIGHT or 0); love.graphics.line(6, lineY, self.width - 12, lineY) end
+                end
                 local _, detach = self:dropParent(self.drag.objects, object)
                 Ui.hint({x = 6, y = rowY, w = self.width - 12, h = ROW_HEIGHT},
                     detach and "Release to detach from parent." or "Release to attach to this object.")
             end
         end
     end
+    if self.drag and self.drag.active and not self.drag.marquee and self.drag.intent and self.drag.intent.mode ~= "attach" and self.drag.intent.target then
+        local intent = self.drag.intent; Theme.setColor("focus")
+        love.graphics.line(Ui.METRICS.contentPaddingX + intent.depth * 16, intent.lineY, self.width - 12, intent.lineY)
+    end
     if self.drag and self.drag.marquee then Box.draw(Box.rect(self.drag.startX, self.drag.startY, self.drag.x, self.drag.y)) end
-    if self.error then Ui.text(self.error, 16, top + height - 30, self.width - 32, Theme.color("error")) end
     self.scrollbar:draw()
     love.graphics.pop()
 end

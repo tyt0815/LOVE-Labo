@@ -3,8 +3,6 @@ local Ui = require("editor.Ui")
 local GameView = {}
 GameView.__index = GameView
 
-local RUNTIME_LOBJECT_SIZE = 16
-
 function GameView.new()
     local self = setmetatable({}, GameView)
 
@@ -39,17 +37,22 @@ function GameView:getViewport()
     return 0, 0, width, height
 end
 
+function GameView:runtimeViewport(world)
+    local x, y, width, height = self:getViewport()
+    if width <= 24 or height <= 48 then return nil end
+    return require("core.Viewport").new(world, x + 12, y + 36, width - 24, height - 48)
+end
 function GameView:worldToScreen(x, y)
-    local viewportX, viewportY, width, height = self:getViewport()
-    if width <= 0 or height <= 0 then return viewportX, viewportY end
-    return require("core.Viewport").new(self.world, viewportX, viewportY, width, height):worldToScreen(x, y)
+    local viewport = self:runtimeViewport(self.world)
+    if not viewport then return self.viewportX, self.viewportY end
+    return viewport:worldToScreen(x, y)
 end
 function GameView:dispatchPointer(world, kind, x, y, button, dx, dy)
     self.world = world
-    local left, top, width, height = self:getViewport()
-    if width <= 0 or height <= 0 then return true, {consumed = false, targets = {}} end
     local called, ok, result = pcall(function()
-        return require("core.Viewport").new(world, left, top, width, height):dispatchPointer(world, kind, x, y, button, dx, dy,
+        local viewport = self:runtimeViewport(world)
+        if not viewport then return true, {consumed = false, targets = {}} end
+        return viewport:dispatchPointer(world, kind, x, y, button, dx, dy,
             function(_, reference) return self.spriteAssets and self.spriteAssets:image(reference) end)
     end)
     if not called then return false, tostring(ok) end
@@ -57,23 +60,10 @@ function GameView:dispatchPointer(world, kind, x, y, button, dx, dy)
 end
 
 function GameView:drawRuntimeLObjects(world)
-    local halfSize =
-        RUNTIME_LOBJECT_SIZE * 0.5
-
     self.world = world
-    local left, top, width, height = self:getViewport()
-    local viewport = require("core.Viewport").new(world, left, top, width, height)
-    local drawn = require("core.Renderer").drawWorld(world, function(reference) return self.spriteAssets and self.spriteAssets:image(reference) end, viewport)
-    for _, lobject in ipairs(world.lobjects) do
-        if not drawn[lobject] and #lobject:getScriptOrder() == 0 then
-            local transform = lobject:getWorldTransform()
-            local screenX, screenY = self:worldToScreen(transform.x, transform.y)
-            -- 표시할 Sprite가 없는 객체도 위치를 확인할 수 있게 한다.
-            Theme.setColor("text")
-            love.graphics.rectangle("fill", screenX - halfSize, screenY - halfSize,
-                RUNTIME_LOBJECT_SIZE, RUNTIME_LOBJECT_SIZE)
-        end
-    end
+    local viewport = self:runtimeViewport(world)
+    if not viewport then return end
+    require("core.Renderer").drawWorld(world, function(reference) return self.spriteAssets and self.spriteAssets:image(reference) end, viewport)
 end
 
 function GameView:draw(world)
@@ -99,16 +89,24 @@ function GameView:draw(world)
     )
 
     require("editor.Ui").panel(viewportX, viewportY, width, height, "gameBackground")
-    love.graphics.intersectScissor(viewportX + 12, viewportY + 12, math.max(0, width - 24), math.max(0, height - 24))
-
-    if world then
+    local viewport = self:runtimeViewport(world)
+    if viewport then
+        love.graphics.setColor(0, 0, 0, 1)
+        love.graphics.rectangle("fill", viewportX + 12, viewportY + 36, width - 24, height - 48)
+        Theme.setColor("gameBackground")
+        love.graphics.rectangle("fill", viewport.x, viewport.y, viewport.width, viewport.height)
+        love.graphics.push("all")
+        love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
+    end
+    if world and viewport then
         local ok, err = pcall(self.drawRuntimeLObjects, self, world)
-        if not ok then love.graphics.pop(); error(err, 0) end
+        if not ok then love.graphics.pop(); love.graphics.pop(); error(err, 0) end
         if world.debug.drawShapes then
             world.debug:drawShapes(function(x, y) return self:worldToScreen(x, y) end)
-            world.debug:drawScreens(viewportX + 18, viewportY + 42, math.max(0, width - 36), math.max(0, height - 54))
+            world.debug:drawScreens(viewport.x + 6, viewport.y + 6, math.max(0, viewport.width - 12), math.max(0, viewport.height - 12))
         end
     end
+    if viewport then love.graphics.pop() end
 
     Theme.setColor("text")
 

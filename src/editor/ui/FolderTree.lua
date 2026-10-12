@@ -9,7 +9,7 @@ local ROW = Ui.METRICS.treeRowHeight
 function FolderTree.new(project, root, excluded, selected, onSelect)
     local self = setmetatable(Widget.new(), FolderTree)
     self.project, self.root, self.excluded, self.selected, self.onSelect = project, root, excluded, selected, onSelect
-    self.expanded, self.scroll = {[root] = true}, 0
+    self.expanded, self.scroll = {[root] = true, ["$project"] = true}, 0
     local parent = selected
     while parent do self.expanded[parent] = true; parent = parent:match("^(.*)/[^/]+$") end
     self.scrollbar = Scrollbar.new(function() return self.scroll end,
@@ -20,10 +20,10 @@ end
 
 function FolderTree:rebuild()
     self.nodes, self.error = {}, nil
-    local function visit(reference, depth)
+    local function visit(reference, depth, name)
         if self.excluded and (reference:lower() == self.excluded:lower()
             or reference:lower():sub(1, #self.excluded + 1) == self.excluded:lower() .. "/") then return end
-        self.nodes[#self.nodes + 1] = {reference = reference, depth = depth, name = reference:match("[^/]+$")}
+        self.nodes[#self.nodes + 1] = {reference = reference, depth = depth, name = name or reference:match("[^/]+$")}
         if not self.expanded[reference] then return end
         local entries, err = require("editor.AssetFolders").list(self.project, reference)
         if not entries then self.error = err; return end
@@ -31,7 +31,7 @@ function FolderTree:rebuild()
             if entry.type == "directory" and not entry.isLink then visit(entry.reference, depth + 1) end
         end
     end
-    for _, root in ipairs(require("editor.AssetFolders").roots(self.project, self.root)) do visit(root.reference, 0) end
+    for _, root in ipairs(require("editor.AssetFolders").roots(self.project, self.root)) do visit(root.reference, 0, root.name) end
     self:clampScroll()
 end
 
@@ -48,6 +48,7 @@ function FolderTree:clampScroll()
 end
 
 function FolderTree:choose(node)
+    if node.reference == "$project" then node = {reference = "Assets"} end
     self.selected = node.reference
     if self.onSelect then self.onSelect(node.reference) end
 end

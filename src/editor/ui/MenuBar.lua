@@ -25,17 +25,20 @@ function Bar.new(app)
 end
 function Bar:buttons()
     return {{label = "File", name = "file", x = self.x + 8, y = self.y + 3, w = 58, h = 26},
-        {label = "Run", name = "run", x = self.x + 70, y = self.y + 3, w = 58, h = 26},
-        {label = "Plugins", name = "plugins", x = self.x + 132, y = self.y + 3, w = 80, h = 26}}
+        {label = "Project", name = "project", x = self.x + 70, y = self.y + 3, w = 80, h = 26},
+        {label = "Run", name = "run", x = self.x + 154, y = self.y + 3, w = 58, h = 26}}
 end
 function Bar:items(name)
     local app = self.app
     local editable = not app:isPlaying()
-    if name == "plugins" then return {{label = "Manage Plugins...", enabled = app.project ~= nil and editable,
-        action = function() require("editor.ui.PluginDialog").new(app) end}} end
+    if name == "project" then return {
+        {label = "Refresh", shortcut = "Ctrl+R", enabled = app.project ~= nil and editable, action = function() app:refreshProject() end},
+        {label = "Plugins...", enabled = app.project ~= nil and editable, action = function() require("editor.ui.PluginDialog").new(app) end},
+        {label = "Export Game...", shortcut = "Ctrl+Shift+E", enabled = app.project ~= nil and editable, action = function() app:showExportDialog() end}} end
     if name == "run" then return {
-        {label = "Play", shortcut = "F5", enabled = editable, action = function() app:startPlay() end},
-        {label = "Stop", shortcut = "F5", enabled = not editable, action = function() app:stopPlay() end}}
+        {label = app.paused and "Resume" or "Play", shortcut = "F5", enabled = editable or app.paused, action = function() app:startPlay() end},
+        {label = "Pause", enabled = not editable and not app.paused, action = function() app:pausePlay() end},
+        {label = "Stop", shortcut = not app.paused and "F5" or nil, enabled = not editable, action = function() app:stopPlay() end}}
     end
     local project = app.project ~= nil
     local function create(folder, kind) app.assetBrowser:showCreateDialog(folder, kind) end
@@ -46,8 +49,7 @@ function Bar:items(name)
             {label = "Level...", action = function() create("Assets", "level") end}}},
         {label = "Save", shortcut = "Ctrl+S", enabled = editable, action = function() app:saveInspectedDocument() end},
         {label = "Save All", shortcut = "Ctrl+Shift+S", enabled = editable, action = function() app:saveAllDocuments() end},
-        {label = "Save Level As...", enabled = project and editable, action = function() app:showSaveLevelDialog() end},
-        {label = "Export Game...", shortcut = "Ctrl+Shift+E", enabled = project and editable, action = function() app:showExportDialog() end}}
+        {label = "Save Level As...", enabled = project and editable, action = function() app:showSaveLevelDialog() end}}
 end
 function Bar:openAt(x, y, hover)
     for _, button in ipairs(self:buttons()) do
@@ -65,7 +67,7 @@ end
 function Bar:drawButtons()
     for _, button in ipairs(self:buttons()) do
         Ui.button(button.label, button, self.app.uiRoot.popup == self.menu and self.active == button.name,
-            button.name == "file" and "Create, save or export." or "Play / Stop. F5.", true)
+            button.name == "file" and "Create or save." or button.name == "project" and "Refresh, plugins and export." or "Play / Pause / Stop.", true)
     end
 end
 return Bar

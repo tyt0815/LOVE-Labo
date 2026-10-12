@@ -1,0 +1,47 @@
+{
+    "version": 1,
+    "assets": {
+        "Assets/Camera.lua": {
+            "scriptKind": "script",
+            "version": 1,
+            "id": "953e5435-cdd1-43e0-9e78-225d81618862",
+            "hash": "8751a86dee021c0a019d8e125f319882b976b9b68ae5e7ade4870c6698c72b4e",
+            "scriptName": "Camera"
+        },
+        "Assets/Canvas.lua": {
+            "scriptKind": "script",
+            "version": 1,
+            "id": "dd9029e6-e54d-455b-95df-a76477884c1f",
+            "hash": "067ce9814e5b853be0104875efa8cbd461ed609d6aa230e9d55bf74575cca6a5",
+            "scriptName": "Canvas"
+        },
+        "Assets/Pointer.lua": {
+            "scriptKind": "script",
+            "version": 1,
+            "id": "6a3d80b6-38e4-4e0c-92d1-2338a55c2e30",
+            "hash": "a82c8d0591c0d3e2fa33aaaaab4a205c2901c8de1150a03edb12b1878d889867",
+            "scriptName": "Pointer"
+        },
+        "Assets/RectBounds.lua": {
+            "scriptKind": "script",
+            "version": 1,
+            "id": "2910da6c-5e36-40c6-b62c-46d7a3cb96c6",
+            "hash": "0ccc5cc7d1b7f9e262d16e7f73f7923506401822804f821f34746a8b52d9b160",
+            "scriptName": "RectBounds"
+        },
+        "Assets/Sprite.lua": {
+            "scriptKind": "script",
+            "version": 1,
+            "id": "0619e599-48f0-49c5-92b5-aa4a81476f8c",
+            "hash": "8c2429966141cb5e32ba944cb9b7972e4e294212cff23d4ed76c83b8ebeb177b",
+            "scriptName": "Sprite"
+        },
+        "Assets/Text.lua": {
+            "version": 1,
+            "id": "92441cbd-171f-4566-98df-06f549207ac5",
+            "scriptKind": "script",
+            "scriptName": "Text",
+            "hash": "2497564d898a5a6c06e6654cbe1466e5027f64332bc7350667f7a0dae491f7dd"
+        }
+    }
+}

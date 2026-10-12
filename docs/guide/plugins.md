@@ -1,8 +1,8 @@
 # 플러그인
 
-새 프로젝트에는 활성 플러그인이 없습니다. LObject와 스크립트 실행·공간 API만 제공하며 **LaboEssentials**를 켜면 Camera·Sprite·Pointer·RectBounds·Canvas를 함께 사용할 수 있습니다. 필요한 스크립트만 오브젝트에 부착합니다.
+새 프로젝트에는 활성 플러그인이 없습니다. LObject와 스크립트 실행·공간 API만 제공하며 **LaboEssentials**를 켜면 Camera·Sprite·Pointer·RectBounds·Canvas·Text·Text·Text·Text를 함께 사용할 수 있습니다. 필요한 스크립트만 오브젝트에 부착합니다.
 
-1. 상단 **Plugins → Manage Plugins...**를 엽니다.
+1. 상단 **Project → Plugins...**를 엽니다.
 2. 체크박스로 활성화합니다. 필요한 플러그인이 꺼져 있으면 함께 켤 목록을 확인합니다.
 3. 의존 플러그인은 먼저 켜집니다. 누락된 플러그인이나 순환 의존성은 오류로 안내합니다.
 
@@ -28,9 +28,9 @@ User Plugins
 
 **Labo Plugins는 읽기 전용**입니다. **User Plugins에서는 일반 Assets와 같이** 폴더·Lua·Level·Prefab을 생성하고 이미지 등 파일을 추가할 수 있습니다. 이름 변경과 이동도 에셋 ID를 보존합니다. 플러그인 루트 자체를 옮기거나 삭제하는 대신 관리 창에서 비활성화합니다. 비활성화해도 파일은 남습니다.
 
-Create Plugin으로 사용자 플러그인을 만듭니다. 실제 파일은 프로젝트 `Plugins/<이름>/Assets`에 있습니다. `plugin.json`의 dependencies는 선행 플러그인 이름 목록이고 scripts와 scriptIds는 공개 스크립트 별칭·파일·ID입니다. 일반 추가 에셋은 scripts에 등록하지 않아도 탐색·참조·Export가 가능합니다.
+Create Plugin으로 사용자 플러그인을 만듭니다. 실제 파일은 프로젝트 `Plugins/<이름>/Assets`에 있습니다. `plugin.json`의 dependencies는 선행 플러그인 이름 목록이고 scripts는 공개 스크립트 별칭과 파일 경로입니다. ID·Lua 종류·내용 해시는 같은 폴더의 `assets.json`에서 관리합니다. 일반 추가 에셋은 scripts에 등록하지 않아도 탐색·참조·Export가 가능합니다.
 
-세 폴더는 탐색기와 위치 선택 창에서 같은 깊이의 루트입니다. 내부 경로 참조는 기존 `Assets/Labo Plugins/...`·`Assets/User Plugins/...`를 유지하므로 기존 에셋 ID·Prefab 참조와 CLI 경로는 바뀌지 않습니다.
+탐색기와 위치 선택 창에는 프로젝트 이름 아래 Assets를 표시하고, Labo Plugins·User Plugins는 별도 루트로 표시합니다. 내부 경로 참조는 기존 `Assets/Labo Plugins/...`·`Assets/User Plugins/...`를 유지하므로 기존 에셋 ID·Prefab 참조와 CLI 경로는 바뀌지 않습니다.
 
 플러그인은 모든 지원 에셋을 담을 수 있으며, 게임 Export에는 활성 플러그인과 그 에셋만 포함됩니다. 기존 프로젝트에서 plugins.json이 없으면 기존 편의 스크립트를 유지하는 설정으로 열립니다.
 
@@ -53,5 +53,5 @@ Create Plugin으로 사용자 플러그인을 만듭니다. 실제 파일은 프
 | `plugin.disable` | 비활성화. 활성 의존자를 함께 끄려면 `--confirm true` |
 
 ```json
-{"command":"plugin.create","project":"D:/Games/MyGame","name":"MyPlugin","dependencies":["Sprite"]}
+{"command":"plugin.create","project":"D:/Games/MyGame","name":"MyPlugin","dependencies":["LaboEssentials"]}
 ```

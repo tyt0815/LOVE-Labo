@@ -77,81 +77,92 @@ function Registry.recoverMove(project)
 end
 
 function Registry.rebuild(project)
-    local paths, ids, metadata, missing = {}, {}, {}, {}
-    local function visit(folder)
-        local entries, err = project:listDirectory(folder)
-        if not entries then return false, err end
-        for _, entry in ipairs(entries) do
-            if not entry.isLink and not Registry.isInternal(entry.name) then
-                if entry.type == "directory" then
-                    local ok, childError = visit(entry.reference)
-                    if not ok then return false, childError end
-                else
-                    local path, pathError = project:checkedEntry(entry.reference)
-                    if not path then return false, pathError end
-                    local metaPath = path .. ".meta"
-                    local info, infoError = Fs.info(metaPath)
-                    if infoError then return false, infoError end
-                    local meta
-                    if info then
-                        if info.isLink or info.type ~= "file" then return false, "Invalid metadata: " .. entry.reference end
-                        local bytes, readError = Fs.read(metaPath)
-                        if not bytes then return false, readError end
-                        meta = Json.decode(bytes)
-                        if type(meta) ~= "table" or meta.version ~= 1 or not Id.isValid(meta.id) then
-                            return false, "Invalid metadata: " .. entry.reference
-                        end
-                        if meta.scriptKind == "lobject" or meta.scriptKind == "component" then
-                            meta.previousScriptKind, meta.scriptKind = meta.scriptKind, "script"
-                            missing[#missing + 1] = {path = metaPath, meta = meta, replace = true}
-                        end
+    local Catalog = require("editor.AssetCatalog")
+    local paths, ids, metadata, missing, untracked, cleanups = {}, {}, {}, {}, {}, {}
+    for _, owner in ipairs(Catalog.owners(project)) do
+        local data, err = Catalog.read(owner); if not data then return false, err end
+        local legacy, legacyError = Catalog.importLegacy(owner, data); if not legacy then return false, legacyError end
+        local found = {}
+        local function visit(folder)
+            local entries, listError = require("editor.AssetFolders").list(project, folder)
+            if not entries then return false, listError end
+            for _, entry in ipairs(entries) do
+                if not entry.isLink and not entry.missing and not Registry.isInternal(entry.name) then
+                    if entry.type == "directory" then
+                        local ok, childError = visit(entry.reference); if not ok then return false, childError end
                     else
-                        meta = {version = 1, id = Id.new()}
+                        local path, pathError = project:checkedEntry(entry.reference); if not path then return false, pathError end
+                        local localPath = owner.prefix == "" and entry.reference or "Assets" .. entry.reference:sub(#owner.prefix + 1)
+                        found[localPath] = {path = path, reference = entry.reference}
+
                     end
-                    if entry.reference:match("^Assets/.+%.lua$") then
-                        if not info then
-                            local text, readError = Fs.read(path)
-                            if not text then return false, readError end
-                            local kind, kindError = headerKind(text)
-                            if not kind then return false, kindError end
-                            meta.scriptKind = kind
-                        end
-                        if meta.scriptKind ~= "level" and meta.scriptKind ~= "script" then
-                            return false, "Invalid script metadata: " .. entry.reference
-                        end
+                end
+            end
+            return true
+        end
+        local ok, scanError = visit(owner.prefix == "" and "Assets" or owner.prefix)
+        if not ok then return false, scanError end
+        local hasMissing = false
+        for path in pairs(data.assets) do if not found[path] then hasMissing = true end end
+        for path, file in pairs(found) do
+            local bytes, readError = Fs.read(file.path)
+            if not bytes then return false, readError or "Cannot read asset: " .. file.reference end
+            local meta = data.assets[path]
+            if not meta and not hasMissing then meta = {version = 1, id = Id.new()}; data.assets[path] = meta end
+            if not meta then untracked[#untracked + 1] = {reference = file.reference, hash = Catalog.hash(bytes)}
+            else
+                if meta.scriptKind == "component" or meta.scriptKind == "lobject" then meta.scriptKind = "script" end
+                if path:match("%.lua$") and not meta.scriptKind then
+                    local kind, kindError = headerKind(bytes)
+                    if not kind then return false, kindError end
+                    meta.scriptKind = kind
+                end
+                if path:match("%.lua$") and meta.scriptKind ~= "level" and meta.scriptKind ~= "script" then return false, "Invalid script metadata" end
+                meta.hash = Catalog.hash(bytes)
+                if owner.plugin then
+                    for name, source in pairs(owner.plugin.scripts) do
+                        local public = require("project.PluginRegistry").publicMetadata(data.assets, name, source)
+                        if public == meta then meta.scriptName = name end
                     end
-                    if paths[meta.id] then return false, "Duplicate asset ID: " .. paths[meta.id] .. " / " .. entry.reference end
-                    paths[meta.id], ids[entry.reference], metadata[entry.reference] = entry.reference, meta.id, meta
-                    if not info then missing[#missing + 1] = {path = metaPath, meta = meta} end
                 end
             end
         end
-        return true
+        for path, meta in pairs(data.assets) do
+            local reference = Catalog.reference(owner, path)
+            if paths[meta.id] then return false, "Duplicate asset ID: " .. reference end
+            paths[meta.id], ids[reference], metadata[reference] = reference, meta.id, meta
+            if not found[path] then missing[#missing + 1] = {reference = reference, id = meta.id, hash = meta.hash, readOnly = owner.readOnly} end
+        end
+        if owner.plugin then owner.plugin.assets = data.assets end
+        if not owner.readOnly then
+            local bytes = assert(Json.encode(data, true)) .. "\n"
+            if Fs.read(owner.path) ~= bytes then
+                local saved, saveError = Fs.writeAtomic(owner.path, bytes); if not saved then return false, saveError end
+            end
+            for _, path in ipairs(legacy) do cleanups[#cleanups + 1] = path end
+            if owner.plugin and owner.plugin.scriptIds then
+                local manifestPath = Fs.join(owner.root, "plugin.json")
+                local manifest = assert(Json.decode(assert(Fs.read(manifestPath))))
+                manifest.scriptIds = nil
+                local saved, saveError = Fs.writeAtomic(manifestPath, assert(Json.encode(manifest, true)))
+                if not saved then return false, saveError end
+            end
+        end
     end
-    -- 기존 메타데이터 전체를 먼저 검증한다. 중복 ID를 임의로 새 ID로 바꾸지 않는다.
-    for _, folder in ipairs({"Assets"}) do
-        local ok, err = visit(folder)
-        if not ok then return false, err end
-    end
-    for _, entry in ipairs(missing) do
-        local write = entry.replace and Fs.writeAtomic or Fs.createFile
-        local wrote, err = write(entry.path, assert(Json.encode(entry.meta, true)) .. "\n")
-        if not wrote then return false, err end
-    end
+    for _, path in ipairs(cleanups) do local ok, err = Fs.removeFile(path); if not ok then return false, err end end
     project.assetPaths, project.assetIds, project.assetMetadata = paths, ids, metadata
+    project.missingAssets, project.untrackedAssets = missing, untracked
     project.assetRevision = (project.assetRevision or 0) + 1
     if project.plugins then
-        project.plugins.loaded = {}
+        project.plugins.loaded, project.plugins.moduleRequire = {}, nil
         for name, script in pairs(project.plugins.scripts) do
             if script.id and paths[script.id] then project.plugins.assetScripts[paths[script.id]] = name end
         end
     end
     project.assetIdsByLower = {}
     for reference, id in pairs(ids) do project.assetIdsByLower[reference:lower()] = id end
-    local text = assert(Json.encode({version = 1, paths = paths}, true)) .. "\n"
-    -- 캐시 쓰기 실패도 메모리에서 복원한 ID 목록의 사용을 막지는 않는다.
-    local saved, cacheError = Fs.writeAtomic(Fs.join(project.rootPath, "asset-index.json"), text)
-    project.assetIndexError = not saved and cacheError or nil
+    project.assetIndexError = nil
+    if Fs.info(Fs.join(project.rootPath, "asset-index.json")) then Fs.removeFile(Fs.join(project.rootPath, "asset-index.json")) end
     return true
 end
 
@@ -160,7 +171,7 @@ function Registry.migrate(project, projectData)
         return project:getAssetId(reference) or reference
     end
     for _, reference in pairs(project.assetPaths) do
-        if not project:isReadOnly(reference) and (reference:match("%.level$") or reference:match("%.prefab$")) then
+        if not project:isReadOnly(reference) and project:checkedEntry(reference) and (reference:match("%.level$") or reference:match("%.prefab$")) then
             local path = assert(project:resolvePath(reference))
             local text, readError = Fs.read(path)
             if not text then return false, readError end

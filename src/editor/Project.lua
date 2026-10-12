@@ -432,6 +432,7 @@ function Project:createEntry(folder, kind, name, options)
     end
     local fs, createdDirectories, createdFiles, createdReferences = filesystem(), {}, {}, {}
     local function rollback(errorText)
+        for _, reference in ipairs(createdReferences) do require("editor.AssetCatalog").remove(self, reference) end
         for i = #createdFiles, 1, -1 do fs.removeFile(createdFiles[i]) end
         for i = #createdDirectories, 1, -1 do fs.removeDirectory(createdDirectories[i]) end
         return false, errorText
@@ -465,9 +466,9 @@ function Project:createEntry(folder, kind, name, options)
         local wrote, writeError = fs.createFile(path, text)
         if not wrote then return false, writeError end
         createdFiles[#createdFiles + 1] = path
-        local meta, id = require("editor.AssetRegistry").metaText(scriptKind or kind == "lua" and options.scriptKind or nil)
-        local saved, metaError = fs.createFile(path .. ".meta", meta)
-        if saved then createdFiles[#createdFiles + 1] = path .. ".meta" end
+        local id = require("project.AssetId").new()
+        local saved, metaError = require("editor.AssetCatalog").update(self, {[reference] = {version = 1, id = id,
+            scriptKind = scriptKind or kind == "lua" and options.scriptKind or nil}})
         if saved then createdReferences[#createdReferences + 1] = reference end
         return saved, metaError, id
     end
@@ -478,6 +479,8 @@ function Project:createEntry(folder, kind, name, options)
         name = name .. suffix
     end
     local reference = folder .. "/" .. name
+    local available, registrationError = require("editor.AssetCatalog").checkDestination(self, reference)
+    if not available then return false, registrationError end
     local ok, createError
     if kind == "folder" then
         ok, createError = ensureFolder(folder)
@@ -565,15 +568,19 @@ end
 function Project:deleteEntry(reference)
     local removals, err = self:deletionEntries(reference)
     if not removals then return false, err end
+    local catalog = require("editor.AssetCatalog")
+    local metadata = catalog.capture(self, reference)
+    local removed, removeError = catalog.remove(self, reference)
+    if not removed then return false, removeError end
     local fs = filesystem()
     for _, entry in ipairs(removals) do
         local path, info = self:checkedEntry(entry.reference)
-        if not path then return false, info end
-        if info.type ~= entry.type then return false, "Entry changed during deletion" end
+        if not path then catalog.update(self, metadata); return false, info end
+        if info.type ~= entry.type then catalog.update(self, metadata); return false, "Entry changed during deletion" end
         local removed, removeError
         if info.type == "directory" then removed, removeError = fs.removeDirectory(path)
         else removed, removeError = fs.removeFile(path) end
-        if not removed then return false, removeError end
+        if not removed then catalog.update(self, metadata); return false, removeError end
     end
     return self:rebuildAssetIndex()
 end
@@ -602,39 +609,25 @@ function Project:moveEntry(source, destination)
         return false, "Keep the original file extension"
     end
     local fs = filesystem()
+    local available, registrationError = require("editor.AssetCatalog").checkDestination(self, destination)
+    if not available then return false, registrationError end
     for _, candidate in ipairs({target, target .. ".meta"}) do
         local existing, existingError = fs.info(candidate)
         if existing or existingError then return false, existingError or "Destination already exists" end
     end
-    local journalPath = fs.join(self.rootPath, "asset-move.json")
-    if info.type == "file" then
-        local text = assert(require("editor.Json").encode({version = 1, source = source, destination = destination,
-            id = self:getAssetId(source)}, true)) .. "\n"
-        local journalSaved, journalError = fs.createFile(journalPath, text)
-        if not journalSaved then return false, journalError end
-    end
     local moved, moveError = fs.rename(path, target)
-    if not moved then
-        if info.type == "file" then fs.removeFile(journalPath) end
-        return false, moveError
-    end
-    if info.type == "file" then
-        local metaMoved, metaError = fs.rename(path .. ".meta", target .. ".meta")
-        if not metaMoved then
-            local restored, restoreError = fs.rename(target, path)
-            if restored then fs.removeFile(journalPath) end
-            return false, metaError .. (restored and "" or " / rollback failed: " .. tostring(restoreError))
-        end
-    end
-    local indexed, indexError = self:rebuildAssetIndex(true, true)
+    if not moved then return false, moveError end
+    local catalog = require("editor.AssetCatalog")
+    local old = catalog.capture(self, source)
+    local indexed, indexError = catalog.move(self, source, destination)
+    if indexed then indexed, indexError = self:rebuildAssetIndex(true, true) end
     if not indexed then
-        if info.type == "file" then fs.rename(target .. ".meta", path .. ".meta") end
-        local restored, restoreError = fs.rename(target, path)
-        if restored and info.type == "file" then fs.removeFile(journalPath) end
-        self:rebuildAssetIndex()
-        return false, tostring(indexError) .. (restored and "" or " / rollback failed: " .. tostring(restoreError))
+        fs.rename(target, path)
+        local restore = {}
+        for ref, meta in pairs(old) do restore[ref] = meta; restore[destination .. ref:sub(#source + 1)] = false end
+        catalog.update(self, restore); self:rebuildAssetIndex()
+        return false, indexError
     end
-    if info.type == "file" then fs.removeFile(journalPath) end
     return true
 end
 

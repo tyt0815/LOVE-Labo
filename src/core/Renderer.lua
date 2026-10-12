@@ -75,10 +75,7 @@ function Renderer.drawWorld(world, imageFor, viewport)
             local affine = love.math.newTransform()
             affine:setMatrix(ax - x, bx - x, 0, x, ay - y, by - y, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
             love.graphics.push("all")
-            if not screen then
-                love.graphics.intersectScissor(viewport.x + (viewport.width - viewport.contentWidth) / 2,
-                    viewport.y + (viewport.height - viewport.contentHeight) / 2, viewport.contentWidth, viewport.contentHeight)
-            end
+            love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
             love.graphics.origin(); love.graphics.applyTransform(affine)
             local ok, result, err = pcall(script.draw, script, ctx)
             love.graphics.pop(); affine:release()

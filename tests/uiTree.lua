@@ -189,4 +189,12 @@ add("Tree line highlighting covers selected ancestry without highlighting other 
     highlights = Ui.treeLineHighlights(rows, function() return false end)
     Assert.equal(false, highlights[3][0]); Assert.equal(false, highlights[3][1])
 end)
+add("Tree insertion borders distinguish the last child from the next outside sibling", function()
+    local rows = {{depth = 0}, {depth = 1}, {depth = 2}, {depth = 0}}
+    local drop = require("editor.ui.TreeDrop")
+    local inside = drop.tree(rows, rows[3], 65, 44, 22)
+    local outside = drop.tree(rows, rows[4], 67, 66, 22)
+    Assert.equal("after", inside.mode); Assert.equal(2, inside.depth); Assert.equal(66, inside.lineY)
+    Assert.equal("before", outside.mode); Assert.equal(0, outside.depth); Assert.equal(66, outside.lineY)
+end)
 return tests

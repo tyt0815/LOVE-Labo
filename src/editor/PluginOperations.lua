@@ -68,11 +68,15 @@ function Operations.create(project, name, dependencies)
     assert(Fs.mkdir(Fs.join(folder, "Assets")))
     local scriptId = require("project.AssetId").new()
     local manifest = {version = 1, name = name, dependencies = Json.array(dependencies or {}),
-        scripts = {[name] = "Assets/" .. name .. ".lua"}, scriptIds = {[name] = scriptId}}
+        scripts = {[name] = "Assets/" .. name .. ".lua"}}
     local ok, writeError = Fs.createFile(Fs.join(folder, "plugin.json"), assert(Json.encode(manifest, true)))
     if ok then ok, writeError = Fs.createFile(Fs.join(folder, "Assets/" .. name .. ".lua"), "local " .. name .. " = {properties = {}}\nreturn " .. name .. "\n") end
-    if ok then ok, writeError = Fs.createFile(Fs.join(folder, "Assets/" .. name .. ".lua.meta"), assert(Json.encode({version = 1, id = scriptId, scriptKind = "script"}, true))) end
-    if not ok then Fs.removeFile(Fs.join(folder, "plugin.json")); Fs.removeDirectory(Fs.join(folder, "Assets")); Fs.removeDirectory(folder); return false, writeError end
+    if ok then ok, writeError = Fs.createFile(Fs.join(folder, "assets.json"), assert(Json.encode({version = 1, assets = {["Assets/" .. name .. ".lua"] = {id = scriptId, scriptKind = "script", scriptName = name}}}, true))) end
+    if not ok then
+        Fs.removeFile(Fs.join(folder, "Assets/" .. name .. ".lua")); Fs.removeFile(Fs.join(folder, "assets.json"))
+        Fs.removeFile(Fs.join(folder, "plugin.json")); Fs.removeDirectory(Fs.join(folder, "Assets")); Fs.removeDirectory(folder)
+        return false, writeError
+    end
     project.plugins = require("project.PluginRegistry").new(project)
     local indexed, indexError = project:rebuildAssetIndex()
     if not indexed then return false, indexError end

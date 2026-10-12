@@ -11,6 +11,7 @@ local DEFAULT_COLORS = {
     focus = "#EA316E", input = "#FFFFFF", textSelection = "#258AE180",
     treeLineHighlight = "#4C90B1",
     pluginDependencyDisabled = "#C67A00",
+    playRunning = "#319B52", playPaused = "#D98720",
     text = "#383F4A", textMuted = "#4C90B1", textDisabled = "#7798A9", error = "#EA316E",
     overlay = "#1B4D6866", thumbnailBackground = "#FFFFFF",
     iconBackground = "#FFFFFF", iconBorder = "#25AAE1", iconText = "#1B4D68",

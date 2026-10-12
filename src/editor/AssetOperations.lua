@@ -26,7 +26,6 @@ end
 local function snapshot(path)
     local result = {}
     scan(path, "", result)
-    if result[""].type == "file" then scan(path .. ".meta", ".meta", result) end
     return result
 end
 local function matches(expected, actual, identityOnly)
@@ -47,13 +46,7 @@ local function transfer(source, target, kind)
         assert(not info and not err, err or "Undo destination already exists: " .. path)
     end
     assert(Fs.rename(source, target))
-    if kind == "file" then
-        local moved, err = Fs.rename(source .. ".meta", target .. ".meta")
-        if not moved then
-            local restored, restoreError = Fs.rename(target, source)
-            error(tostring(err) .. (restored and "" or " / rollback failed: " .. tostring(restoreError)))
-        end
-    end
+
 end
 
 function Operations.new(app, browser)
@@ -95,10 +88,12 @@ function Operations:storage(command)
     assert(directory.type == "directory" and not directory.isLink, "History storage was replaced")
     return Fs.join(command.directory, "payload")
 end
-function Operations:reindexOrRollback(source, target, kind)
+function Operations:reindexOrRollback(source, target, kind, command, restoring)
     local indexed, err = self.project:rebuildAssetIndex(false, true)
     if indexed then return end
     transfer(target, source, kind)
+    if restoring then require("editor.AssetCatalog").remove(self.project, command.reference)
+    else require("editor.AssetCatalog").update(self.project, command.metadata) end
     self.project:rebuildAssetIndex(false, true)
     error(err)
 end
@@ -107,8 +102,11 @@ function Operations:stash(command)
     local path = self:livePath(command.reference)
     matches(command.snapshot, snapshot(path))
     local storage = self:storage(command)
+    command.metadata = require("editor.AssetCatalog").capture(self.project, command.reference)
     transfer(path, storage, command.snapshot[""].type)
-    self:reindexOrRollback(path, storage, command.snapshot[""].type)
+    local removed, removeError = require("editor.AssetCatalog").remove(self.project, command.reference)
+    if not removed then transfer(storage, path, command.snapshot[""].type); error(removeError) end
+    self:reindexOrRollback(path, storage, command.snapshot[""].type, command, false)
 end
 function Operations:restore(command)
     local storage = self:storage(command)
@@ -117,7 +115,9 @@ function Operations:restore(command)
     assert(parent and info.type == "directory", "Restore parent is missing")
     local path = assert(self.project:resolvePath(command.reference))
     transfer(storage, path, command.snapshot[""].type)
-    self:reindexOrRollback(storage, path, command.snapshot[""].type)
+    local restored, restoreError = require("editor.AssetCatalog").update(self.project, command.metadata or {})
+    if not restored then transfer(path, storage, command.snapshot[""].type); error(restoreError) end
+    self:reindexOrRollback(storage, path, command.snapshot[""].type, command, true)
 end
 function Operations:refresh(reference)
     self.browser:refresh(true)
@@ -234,10 +234,15 @@ end
 function Operations:move(entry, destination)
     return self:perform(function()
         local source = entry.reference
+        local identities = require("editor.AssetCatalog").capture(self.project, source)
         local expected = snapshot(self:livePath(source))
         local ok, err = self.browser:moveEntryDirect(entry, destination)
         if not ok then return false, err end
         local function replay(from, to)
+            for reference, meta in pairs(identities) do
+                local current = from .. reference:sub(#source + 1)
+                assert(self.project:getAssetId(current) == meta.id, "Asset identity changed outside Undo history")
+            end
             matches(expected, snapshot(self:livePath(from)), true)
             local moved, moveError = self.browser:moveEntryDirect({reference = from}, to)
             assert(moved, moveError)

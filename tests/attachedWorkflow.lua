@@ -53,7 +53,7 @@ add("New project has one Assets root and generated instructions preserve user ed
         Assert.truthy(Fs.read(Fs.join(project.rootPath, "AGENTS.md")):find("https://tyt0815.github.io/LOVE-Labo/", 1, true))
         assert(Fs.writeAtomic(Fs.join(project.rootPath, "AGENTS.md"), "custom")); assert(Project.open(project.rootPath))
         Assert.equal("custom", Fs.read(Fs.join(project.rootPath, "AGENTS.md")))
-        local browser = require("editor.AssetBrowser").new(project); Assert.equal(2, #browser.tree)
+        local browser = require("editor.AssetBrowser").new(project); Assert.equal(3, #browser.tree)
         assert(Fs.removeDirectory(Fs.join(project.rootPath, "Assets"))); assert(Project.open(project.rootPath))
         Assert.truthy(Fs.info(Fs.join(project.rootPath, "Assets")))
     end)
@@ -69,7 +69,7 @@ add("Eyedropper folder navigation uses displayed tree row height and scroll", fu
         local tree = browser.treeSlot.widget
         for index, node in ipairs(browser.tree) do
             app:pickReferenceAt(tree.x + tree.width - 25, tree.y + (index - 1) * height + 1)
-            Assert.equal(node.reference, browser.folder)
+            Assert.equal(node.reference == "$project" and "Assets" or node.reference, browser.folder)
             Assert.truthy(app.objectPick)
         end
         browser.treeSlot.widget.height = height * 2
@@ -86,7 +86,7 @@ add("Unified Assets permits scripts images Prefabs and levels in the same featur
         local source = run(project, "class.create", {folder = "Assets/Player", name = "Movement"}).assetId
         run(project, "prefab.create", {folder = "Assets/Player", name = "PF_Player"})
         run(project, "level.create", {folder = "Assets/Player", name = "L_Start", empty = true})
-        Assert.equal("script", project:getScriptKind(source)); Assert.equal(6, #project:listScripts("script"))
+        Assert.equal("script", project:getScriptKind(source)); Assert.equal(7, #project:listScripts("script"))
         Assert.equal(false, project:createEntry("Sources", "lua", "Wrong", {scriptKind = "script"}))
     end)
 end)
@@ -179,7 +179,7 @@ add("Default levels attach Camera directly and main-camera selection survives se
         Assert.equal(nil, run(project, "level.get", {level = levelId}).data.mainCamera)
         local empty = run(project, "level.create", {name = "L_Empty", empty = true}).assetId
         Assert.equal(0, #run(project, "level.get", {level = empty}).data.lobjects)
-        Assert.equal(5, #project:listScripts("script"))
+        Assert.equal(6, #project:listScripts("script"))
     end)
 end)
 add("Main Camera eyedropper chooses attached Camera scripts and reset restores Auto", function()
@@ -310,7 +310,8 @@ add("Legacy Sources folder moves into Assets Scripts without changing asset IDs"
         local id = script(project, "Move", MOVE)
         assert(Fs.mkdir(Fs.join(project.rootPath, "Sources")))
         assert(Fs.rename(project:resolvePath("Assets/Move.lua"), Fs.join(project.rootPath, "Sources/Move.lua")))
-        assert(Fs.rename(project:resolvePath("Assets/Move.lua.meta"), Fs.join(project.rootPath, "Sources/Move.lua.meta")))
+        assert(Fs.createFile(Fs.join(project.rootPath, "Sources/Move.lua.meta"), assert(require("project.Json").encode({version = 1, id = id, scriptKind = "script"}))))
+        assert(require("editor.AssetCatalog").remove(project, "Assets/Move.lua"))
         local opened = assert(Project.open(project.rootPath))
         Assert.equal("Assets/Scripts/Move.lua", opened:getAssetReference(id))
         Assert.equal(id, opened:getAssetId("Sources/Move.lua"))

@@ -1,0 +1,43 @@
+{
+  "assets": {
+    "Assets/Examples/Actions.lua": {
+      "hash": "06d388bee352fac8d7e473f46f751ff4919b5119ec484931bc49c03599690201",
+      "id": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/LevelDemo.lua": {
+      "hash": "24c85c1a5347f6f946b4a8af3461e40ec0a0a66904296fa19e4df3b349a6ff5f",
+      "id": "6a8f6dcf-d978-4b4c-afcc-110ebcbcced5",
+      "scriptKind": "level",
+      "version": 1
+    },
+    "Assets/Examples/Motion.lua": {
+      "hash": "83d35b2066ddf71d07a6f37a062347de0c4475fa357b86c6fa12c2a9b0196202",
+      "id": "3defeca7-bbad-4be8-b9a2-564875422203",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/PF_Spawned.prefab": {
+      "hash": "7a43294dfabec03a339f122742bcc34f1c2905c5ed7e2a6be3f301686082f7c5",
+      "id": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+      "version": 1
+    },
+    "Assets/Examples/Tile.png": {
+      "hash": "655c01e6cd5d4dca6110fb0f8053f7ee6e6432c449ab0b4812e3d4fdcb50f62f",
+      "id": "99223763-e7eb-4567-9b30-ed61131008aa",
+      "version": 1
+    },
+    "Assets/L_ApiExamples.level": {
+      "hash": "d32137959ed164b1b478b1d34fd1192d5fe20427e4288b52d1bc0614b48dea75",
+      "id": "b3c66a66-f009-40fb-aa41-d92e1cad3a94",
+      "version": 1
+    },
+    "Assets/L_ApiNext.level": {
+      "hash": "f0d40e4cbad79084c36b3528bc6b6904e58afd503a082aec7970716944d40aee",
+      "id": "92c89111-d684-4200-b330-d1cc1990b6c7",
+      "version": 1
+    }
+  },
+  "version": 1
+}

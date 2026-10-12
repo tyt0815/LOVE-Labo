@@ -12,6 +12,9 @@ function Viewport.new(world, x, y, width, height)
         self.scale = math.min(width / w, height / h)
         self.transform = self.camera:getViewTransform()
         self.contentWidth, self.contentHeight = w * self.scale, h * self.scale
+        -- 화면 공간 UI도 레터박스를 제외한 실제 게임 화면을 기준으로 배치한다.
+        self.x, self.y = self.x + (width - self.contentWidth) / 2, self.y + (height - self.contentHeight) / 2
+        self.width, self.height = self.contentWidth, self.contentHeight
     else self.contentWidth, self.contentHeight = width, height end
     return self
 end

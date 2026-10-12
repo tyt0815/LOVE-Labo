@@ -99,7 +99,8 @@ add("Snap panel consumes pointer and text input and rejects invalid units", func
     local object = app.level:addLObject(0, 0)
     view.selectedLObject = object
     local vx, vy, vw = view:getViewport()
-    Assert.truthy(controls.x > vx + vw / 2)
+    Assert.truthy(controls.y + controls.height <= vy + 12)
+    Assert.equal(app.viewportToolbar, controls.parent)
     local check, field = controls:rects()
     app:mousepressed(check.x + 5, check.y + 5, 1)
     Assert.equal(true, view.snapSettings.translate.enabled)
@@ -169,10 +170,10 @@ add("Snap panel consumes pointer and text input and rejects invalid units", func
     end
     assert(app:startPlay())
     app:draw()
-    Assert.equal(false, controls.visible)
+    Assert.equal(true, controls.visible); Assert.equal(false, controls.enabled)
     assert(app:stopPlay())
     app:draw()
-    Assert.equal(true, controls.visible)
+    Assert.equal(true, controls.visible); Assert.equal(true, controls.enabled)
 end)
 
 add("Gizmo capture survives viewport exit and Escape restores the starting position", function()
@@ -651,5 +652,103 @@ add("Rotation dragging displays only the selected diameter or full Z ring", func
     local z = pixelsFor("z")
     Assert.truthy(alpha(z, -60, 0) > 0); Assert.truthy(alpha(z, 0, 60) > 0)
     Assert.equal(0, alpha(z, 0, -30)); z:release(); canvas:release()
+end)
+add("Play Pause Stop controls freeze gameplay and resume the same World", function()
+    local Fs = require("editor.HostFileSystem")
+    local p = assert(require("editor.Project").create(Fs.join(love.filesystem.getSourceBaseDirectory(), "build"),
+        "PauseTest_" .. os.time() .. "_" .. love.math.random(100000, 999999)))
+    assert(p:createEntry("Assets", "lua", "Counter", {scriptKind = "script"}))
+    assert(Fs.writeAtomic(p:resolvePath("Assets/Counter.lua"), [[local Counter = {}
+function Counter.update(self, dt) self.elapsed = (self.elapsed or 0) + dt end
+function Counter.getLocalBounds() return -50, -50, 100, 100 end
+function Counter.onPointerDown(self) self.clicks = (self.clicks or 0) + 1; return true end
+return Counter]]))
+    local app = require("editor.EditorApp").new(nil, p)
+    app.level:addLObject(0, 0).scripts = {{id = "counter", source = p:getAssetId("Assets/Counter.lua")}}
+    app:draw()
+    local buttons = app.playControls:buttons()
+    Assert.equal(app.hierarchy.y, app.playControls.y)
+    Assert.equal(app.inspector.y, app.playControls.y)
+    Assert.equal(app.sceneWidget.y, app.viewportToolbar.y + app.viewportToolbar.height + require("editor.Ui").METRICS.viewportToolbarGap - 12)
+    Assert.equal(app.sceneWidget.x + app.sceneWidget.width / 2, buttons[2].x + buttons[2].w / 2)
+    Assert.truthy(buttons[1].y + buttons[1].h <= app.sceneWidget.y + 6)
+    Assert.equal(true, buttons[1].enabled); Assert.equal(false, buttons[2].enabled); Assert.equal(false, buttons[3].enabled)
+    assert(app:startPlay()); local world = app.runtimeWorld; local script = world.lobjects[1].scripts.counter
+    app:update(0.5); Assert.equal(0.5, script.elapsed)
+    buttons = app.playControls:buttons(); Assert.equal(false, buttons[1].enabled); Assert.equal(true, buttons[2].enabled); Assert.equal(true, buttons[3].enabled)
+    assert(app:pausePlay()); local time = app.debugSession.time
+    app:update(1); Assert.equal(0.5, script.elapsed); Assert.equal(time, app.debugSession.time)
+    local x, y = app.gameView:worldToScreen(0, 0)
+    Assert.equal(false, app:handleGamePointer("down", x, y, 1)); Assert.equal(nil, script.clicks)
+    buttons = app.playControls:buttons(); Assert.equal(true, buttons[1].enabled); Assert.equal(false, buttons[2].enabled); Assert.equal(true, buttons[3].enabled)
+    app:draw(); assert(app:startPlay()); Assert.equal(world, app.runtimeWorld)
+    app:update(0.25); Assert.equal(0.75, script.elapsed)
+    assert(app:stopPlay()); Assert.equal(false, app.paused); Assert.equal(nil, app.runtimeWorld)
+end)
+add("Camera letterbox clips screen UI and ignores new clicks while preserving captured release", function()
+    local world = require("core.World").new()
+    local camera = {getViewSize = function() return 200, 100 end, getViewTransform = function() return {x = 0, y = 0} end}
+    world.getActiveCamera = function() return camera end
+    local object = assert(world:addLObject({transform = {x = 0, y = 0}}))
+    local class = require("core.Script"):extend({canvas = true,
+        getLocalBounds = function() return -100, -100, 200, 200 end,
+        onPointerDown = function(self) self.downs = (self.downs or 0) + 1; return true end,
+        onPointerUp = function(self, event) self.released = true; self.inside = event.inside; return true end,
+        draw = function() love.graphics.setColor(0, 1, 0, 1); love.graphics.rectangle("fill", -100, -100, 200, 200) end})
+    local script = object:addScript("screen", class)
+    local view = require("core.Viewport").new(world, 0, 0, 100, 100)
+    Assert.equal(25, view.y); Assert.equal(50, view.height); Assert.equal(100, view.width)
+    assert(view:dispatchPointer(world, "down", 50, 5, 1)); Assert.equal(nil, script.downs)
+    assert(view:dispatchPointer(world, "down", 50, 50, 1)); Assert.equal(1, script.downs)
+    assert(view:dispatchPointer(world, "up", 50, 5, 1)); Assert.equal(true, script.released); Assert.equal(false, script.inside)
+    local canvas = love.graphics.newCanvas(100, 100)
+    love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.clear(0, 0, 0, 1)
+    require("core.Renderer").drawWorld(world, function() end, view)
+    love.graphics.setCanvas(); love.graphics.pop()
+    local pixels = canvas:newImageData()
+    local _, barGreen = pixels:getPixel(50, 5); local _, gameGreen = pixels:getPixel(50, 50)
+    Assert.equal(0, barGreen); Assert.equal(1, gameGreen)
+    pixels:release(); canvas:release()
+end)
+add("Viewport toolbar avoids control overlap and exposes its actual panel gap", function()
+    local app = require("editor.EditorApp").new()
+    local toolbar = app.viewportToolbar
+    toolbar:setBounds(0, 0, 1100, toolbar:preferredHeight(1100))
+    local play = app.playControls:buttons()
+    Assert.truthy(app.viewportControls.x >= play[3].x + play[3].w)
+    toolbar:setBounds(0, 0, 350, toolbar:preferredHeight(350))
+    play = app.playControls:buttons()
+    Assert.truthy(app.viewportControls.y >= play[1].y + play[1].h)
+    for _, pair in pairs(app.viewportControls:snapRects()) do
+        Assert.truthy(pair.field.x + pair.field.w <= toolbar.x + toolbar.width - 6)
+        Assert.truthy(pair.field.y + pair.field.h <= toolbar.y + toolbar.height - 6)
+    end
+    local metrics = require("editor.Ui").METRICS
+    local previous = metrics.viewportToolbarGap
+    metrics.viewportToolbarGap = 24
+    app:updateSceneViewport()
+    local actual = app.sceneWidget.y + 6 - (toolbar.y + toolbar.height - 6)
+    metrics.viewportToolbarGap = previous
+    app:updateSceneViewport()
+    Assert.equal(24, actual)
+end)
+add("Game View leaves empty LObjects invisible and draws attached scripts", function()
+    local world = require("core.World").new()
+    local object = assert(world:addLObject({transform = {x = 0, y = 0}}))
+    local view = require("editor.GameView").new(); view:setViewport(0, 0, 200, 200)
+    local canvas = love.graphics.newCanvas(200, 200)
+    local function alphaAtObject()
+        love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.clear(0, 0, 0, 0)
+        view:drawRuntimeLObjects(world)
+        love.graphics.setCanvas(); love.graphics.pop()
+        local pixels = canvas:newImageData(); local x, y = view:worldToScreen(0, 0)
+        local _, _, _, alpha = pixels:getPixel(math.floor(x), math.floor(y))
+        pixels:release(); return alpha
+    end
+    Assert.equal(0, alphaAtObject())
+    object:addScript("visual", require("core.Script"):extend({draw = function()
+        love.graphics.setColor(0, 1, 0, 1); love.graphics.rectangle("fill", -8, -8, 16, 16)
+    end}))
+    Assert.equal(1, alphaAtObject()); canvas:release()
 end)
 return tests

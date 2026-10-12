@@ -4,6 +4,17 @@ Registry.__index = Registry
 local BUILTINS = {"LaboEssentials"}
 local LEGACY = {Camera = true, Sprite = true, Pointer = true, Rect = true, Canvas = true}
 
+function Registry.publicMetadata(assets, name, file)
+    local metadata, path
+    for reference, item in pairs(assets) do
+        if item.scriptName == name then
+            assert(not metadata, "Duplicate public script alias: " .. name)
+            metadata, path = item, reference
+        end
+    end
+    return metadata or assets[file], path or file
+end
+
 function Registry.new(project, packaged)
     local self = setmetatable({project = project, plugins = {}, scripts = {}, enabled = {}, loaded = {}, assetScripts = {}}, Registry)
     local function register(manifest, origin, read)
@@ -15,10 +26,17 @@ function Registry.new(project, packaged)
         for _, dependency in ipairs(manifest.dependencies) do assert(type(dependency) == "string", "Invalid plugin dependency") end
         manifest.origin, manifest.read = origin, read
         self.plugins[manifest.name] = manifest
+        local catalog = manifest.assets
+        if not catalog then
+            local bytes = read("assets.json")
+            if bytes then catalog = assert(Json.decode(bytes)).assets end
+        end
+        manifest.assets = catalog or {}
         for name, file in pairs(manifest.scripts) do
             assert(type(name) == "string" and name:match("^[%a][%w_]*$") and type(file) == "string"
                 and file:match("^Assets/[%w_]+%.lua$") and name ~= "Script" and not self.scripts[name], "Invalid or duplicate plugin script")
-            self.scripts[name] = {plugin = manifest.name, file = file, id = manifest.scriptIds and manifest.scriptIds[name]}
+            local metadata, source = Registry.publicMetadata(manifest.assets, name, file)
+            self.scripts[name] = {plugin = manifest.name, file = source, id = metadata and metadata.id or manifest.scriptIds and manifest.scriptIds[name]}
         end
     end
     if packaged then
@@ -41,7 +59,23 @@ function Registry.new(project, packaged)
                 if entry.type == "directory" and not entry.isLink then
                     local path = Fs.join(folder, entry.name)
                     local bytes = Fs.read(Fs.join(path, "plugin.json"))
-                    if bytes then register(assert(Json.decode(bytes)), "user", function(file) return Fs.read(Fs.join(path, file)) end) end
+                    if bytes then
+                        local manifest = assert(Json.decode(bytes))
+                        local Catalog = require("editor.AssetCatalog")
+                        local owner = {root = path, path = Fs.join(path, "assets.json")}
+                        local data = assert(Catalog.read(owner)); local legacy = assert(Catalog.importLegacy(owner, data))
+                        for script, file in pairs(manifest.scripts or {}) do
+                            local metadata = Registry.publicMetadata(data.assets, script, file)
+                            local oldId = manifest.scriptIds and manifest.scriptIds[script]
+                            if not metadata and oldId then metadata = {id = oldId, scriptKind = "script"}; data.assets[file] = metadata end
+                            if metadata then metadata.scriptName = script end
+                        end
+                        local catalogBytes = assert(Json.encode(data, true)) .. "\n"
+                        if Fs.read(owner.path) ~= catalogBytes then assert(Catalog.write(owner, data)) end
+                        for _, file in ipairs(legacy) do assert(Fs.removeFile(file)) end
+                        if manifest.scriptIds then manifest.scriptIds = nil; assert(Fs.writeAtomic(Fs.join(path, "plugin.json"), assert(Json.encode(manifest, true)))) end
+                        register(manifest, "user", function(file) return Fs.read(Fs.join(path, file)) end)
+                    end
                 end
             end
         end
@@ -82,12 +116,18 @@ function Registry:planEnable(name)
         if visited[id] then return true end
         local plugin = self.plugins[id]
         if not plugin then return false, "Missing plugin: " .. id end
-        for _, file in pairs(plugin.scripts) do
+        for name, declared in pairs(plugin.scripts) do
+            local source = self.scripts[name]
+            local file = source and source.plugin == id and source.file or declared
             local ok, bytes = pcall(plugin.read, file)
             if not ok or not bytes then
                 local found = false
-                for _, source in pairs(self.scripts) do
-                    if source.plugin == id and source.file == file and source.id and self.project:getAssetReference(source.id) then found = true; break end
+                if source and source.plugin == id and source.id then
+                    local reference = self.project:getAssetReference(source.id)
+                    if reference then
+                        local readable, content = pcall(self.project.readSource, self.project, reference)
+                        found = readable and content ~= nil
+                    end
                 end
                 if not found then return false, "Missing plugin script: " .. id .. "/" .. file end
             end
@@ -188,7 +228,7 @@ function Registry:export()
     local manifests, enabled = {}, {}
     for _, name in ipairs(self:names()) do if self.enabled[name] then
         local plugin = self.plugins[name]
-        manifests[#manifests + 1] = {version = 1, name = name, dependencies = plugin.dependencies, scripts = plugin.scripts, scriptIds = plugin.scriptIds}
+        manifests[#manifests + 1] = {version = 1, name = name, dependencies = plugin.dependencies, scripts = plugin.scripts, assets = plugin.assets}
         enabled[#enabled + 1] = name
     end end
     return {manifests = manifests, enabled = enabled, assetScripts = self.assetScripts}

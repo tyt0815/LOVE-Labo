@@ -1,0 +1,20 @@
+{
+    "formatVersion": 4,
+    "overrides": {
+        "scripts": {
+            "sprite": {
+                "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+            }
+        }
+    },
+    "scripts": [
+        {
+            "id": "motion",
+            "source": "3defeca7-bbad-4be8-b9a2-564875422203"
+        },
+        {
+            "id": "sprite",
+            "source": "Sprite"
+        }
+    ]
+}

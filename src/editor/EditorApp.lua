@@ -89,6 +89,7 @@ function EditorApp:setDocument(document)
     -- Runtime World는 현재 document의 Level snapshot에서 만들어진다.
     -- document가 바뀌면 이전 Runtime은 폐기한다.
     self.runtimeWorld = nil
+    self.paused = false
 
     self.document = document
     self.inspectedAssetReference = nil
@@ -165,7 +166,7 @@ function EditorApp:setMainCamera(value)
     return true
 end
 function EditorApp:handleGamePointer(kind, x, y, button, dx, dy)
-    if not self.runtimeWorld then return false end
+    if not self.runtimeWorld or self.paused then return false end
     local ok, result = self.gameView:dispatchPointer(self.runtimeWorld, kind, x, y, button, dx, dy)
     if not ok then self.runtimeError = result; self.runtimeWorld:cancelPointer(); self.runtimeWorld = nil; return false end
     return true, result
@@ -181,6 +182,7 @@ end
 
 function EditorApp:startPlay()
     self:cancelObjectPick()
+    if self:isPlaying() and self.paused then self.paused = false; return true end
     if self:isPlaying() then
         return false, "editor is already playing"
     end
@@ -194,7 +196,7 @@ function EditorApp:startPlay()
     local called, world, worldError = pcall(require("runtime.WorldLoader").create, self.project, self.level:toData(), self.debugSession)
     if not called then worldError, world = tostring(world), nil end
     if not world then self.runtimeError = worldError; return false, worldError end
-    self.runtimeError, self.runtimeWorld = nil, world
+    self.runtimeError, self.runtimeWorld, self.paused = nil, world, false
     self.gameView.world = world
 
     -- Play 중 hidden Scene View drag/pan 상태가 남아 있지 않게 정리한다.
@@ -205,7 +207,15 @@ function EditorApp:startPlay()
     return true
 end
 
+function EditorApp:pausePlay()
+    if not self:isPlaying() or self.paused then return false, "Game is not running" end
+    self.paused = true
+    self.runtimeWorld:cancelPointer(); self.uiRoot:cancelCapture()
+    return true
+end
+
 function EditorApp:stopPlay()
+    self.paused = false
     if not self:isPlaying() then
         return false, "editor is not playing"
     end
@@ -656,7 +666,7 @@ function EditorApp:initializeUI()
         return canvas, content
     end
     local center, sceneWidget = panel("scene", {
-        hint = function() return self:isPlaying() and "Game View. F5: stop Play." or "Scene View. Drag gizmo: move. Ctrl+D: duplicate. F: frame. Middle drag: pan. Wheel: zoom." end,
+        hint = function() return self.paused and "Game View paused. Play / F5: resume." or self:isPlaying() and "Game View. F5: stop Play." or "Scene View. Drag gizmo: move. Ctrl+D: duplicate. F: frame. Middle drag: pan. Wheel: zoom." end,
         bounds = function(_, x, y, width, height)
             self.sceneView:setViewport(x, y, width, height)
             self.gameView:setViewport(x, y, width, height)
@@ -666,9 +676,11 @@ function EditorApp:initializeUI()
                 local ok, err = pcall(self.gameView.draw, self.gameView, self.runtimeWorld)
                 if not ok then self.runtimeError = tostring(err); self.runtimeWorld:cancelPointer(); self.runtimeWorld = nil end
             else self.sceneView:draw() end
-            if self.runtimeError then
-                require("editor.Ui").text(self.runtimeError, self.sceneView.viewportX + 16, 94,
-                    self.sceneView.viewportWidth - 32, Theme.color("error"))
+            if self:isPlaying() then
+                love.graphics.push("all"); Theme.setColor(self.paused and "playPaused" or "playRunning"); love.graphics.setLineWidth(2)
+                love.graphics.rectangle("line", self.sceneView.viewportX + 6, self.sceneView.viewportY + 6,
+                    math.max(0, self.sceneView.viewportWidth - 12), math.max(0, self.sceneView.viewportHeight - 12), 6, 6)
+                love.graphics.pop()
             end
         end,
         mousepressed = function(_, x, y, button)
@@ -701,12 +713,18 @@ function EditorApp:initializeUI()
         end,
     })
     self.sceneWidget = sceneWidget
+    local sceneSlot = center.slots[1]
+    sceneSlot.fill = false
+    self.playControls = require("editor.ui.PlayControls").new(self)
     self.viewportControls = require("editor.ui.ViewportControls").new(self.sceneView)
-    local snapSlot = center:addChild(self.viewportControls, {z = 1})
+    self.viewportToolbar = require("editor.ui.ViewportToolbar").new(self)
+    local toolbarSlot = center:addChild(self.viewportToolbar, {z = 3})
     center.handlers.bounds = function(_, _, _, width, height)
-        snapSlot.width = math.max(0, math.min(self.viewportControls:preferredWidth(), width - 12))
-        snapSlot.x, snapSlot.y = math.max(6, width - snapSlot.width - 12), 6
-        snapSlot.height = math.min(self.viewportControls:preferredHeight(snapSlot.width), math.max(0, height - 12))
+        local barHeight = math.min(self.viewportToolbar:preferredHeight(width), height)
+        -- Ui.panel 양쪽의 6px 여백을 포함해 외곽선 사이 간격을 맞춘다.
+        local sceneTop = math.max(0, barHeight + require("editor.Ui").METRICS.viewportToolbarGap - 12)
+        sceneSlot.x, sceneSlot.y, sceneSlot.width, sceneSlot.height = 0, sceneTop, width, math.max(0, height - sceneTop)
+        toolbarSlot.width, toolbarSlot.height = width, barHeight
     end
     local hierarchy = panel("hierarchy", {
         hint = function(_, x, y)
@@ -782,6 +800,8 @@ function EditorApp:initializeUI()
         slots.status = self.canvas:addChild(self.statusWidget, {z = 101})
     end
     if self.assetBrowser then
+        self.assetBrowser.onProjectRefresh = function() return self:refreshProject() end
+        self.assetBrowser.onRepair = function(id) require("editor.ui.AssetRepairDialog").new(self, id) end
         self.inspector.classInspector = require("editor.ClassInspector").new(self.project, self.uiRoot)
         self.inspector.classInspector.onCommitEdit = self.inspector.onCommitEdit
         self.inspector.classInspector.onSave = function() return self:saveInspectedDocument() end
@@ -937,17 +957,17 @@ function EditorApp:initializeUI()
 end
 
 function EditorApp:updateSceneViewport()
-    self.viewportControls.visible = not self:isPlaying()
+    self.viewportControls.enabled = not self:isPlaying()
     self.uiLayout:arrange(love.graphics.getDimensions())
 end
 
 function EditorApp:update(dt)
-    self.debugSession:update(dt)
+    if not self.paused then self.debugSession:update(dt) end
     local objectTree = self.inspector.classInspector and self.inspector.classInspector.objectTree
     if objectTree and objectTree.ping then objectTree.ping.remaining = objectTree.ping.remaining - dt; if objectTree.ping.remaining <= 0 then objectTree.ping = nil end end
     if self.sceneView.ping then self.sceneView.ping.remaining = self.sceneView.ping.remaining - dt; if self.sceneView.ping.remaining <= 0 then self.sceneView.ping = nil end end
     self.uiRoot:update(dt)
-    if self.runtimeWorld then
+    if self.runtimeWorld and not self.paused then
         local ok, updated, err = pcall(self.runtimeWorld.update, self.runtimeWorld, dt)
         if not ok then err, updated = tostring(updated), false end
         if updated == false then self.runtimeError = err; self.runtimeWorld = nil end
@@ -958,6 +978,19 @@ function EditorApp:update(dt)
         end
         return updated, err
     end
+end
+
+function EditorApp:refreshProject(showRepair)
+    if self:isPlaying() then return false, "Stop Play before refreshing the project" end
+    self.inspector:commitEdit()
+    local ok, err = self.assetBrowser:refresh()
+    self.instanceInspectorObject = nil
+    if self.spriteAssets then self.spriteAssets:clear() end
+    self:updateInspectorTarget()
+    if showRepair ~= false and #(self.project.missingAssets or {}) > 0 then
+        require("editor.ui.AssetRepairDialog").new(self)
+    end
+    return ok, err
 end
 
 function EditorApp:draw()
@@ -1198,6 +1231,8 @@ function EditorApp:handleSceneKey(key)
 end
 
 function EditorApp:keypressed(key)
+    if key == "r" and love.keyboard.isDown("lctrl", "rctrl") and self.project and not self.uiRoot.popup
+        and not self.inspector:isEditing() and not self.viewportControls.editing then return self:refreshProject() end
     if self.objectPick then
         if key == "escape" then self:cancelObjectPick() end
         return true
@@ -1217,7 +1252,7 @@ function EditorApp:keypressed(key)
         return self:saveInspectedDocument()
     end
     if key == "f5" then
-        if self:isPlaying() then return self:stopPlay() end
+        if self:isPlaying() and not self.paused then return self:stopPlay() end
         return self:startPlay()
     end
     if self:isPlaying() then return end

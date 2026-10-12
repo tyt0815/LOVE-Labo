@@ -147,6 +147,17 @@ return Player
         app.debugSession:rect(-220, -120, 440, 240, {lifespan = 30})
         app.debugSession:line(-220, -120, 220, 120, {color = {255, 80, 80}, lifespan = 30})
         shot("debugging"); assert(app:stopPlay()); app.statusWidget:toggle(); shot("log-collapsed")
+        app.menuBar.active = nil; app.menuBar:openAt(100, 15); shot("project-menu"); app.uiRoot:dismissPopup()
+        assert(app:startPlay()); shot("play-running"); assert(app:pausePlay()); shot("play-paused"); assert(app:stopPlay())
+        assert(Fs.rename(assert(project:resolveSourceFile("Assets/Player.lua")), assert(project:resolvePath("Assets/UI/Player.lua"))))
+        assert(app:refreshProject()); shot("asset-repair")
+        local repair = app.uiRoot.popup
+        repair.plan.rows[1].expanded = true; repair:layout(); shot("asset-repair-picker")
+        assert(repair:submit())
+        assert(require("editor.ApiExamples").create(project))
+        app.assetBrowser:refresh()
+        assert(app:openProjectDocument("Assets/L_ApiExamples.level", true))
+        assert(app:startPlay()); shot("api-examples"); assert(app:stopPlay())
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

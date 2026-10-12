@@ -14,6 +14,6 @@ LÖVE Labo는 LÖVE 11.5 기반 2D 작업 환경입니다. 개발 실행은 `lov
 
 ![에디터 구성](images/editor-overview.svg)
 
-모든 에셋은 Assets 아래에 자유롭게 정리합니다. .meta ID로 참조하므로 이동·이름 변경은 에디터나 CLI로 수행합니다. 이전 Sources 폴더는 충돌이 없을 때 Assets/Scripts로 옮겨집니다. 옛 컴포넌트 코드·Prefab은 수동 전환이 필요합니다.
+모든 에셋은 Assets 아래에 자유롭게 정리합니다. assets.json의 ID로 참조하므로 이동·이름 변경은 에디터나 CLI로 수행합니다. 이전 Sources 폴더는 충돌이 없을 때 Assets/Scripts로 옮겨집니다. 옛 컴포넌트 코드·Prefab은 수동 전환이 필요합니다.
 
 예제는 tests/TestProject입니다. NewClass의 노출·비노출 프로퍼티, Sprite, 자손, object/script 참조와 런타임 생성 예제를 포함합니다. [스크립트와 Prefab](objects.md), [Lua API](lua-api.md), [CLI](../cli-and-export.md)를 이어서 확인하세요.

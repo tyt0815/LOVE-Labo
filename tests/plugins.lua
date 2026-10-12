@@ -95,8 +95,9 @@ add("Plugin folders are sibling browser roots and the management list scrolls on
     assert(Operations.apply(p, "LaboEssentials", true, true))
     local browser = require("editor.AssetBrowser").new(p)
     browser.expanded.Assets = false; browser:rebuildTree()
-    Assert.equal(3, #browser.tree)
-    for _, node in ipairs(browser.tree) do Assert.equal(0, node.depth) end
+    Assert.equal(4, #browser.tree)
+    Assert.equal(p.name, browser.tree[1].name); Assert.equal(0, browser.tree[1].depth)
+    Assert.equal("Assets", browser.tree[2].reference); Assert.equal(1, browser.tree[2].depth)
     for _, entry in ipairs(browser.entries) do Assert.equal(nil, p.pluginAssets.groups[entry.reference]) end
     assert(browser:openFolder("Assets/User Plugins/Gameplay"))
     Assert.equal("User Plugins", browser.breadcrumb:items()[1].label)
