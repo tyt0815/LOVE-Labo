@@ -1,5 +1,16 @@
 # CLI와 게임 Export
 
+## 사용자 가이드 화면 캡처
+
+`love src --capture-guide <새 절대 경로>`는 임시 예제 프로젝트로 실제 UI를 재현하고 PNG·report.json을 저장한 뒤 종료합니다. Project Browser의 카드·하단 정보와 Inspector의 중첩 그룹도 포함합니다. 기존 사용자 프로젝트와 최근 프로젝트 설정은 변경하지 않습니다.
+
+```powershell
+love src --capture-guide C:/Temp/LaboGuideCapture
+python scripts/updateGuideImages.py C:/Temp/LaboGuideCapture
+```
+
+두 번째 명령은 캡처 원본과 번호 표시를 추가한 가이드 이미지를 갱신합니다. 결과 화면을 확인한 뒤 관련 안내문과 함께 반영합니다.
+
 ## Project·Level Script 부착
 
 `project.script.*`와 `level.script.*`는 GUI의 Project·레벨 Inspector와 같은 부착 편집 로직을 사용합니다.

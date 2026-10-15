@@ -16,6 +16,8 @@ for name in report["images"]:
     shutil.copyfile(source / (name + ".png"), target / (name + ".png"))
 
 marks = {
+    "project-browser-create": ("project-browser-create", [(1344, 56, 65, 23, "1"), (1256, 843, 48, 23, "2")]),
+    "project-browser": ("project-browser", [(325, 190, 92, 98, "1"), (720, 785, 687, 34, "2"), (1250, 843, 160, 24, "3")]),
     "script-context": ("script-context", [(1195, 275, 86, 17, "1"), (1195, 305, 86, 17, "2"), (1368, 259, 18, 17, "3")]),
     "asset-repair-picker": ("asset-repair-picker", [(370, 130, 17, 17, "1"), (720, 220, 290, 25, "2"), (964, 832, 36, 19, "3")]),
     "editor-overview": ("level-details", [(150, 260, 90, 175, "1"), (670, 280, 240, 160, "2"), (1240, 260, 140, 170, "3"), (620, 690, 360, 130, "4")]),

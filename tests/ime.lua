@@ -75,6 +75,7 @@ end)
 
 add("project start preserves composition on Tab and ignores late input in destination field", function()
     local start = ProjectStart.new(function() return true end)
+    start:selectEntry(1)
     start:textinput("한")
     start:textedited("글")
     start:keypressed("backspace")
@@ -93,6 +94,7 @@ end)
 
 add("project start click commits composition and places caret without replacing text", function()
     local start = ProjectStart.new(function() return true end)
+    start:selectEntry(1)
     local layout = start:layout()
     start:textinput("한")
     start:textedited("글")
@@ -193,6 +195,7 @@ end)
 
 add("project start renders preedit instead of lagging committed text", function()
     local start = ProjectStart.new(function() return true end)
+    start:selectEntry(1)
     start:textedited("한")
     local original, shown = Ui.field
     Ui.field = function(text, _, focused, composition)

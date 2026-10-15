@@ -30,6 +30,13 @@ function Capture.run(args)
             png:release(); pixels:release(); canvas:release()
             report.images[#report.images + 1] = name
         end
+        local browser = require("editor.ProjectStart").new(function() return true end, nil,
+            {entries = {{path = project.rootPath, name = project.name}}, saveRecent = function() end})
+        browser:selectEntry(2)
+        local editorApp = app
+        app = browser; shot("project-browser"); app = editorApp
+        browser:selectEntry(1)
+        app = browser; shot("project-browser-create"); app = editorApp
         assert(app:inspectAsset("Assets/L_Start.level")); app:draw(); shot("level-details")
         assert(project:createEntry("Assets", "lua", "Session", {scriptKind = "script"}))
         assert(Fs.writeAtomic(project:resolveSourceFile("Assets/Session.lua"), [[local Session = {properties = {

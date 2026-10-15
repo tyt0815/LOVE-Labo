@@ -5,18 +5,23 @@ local Ui = require("editor.Ui")
 local FolderDialog = require("editor.FolderDialog")
 local Ime = require("editor.ui.Ime")
 local Edit = require("editor.ui.TextEdit")
+local RecentProjects = require("editor.RecentProjects")
 
 local ProjectStart = {}
 ProjectStart.__index = ProjectStart
 
 local function rect(x, y, w, h) return { x = x, y = y, w = w, h = h } end
 
-function ProjectStart.new(onOpen, selectFolder)
+function ProjectStart.new(onOpen, selectFolder, options)
+    options = options or {}
     local self = setmetatable({
-        onOpen = onOpen, mode = "create", name = "New Project",
-        path = "", activeField = "name",
+        onOpen = onOpen, mode = "open", name = "",
+        path = "", activeField = "path", scroll = 0,
+        entries = options.entries or RecentProjects.load(), saveRecent = options.saveRecent or RecentProjects.save,
+        cancel = options.cancel or love.event.quit,
         replace = true, error = nil, selectFolder = selectFolder or FolderDialog.selectFolder
     }, ProjectStart)
+    love.window.setTitle("LÖVE Labo - Project Browser")
     self:setPath(love.filesystem.getUserDirectory())
     return self
 end
@@ -25,25 +30,62 @@ function ProjectStart:setPath(path)
     local previous = self.path
     -- 입력 출처와 OS에 관계없이 시작 화면의 경로 표기는 '/'로 통일한다.
     self.path = path:gsub("\\", "/")
+    if self.selected and self.selected > 1 and self.entries[self.selected - 1].path ~= self.path then self.selected = nil end
     if self.editState and self.editState.text == previous then self.editState.text = self.path end
+    if self.mode == "open" then
+        local ok, bytes = pcall(FileSystem.read, FileSystem.join(self.path, Project.FILE_NAME))
+        local data = ok and bytes and require("editor.Json").decode(bytes)
+        self.name = type(data) == "table" and type(data.name) == "string" and data.name or ""
+    end
 end
 
 function ProjectStart:layout()
     local w, h = love.graphics.getDimensions()
-    local left, top = math.max(16, (w - 680) / 2), math.max(16, (h - 460) / 2)
-    local width = math.min(680, w - 32)
-    local createWidth = Ui.buttonWidth("New project")
-    local browseWidth = Ui.buttonWidth("Browse")
-    local form = {
-        panel = rect(left, top, width, 460),
-        create = rect(left + 24, top + 80, createWidth, 36),
-        open = rect(left + 24 + createWidth + Ui.METRICS.buttonGap, top + 80, Ui.buttonWidth("Open project"), 36),
-        name = rect(left + 24, top + 158, width - 48, 38),
-        path = rect(left + 24, top + 234, width - 48 - browseWidth - Ui.METRICS.buttonGap, 38),
-        browse = rect(left + width - 24 - browseWidth, top + 234, browseWidth, 38),
-        submit = rect(left + 24, top + 352, Ui.buttonWidth(self.mode == "create" and "Create project" or "Open project"), 42)
-    }
+    local left, width, bottom = 24, w - 48, h - 156
+    local nameWidth = math.min(280, width * 0.32)
+    local openWidth = Ui.buttonWidth("Open Existing")
+    local form = {panel = rect(left, 24, width, h - 48),
+        openExisting = rect(left + width - openWidth - 16, 40, openWidth, 32),
+        grid = rect(left + 16, 96, width - 32, bottom - 112),
+        path = rect(left + 16, bottom + 32, width - nameWidth - 48, 34),
+        name = rect(left + width - nameWidth - 16, bottom + 32, nameWidth, 34),
+        cancel = rect(left + width - 104, h - 74, 88, 34),
+        submit = rect(left + width - 204, h - 74, 88, 34),
+        browse = rect(left + width - 316, h - 74, 100, 34)}
+    form.columns = math.max(1, math.floor((form.grid.w + 16) / 196))
+    form.cardWidth, form.cardHeight = 180, 190
+    local rows = math.ceil((#self.entries + 1) / form.columns)
+    self.maxScroll = math.max(0, rows * 206 - 16 - form.grid.h)
+    self.scroll = math.max(0, math.min(self.scroll, self.maxScroll))
+    form.cards = {}
+    for index = 1, #self.entries + 1 do
+        form.cards[index] = rect(form.grid.x + ((index - 1) % form.columns) * 196,
+            form.grid.y + math.floor((index - 1) / form.columns) * 206 - self.scroll, 180, 190)
+    end
     return form
+end
+
+function ProjectStart:selectEntry(index)
+    self:finishComposition()
+    self.selected, self.error = index, nil
+    if index == 1 then
+        self.mode, self.name, self.activeField = "create", "New Project", "name"
+        self:setPath(love.filesystem.getUserDirectory())
+    else
+        local entry = self.entries[index - 1]
+        self.mode, self.name, self.activeField = "open", entry.name, "path"
+        self:setPath(entry.path)
+    end
+    self.replace = true
+    Edit.begin(self, self[self.activeField], true)
+end
+
+function ProjectStart:useOpenMode()
+    self:finishComposition()
+    self.mode, self.selected, self.error = "open", nil, nil
+    self:setPath(self.path)
+    self.activeField, self.replace = "path", true
+    Edit.begin(self, self.path, true)
 end
 
 function ProjectStart:submit()
@@ -60,6 +102,9 @@ function ProjectStart:submit()
     if not called then self.error = tostring(opened); return false, self.error end
     if opened == false then self.error = openError; return false, openError end
     self.error = nil
+    self.entries = RecentProjects.remember(self.entries, project)
+    -- 최근 목록 저장 실패는 이미 성공한 프로젝트 열기를 취소하지 않는다.
+    pcall(self.saveRecent, self.entries)
     return true
 end
 
@@ -69,7 +114,9 @@ function ProjectStart:browse()
     local ok, path, err = pcall(self.selectFolder, self.path, title)
     if not ok then self.error = tostring(path); return end
     if err then self.error = err; return end
-    if path then self:setPath(path); self.error = nil end
+    if path then
+        self:setPath(path); self.error = nil; self.selected = nil
+    end
     self.activeField, self.replace = "path", true
     Edit.begin(self, self.path, true)
 end
@@ -79,36 +126,60 @@ function ProjectStart:draw()
     local p = layout.panel
     love.graphics.push("all")
     Theme.clear("background")
-    Theme.setColor("panel")
-    love.graphics.rectangle("fill", p.x, p.y, p.w, p.h, 8, 8)
-    Ui.text("LOVE Labo", p.x + 24, p.y + 22)
-    Ui.text("Create or open a project to start editing.", p.x + 24, p.y + 48)
-    Ui.button("New project", layout.create, self.mode == "create")
-    Ui.button("Open project", layout.open, self.mode == "open")
-    if self.mode == "create" then
-        Ui.text("Project name", p.x + 24, p.y + 136)
-        Ui.field(self.activeField == "name" and Ime.display(self, self.name, self.replace) or self.name,
-            layout.name, self.activeField == "name", self.activeField == "name" and self.composition, self)
-    else
-        Ui.text("Select a folder containing " .. Project.FILE_NAME .. ".", p.x + 24, p.y + 158, p.w - 48)
+    Ui.panel(p.x, p.y, p.w, p.h)
+    Ui.label("Project Browser", p.x + 16, p.y + 18)
+    Ui.text("Recent projects", p.x + 16, p.y + 46, p.w - 32, Theme.color("textMuted"))
+    if self.mode == "create" then Ui.button("Open Existing", layout.openExisting) end
+    love.graphics.push("all")
+    local grid = layout.grid
+    love.graphics.intersectScissor(grid.x, grid.y, grid.w, grid.h)
+    for index, card in ipairs(layout.cards) do
+        if card.y + card.h >= grid.y and card.y < grid.y + grid.h then
+            local selected = self.selected == index
+            Ui.row(card, selected)
+            Theme.setColor("surface")
+            love.graphics.rectangle("fill", card.x + 8, card.y + 8, card.w - 16, 126, 4, 4)
+            Theme.setColor(index == 1 and "textMuted" or "iconBorder")
+            if index == 1 then
+                local cx, cy = card.x + card.w / 2, card.y + 70
+                love.graphics.setLineWidth(2)
+                love.graphics.line(cx - 16, cy, cx + 16, cy)
+                love.graphics.line(cx, cy - 16, cx, cy + 16)
+            else
+                local cx, cy = card.x + card.w / 2, card.y + 70
+                love.graphics.setLineWidth(2)
+                love.graphics.rectangle("line", cx - 35, cy - 27, 70, 54, 4, 4)
+                love.graphics.line(cx - 35, cy + 12, cx - 12, cy - 7, cx + 3, cy + 7, cx + 17, cy - 12, cx + 35, cy + 12)
+                love.graphics.circle("line", cx - 15, cy - 13, 5)
+            end
+            local entry = self.entries[index - 1]
+            Ui.label(entry and entry.name or "New Project", card.x + 10, card.y + 145, card.w - 20)
+            Ui.text(entry and "Labo project" or "Create a project", card.x + 10, card.y + 167, card.w - 20, Theme.color("textMuted"))
+            Theme.setColor(selected and "iconBorder" or "border")
+            love.graphics.setLineWidth(selected and 2 or 1)
+            love.graphics.rectangle("line", card.x + 0.5, card.y + 0.5, card.w - 1, card.h - 1, 4, 4)
+        end
     end
-    Ui.text(self.mode == "create" and "Parent folder" or "Project folder", p.x + 24, p.y + 212)
+    love.graphics.pop()
+    Theme.setColor("border")
+    love.graphics.line(p.x, layout.path.y - 30, p.x + p.w, layout.path.y - 30)
+    Ui.text(self.mode == "create" and "Project Location (parent folder)" or "Project Location", layout.path.x, layout.path.y - 22)
+    Ui.text("Project Name", layout.name.x, layout.name.y - 22)
     Ui.field(self.activeField == "path" and Ime.display(self, self.path, self.replace) or self.path,
         layout.path, self.activeField == "path", self.activeField == "path" and self.composition, self)
+    Ui.field(self.activeField == "name" and Ime.display(self, self.name, self.replace) or self.name,
+        layout.name, self.activeField == "name", self.activeField == "name" and self.composition, self)
+    if self.error then Ui.text(self.error, layout.path.x, layout.path.y + 43, p.w - 360, Theme.color("error")) end
     Ui.button("Browse", layout.browse)
-    if self.mode == "create" then
-        Ui.text("Create: " .. FileSystem.join(self.path, self.name), p.x + 24, p.y + 290, p.w - 48)
-    end
-    if self.error then Ui.text(self.error, p.x + 24, p.y + 316, p.w - 48, Theme.color("error")) end
-    Ui.button(self.mode == "create" and "Create project" or "Open project", layout.submit, true)
-    Ui.text("Tab: next field    Enter: confirm    Ctrl+V: paste path", p.x + 24, p.y + 412, p.w - 48)
+    Ui.button(self.mode == "create" and "Create" or "Open", layout.submit, true)
+    Ui.button("Cancel", layout.cancel)
     love.graphics.pop()
 end
 
-function ProjectStart:mousepressed(x, y, button)
+function ProjectStart:mousepressed(x, y, button, presses)
     if button ~= 1 then return end
     local r = self:layout()
-    local sameField = self.activeField and Ui.contains(x, y, r[self.activeField])
+    local sameField = self.activeField and (self.activeField ~= "name" or self.mode == "create") and Ui.contains(x, y, r[self.activeField])
     if sameField then
         self:finishComposition()
         Edit.press(self, self[self.activeField], r[self.activeField], x, false)
@@ -116,19 +187,35 @@ function ProjectStart:mousepressed(x, y, button)
         return
     end
     self:finishComposition()
-    if Ui.contains(x, y, r.create) then self.mode = "create"; self.activeField = "name"; self.error = nil
-    elseif Ui.contains(x, y, r.open) then self.mode = "open"; self.activeField = "path"; self.error = nil
+    if Ui.contains(x, y, r.cancel) then self.cancel(); return
+    elseif self.mode == "create" and Ui.contains(x, y, r.openExisting) then self:useOpenMode(); return
     elseif self.mode == "create" and Ui.contains(x, y, r.name) then self.activeField = "name"
     elseif Ui.contains(x, y, r.path) then self.activeField = "path"
     elseif Ui.contains(x, y, r.browse) then
         self:browse()
     elseif Ui.contains(x, y, r.submit) then self:submit()
-    else self.activeField = nil end
+    else
+        self.activeField = nil
+        if Ui.contains(x, y, r.grid) then
+            for index, card in ipairs(r.cards) do
+                if Ui.contains(x, y, card) then
+                    self:selectEntry(index)
+                    if index > 1 and presses == 2 then self:submit() end
+                    return
+                end
+            end
+        end
+    end
     self.replace = true
     if self.activeField then
         Edit.begin(self, self[self.activeField], true)
         if Ui.contains(x, y, r[self.activeField]) then Edit.press(self, self[self.activeField], r[self.activeField], x, true) end
     end
+end
+
+function ProjectStart:wheelmoved(_, dy)
+    self:layout()
+    self.scroll = math.max(0, math.min(self.maxScroll, self.scroll - dy * 54))
 end
 
 function ProjectStart:mousemoved(x) return Edit.move(self, x) end
@@ -154,7 +241,10 @@ end
 
 function ProjectStart:keypressed(key)
     if Ime.handlesKey(self, key) then return end
-    if key == "escape" then Ime.cancel(self); return end
+    if key == "escape" then
+        if self.composition then Ime.cancel(self) else self.cancel() end
+        return
+    end
     if Ime.endsComposition(key) then self:finishComposition() end
     if key == "return" or key == "kpenter" then
         self:submit()
