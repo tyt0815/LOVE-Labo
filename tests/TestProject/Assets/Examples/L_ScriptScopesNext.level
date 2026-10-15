@@ -1,0 +1,34 @@
+{
+  "formatVersion": 3,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "name": "FixedActor 1",
+      "scripts": [
+        {
+          "id": "c2fb81bc-ed90-467c-aaae-ed9f91524bb8",
+          "name": "FixedActor",
+          "source": "64cbfae8-a0b6-4ec3-a2a1-58073a208804"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  ],
+  "propertyOverrides": {},
+  "scriptOverrides": {
+    "490cef6a-bd15-462a-bc5e-d8e7ffb91a2f": {
+      "levelTitle": "Second level",
+      "nextLevel": "6dc36065-d286-465a-ba5c-060dafec246d"
+    }
+  },
+  "scripts": [
+    {
+      "id": "490cef6a-bd15-462a-bc5e-d8e7ffb91a2f",
+      "name": "scopeLevel",
+      "source": "ce64f96e-3612-4335-8200-fbae85f7c909"
+    }
+  ]
+}

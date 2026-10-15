@@ -87,6 +87,11 @@ local COMMANDS = {"project.create", "project.info", "project.refresh", "project.
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
     "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.events", "level.view", "level.set-camera",
     "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.script.rename", "instance.reorder", "export"}
+for _, scope in ipairs({"project", "level"}) do
+    for _, action in ipairs({"get", "add", "remove", "move", "rename", "set", "reset"}) do
+        COMMANDS[#COMMANDS + 1] = scope .. ".script." .. action
+    end
+end
 local function execute(request)
     local command = required(request, "command")
     if command:match("^script%.") then
@@ -112,6 +117,9 @@ local function execute(request)
         return {project = project.rootPath, name = project.name}
     end
     local project = assert(Project.open(absolute(required(request, "project"))))
+    if command:match("^project%.script%.") or command:match("^level%.script%.") then
+        return require("editor.CliScopes").execute(project, request, api)
+    end
     if command == "project.examples" then local ok, result = require("editor.ApiExamples").create(project); assert(ok, result); return result end
     if command == "project.repair-plan" or command == "project.refresh" then return require("editor.AssetRepair").plan(project) end
     if command == "project.repair" then

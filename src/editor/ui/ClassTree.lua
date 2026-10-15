@@ -8,7 +8,7 @@ function Tree.new(project, kind)
     local self = setmetatable(Widget.new(), Tree)
     self.project, self.kind, self.expanded, self.scroll = project, kind, {}, 0
     self.records, self.roots = {}, {}
-    for _, base in ipairs(kind == "lua" and {"script", "level"} or {kind == "level" and "level" or "lobject"}) do
+    for _, base in ipairs(kind == "lua" and {"script"} or {kind == "level" and "level" or "lobject"}) do
         local key = "builtin:" .. base
         local node = {reference = key, name = base == "level" and "Level" or base == "script" and "Script" or "LObject",
             kind = base, parentReference = base == "script" and "Script" or nil, children = {}}

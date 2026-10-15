@@ -12,7 +12,7 @@ function Transition.bind(project, world)
         if not data then return false, decodeError end
         if data.formatVersion ~= 1 and data.formatVersion ~= 2 and data.formatVersion ~= 3 then return false, "Unsupported level format version" end
         -- 파일 구조와 객체 관계를 검증하되 load는 프레임 경계까지 실행하지 않는다.
-        local prepared, class, initial, loadClass = require("runtime.WorldLoader").prepare(project, data)
+        local prepared, class, initial, loadClass = require("runtime.WorldLoader").prepare(project, data, world.project)
         if not prepared then return false, class end
         world.pendingLevel = {reference = project:getAssetId(path) or path, world = prepared, class = class, initial = initial, loadClass = loadClass}
         world.levelTransitionError = nil
@@ -25,12 +25,12 @@ function Transition.bind(project, world)
         pending.world.debug = world.debug
         local called, candidate, err = pcall(require("runtime.WorldLoader").activate, project, pending.world, pending.class, pending.initial, pending.loadClass)
         if not called or not candidate then
-            pending.world:dispose()
+            pending.world:dispose(true)
             world.levelTransitionError = tostring(called and err or candidate)
             return nil, world.levelTransitionError
         end
         candidate.levelReference = pending.reference
-        local ok, cleanupError = world:dispose()
+        local ok, cleanupError = world:dispose(true)
         if not ok then candidate.levelTransitionError = cleanupError end
         return candidate, cleanupError
     end

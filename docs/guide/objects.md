@@ -5,6 +5,28 @@ Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그
 
 **Lua 스크립트는 행동 정의**, **Prefab은 오브젝트 계층과 부착 구성의 저장 에셋**, **인스턴스는 레벨에 배치한 실체**입니다. LObject에는 여러 스크립트를 부착할 수 있습니다.
 
+## Inspector 대상과 Script 그룹
+
+1. Object·Prefab·레벨 에셋을 선택하면 **Selection** 탭에 해당 설정이 표시됩니다. 레벨은 한 번 선택해 부착을 편집하고, 더블클릭하면 Scene View에서 엽니다.
+2. 프로젝트 전체 Script는 **Project** 탭에서 Add Script로 부착합니다. Project 설정의 Save는 프로젝트 설정을 저장합니다. 레벨·Project 초안은 Save All과 Undo/Redo에 포함됩니다.
+3. 빈 공간 클릭은 선택을 해제합니다. 레벨 설정을 보려면 레벨 에셋을 명시적으로 선택합니다.
+
+![프로젝트 탭과 부착 Script](images/project-details.svg)
+
+이미지의 1은 Project 탭, 2는 부착 헤더와 내부 프로퍼티 그룹, 3은 해당 설정의 Save입니다. Project Script는 레벨을 바꿔도 같은 실행 인스턴스를 유지합니다.
+
+Script는 `sprite (Player)`처럼 **부착 이름 (타입)** 헤더 하나로 표시합니다. 그 안의 Bounds·Movement·Script는 프로퍼티 분류이며 추가 부착이 아닙니다. 그룹 없는 필드는 부착 헤더 바로 아래에 표시합니다. 원본 돋보기·부착 제거와 우클릭의 Rename·Copy ID·Move Up/Down은 상위 부착 헤더에서 사용합니다.
+
+![부착 안에 중첩된 프로퍼티 그룹](images/sprite-details.svg)
+
+이미지의 1은 실제 부착, 2는 그 안의 Bounds·Movement 그룹입니다. 상위 부착을 접으면 내부 그룹 전체가 숨겨집니다. 돋보기는 프로젝트 Lua와 플러그인 Lua 모두 원본 에셋 위치를 표시합니다.
+
+다른 레벨 에셋의 설정을 편집해도 현재 Scene은 바뀌지 않습니다. 그 레벨의 객체·스크립트·Main Camera를 선택할 때는 해당 레벨 안의 후보 목록을 사용합니다. 현재 열린 레벨을 선택하면 같은 미저장 문서를 편집합니다.
+
+레벨을 이동하거나 이름을 바꾸면 Inspector에서 보관 중인 초안도 같은 에셋 ID를 따라갑니다. Save·Save All은 현재 위치에 저장하며, 이동 Undo/Redo 후에도 이전 위치에 파일을 다시 만들지 않습니다. 저장된 레벨을 CLI나 외부 도구로 수정한 뒤 다시 선택하거나 열면 최신 내용을 읽습니다. 이때 이전 문서 Undo 기록은 초기화합니다. 미저장 초안은 외부 파일로 교체하지 않고 유지합니다.
+
+## Object와 Prefab 작성
+
 ![Prefab Inspector](images/prefab-details.png)
 
 1. File → New → Lua Class에서 부모 Script 또는 편의 스크립트를 고릅니다. 경로는 모두 Assets 안입니다.

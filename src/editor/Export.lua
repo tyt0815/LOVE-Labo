@@ -72,7 +72,8 @@ end
     end
     local data = level:toData()
     data.lobjects = Json.array(data.lobjects)
-    add("game.json", assert(Json.encode({version = 1, level = data, metadata = metadata, plugins = plugins}, true)))
+    add("game.json", assert(Json.encode({version = 1, level = data, metadata = metadata, plugins = plugins,
+        scripts = Json.array(require("project.ScriptAttachments").copy(project.scripts)), scriptOverrides = project.scriptOverrides}, true)))
     local bytes = require("editor.Zip").encode(entries)
     local made, makeError = ensureFolder(Fs.parent(output))
     if not made then return false, makeError end

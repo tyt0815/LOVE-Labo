@@ -9,6 +9,8 @@ function Input.dispatch(world, kind, x, y, button, dx, dy, context)
     context = context or {image = function() end}
     world.pointerCaptures = world.pointerCaptures or {}
     local live = {}; for _, object in ipairs(world.lobjects) do live[object] = true end
+    live[world] = true
+    if world.project then live[world.project] = true end
     for id, script in pairs(world.pointerCaptures) do
         if not live[script.owner] or script.owner.scripts[script.id] ~= script or script.properties.enabled == false then world.pointerCaptures[id] = nil end
     end
@@ -24,7 +26,10 @@ function Input.dispatch(world, kind, x, y, button, dx, dy, context)
             if not seen[script] then candidates[#candidates + 1] = script; seen[script] = true end
         end
     else
-        local entries = require("core.ScriptOrder").entries(world.lobjects, "pointer", function(script) return script.properties.enabled ~= false end)
+        local hosts = {}; for _, object in ipairs(world.lobjects) do hosts[#hosts + 1] = object end
+        table.insert(hosts, 1, world)
+        if world.project then table.insert(hosts, 1, world.project) end
+        local entries = require("core.ScriptOrder").entries(hosts, "pointer", function(script) return script.properties.enabled ~= false end)
         for index = #entries, 1, -1 do candidates[#candidates + 1] = entries[index].script end
     end
     local result = {consumed = false, targets = {}}

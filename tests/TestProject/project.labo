@@ -1,5 +1,13 @@
 {
-    "defaultLevelReference": "b3c66a66-f009-40fb-aa41-d92e1cad3a94",
-    "name": "TestProject",
-    "version": 2
+  "defaultLevelReference": "b3c66a66-f009-40fb-aa41-d92e1cad3a94",
+  "name": "TestProject",
+  "scriptOverrides": {},
+  "scripts": [
+    {
+      "id": "17665348-f5a2-4954-b2e1-f9ba10aed9b0",
+      "name": "scopeSession",
+      "source": "2e7713a2-6819-4dad-a3b0-aaea4c004b75"
+    }
+  ],
+  "version": 2
 }

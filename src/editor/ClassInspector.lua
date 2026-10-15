@@ -77,7 +77,8 @@ function ClassInspector:reload()
         local properties = {}
         for name, declaration in pairs(self.class and self.class.properties or {}) do properties[name] = declaration end
         properties["$mainCamera"] = {type = "object", default = false, field = "Main Camera", group = "Camera"}
-        self.class = {properties = properties, className = self.class and (self.class.className or LuaScript.name(self.class)) or "Level"}
+        self.class = {properties = properties, scriptTypes = self.class and self.class.scriptTypes,
+            className = self.class and (self.class.className or LuaScript.name(self.class)) or "Level"}
     end
     if not self.preview then self.selectedScript = nil end
     self.allNames = {}
@@ -314,7 +315,7 @@ end
 
 function ClassInspector:saveRect()
     local width = Ui.buttonWidth("Save")
-    return {x = self.left + self.width - Ui.METRICS.contentPaddingX - width, y = (self.top or 0) + 8, w = width, h = 26}
+    return {x = self.left + self.width - Ui.METRICS.contentPaddingX - width, y = (self.panelTop or self.top or 0) + 8, w = width, h = 26}
 end
 function ClassInspector:parentPickRect()
     local rect = self:parentBrowseRect()
@@ -422,7 +423,7 @@ function ClassInspector:choices(name, value)
     return dropdown
 end
 
--- 선택 대상의 그룹은 같은 깊이로 배치하고, 이미지 행을 포함해 픽셀 단위로 스크롤한다.
+-- 부착 단위 안에 프로퍼티 그룹을 중첩해 원본·부착 조작과 필드 분류를 구분한다.
 function ClassInspector:rebuildRows()
     local rows = {}
     self.names = {}
@@ -455,6 +456,17 @@ function ClassInspector:rebuildRows()
             if b == defaultGroup then return false end
             return a < b
         end)
+        local scriptHeader
+        if script then
+            local displayName = self.preview.scripts[script].name
+            scriptHeader = {scriptId = script, header = true, label = displayName .. " (" .. defaultGroup .. ")",
+                groupKey = "script:" .. script, height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}
+            rows[#rows + 1] = scriptHeader
+            if self.groupExpanded[scriptHeader.groupKey] == false then
+                rows[#rows + 1] = {gap = true, height = 8}
+                return
+            end
+        end
         local rank = {}; for index, field in ipairs(require("core.Transform").ORDER) do rank[field] = index end
         for _, group in ipairs(groupNames) do
             table.sort(groups[group], function(a, b)
@@ -465,18 +477,23 @@ function ClassInspector:rebuildRows()
                 return a < b
             end)
             local key = (script and "script:" .. script or "object") .. "/" .. group
-            local displayName = script and self.preview and self.preview.scripts[script] and self.preview.scripts[script].name or script
-            local label = script and (displayName .. " (" .. defaultGroup .. ")" .. (group ~= defaultGroup and " / " .. group or "")) or group
-            local header = {scriptId = script, header = true, label = label, groupKey = key, height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}
-            rows[#rows + 1] = header
-            if self.groupExpanded[key] ~= false then
+            -- 그룹이 없는 필드는 부착 헤더 바로 아래에 두고 명시적 그룹만 한 단계 들여쓴다.
+            local nested = script and group ~= defaultGroup
+            local header = {header = true, label = group, groupKey = key, depth = nested and 1 or 0,
+                height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}
+            if not script or nested then rows[#rows + 1] = header end
+            if script and not nested or self.groupExpanded[key] ~= false then
                 for _, name in ipairs(groups[group]) do
-                    local row = {name = name, height = PropertyLayout.ROW_HEIGHT * (self.class.properties[name].type == "image" and 2 or 1)}
+                    local row = {name = name, depth = script and (nested and 2 or 1) or 0,
+                        height = PropertyLayout.ROW_HEIGHT * (self.class.properties[name].type == "image" and 2 or 1)}
                     rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height
                 end
             end
-            rows[#rows + 1] = {gap = true, height = 8}
+            if scriptHeader then
+                scriptHeader.groupHeight = scriptHeader.groupHeight + header.groupHeight - (not nested and PropertyLayout.HEADER_HEIGHT or 0)
+            else rows[#rows + 1] = {gap = true, height = 8} end
         end
+        if scriptHeader then rows[#rows + 1] = {gap = true, height = 8} end
     end
     addScope(nil)
     if self.preview then
@@ -497,6 +514,7 @@ function ClassInspector:ensurePropertyVisible(name)
     local declaration = assert(self.class.properties[name], "Missing property " .. name)
     local script = not declaration.rootTransform and declaration.script or nil
     if script and script ~= self.selectedScript then self:selectScript(script) end
+    if script then self.groupExpanded["script:" .. script] = true end
     local group = declaration.rootTransform and "Transform" or declaration.group or (script and self.class.scriptTypes[script]
         or self.class.className or LuaScript.name(self.class) or "LObject")
     self.groupExpanded[(script and "script:" .. script or "object") .. "/" .. group] = true
@@ -600,7 +618,8 @@ function ClassInspector:draw()
             self.tree:draw()
             Ui.resizeGrip(self:treeGrip(self.tree))
         elseif row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
-            PropertyLayout.group(self.left, self.contentWidth or self.width, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false, row.scriptId and 60 or 0)
+            local indent = (row.depth or 0) * 14
+            PropertyLayout.group(self.left + indent, (self.contentWidth or self.width) - indent, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false, row.scriptId and 60 or 0)
             if row.scriptId then
                 local actions = self:scriptHeaderRects(y)
                 Ui.browseButton(actions.browse, self:scriptSource(row.scriptId) ~= nil, "Locate script asset")
@@ -615,6 +634,8 @@ function ClassInspector:draw()
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
             local labelRect, rect = PropertyLayout.cells(self.left, self.width, y)
+            local indent = (row.depth or 0) * 14
+            labelRect.x, labelRect.w = labelRect.x + indent, math.max(0, labelRect.w - indent)
             if declaration.type == "image" then
                 local imageRects = self:imageRects(y)
                 rect = imageRects.selector
@@ -742,7 +763,7 @@ function ClassInspector:mousepressed(x, y, button)
         if Ui.contains(x, y, self:scriptActionRect(top)) then
             if row.scriptActions and self.target.addScript then self:commitEdit(); self:showAddScript(top); return true end
         end
-        if row.header and y >= top and y < top + row.height then
+        if row.header and x >= self.left + Ui.METRICS.contentPaddingX + (row.depth or 0) * 14 and y >= top and y < top + row.height then
             self:commitEdit()
             self.groupExpanded[row.groupKey] = self.groupExpanded[row.groupKey] == false
             self:rebuildRows()
@@ -824,7 +845,8 @@ function ClassInspector:scriptSource(id)
     local source = script and script.source
     local plugin = source and self.project.plugins.scripts[source]
     if plugin then source = plugin.id end
-    return source and self.project:getAssetId(source) and source or nil
+    local reference = source and self.project:getAssetReference(source)
+    return reference and self.project:getAssetId(reference) and reference or nil
 end
 function ClassInspector:showAddScript(y)
     if not self.target.addScript then return false end

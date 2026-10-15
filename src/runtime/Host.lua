@@ -59,6 +59,8 @@ function Host.load(args)
             local report = {ok = failure == nil, error = failure, objects = world and #world.lobjects,
                 elapsedTime = world and world.elapsedTime, levelReference = world and world.levelReference, transitionError = world and world.levelTransitionError, editorLoaded = package.loaded["editor.EditorApp"] ~= nil}
             if world then
+                report.projectScripts = world.project and require("runtime.ScriptState").read(world.project)
+                report.levelScripts = require("runtime.ScriptState").read(world)
                 local width, height = love.graphics.getDimensions()
                 local viewport = require("core.Viewport").new(world, 0, 0, width, height)
                 report.view = {scale = viewport.scale, camera = viewport.camera and viewport.camera.name,

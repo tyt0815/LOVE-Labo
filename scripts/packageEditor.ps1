@@ -32,6 +32,9 @@ foreach ($taskFolder in @('core', 'editor', 'project', 'runtime')) {
         ForEach-Object { $_.FullName.Substring($taskSource.Length + 1).Replace('\', '/') }
 }
 $taskFiles += @('editor/fonts/NanumSquareRoundR.ttf', 'editor/fonts/NanumSquareRoundB.ttf', 'editor/fonts/OFL.txt')
+# 제공 플러그인은 Lua 외의 매니페스트·목록·에셋도 같은 경로로 포함한다.
+$taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskSource 'plugins') -Recurse -File |
+    ForEach-Object { $_.FullName.Substring($taskSource.Length + 1).Replace('\', '/') }
 $taskArchivePath = Join-Path $taskOutput 'Labo.love'
 $taskTemporaryArchive = Join-Path $taskOutput ('archive-' + [guid]::NewGuid().ToString('N') + '.tmp')
 $taskArchive = [IO.Compression.ZipFile]::Open($taskTemporaryArchive, [IO.Compression.ZipArchiveMode]::Create)

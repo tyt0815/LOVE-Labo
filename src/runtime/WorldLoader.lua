@@ -56,19 +56,37 @@ function Loader.bind(project, data, world, loadClass)
     if not ok then return false, err end
     local valid, referenceError = require("runtime.TemplateObjects").resolveReferences(project, world)
     if not valid then return false, referenceError end
+    local hosts = {world}
+    if world.project and not world.project.hasLoaded then hosts[#hosts + 1] = world.project end
+    for _, host in ipairs(hosts) do
+        for _, id in ipairs(host.scriptOrder) do
+            local script = host.scripts[id]
+            local resolved, resolveError = Definition.resolveReferences(script.properties, getmetatable(script).properties, byId, project)
+            if not resolved then return false, resolveError end
+        end
+    end
     local complete = require("core.ScriptOrder").objects(world.lobjects)
     return true, complete, loadClass
 end
 
 -- 검증 단계에서는 build·참조 해석까지만 수행하고 load를 실행하지 않는다.
-function Loader.prepare(project, data)
+function Loader.prepare(project, data, session)
     local _, cameraError = require("project.MainCamera").copy(type(data) == "table" and data.mainCamera)
     if cameraError then return nil, cameraError end
     local world, err = require("core.World").fromLevelData(data)
     if not world then return nil, err end
     world.assetDataLoader = function(reference) return require("project.AssetData").read(project, reference) end
     -- 레벨의 require와 부착·Spawn이 같은 클래스 테이블을 사용한다.
-    local loadClass = LuaScript.loader(project)
+    local loadClass = session and session.scriptLoader or LuaScript.loader(project)
+    if not session then
+        session = require("core.ScriptHost").new("project")
+        session.scriptLoader = loadClass
+        local configured, configureError = require("project.ScopedScripts").configure(session, project or {}, loadClass)
+        if not configured then return nil, configureError end
+    end
+    world.project = session
+    local configured, configureError = require("project.ScopedScripts").configure(world, data, loadClass)
+    if not configured then return nil, configureError end
     local class
     if data.scriptReference then
         if not project then return nil, "Level script requires a project" end
@@ -86,12 +104,21 @@ function Loader.prepare(project, data)
 end
 
 function Loader.activate(project, world, class, initial, loadClass)
+    local session, previous = world.project, world.project and world.project.world
+    if session then session.world = world end
     local function fail(err)
-        local ok, cleanupError = world:dispose()
+        local ok, cleanupError = world:dispose(previous ~= nil)
+        if previous then session.world = previous end
         return nil, tostring(err) .. (not ok and "\n" .. tostring(cleanupError) or "")
     end
     require("runtime.PrefabSpawner").bind(project, world, loadClass)
     require("runtime.LevelTransition").bind(project, world)
+    if session and not session.hasLoaded then
+        local ok, err = session:load(world)
+        if not ok then return fail(err) end
+    end
+    local loaded, loadError = require("core.ScriptHost").load(world, world)
+    if not loaded then return fail(loadError) end
     for _, object in ipairs(initial) do
         if object.world == world then
             local ok, err = object:load(world)

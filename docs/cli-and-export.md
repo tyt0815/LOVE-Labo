@@ -1,5 +1,35 @@
 # CLI와 게임 Export
 
+## Project·Level Script 부착
+
+`project.script.*`와 `level.script.*`는 GUI의 Project·레벨 Inspector와 같은 부착 편집 로직을 사용합니다.
+
+| 명령 끝부분 | 인자·기능 |
+|---|---|
+| get | 부착 목록·scriptIds·스키마·값·revision 조회 |
+| add | `--source` 원본, 선택적 `--script` 부착 이름 |
+| remove | `--script` 이름 또는 부착 ID |
+| rename | `--script`, `--name` |
+| move | `--script`, `--index` (1부터 시작) |
+| set | `--property 부착이름.필드`, `--value` 또는 `--value-json` |
+| reset | `--property 부착이름.필드` |
+
+Level 명령에는 `--level`을 지정합니다. 생략하면 프로젝트의 기본 레벨을 사용합니다. 쓰기 전 get의 revision을 `--revision`으로 전달하면 외부 변경을 감지합니다. Project 설정은 project.labo, Level 설정은 해당 .level에 저장합니다.
+
+```powershell
+love src --cli project script add --project tests/TestProject --source Assets/Examples/ScopeSession.lua --script manager
+love src --cli project script get --project tests/TestProject
+love src --cli level script get --project tests/TestProject --level Assets/Examples/L_ScriptScopes.level
+love src --cli level script set --project tests/TestProject --level Assets/Examples/L_ScriptScopes.level --property scopeLevel.fixedStep --value-json 0.02
+love src --cli level simulate --project tests/TestProject --level Assets/Examples/L_ScriptScopes.level --frames 3 --dt 0.033333
+```
+
+simulate 결과는 기존 instances에 더해 projectScripts·levelScripts 상태를 반환합니다. Project·Level 콜백도 실행하고, 레벨 전환 시 Project 인스턴스를 유지하며 종료 시 모두 정리합니다.
+
+`asset.delete`는 실제 파일이 없는 등록도 제거합니다. 사용 중인 ID는 기존 복구 창과 같은 참조 보호 정책으로 거부하며, 사라진 파일에는 내용 revision을 지정할 수 없습니다. GUI 삭제는 등록만 제거한 작업도 Undo/Redo할 수 있습니다.
+
+## 기본 사용
+
 개발판은 `love src --cli ...`, 배포판은 `Labo-cli.exe --cli ...`를 사용합니다. stdout은 JSON이며 실패는 `ok:false`와 오류를 반환합니다. `--request <UTF-8 JSON 파일>`로 배열·복잡한 값을 전달할 수 있습니다. 참조는 에셋 ID 또는 Assets 경로, 기본 레벨은 project.labo의 지정값입니다.
 
 ```powershell

@@ -18,6 +18,8 @@ end
 
 function World.new()
     local self = setmetatable({}, World)
+    require("core.ScriptHost").initialize(self, "level")
+    self.world = self
 
     self.lobjects = {}
     self.nextRuntimeId = 1
@@ -92,7 +94,7 @@ function World:removeLObject(object)
     self.updateOrderDirty = true
     return cleanupError == nil, cleanupError
 end
-function World:dispose()
+function World:dispose(preserveProject)
     if self.disposed then return true end
     self.disposed = true
     self:cancelPointer()
@@ -105,7 +107,22 @@ function World:dispose()
             if not ok and not cleanupError then cleanupError = err end
         end
     end
+    local ok, err = require("core.ScriptHost").unload(self)
+    if not ok and not cleanupError then cleanupError = err end
+    if self.project and not preserveProject and self.project.world == self then
+        local project = self.project
+        local cleaned, cleanup = project:unload()
+        project.world, project.disposed = nil, true
+        if not cleaned and not cleanupError then cleanupError = cleanup end
+    end
     return cleanupError == nil, cleanupError
+end
+for _, name in ipairs({"getScriptOrder", "getScriptById", "getScriptByName", "getScriptByClass", "getScriptsByClass", "getWorld", "getProject", "getWorldTransform"}) do
+    World[name] = require("core.ScriptHost")[name]
+end
+function World:getObjects()
+    local result = {}; for _, object in ipairs(self.lobjects) do result[#result + 1] = object end
+    return result
 end
 function World:getAssetData(reference)
     if self.disposed then return nil, "World is disposed" end
@@ -125,14 +142,18 @@ end
 function World:setActiveCamera(camera)
     if camera == nil then self.activeCamera = nil; return true end
     if type(camera) ~= "table" or not camera.camera or type(camera.getViewSize) ~= "function" or type(camera.getViewTransform) ~= "function" then return false, "Expected a camera script" end
-    for _, object in ipairs(self.lobjects) do
+    local hosts = self:getObjects(); table.insert(hosts, 1, self)
+    if self.project then table.insert(hosts, 1, self.project) end
+    for _, object in ipairs(hosts) do
         if camera.owner == object and object.scripts[camera.id] == camera then self.activeCamera = camera; return true end
     end
     return false, "Camera must belong to this World"
 end
 function World:getActiveCamera()
     local first
-    for _, object in ipairs(self.lobjects) do
+    local hosts = self:getObjects(); table.insert(hosts, 1, self)
+    if self.project then table.insert(hosts, 1, self.project) end
+    for _, object in ipairs(hosts) do
         for _, name in ipairs(object:getScriptOrder()) do
             local script = object.scripts[name]
             if script.camera and script.enabled ~= false then
@@ -173,6 +194,12 @@ function World:update(dt)
         self.updateOrderDirty = nil
     end
     local pending = {}; for _, object in ipairs(self.updateObjects) do pending[#pending + 1] = object end
+    local hosts = {self.project, self}
+    if not self.project then hosts = {self} end
+    for _, host in ipairs(hosts) do
+        local ok, err = require("core.ScriptHost").update(host, dt)
+        if not ok then return false, host.scope .. " script update failed: " .. tostring(err) end
+    end
     if self.levelScript and self.levelScript.update then
         local ok, result, err = pcall(self.levelScript.update, self, dt)
         if not ok or result == false then return false, "level script update failed: " .. tostring(ok and err or result) end

@@ -1,6 +1,7 @@
 # 0069. 스크립트 부착 식별자와 편집 구성 및 활성 상태
 
 - 상태: 승인·구현
+- 후속 확장: [0074](0074-scoped-scripts-and-screen-drawing.md)의 범위별 부착·세션 캐시와 [0075](0075-inspector-scope-tabs-and-nested-script-groups.md)의 Inspector 표시.
 - 초기화 콜백 명칭은 [ADR 0070](0070-load-lifecycle-callback.md)의 load로 통일한다.
 - 부분 대체: [0050](0050-attached-scripts-and-unified-assets.md), [0052](0052-local-scripts-and-fixed-inherited-topology.md)의 런타임 부착·제거 API
 

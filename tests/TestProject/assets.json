@@ -12,6 +12,12 @@
       "scriptKind": "script",
       "version": 1
     },
+    "Assets/Examples/FixedActor.lua": {
+      "hash": "83b25b7759017674464036bc7239d2ee471d2eb7d3513415c54afbc30581408a",
+      "id": "64cbfae8-a0b6-4ec3-a2a1-58073a208804",
+      "scriptKind": "script",
+      "version": 1
+    },
     "Assets/Examples/InputEvents.lua": {
       "hash": "703930faa241d77d182113ce0aaa4b05cab4191c6f63b6fd0a9a3b2bea317184",
       "id": "17ecece5-b84e-42de-97dc-75e467c8f5fb",
@@ -26,6 +32,16 @@
     "Assets/Examples/L_InputEvents.level": {
       "hash": "0f2933590f271e9ea2812966e4e16427961a912b347d6120d5f0babe5ff1f2f0",
       "id": "06bc0deb-d9b3-4e8c-a09a-b39bedd49f55",
+      "version": 1
+    },
+    "Assets/Examples/L_ScriptScopes.level": {
+      "hash": "e5440ce2130f0c8a30f887c8cab8d72292ef47ade5fd1093cca627f1073c861a",
+      "id": "6dc36065-d286-465a-ba5c-060dafec246d",
+      "version": 1
+    },
+    "Assets/Examples/L_ScriptScopesNext.level": {
+      "hash": "c0729faec45bce2b8588baa0db6e77fc185951415a8de87c635511f5ddcabc5e",
+      "id": "85cc0709-f8d5-4f05-a3e8-4c4654a133e1",
       "version": 1
     },
     "Assets/Examples/LevelDemo.lua": {
@@ -43,6 +59,18 @@
     "Assets/Examples/PF_Spawned.prefab": {
       "hash": "62f41fe1e2cfc00766a23c5143b93bcd8324e23a27ebe2fc3de38d9d43b0a463",
       "id": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
+      "version": 1
+    },
+    "Assets/Examples/ScopeLevel.lua": {
+      "hash": "d0b394c5b6ba7a1ff655a41c8e6017601a9dfdb84f78b7be13008c478dbbf846",
+      "id": "ce64f96e-3612-4335-8200-fbae85f7c909",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/ScopeSession.lua": {
+      "hash": "fbfc75cb686fdcb8959c91c9a23ff46b13b5edf5cf30ffd5a8f048b38283ff01",
+      "id": "2e7713a2-6819-4dad-a3b0-aaea4c004b75",
+      "scriptKind": "script",
       "version": 1
     },
     "Assets/Examples/Tile.png": {

@@ -1,6 +1,31 @@
 local Render = "draw"
 local Transform = require("core.Transform")
 local Renderer = {}
+local function invoke(script, callback, ctx, viewport, screen)
+    local owner = script.owner
+    if not owner or owner.scripts[script.id] ~= script or script.enabled == false or script.hasUnloaded then return end
+    love.graphics.push("all")
+    love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
+    love.graphics.origin()
+    if screen then love.graphics.translate(viewport.x, viewport.y)
+    else
+        local x, y = viewport:worldToScreen(0, 0)
+        local ax, ay = viewport:worldToScreen(1, 0)
+        local bx, by = viewport:worldToScreen(0, 1)
+        local affine = love.math.newTransform()
+        affine:setMatrix(ax - x, bx - x, 0, x, ay - y, by - y, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
+        love.graphics.applyTransform(affine); affine:release()
+    end
+    local ok, result, err = pcall(script[callback], script, ctx)
+    love.graphics.pop()
+    if not ok then error(result, 0) end
+    if result == false and err then error(err, 0) end
+end
+local function drawHost(host, callback, ctx, viewport, screen)
+    if not host then return end
+    local pending = {}; for _, id in ipairs(host.scriptOrder) do pending[#pending + 1] = host.scripts[id] end
+    for _, script in ipairs(pending) do if script[callback] then invoke(script, callback, ctx, viewport, screen) end end
+end
 local function context(imageFor)
     return {image = function(_, reference) if reference and reference ~= false then return imageFor(reference) end end}
 end
@@ -57,6 +82,8 @@ function Renderer.outline(object, imageFor, toScreen, measureOnly)
 end
 function Renderer.drawWorld(world, imageFor, viewport)
     local ctx, drawn = viewport:context(function(_, reference) return reference and reference ~= false and imageFor(reference) or nil end), {}
+    drawHost(world.project, "draw", ctx, viewport, false)
+    drawHost(world, "draw", ctx, viewport, false)
     local Space = require("core.CoordinateSpace")
     for _, entry in ipairs(require("core.ScriptOrder").entries(world.lobjects, Render)) do
         local script = entry.script
@@ -84,6 +111,11 @@ function Renderer.drawWorld(world, imageFor, viewport)
             drawn[owner] = drawn[owner] or result ~= false
         end
     end
+    for _, entry in ipairs(require("core.ScriptOrder").entries(world.lobjects, "drawScreen")) do
+        if entry.script.owner and entry.script.owner.world == world then invoke(entry.script, "drawScreen", ctx, viewport, true) end
+    end
+    drawHost(world, "drawScreen", ctx, viewport, true)
+    drawHost(world.project, "drawScreen", ctx, viewport, true)
     return drawn
 end
 return Renderer

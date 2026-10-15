@@ -9,7 +9,7 @@ function Instructions.files()
 - 게임 코드는 Assets에서 수정한다. 엔진 코어·DLL·배포 파일은 직접 수정하지 않는다.
 - 에셋 생성·이동·삭제·배치는 Labo-cli.exe 명령을 우선 사용하고 assets.json의 ID를 보존한다.
 - GUI에서 연 문서를 저장한 뒤 CLI로 수정한다. CLI 변경은 GUI Undo에 포함되지 않는다.
-- LObject는 Transform과 자손 계층을 소유한다. Lua 스크립트를 여러 개 부착하며 self.owner가 오브젝트다.
+- LObject는 Transform과 자손 계층을 소유한다. 같은 Script를 Project·Level·Object에 여러 개 부착하며 self.owner는 해당 등록 대상이다. getProject/getWorld로 실행 범위에 접근한다.
 - Prefab에서 스크립트를 추가·제거·정렬한다. 배치 인스턴스에도 로컬 스크립트를 추가한다. 상속한 오브젝트·스크립트의 구조는 고정하고 값만 재정의한다.
 - 클래스·파일 이름은 PascalCase, 변수·함수는 camelCase, 상수는 UPPER_SNAKE_CASE, 들여쓰기는 공백 4칸이다.
 ]]},
@@ -20,7 +20,10 @@ function Instructions.files()
 ## 오브젝트와 스크립트
 
 LObject는 Transform과 부모·자손을 가진다. 스크립트는 오브젝트를 상속하지 않고 독립 인스턴스로 부착된다.
-Lua 파일은 properties와 선택적인 load(world), update(dt), draw(context)를 가진 테이블을 반환한다.
+Lua 파일은 properties와 선택적인 load(world), update(dt), draw(context), drawScreen(context)를 가진 테이블을 반환한다.
+Project 탭·레벨 에셋 Inspector·Object에서 같은 Script를 부착한다. update는 Project → Level → Object 순서로 내장 호출한다.
+Project Script는 Play 동안 유지하고 Level Script는 World마다 새로 생성한다. self:getProject(), self:getWorld()와 각 호스트의 getScriptByName/Id/Class, getScriptsByClass를 사용한다.
+Object draw는 기존 Transform·카메라·Canvas를 적용한다. Project·Level draw는 월드 좌표이며 drawScreen은 모든 범위에서 게임 영역 왼쪽 위 (0, 0) 기준 픽셀 좌표다.
 편집 화면 표시는 drawEditor(context)에서 도형을 계산한다. 이때 load/update는 실행되지 않는다.
 world.debug:log/screenLog/point/line/circle/rect/polygon은 Editor Play에서만 표시되고 배포에서는 no-op이다.
 self는 스크립트이며 self.owner.transform, self.owner:getScriptByName(name), getScriptById(id), getScriptByClass(class), getScriptsByClass(class)로 오브젝트·다른 스크립트를 사용한다.

@@ -12,7 +12,7 @@ end
 function Camera:getViewTransform()
     local world = self.owner:getWorldTransform()
     local rotation, object = 0, self.owner
-    while object do rotation = rotation + (object.transform.rotation or 0); object = object.parent end
+    while object do rotation = rotation + (object.transform and object.transform.rotation or 0); object = object.parent end
     return {x = world.x, y = world.y, rotation = Transform.normalizeRotation(rotation), scaleX = 1, scaleY = 1}
 end
 function Camera:drawEditor(context)

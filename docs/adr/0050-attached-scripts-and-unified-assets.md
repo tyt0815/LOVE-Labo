@@ -1,6 +1,7 @@
 # 0050. LObject에 스크립트를 부착하고 에셋 루트를 통합한다
 
 - 상태: 승인·구현
+- 후속 확장: [0074](0074-scoped-scripts-and-screen-drawing.md)의 범위별 부착과 [0075](0075-inspector-scope-tabs-and-nested-script-groups.md)의 Inspector 표시.
 - 인스턴스 부착 제한은 [ADR 0052](0052-local-scripts-and-fixed-inherited-topology.md)에서 로컬 부착 허용으로 변경했다.
 - 대체 범위: [0017](0017-components-instance-properties-and-prefab-placement.md)의 컴포넌트 모델과 이후 컴포넌트 상속 구조. 계층 Prefab·스포이드·초안·카메라 투영 계약은 유지한다.
 

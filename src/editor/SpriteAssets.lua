@@ -5,7 +5,19 @@ function Assets.new(project)
 end
 function Assets:clear()
     for _, image in pairs(self.images) do if image then image:release() end end
-    self.images, self.previews, self.error = {}, setmetatable({}, {__mode = "k"}), nil
+    self.images, self.previews, self.error, self.scopePreviews = {}, setmetatable({}, {__mode = "k"}), nil, nil
+end
+function Assets:scopePreview(data, scope)
+    local signature = assert(require("project.Json").encode({scripts = data.scripts, scriptOverrides = data.scriptOverrides}))
+    self.scopePreviews = self.scopePreviews or {}
+    local cache = self.scopePreviews[scope]
+    if cache and cache.signature == signature then return cache.host end
+    local host = require("core.ScriptHost").new(scope)
+    host.isPreview = true
+    local ok, err = require("project.ScopedScripts").configure(host, data, require("project.LuaScript").loader(self.project))
+    self.scopePreviews[scope] = {signature = signature, host = ok and host or nil}
+    if not ok then self.error = err end
+    return ok and host or nil
 end
 function Assets:image(reference)
     if not reference then return nil end

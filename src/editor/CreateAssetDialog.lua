@@ -10,7 +10,7 @@ function Create.show(browser, folder, kind)
     local pathRoot = kind == "lua" and "Assets" or kind == "folder" and folder:match("^[^/]+") or "Assets"
     if folder ~= pathRoot and folder:sub(1, #pathRoot + 1) ~= pathRoot .. "/" then folder = pathRoot end
     local state = {folder = folder, name = defaults[kind]}
-    local parentTree = kind ~= "folder" and ClassTree.new(project, kind)
+    local parentTree = kind ~= "folder" and kind ~= "level" and ClassTree.new(project, kind)
     local showParent, showLocation
 
     showLocation = function()

@@ -18,6 +18,8 @@ function Simulation.execute(project, level, request)
                 name = object.name, transform = require("core.Transform").copy(object.transform), scripts = require("runtime.ScriptState").read(object)}
         end
         return {frames = frames, dt = dt, elapsedTime = world.elapsedTime, levelReference = world.levelReference, instances = instances,
+            projectScripts = world.project and require("runtime.ScriptState").read(world.project),
+            levelScripts = require("runtime.ScriptState").read(world),
             debug = debugSession and {history = debugSession.history, screens = debugSession.screens, shapes = debugSession.shapes} or nil}
     end)
 end

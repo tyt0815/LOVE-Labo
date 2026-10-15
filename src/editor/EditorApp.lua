@@ -85,6 +85,10 @@ function EditorApp:setDocument(document)
     self:cancelObjectPick()
     local reference = self.project and self.project:referenceForPath(document.path)
     self.documentAssetId = reference and self.project:getAssetId(reference) or nil
+    if self.scopeInspector then
+        if self.documentAssetId then self.scopeInspector:rememberLevelDocument(document, self.documentAssetId) end
+        self.scopeInspector.cachedTarget = nil
+    end
 
     -- Runtime World는 현재 document의 Level snapshot에서 만들어진다.
     -- document가 바뀌면 이전 Runtime은 폐기한다.
@@ -94,6 +98,7 @@ function EditorApp:setDocument(document)
     self.document = document
     self.inspectedAssetReference = nil
     self.inspectorSource = "scene"
+    self.inspector.tab = "Selection"
     self.sceneView.ping = nil
     self.instanceInspectorObject, self.instanceInspectorTarget = nil, nil
     if self.spriteAssets then self.spriteAssets:clear() end
@@ -413,13 +418,17 @@ function EditorApp:updateInspectorTarget()
     local selected = self.inspectedAssetReference and self.project:getAssetReference(self.inspectedAssetReference)
     self.inspectorSource = self.inspectorSource or "scene"
     local assetSelected = self.inspectorSource == "assets" and selected
+    if self.project and not self.scopeInspector then self.scopeInspector = require("editor.ScopeInspector").new(self) end
+    local projectTab = self.inspector.tab == "Project"
+    if projectTab then assetSelected = false end
     local prefab = assetSelected and self.prefabDocument
         and selected and self.project:getAssetId(selected) == self.prefabDocument.assetId
     local currentLevelAsset = assetSelected and self.documentAssetId
         and self.project:getAssetId(selected) == self.documentAssetId
     local object = not assetSelected and self.sceneView.selectedLObject or nil
     self.inspector.assetSummary = nil
-    if assetSelected and not prefab and not currentLevelAsset then
+    local levelAsset = assetSelected and selected:match("%.level$")
+    if assetSelected and not prefab and not levelAsset then
         local name = selected:match("([^/]+)$")
         local extension = name:match("%.([^%.]+)$")
         local _, info = self.project:checkedEntry(selected)
@@ -437,7 +446,13 @@ function EditorApp:updateInspectorTarget()
         self.inspector.assetSummary = {name = name, kind = kind, reference = selected}
     end
     local target
-    if object then
+    if projectTab then
+        object = nil
+        target = self.scopeInspector and self.scopeInspector:projectTarget()
+    elseif levelAsset then
+        object = nil
+        target = self.scopeInspector:levelTarget(self.project:getAssetId(selected))
+    elseif object then
         if self.instanceInspectorObject ~= object then
             self.inspector:commitEdit()
             self.instanceInspectorObject = object
@@ -451,20 +466,30 @@ function EditorApp:updateInspectorTarget()
         target = self.instanceInspectorTarget
     elseif not self.inspector.assetSummary then
         self.instanceInspectorObject = nil
-        target = prefab and self.prefabInspectorTarget or self.levelInspectorTarget
+        target = prefab and self.prefabInspectorTarget or nil
     end
     self.levelInspectorTarget.level = self.level
+    self.inspector.classInspector.panelTop = self.inspector.y or 0
     self.inspector.classInspector:setTarget(target)
     local propertyTop
     if object and not self.inspector.classInspector.preview then propertyTop = self.inspector:getPropertyTop() end
     -- 미리보기를 제외한 실제 패널 크기로 계산해야 매 프레임 스크롤이 다시 0으로 clamp되지 않는다.
     local bottom = (self.inspector.y or 0) + (self.inspector.height or love.graphics.getHeight() - self.statusHeight)
     self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
-        self.inspector.width, bottom, propertyTop, self.inspector.y)
+        self.inspector.width, bottom, propertyTop, (self.inspector.y or 0) + (self.project and 32 or 0))
     return object
 end
 
 function EditorApp:saveInspectedDocument()
+    if self:isPlaying() then return false, "Stop Play before saving" end
+    local target = self.inspector.classInspector and self.inspector.classInspector.target
+    if target and target.readOnly then return false, "Labo plugin assets are read-only" end
+    if target and target.scopeDocument then
+        self.inspector:commitEdit(); self:recordHistory()
+        local ok, err = target.scopeDocument:save()
+        if not ok then self.inspector.classInspector.error = err end
+        return ok, err
+    end
     self.inspector:commitEdit()
     if self.prefabDocument and self.inspector.classInspector and self.inspector.classInspector.target == self.prefabInspectorTarget then
         local saved, err = self.prefabDocument:save(self.project)
@@ -488,6 +513,15 @@ function EditorApp:saveAllDocuments()
     end
     table.sort(targets, function(a, b) return a.reference < b.reference end)
     for _, target in ipairs(targets) do choices[#choices + 1] = {label = "Prefab  " .. target.reference, value = target} end
+    if self.scopeInspector then
+        local projectDocument = self.scopeInspector.projectDocument
+        if projectDocument:isDirty() then choices[#choices + 1] = {label = "Project", value = {scopeDocument = projectDocument}} end
+        for id, document in pairs(self.scopeInspector.levels) do
+            if document ~= self.document and document:isDirty() then
+                choices[#choices + 1] = {label = "Level  " .. self.project:getAssetReference(id), value = {scopeDocument = document}}
+            end
+        end
+    end
     local saveLevel = self.document:isDirty() or not self.document.path
     if saveLevel then
         local reference = self.documentAssetId and self.project and self.project:getAssetReference(self.documentAssetId)
@@ -500,7 +534,10 @@ function EditorApp:saveAllDocuments()
         onConfirm = function(_, _, checked)
             local selectedLevel = false
             for _, target in ipairs(checked) do
-                if target.level then selectedLevel = true
+                if target.scopeDocument then
+                    local saved, err = target.scopeDocument:save()
+                    if not saved then return false, err end
+                elseif target.level then selectedLevel = true
                 elseif target.document:isDirty() then
                     local saved, err = target.document:save(self.project)
                     if not saved then return false, err end
@@ -535,6 +572,7 @@ function EditorApp:saveCurrentDocument(path)
         local indexed, indexError = self.project:rebuildAssetIndex()
         if not indexed then return false, "Level saved; metadata import failed: " .. tostring(indexError) end
         self.documentAssetId = self.project:getAssetId(self.project:referenceForPath(self.document.path))
+        if self.scopeInspector and self.documentAssetId then self.scopeInspector:rememberLevelDocument(self.document, self.documentAssetId) end
         self:resolveDocumentReferences()
         self.document.savedSnapshot = assert(require("editor.LevelFile").encode(self.level))
     end
@@ -559,6 +597,7 @@ function EditorApp:saveNewLevel(reference)
     self.document.savedSnapshot = assert(require("editor.LevelFile").encode(self.level))
     self.documentAssetId = self.project:getAssetId(reference)
     self.documentReference = self.documentAssetId
+    if self.scopeInspector then self.scopeInspector:rememberLevelDocument(self.document, self.documentAssetId) end
     if self.assetBrowser then self.assetBrowser:refresh(true) end
     return true
 end
@@ -649,8 +688,11 @@ function EditorApp:openDocument(
             "current level has unsaved changes"
     end
 
-    local document, loadError =
-        LevelDocument.load(path)
+    local reference = self.project and self.project:referenceForPath(path)
+    local id = reference and self.project:getAssetId(reference)
+    local document, loadError
+    if self.scopeInspector and id then document, loadError = self.scopeInspector:getLevelDocument(id, true)
+    else document, loadError = LevelDocument.load(path) end
 
     if not document then
         return false, loadError
@@ -692,6 +734,7 @@ function EditorApp:openProjectDocument(
 end
 
 function EditorApp:initializeUI()
+    self.inspector.onTabChanged = self.project and function() self:recordHistory(); self:updateInspectorTarget() end
     if self.levelInspectorTarget and self.project and self.documentReference then
         self.levelInspectorTarget.readOnly = self.project:isReadOnly(self.documentReference)
     end
@@ -731,7 +774,7 @@ function EditorApp:initializeUI()
                 self:handleGamePointer("down", x, y, button)
                 return true, self.runtimeWorld and next(self.runtimeWorld.pointerCaptures or {}) ~= nil
             end
-            if button == 1 or button == 2 then self.inspectorSource = "scene" end
+            if button == 1 or button == 2 then self.inspectorSource = "scene"; self.inspector.tab = "Selection" end
             self.sceneView:mousepressed(x, y, button)
             return true, self.sceneView.isPanning or self.sceneView.isDraggingLObject or self.sceneView.marquee ~= nil or self.sceneView.pointerDrag ~= nil
         end,
@@ -774,13 +817,13 @@ function EditorApp:initializeUI()
         hint = function(_, x, y)
             local object = self.hierarchy:getLObjectAtPosition(x, y)
             return object and "Select LObject " .. object.authoringId .. ". Delete: remove. Ctrl+D: duplicate."
-                or "Hierarchy: objects in the current level. Click an empty row to inspect the level."
+                or "Hierarchy: objects in the current level. Select a level asset to inspect its settings."
         end,
         bounds = function(_, _, y, _, height) self.hierarchy.height, self.hierarchy.y = height, y end,
         draw = function() self.hierarchy:draw(self.sceneView.selectedLObject) end,
         mousepressed = function(_, x, y, button)
             if not self:isPlaying() then
-                if button == 1 or button == 2 then self.inspectorSource = "scene" end
+                if button == 1 or button == 2 then self.inspectorSource = "scene"; self.inspector.tab = "Selection" end
                 return self.hierarchy:mousepressed(x, y, button)
             end
             return true
@@ -804,7 +847,7 @@ function EditorApp:initializeUI()
             self.inspector.height, self.inspector.y = height, y
             local inspector = self.inspector.classInspector
             if inspector and inspector.target then
-                inspector:layout(x, width, y + height, inspector.target.instance and self.inspector:getPropertyTop(), y)
+                inspector:layout(x, width, y + height, nil, y + (self.project and 32 or 0))
             end
         end,
         hint = function() return "Inspector: edit the selected object, level or Prefab." end,
@@ -942,6 +985,14 @@ function EditorApp:initializeUI()
                     return false, "Save the edited prefab before removing it"
                 end
             end
+            for id, document in pairs(self.project.draftLevelAssets or {}) do
+                local draftPath = self.project:resolvePath(id)
+                if draftPath and require("ffi").os == "Windows" then draftPath = draftPath:lower() end
+                if path and draftPath and document:isDirty()
+                    and (draftPath == path or draftPath:sub(1, #path + 1) == path .. "/") then
+                    return false, "Save the edited level before removing it"
+                end
+            end
             return true
         end
         self.assetBrowser.onMove = function(source, destination)
@@ -961,6 +1012,7 @@ function EditorApp:initializeUI()
                 self.document.path = newPath .. current:sub(#oldPath + 1)
                 self.documentReference = self.project:getAssetId(destination .. current:sub(#oldPath + 1))
             end
+            if self.scopeInspector then self.scopeInspector:syncPaths() end
         end
         self.assetBrowser.onBeforeMove = function()
             -- 성공 후에만 메모리 참조를 바꾸어 취소·실패가 문서의 dirty 상태를 바꾸지 않게 한다.
@@ -1063,10 +1115,15 @@ end
 function EditorApp:beginObjectPick(name, parentPath)
     local inspector = self.inspector.classInspector
     if self:isPlaying() or not inspector or not inspector.target then return false, "Stop Play before picking a reference" end
+    if inspector.target.readOnly then return false, "Labo plugin assets are read-only" end
     local declaration = name ~= "$parent" and inspector.class.properties[name]
     local kind = name == "$attachScript" and "attachment" or name == "$mainCamera" and "camera" or name == "$child" and "child" or declaration and declaration.type or name == "$parent" and "parent"
     if kind == "child" and (not self.prefabEditor or inspector.target ~= self.prefabInspectorTarget) then return false, "Open a Prefab before adding children" end
     if kind ~= "attachment" and kind ~= "camera" and kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "script" and kind ~= "image" and kind ~= "audio" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
+    if inspector.target.scope and inspector.target.level and inspector.target.level ~= self.level
+        and (kind == "camera" or kind == "object" or kind == "script") then
+        return self.scopeInspector:pickReference(inspector.target, name, kind)
+    end
     if (kind == "object" or kind == "script") and inspector.target.level ~= self.level and not inspector.target.prefabScope then return false, "Pick an instance reference on a level or placed instance" end
     if self.objectPick then self:cancelObjectPick(); return true end
     self.inspector:commitEdit(); self.uiRoot:cancelCapture(); self.uiRoot:dismissPopup()
@@ -1077,10 +1134,17 @@ function EditorApp:beginObjectPick(name, parentPath)
     return true
 end
 function EditorApp:selectAsset(reference)
+    self.inspector:commitEdit()
+    local canonical = reference and self.project:getAssetReference(reference)
+    if self.scopeInspector and canonical and canonical:match("%.level$") then
+        local document, err = self.scopeInspector:getLevelDocument(self.project:getAssetId(canonical), true)
+        if not document then return false, err end
+    end
     local ok, err = self:prepareInspectedAsset(reference)
     if ok then
         self.inspectedAssetReference = reference and (self.project:getAssetId(reference) or reference)
         self.inspectorSource = "assets"
+        self.inspector.tab = "Selection"
         self:updateInspectorTarget()
     end
     return ok, err
@@ -1415,6 +1479,15 @@ function EditorApp:recordHistory()
     history.highWater = math.max(history.highWater or 1, self.level.nextAuthoringId)
     local changed = history:record(assert(require("editor.LevelFile").encode(self.level)), selected and selected.authoringId)
     if changed then self:stampHistory(history) end
+    if self.scopeInspector then
+        local documents = {self.scopeInspector.projectDocument}
+        for _, document in pairs(self.scopeInspector.levels) do if document ~= self.document then documents[#documents + 1] = document end end
+        for _, document in ipairs(documents) do
+            local text = document.level and assert(require("editor.LevelFile").encode(document.level)) or document:snapshot()
+            local scopedHistory = self.histories[document]
+            if scopedHistory and scopedHistory:record(text) then self:stampHistory(scopedHistory) end
+        end
+    end
     local prefab = self.prefabDocument
     if prefab then
         local prefabHistory = self.histories[prefab]
@@ -1458,7 +1531,9 @@ function EditorApp:undoRedo(direction)
     self:recordHistory()
     local prefab = self.prefabDocument and self.inspector.classInspector
         and self.inspector.classInspector.target == self.prefabInspectorTarget
-    local document = prefab and self.prefabDocument or self.document
+    local target = self.inspector.classInspector and self.inspector.classInspector.target
+    local scopeDocument = target and target.scopeDocument
+    local document = scopeDocument or (prefab and self.prefabDocument or self.document)
     local history = self.histories[document]
     local action = self.assetActions[self.assetActionIndex + (direction == 1 and 1 or 0)]
     local nextState = history and history.entries[history.index + direction]
@@ -1478,7 +1553,12 @@ function EditorApp:undoRedo(direction)
     end
     local state = history and history:step(direction)
     if not state then return false end
-    if prefab then
+    if scopeDocument and scopeDocument ~= self.document then
+        if document.level then document.level = assert(require("editor.LevelFile").decode(state.text))
+        else document:restore(state.text) end
+        self.scopeInspector.cachedTarget = nil
+        self:updateInspectorTarget()
+    elseif prefab then
         document.data = assert(require("editor.Prefab").decode(state.text))
         self.project.draftRevision = (self.project.draftRevision or 0) + 1
         self.prefabInspectorTarget = assert(self.prefabEditor:target())
@@ -1491,6 +1571,7 @@ function EditorApp:undoRedo(direction)
             if object.authoringId == state.selection then self.sceneView.selectedLObject = object end
         end
         self.activePanel, self.inspectorSource = "scene", "scene"
+        if scopeDocument then self.inspectorSource, self.inspectedAssetReference = "assets", self.documentAssetId end
         self:updateInspectorTarget()
     end
     if self.spriteAssets then self.spriteAssets:clear() end

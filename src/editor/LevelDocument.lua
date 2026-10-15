@@ -93,8 +93,27 @@ function LevelDocument:isDirty()
     return currentSnapshot ~= self.savedSnapshot
 end
 
+function LevelDocument:bindAsset(project, assetId)
+    local path, err = project:resolveAssetFile(assetId)
+    if not path then return false, err end
+    self.assetProject, self.assetId, self.path = project, assetId, path
+    return true
+end
+
+function LevelDocument:refreshPath()
+    if self.assetProject then
+        local path, err = self.assetProject:resolveAssetFile(self.assetId)
+        if not path then return nil, err end
+        self.path = path
+    end
+    return self.path
+end
+
 function LevelDocument:save(path)
-    local targetPath = path or self.path
+    -- 캐시된 경로 대신 현재 에셋 위치를 사용해 이동 전 파일을 다시 만들지 않는다.
+    local targetPath, pathError = path
+    if not targetPath then targetPath, pathError = self:refreshPath() end
+    if pathError then return false, pathError end
 
     if type(targetPath) ~= "string"
         or targetPath == ""
@@ -117,6 +136,7 @@ function LevelDocument:save(path)
     end
 
     -- 실제 save가 성공한 뒤에만 document metadata를 갱신한다.
+    if path and path ~= self.path then self.assetProject, self.assetId = nil, nil end
     self.path = targetPath
     self.savedSnapshot = snapshot
 

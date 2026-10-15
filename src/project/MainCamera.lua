@@ -16,7 +16,7 @@ function MainCamera.resolve(world, value)
         end
     end
 end
-function MainCamera.choices(project, level, object)
+function MainCamera.choices(project, level, object, allowEmpty)
     if not object or level:findLObject(object.authoringId) ~= object then return nil, "Select an instance in the current level" end
     local definition, err = require("project.PrefabHierarchy").authoringDefinition(project, level, object)
     if not definition then return nil, err end
@@ -29,7 +29,7 @@ function MainCamera.choices(project, level, object)
             result[#result + 1] = {authoringId = object.authoringId, script = name, name = preview.scripts[name].name}
         end
     end
-    if #result == 0 then return nil, "Selected instance has no CameraScript" end
+    if #result == 0 and not allowEmpty then return nil, "Selected instance has no CameraScript" end
     return result
 end
 return MainCamera

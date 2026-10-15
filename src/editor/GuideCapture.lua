@@ -30,9 +30,24 @@ function Capture.run(args)
             png:release(); pixels:release(); canvas:release()
             report.images[#report.images + 1] = name
         end
-        app:draw(); shot("level-details")
+        assert(app:inspectAsset("Assets/L_Start.level")); app:draw(); shot("level-details")
+        assert(project:createEntry("Assets", "lua", "Session", {scriptKind = "script"}))
+        assert(Fs.writeAtomic(project:resolveSourceFile("Assets/Session.lua"), [[local Session = {properties = {
+    score = {type = "number", default = 0, group = "Game"},
+    title = {type = "string", default = "Project state"}
+}}
+return Session
+]]))
+        assert(project:rebuildAssetIndex()); app.assetBrowser:refresh()
+        app.inspector.tab = "Project"; app:updateInspectorTarget()
+        assert(app.inspector.classInspector.target:addScript(project:getAssetId("Assets/Session.lua"), "session"))
+        app.inspector.classInspector:reload(); shot("project-details")
+        assert(app.inspector.classInspector.target:removeScript("session")); app.inspector.classInspector:reload()
+        app.inspector.tab = "Selection"
         app.sceneView:setSelection({app.level.lobjects[1]}); app.inspectorSource = "scene"; app:updateInspectorTarget()
-        app.inspector.classInspector:selectScript(app.level.lobjects[1].scripts[1].id); shot("camera-details")
+        app.inspector.classInspector:selectScript(app.level.lobjects[1].scripts[1].id)
+        app.inspector.classInspector.groupExpanded["object/Transform"] = false
+        app.inspector.classInspector:rebuildRows(); shot("camera-details")
         assert(project:createEntry("Assets", "lua", "Player", {scriptKind = "script"}))
         assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/Player.lua")), [[-- labo-script: script
 local Player = {extends = "0619e599-48f0-49c5-92b5-aa4a81476f8c", properties = {speed = {type = "number", default = 100, group = "Movement"}}}
@@ -50,7 +65,9 @@ return Player
         assert(prefab:save(project))
         local object = app.level:addLObject(150, 0, project:getAssetId("Assets/PF_Player.prefab"), "PF_Player")
         app.assetBrowser:refresh(); app.sceneView:setSelection({object}); app:updateInspectorTarget()
-        app.inspector.classInspector:selectScript("sprite"); shot("sprite-details")
+        app.inspector.classInspector:selectScript("sprite")
+        app.inspector.classInspector.groupExpanded["object/Transform"] = false
+        app.inspector.classInspector:rebuildRows(); shot("sprite-details")
         assert(app.document:save())
         assert(app:inspectAsset("Assets/PF_Player.prefab")); shot("prefab-details")
         assert(app:startPlay()); shot("game-view"); app:stopPlay()
@@ -195,6 +212,30 @@ return AudioDemo]]))
         app.assetBrowser:refresh()
         assert(app:openProjectDocument("Assets/L_ApiExamples.level", true))
         assert(app:startPlay()); shot("api-examples"); assert(app:stopPlay())
+        assert(project:createEntry("Assets", "lua", "ScopeVisual", {scriptKind = "script"}))
+        assert(Fs.writeAtomic(project:resolveSourceFile("Assets/ScopeVisual.lua"), [[local Visual = {}
+function Visual:draw(context)
+    if self.owner.scope == "level" then
+        love.graphics.setColor(0.15, 0.65, 0.85, 1)
+        love.graphics.circle("line", 0, 0, 150)
+    end
+end
+function Visual:drawScreen(context)
+    local project = self.owner.scope == "project"
+    local y = project and 20 or 48
+    love.graphics.setColor(0.08, 0.12, 0.18, 0.95)
+    love.graphics.rectangle("fill", 12, y - 3, context.viewport.width - 24, 24)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.print(project and "Project drawScreen: game-area pixels" or "Level draw: camera space | Level drawScreen: screen space", 20, y)
+end
+return Visual
+]]))
+        assert(project:rebuildAssetIndex())
+        local scoped = require("project.ScopedScripts")
+        local source = project:getAssetId("Assets/ScopeVisual.lua")
+        assert(assert(scoped.inspectorTarget(project, project, nil, "Project")):addScript(source, "overlay"))
+        assert(assert(scoped.inspectorTarget(project, app.level, app.level, "Level")):addScript(source, "levelOverlay"))
+        assert(app:startPlay()); shot("scope-drawing"); assert(app:stopPlay())
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

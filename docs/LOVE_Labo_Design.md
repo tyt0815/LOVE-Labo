@@ -544,3 +544,9 @@ Host가 소유한 LÖVE 이벤트는 같은 이름·인자의 부착 Script 콜�
 새 Script·Level 부모 참조는 플러그인도 에셋 ID를 기록한다. 에셋 브라우저에서 Copy ID로 얻으며 동명 파일은 다른 폴더에서 허용한다. 기존 공개 이름은 읽기 호환으로 유지한다. [ADR 0072](adr/0072-script-parent-asset-ids-and-copy-id.md)를 따른다.
 
 audio 프로퍼티는 에셋 참조를 저장하고 World.getAssetData로 LÖVE FileData를 읽는다. 재생·볼륨·Pause 등은 게임 코드의 일반 LÖVE API가 담당한다. 초기화한 부착 Script는 객체 제거·세션 종료 시 unload()에서 자원을 정리하며, 실패 경로도 World.dispose로 정리한다. [ADR 0073](adr/0073-audio-asset-data-and-script-unload.md)를 따른다.
+
+## 범위별 Script 부착과 그리기
+
+Project·Level·Object는 같은 Script를 여러 개 부착한다. Project 실행 호스트는 Play 동안 유지하고, Level의 실행 인스턴스 World는 레벨 전환 시 교체한다. ScriptHost는 부착 저장소와 조회·생명주기 실행을 공유하며 World와 LObject의 상속 관계를 만들지 않는다. update는 내장으로 Project → Level → Object 순서로 호출한다. drawScreen은 게임 영역 왼쪽 위 기준이고, 기존 Object draw의 Transform·Canvas 계약은 유지한다. 자세한 수명·캐시·콜백 계약은 [ADR 0074](adr/0074-scoped-scripts-and-screen-drawing.md)를 따른다.
+
+Inspector는 Selection·Project 탭으로 범위를 구분한다. 레벨 에셋 선택으로 레벨 설정을 편집하고 빈 선택은 설정을 표시하지 않는다. 부착 헤더 안에 프로퍼티 그룹을 중첩한다. 문서 공유·기록·저장과 그룹 계층은 [ADR 0075](adr/0075-inspector-scope-tabs-and-nested-script-groups.md)를 따른다.

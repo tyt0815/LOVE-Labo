@@ -16,12 +16,13 @@ for name in report["images"]:
     shutil.copyfile(source / (name + ".png"), target / (name + ".png"))
 
 marks = {
-    "script-context": ("script-context", [(1166, 467, 67, 17, "1"), (1166, 497, 67, 17, "2"), (1381, 453, 28, 15, "3")]),
+    "script-context": ("script-context", [(1195, 275, 86, 17, "1"), (1195, 305, 86, 17, "2"), (1368, 259, 18, 17, "3")]),
     "asset-repair-picker": ("asset-repair-picker", [(370, 130, 17, 17, "1"), (720, 220, 290, 25, "2"), (964, 832, 36, 19, "3")]),
     "editor-overview": ("level-details", [(150, 260, 90, 175, "1"), (670, 280, 240, 160, "2"), (1240, 260, 140, 170, "3"), (620, 690, 360, 130, "4")]),
-    "level-details": ("level-details", [(1335, 230, 20, 19, "1"), (1365, 230, 20, 19, "2"), (1400, 230, 20, 19, "3")]),
-    "camera-details": ("camera-details", [(670, 280, 320, 180, "1"), (1240, 516, 170, 47, "2")]),
-    "sprite-details": ("sprite-details", [(1240, 501, 170, 33, "1"), (745, 278, 36, 36, "2")]),
+    "level-details": ("level-details", [(1335, 215, 20, 19, "1"), (1365, 215, 20, 19, "2"), (1400, 215, 20, 19, "3")]),
+    "camera-details": ("camera-details", [(670, 313, 320, 180, "1"), (1240, 355, 170, 55, "2")]),
+    "sprite-details": ("sprite-details", [(1235, 259, 170, 17, "1"), (1235, 420, 165, 52, "2")]),
+    "project-details": ("project-details", [(1340, 77, 88, 17, "1"), (1235, 300, 170, 97, "2"), (1398, 52, 28, 17, "3")]),
 }
 for name, (image, annotations) in marks.items():
     data = base64.b64encode((original / (image + ".png")).read_bytes()).decode("ascii")

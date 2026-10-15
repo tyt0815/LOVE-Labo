@@ -3,7 +3,7 @@
 
 Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그인](plugins.md)을 활성화합니다. 새 프로젝트에서는 모두 꺼져 있습니다.
 
-Lua 파일은 스크립트 정의 테이블을 반환합니다. LObject를 상속하지 않습니다. `self`는 부착마다 생성되는 스크립트이고 `self.owner`는 Transform과 자손을 가진 LObject입니다. Lua 5.1/LuaJIT와 일반 LÖVE API를 사용할 수 있습니다.
+Lua 파일은 스크립트 정의 테이블을 반환합니다. LObject를 상속하지 않습니다. `self`는 부착마다 생성되는 스크립트이고 `self.owner`는 부착 대상입니다. Object에 부착하면 LObject, Level에 부착하면 실행 중인 World, Project에 부착하면 프로젝트 실행 호스트입니다. Lua 5.1/LuaJIT와 일반 LÖVE API를 사용할 수 있습니다.
 
 ```lua
 local Movement = {
@@ -113,6 +113,53 @@ Editor에서는 Game View가 포커스를 가진 경우 키보드·문자·컨�
 `focus/mousefocus/visible`은 호스트 창 상태입니다. `resize`는 게임 영역의 실제 크기이며 최초 실행과 레벨 전환 때 새 World의 첫 `update` 전에 전달됩니다. 이후 Editor에서는 레이아웃 변경, Export에서는 창 크기 변경을 반영합니다. Pause 중 생긴 영역 변경은 재개 시 다음 `update` 전에 반영됩니다. 논리 해상도·월드 크기와 다릅니다.
 
 `quit`, 파일·폴더 드롭, `threaderror`, `lowmemory`, `displayrotated`, `run/conf/errorhandler`는 Script 이벤트로 제공하지 않습니다. 레벨 Lua 스크립트는 기존 `load/update`를 유지합니다. [이벤트 예제](examples.md#löve-이벤트-예제)와 [CLI 검증](../cli-and-export.md#일반-script-이벤트-검증)을 참고합니다.
+
+## Project·Level·Object의 공용 Script
+
+Inspector의 **Project** 탭에서 프로젝트에, 레벨 에셋을 선택한 **Selection** 탭에서 레벨에 Script를 부착합니다. 같은 Lua 정의를 어느 범위에서든 사용할 수 있습니다. `self.owner.transform`처럼 Object 전용 정보를 사용하는 코드는 해당 범위를 전제로 작성해야 합니다.
+
+| 범위 | 생성·정리 | 접근 |
+|---|---|---|
+| Project | Play 시작·Stop. 레벨 전환에도 유지 | `self:getProject()` |
+| Level | 각 World 생성·종료 | `self:getWorld()` |
+| Object | 객체 생성·제거 | Object Script의 `self.owner` |
+
+`self:getWorld()`는 Project Script에서도 현재 실행 중인 World를 반환합니다. 레벨 전환 후에는 새 World입니다. Play가 끝난 프로젝트 호스트의 현재 World는 nil입니다. World의 `getObjects()`는 현재 객체 목록의 복사본을 반환합니다.
+
+세 대상 모두 `getScriptById`, `getScriptByName`, `getScriptByClass`, `getScriptsByClass`, `getScriptOrder`를 제공합니다. 지정한 대상의 부착만 조회합니다.
+
+```lua
+local session = self:getProject():getScriptByName("scopeSession")
+local levelLogic = self:getWorld():getScriptByName("scopeLevel")
+local objects = self:getWorld():getObjects()
+```
+
+load와 update는 Project → Level → Object 순서로 Labo가 호출합니다. 같은 대상에서는 부착 순서, Object끼리는 기존 부모·자손 순서입니다. Project·Level도 같은 일반 입력 이벤트와 포인터 콜백을 사용할 수 있습니다. 포인터 콜백에는 기존처럼 영역 판정이 필요하며 Project·Level의 공간 원점은 월드 원점입니다. unload는 Object → Level → Project 순서이며 각 대상 안에서는 부착 역순입니다. 기존 별도 Level Lua의 load/update는 호환 경로로 유지하고 새 부착은 일반 Script로 작성합니다.
+
+고정 업데이트를 직접 구현하려면 Object Script에는 update를 정의하지 않고 `fixedUpdate(dt)` 같은 일반 메서드를 작성합니다. Level Script의 update에서 시간을 누적하고 대상을 조회해 호출합니다. 활성 상태·우선순위·따라잡기 횟수는 그 코드가 관리합니다. [직접 실행할 예제](examples.md#범위별-script와-고정-업데이트-예제)를 제공합니다.
+
+## 월드 그리기와 화면 그리기
+
+```lua
+function MyScript:draw(context)
+    love.graphics.circle("line", 0, 0, 50)
+end
+function MyScript:drawScreen(context)
+    love.graphics.print("Screen HUD", 20, 20)
+end
+```
+
+| 콜백 | 좌표 기준 |
+|---|---|
+| Project·Level의 draw | 월드 좌표, 카메라 적용 |
+| Object의 draw | 기존 객체 로컬 좌표, Transform·카메라 또는 Canvas 적용 |
+| 모든 범위의 drawScreen | 게임 영역 왼쪽 위 (0, 0), 실제 픽셀. 카메라·객체 Transform 미적용 |
+
+`context`는 Object가 아니라 Renderer가 전달한 그리기 환경입니다. `context:image(reference)`로 이미지를 가져오고, `context.viewport.width/height`로 레터박스를 제외한 게임 영역 크기를 얻습니다. Labo가 변환·클리핑·그래픽 상태 복원을 처리하므로 콜백 안에서는 일반 `love.graphics` API로 그립니다. 다른 Script의 draw를 직접 호출하면 그 대상의 Transform 준비 과정이 생략됩니다.
+
+그리기 순서는 **Project.draw → Level.draw → 기존 Object 렌더링(Canvas 포함) → Object.drawScreen → Level.drawScreen → Project.drawScreen**입니다. Object drawScreen끼리는 기존 렌더링 정렬 규칙을 사용합니다. enabled=false는 draw와 drawScreen 모두 중단합니다. 화면 콜백에서 객체 머리 위에 표시하려면 객체의 월드 위치를 화면 위치로 직접 변환해야 합니다.
+
+![월드 그림과 화면 HUD](images/scope-drawing.png)
 
 ## 오디오와 자원 정리
 

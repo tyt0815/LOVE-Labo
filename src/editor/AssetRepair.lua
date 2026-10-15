@@ -35,10 +35,17 @@ function Repair.plan(project)
 end
 function Repair.usage(project, id, level, protectedIds)
     local result = {}
+    local projectScripts = require("project.Json").encode({scripts = project.scripts, scriptOverrides = project.scriptOverrides})
+    if not projectScripts or projectScripts:find(id, 1, true) then result[#result + 1] = "Project scripts" end
     if project.defaultLevelReference == id then result[#result + 1] = "Project default level" end
     for _, protected in ipairs(protectedIds or {}) do if protected == id then result[#result + 1] = "Current open document" end end
     local draft = project.draftAssets and project.draftAssets[id]
     if draft and draft:isDirty() then result[#result + 1] = "Unsaved Prefab document" end
+    for levelId, document in pairs(project.draftLevelAssets or {}) do
+        if levelId == id and document:isDirty() then result[#result + 1] = "Unsaved Level document" end
+        local bytes = require("editor.LevelFile").encode(document.level)
+        if not bytes or bytes:find(id, 1, true) then result[#result + 1] = "Level draft: " .. tostring(project:getAssetReference(levelId) or levelId) end
+    end
     -- 파일의 기존 위치가 사라져도 메모리에 남은 초안의 참조는 보호한다.
     for draftId, document in pairs(project.draftAssets or {}) do
         local bytes = require("project.Json").encode(document.data)

@@ -187,6 +187,8 @@ function Level:toData()
         scriptReference = self.scriptReference,
         mainCamera = require("project.MainCamera").copy(self.mainCamera),
         propertyOverrides = require("editor.PropertyData").copy(self.propertyOverrides),
+        scripts = require("project.ScriptAttachments").copy(self.scripts),
+        scriptOverrides = require("project.PropertyData").copyScripts(self.scriptOverrides),
         lobjects = lobjects
     }
 end
@@ -206,6 +208,8 @@ function Level.fromData(data)
     if cameraError then return nil, cameraError end
     local overrides, overrideError = require("editor.PropertyData").validate(data.propertyOverrides)
     if not overrides then return nil, overrideError end
+    local scoped, scopeError = require("project.ScopedScripts").validate(data)
+    if not scoped then return nil, scopeError end
 
     if type(data.lobjects) ~= "table" then
         return nil, "level lobjects must be a table"
@@ -247,6 +251,7 @@ function Level.fromData(data)
     level.scriptReference = data.scriptReference
     level.mainCamera = mainCamera
     level.propertyOverrides = overrides
+    level.scripts, level.scriptOverrides = scoped.scripts, scoped.scriptOverrides
 
     -- 저장 시 nextAuthoringId 자체를 직렬화하지 않고,
     -- 가장 큰 stable ID 다음 값으로 복원한다.

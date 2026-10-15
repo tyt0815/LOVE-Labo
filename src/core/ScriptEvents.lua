@@ -14,7 +14,10 @@ function Events.dispatch(world, name, ...)
     if not Events.supported[name] then return false, "Unsupported script event: " .. tostring(name) end
     -- 이벤트 시작 시 후보를 고정하고 호출 직전에 생존·활성 상태를 다시 검사한다.
     local pending = {}
-    for _, object in ipairs(require("core.ScriptOrder").objects(world.lobjects)) do
+    local hosts = require("core.ScriptOrder").objects(world.lobjects)
+    table.insert(hosts, 1, world)
+    if world.project then table.insert(hosts, 1, world.project) end
+    for _, object in ipairs(hosts) do
         for _, id in ipairs(object.scriptOrder) do
             local script = object.scripts[id]
             if type(script[name]) == "function" then pending[#pending + 1] = {object = object, script = script} end

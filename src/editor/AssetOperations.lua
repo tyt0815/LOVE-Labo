@@ -71,6 +71,13 @@ function Operations:checkDelete(reference)
         assert(allowed, err)
     end
     assert(self.project:deletionEntries(reference))
+    local id = self.project:getAssetId(reference)
+    for _, missing in ipairs(self.project.missingAssets or {}) do
+        if missing.id == id then
+            local usages = require("editor.AssetRepair").usage(self.project, id, self.app.level)
+            assert(#usages == 0, "Asset is referenced by: " .. table.concat(usages, ", "))
+        end
+    end
 end
 function Operations:storage(command)
     local root = Fs.join(self.project.rootPath, ".labo-history")
@@ -223,6 +230,33 @@ end
 function Operations:delete(reference)
     return self:perform(function()
         self:checkDelete(reference)
+        if #assert(self.project:deletionEntries(reference)) == 0 then
+            local catalog = require("editor.AssetCatalog")
+            local metadata = catalog.capture(self.project, reference)
+            local function remove()
+                assert(self.project:getAssetId(reference) == metadata[reference].id, "Asset identity changed outside Undo history")
+                self:checkDelete(reference)
+                assert(catalog.remove(self.project, reference))
+                local ok, err = self.project:rebuildAssetIndex()
+                if not ok then catalog.update(self.project, metadata); error(err) end
+                self:refresh(reference)
+                return true
+            end
+            local function restore()
+                assert(not self.project:getAssetId(reference), "Asset identity changed outside Undo history")
+                local path = assert(self.project:resolvePath(reference))
+                local info, err = Fs.info(path)
+                assert(not info and not err, err or "Undo destination already exists")
+                assert(catalog.update(self.project, metadata))
+                local ok, rebuildError = self.project:rebuildAssetIndex()
+                if not ok then catalog.remove(self.project, reference); error(rebuildError) end
+                self:refresh(reference)
+                return true
+            end
+            remove()
+            self.app:pushAssetAction({undo = restore, redo = remove})
+            return true
+        end
         local command = {reference = reference, snapshot = snapshot(self:livePath(reference))}
         self:stash(command)
         command.undo = function() self:restore(command); self:refresh(reference); return true end

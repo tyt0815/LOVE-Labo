@@ -77,3 +77,5 @@
 
 - [0072. 스크립트 부모 참조를 에셋 ID로 작성하고 브라우저에서 복사한다](adr/0072-script-parent-asset-ids-and-copy-id.md)
 - [0073. 오디오 에셋은 LÖVE 데이터로 연결하고 Script unload에서 정리한다](adr/0073-audio-asset-data-and-script-unload.md)
+- [0074. Project·Level·Object 공용 Script 부착과 화면 그리기](adr/0074-scoped-scripts-and-screen-drawing.md)
+- [0075. Inspector 범위 탭과 Script 내부 프로퍼티 그룹](adr/0075-inspector-scope-tabs-and-nested-script-groups.md)

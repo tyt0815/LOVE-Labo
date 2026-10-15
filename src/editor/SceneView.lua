@@ -465,6 +465,25 @@ function SceneView:getCameraBounds(camera)
     return points
 end
 function SceneView:drawEditorObjects()
+    for _, scope in ipairs({"project", "level"}) do
+        local data = scope == "project" and self.spriteAssets.project or self.level
+        local host = self.spriteAssets:scopePreview(data, scope)
+        for _, id in ipairs(host and host.scriptOrder or {}) do
+            local script = host.scripts[id]
+            if script.drawEditor then
+                local context = require("editor.DebugSession").new()
+                context.selected, context.color = false, Theme.color("textMuted")
+                context.image = function(_, reference) return self.spriteAssets:image(reference) end
+                love.graphics.push("all")
+                local ok, err = pcall(function()
+                    script:drawEditor(context)
+                    context:drawShapes(function(x, y) return self:worldToScreen(x, y) end)
+                end)
+                love.graphics.pop()
+                if not ok then self.spriteAssets.error = tostring(err) end
+            end
+        end
+    end
     for _, object in ipairs(self.level.lobjects) do
         local preview = self.spriteAssets:preview(object)
         if preview then

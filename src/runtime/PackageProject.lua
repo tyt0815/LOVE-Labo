@@ -1,7 +1,8 @@
 local Package = {}
 Package.__index = Package
 function Package.new(manifest)
-    local self = setmetatable({assetMetadata = manifest.metadata, assetPaths = {}, assetIds = {}}, Package)
+    local self = setmetatable({assetMetadata = manifest.metadata, assetPaths = {}, assetIds = {},
+        scripts = manifest.scripts, scriptOverrides = manifest.scriptOverrides}, Package)
     for reference, meta in pairs(manifest.metadata or {}) do
         self.assetIds[reference], self.assetPaths[meta.id] = meta.id, reference
     end

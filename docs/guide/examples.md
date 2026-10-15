@@ -1,5 +1,18 @@
 # 직접 검수하는 API 예제
 
+## 범위별 Script와 고정 업데이트 예제
+
+`tests/TestProject`의 **Assets/Examples/L_ScriptScopes.level**을 열고 ▶로 실행합니다. Game View에 포커스를 두고 **N**을 누르면 L_ScriptScopesNext와 오갑니다.
+
+- Project 탭의 `scopeSession`: token과 frames는 전환에도 유지되고 visits는 레벨을 열 때마다 증가합니다.
+- 레벨 에셋의 `scopeLevel`: fixed steps는 새 레벨에서 0부터 시작합니다. Level Script가 시간을 누적해 Object의 일반 fixedUpdate를 직접 호출합니다.
+- `FixedActor`: update를 선언하지 않습니다. 움직이는 원은 draw, 하단의 고정 문구는 Object의 drawScreen입니다.
+- Level의 원·선은 월드 좌표, 위쪽의 Project·Level 문구는 게임 영역 왼쪽 위 기준 화면 좌표입니다.
+
+Lua 소스는 모두 Assets/Examples의 ScopeSession.lua·ScopeLevel.lua·FixedActor.lua입니다. 다른 프로젝트에는 저장소에서 `python scripts/createScopeExamples.py D:/Games/MyGame`으로 추가할 수 있습니다. 동명 예제를 덮어쓰지 않으며 기존 프로젝트 Script는 유지하고 scopeSession을 추가합니다.
+
+## 기존 API 예제
+
 저장소의 `tests/TestProject`를 열고 **Assets/L_ApiExamples.level**을 엽니다. 기본 제공 스크립트는 LaboEssentials, 예제 Lua·Prefab·이미지는 프로젝트의 **Assets/Examples**에 있습니다. 테스트 프로젝트에는 검수에 필요한 예제 에셋만 남겨 두었습니다.
 
 Scene View 위의 ▶로 실행합니다. 화면의 두 열 버튼은 Canvas 아래에 있어 카메라를 확대해도 위치를 유지합니다.

@@ -5,7 +5,7 @@
             "scriptKind": "script",
             "version": 1,
             "id": "953e5435-cdd1-43e0-9e78-225d81618862",
-            "hash": "8751a86dee021c0a019d8e125f319882b976b9b68ae5e7ade4870c6698c72b4e",
+            "hash": "369352f75392bec29170ad216d2074db8b9435c046784a3aa4e06ca65063669e",
             "scriptName": "Camera"
         },
         "Assets/Canvas.lua": {

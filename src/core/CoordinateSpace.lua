@@ -12,7 +12,7 @@ function Space.transform(script)
     if not canvas then return script.owner:getWorldTransform() end
     local path, object = {}, script.owner
     while object ~= canvas.owner do path[#path + 1] = object; object = object.parent end
-    local result = canvas.owner.transform
+    local result = canvas.owner.transform or canvas.owner:getWorldTransform()
     for index = #path, 1, -1 do result = Transform.compose(result, path[index].transform) end
     return result
 end

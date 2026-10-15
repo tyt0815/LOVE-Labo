@@ -92,6 +92,14 @@ function Operations.execute(project, request, api)
     end
     if not command:match("^asset%.") then return nil end
     local reference = assert(project:getAssetReference(api.required(request, "asset")))
+    local missing
+    for _, entry in ipairs(project.missingAssets or {}) do if entry.reference == reference then missing = entry end end
+    if command == "asset.delete" and missing then
+        assert(not request.revision, "Missing files have no content revision")
+        local ok, err = project:deleteEntry(reference)
+        assert(ok, err)
+        return {deleted = reference}
+    end
     local path, info = project:checkedEntry(reference); assert(path, info)
     local bytes = info.type == "file" and assert(Fs.read(path))
     if request.revision then assert(bytes, "Folder revisions are not supported"); api.checkRevision(request, bytes) end

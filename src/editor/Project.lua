@@ -169,6 +169,9 @@ function Project.open(rootPath)
     if not layoutReady then return nil, layoutError end
     project.defaultLevelReference = data.defaultLevelReference
     project.name = data.name
+    local scoped, scopeError = require("project.ScopedScripts").validate(data)
+    if not scoped then return nil, scopeError end
+    project.scripts, project.scriptOverrides = scoped.scripts, scoped.scriptOverrides
     local pluginsOk, plugins = pcall(require("project.PluginRegistry").new, project)
     if not pluginsOk then return nil, tostring(plugins) end
     project.plugins = plugins
@@ -179,6 +182,19 @@ function Project.open(rootPath)
     local migrated, migrateError = require("editor.AssetRegistry").migrate(project, data)
     if not migrated then return nil, migrateError end
     return project
+end
+
+function Project:saveScripts()
+    local fs, Json = filesystem(), require("project.Json")
+    local path = fs.join(self.rootPath, Project.FILE_NAME)
+    local bytes, readError = fs.read(path)
+    if not bytes then return false, readError end
+    local data, err = Json.decode(bytes)
+    if not data then return false, err end
+    local scoped, scopeError = require("project.ScopedScripts").validate(self)
+    if not scoped then return false, scopeError end
+    data.scripts, data.scriptOverrides = Json.array(scoped.scripts), scoped.scriptOverrides
+    return fs.writeAtomic(path, assert(Json.encode(data, true)) .. "\n")
 end
 
 function Project:rebuildAssetIndex(skipRecovery, skipMigration)
@@ -213,6 +229,8 @@ function Project:readAsset(reference)
     local id = self:getAssetId(self:getAssetReference(reference))
     local draft = self.draftAssets and self.draftAssets[id]
     if draft and draft:isDirty() then return require("editor.Prefab").encodeData(draft.data) end
+    local levelDraft = self.draftLevelAssets and self.draftLevelAssets[id]
+    if levelDraft and levelDraft:isDirty() then return require("editor.LevelFile").encode(levelDraft.level) end
     return filesystem().read(path)
 end
 
@@ -529,7 +547,18 @@ function Project:deletionEntries(reference)
         return false, "Metadata cannot be deleted separately"
     end
     local path, info = self:checkedEntry(reference)
-    if not path then return false, info end
+    if not path then
+        local missing
+        for _, entry in ipairs(self.missingAssets or {}) do if entry.reference == reference then missing = entry end end
+        if not missing then return false, info end
+        local resolved, resolveError = self:resolvePath(reference)
+        if not resolved then return false, resolveError end
+        local actual, actualError = filesystem().info(resolved)
+        if actual or actualError then return false, actualError or "Entry changed during deletion" end
+        local usages = require("editor.AssetRepair").usage(self, missing.id)
+        if #usages > 0 then return false, "Asset is referenced by: " .. table.concat(usages, ", ") end
+        return {}
+    end
     if reference == "Assets" then return false, "Project roots cannot be deleted" end
     local default = self:getAssetReference(self.defaultLevelReference)
     -- 현재 호스트는 Windows이므로 대소문자만 다른 참조도 같은 파일로 보호한다.
