@@ -480,13 +480,12 @@ function ClassInspector:rebuildRows()
             -- 헤더는 같은 열에 정렬하고 그룹 안의 프로퍼티 이름만 들여쓴다.
             local nested = script and group ~= defaultGroup
             if nested and self.groupExpanded[key] == nil then self.groupExpanded[key] = false end
-            local isTransform = not script and group == "Transform"
-            local header = {header = true, label = group, groupKey = key, depth = 0, builtIn = isTransform,
+            local header = {header = true, label = group, groupKey = key, depth = 0, builtIn = not script,
                 height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}
             if not script or nested then rows[#rows + 1] = header end
             if script and not nested or self.groupExpanded[key] ~= false then
                 for index, name in ipairs(groups[group]) do
-                    local row = {name = name, depth = not isTransform and (not script or nested) and 1 or 0,
+                    local row = {name = name, depth = nested and 1 or 0,
                         groupFirst = index == 1,
                         height = PropertyLayout.ROW_HEIGHT * (self.class.properties[name].type == "image" and 2 or 1)}
                     rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height
