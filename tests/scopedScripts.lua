@@ -82,11 +82,54 @@ add("Scope CLI persists overrides names order and enforces revisions", function(
     local fresh = assert(require("editor.Project").open(project.rootPath)); Assert.equal("renamed", fresh.scripts[1].name)
     local world = assert(Loader.create(fresh, level:toData())); Assert.equal(12, world.project:getScriptByName("renamed").count); assert(world:dispose())
 end)
-add("Scope Inspector tabs edit save undo separate documents and nest property groups", function()
+add("Project Inspector follows empty selection and the Project menu without scope tabs", function()
+    local project = fixture()
+    local app = require("editor.EditorApp").new(nil, project)
+    app:draw(); Assert.equal("Project", app.inspector.classInspector.target.label)
+    local object = app.level:addLObject(0, 0)
+    app.sceneView:setSelection({object}); app.inspectorSource = "scene"
+    app:updateInspectorTarget(); Assert.truthy(app.inspector.classInspector.target.instance)
+    local menu
+    for _, item in ipairs(app.menuBar:items("project")) do if item.label == "Inspector" then menu = item end end
+    assert(menu); menu.action(); app:draw()
+    Assert.equal("Project", app.inspector.classInspector.target.label)
+    Assert.equal(object, app.sceneView.selectedLObject)
+    Assert.equal(nil, app.previewPanel:descriptor().instance)
+    assert(app:inspectAsset("Assets/Trace.lua")); app:draw()
+    Assert.truthy(app.inspector.assetSummary)
+    assert(app:selectAsset(nil)); app:draw()
+    Assert.equal("Project", app.inspector.classInspector.target.label)
+    app.inspectorSource = "scene"; app.sceneView:setSelection({object}); app:draw()
+    local x, y = app.sceneView:getViewport()
+    app:mousepressed(x + 20, y + 20, 1); app:mousereleased(x + 20, y + 20, 1); app:draw()
+    Assert.equal(nil, app.sceneView.selectedLObject)
+    Assert.equal("Project", app.inspector.classInspector.target.label)
+end)
+add("Script property groups start collapsed preserve manual expansion and reveal hidden fields", function()
+    local project = fixture()
+    local app = require("editor.EditorApp").new(nil, project); app:draw()
+    local inspector = app.inspector.classInspector
+    local scriptId, header = project.scripts[1].id
+    for _, row in ipairs(inspector.rows) do
+        if row.label == "Counters" then header = row end
+        Assert.truthy(row.name ~= scriptId .. ".count")
+    end
+    assert(header); Assert.equal(false, inspector.groupExpanded[header.groupKey])
+    Assert.truthy(inspector.groupExpanded["script:" .. scriptId] ~= false)
+    inspector:mousepressed(inspector.left + require("editor.Ui").METRICS.contentPaddingX + 1,
+        inspector.propertyTop + header.offset - inspector.scroll + 10, 1)
+    Assert.equal(true, inspector.groupExpanded[header.groupKey])
+    inspector:reload(); Assert.equal(true, inspector.groupExpanded[header.groupKey])
+    inspector.groupExpanded[header.groupKey] = false; inspector:rebuildRows()
+    assert(inspector:ensurePropertyVisible(scriptId .. ".count"))
+    Assert.equal(true, inspector.groupExpanded[header.groupKey])
+    Assert.equal(false, app.scopeInspector.projectDocument:isDirty())
+end)
+add("Scope Inspectors edit save undo separate documents and nest property groups", function()
     local project, level = fixture(); assert(project:createEntry("Assets", "level", "L_Test", {empty = true}))
     assert(require("editor.LevelFile").save(project:resolveAssetFile("Assets/L_Test.level"), level))
-    local app = require("editor.EditorApp").new(nil, project); app:draw(); Assert.equal(nil, app.inspector.classInspector.target)
-    app.inspector.tab = "Project"; app:updateInspectorTarget(); app:draw(); local inspector = app.inspector.classInspector
+    local app = require("editor.EditorApp").new(nil, project); app:draw(); Assert.equal("Project", app.inspector.classInspector.target.label)
+    app:showProjectInspector(); app:draw(); local inspector = app.inspector.classInspector
     local stable = inspector.target
     app:updateInspectorTarget(); app:draw(); Assert.equal(stable, inspector.target)
     inspector.editing, inspector.text, inspector.replace = project.scripts[1].id .. ".count", "12", false
@@ -95,7 +138,7 @@ add("Scope Inspector tabs edit save undo separate documents and nest property gr
     Assert.equal("Project", inspector.target.label); app:recordHistory(); assert(inspector:setProperty("manager.count", 9)); app:recordHistory()
     assert(app:undoRedo(-1)); Assert.equal(nil, project.scriptOverrides[project.scripts[1].id]); assert(app:undoRedo(1)); assert(app:saveInspectedDocument())
     Assert.equal(9, assert(require("editor.Project").open(project.rootPath)).scriptOverrides[project.scripts[1].id].count)
-    assert(app:inspectAsset("Assets/L_Test.level")); app:draw(); Assert.equal("Selection", app.inspector.tab)
+    assert(app:inspectAsset("Assets/L_Test.level")); app:draw(); Assert.equal("Level", app.inspector.classInspector.target.label)
     local headers, nested = 0, false
     for _, row in ipairs(inspector.rows) do
         if row.scriptId then headers = headers + 1; Assert.truthy(inspector:scriptSource(row.scriptId)) end
@@ -112,8 +155,9 @@ add("Property group headers align with plain labels and indent only child names"
     source = source:gsub("properties = {count =", "properties = {plain = {type = 'number', default = 2}, count =", 1)
     assert(Fs.writeAtomic(sourcePath, source)); assert(project:rebuildAssetIndex())
     local app = require("editor.EditorApp").new(nil, project)
-    app.inspector.tab = "Project"; app:updateInspectorTarget(); app:draw()
+    app:showProjectInspector(); app:draw()
     local inspector, Ui = app.inspector.classInspector, require("editor.Ui")
+    assert(inspector:ensurePropertyVisible(project.scripts[1].id .. ".count"))
     local layout = require("editor.ui.PropertyLayout")
     local group, propertyGroup, scriptHeader, propertyHeader = layout.group, layout.propertyGroup
     layout.group = function(left, width, top, height, value, ...)
@@ -160,6 +204,8 @@ add("Transform keeps its header while expanded property groups get inset bodies"
     assert(Fs.writeAtomic(sourcePath, source)); assert(project:rebuildAssetIndex())
     local app = require("editor.EditorApp").new(require("editor.LevelDocument").new(level), project)
     app.sceneView:setSelection({level.lobjects[1]}); app.inspectorSource = "scene"; app:updateInspectorTarget()
+    local inspector = app.inspector.classInspector
+    assert(inspector:ensurePropertyVisible(level.lobjects[1].scripts[1].id .. ".count"))
     local layout = require("editor.ui.PropertyLayout")
     local group, propertyGroup, body = layout.group, layout.propertyGroup, layout.groupBody
     local transform, counters, bodies, childHeight = false, false, 0, nil
@@ -213,7 +259,7 @@ add("Inspector resize hit testing tolerates empty selection and unlaid out targe
     app:mousemoved(1200, 100, 1, 1)
     local inspector = app.inspector.classInspector
     Assert.equal(nil, inspector:resizeAt(1200, 100))
-    app.inspector.tab = "Project"; app:updateInspectorTarget()
+    app:showProjectInspector()
     app:mousemoved(1200, 100, 1, 1)
     app:draw()
     Assert.truthy(inspector.propertyTop)
@@ -223,7 +269,7 @@ add("Inspector resize hit testing tolerates empty selection and unlaid out targe
     inspector:setTarget(nil)
     Assert.equal(nil, inspector:resizeAt(1200, 100))
 end)
-add("Asset summaries stay below Inspector tabs and respect the panel offset", function()
+add("Asset summaries respect the Inspector panel offset without scope tabs", function()
     local Ui = require("editor.Ui")
     local inspector = require("editor.Inspector").new(nil)
     inspector.y = 37
@@ -234,23 +280,19 @@ add("Asset summaries stay below Inspector tabs and respect the panel offset", fu
     local ok, message = xpcall(function()
         for _, kind in ipairs({"Image", "Lua", "Folder"}) do
             inspector.assetSummary = {name = "Summary name", kind = kind, reference = "Assets/Summary"}
-            for _, tabs in ipairs({false, true}) do
-                inspector.onTabChanged = tabs and function() end or nil
-                rows = {}
-                inspector:draw()
-                local top = inspector.y + (tabs and 32 or 0) + Ui.METRICS.contentPaddingY
-                Assert.equal(top + 44, rows["Summary name"])
-                Assert.equal(top + 60, rows[kind])
-                Assert.equal(top + 86, rows["Assets/Summary"])
-                local hint = kind == "Folder" and "Double-click to browse" or "Read-only asset information"
-                Assert.equal(top + 110, rows[hint])
-                if tabs then Assert.truthy(rows["Summary name"] > inspector.y + 60) end
-            end
+            rows = {}; inspector:draw()
+            local top = inspector.y + Ui.METRICS.contentPaddingY
+            Assert.equal(top + 44, rows["Summary name"])
+            Assert.equal(top + 60, rows[kind])
+            Assert.equal(top + 86, rows["Assets/Summary"])
+            local hint = kind == "Folder" and "Double-click to browse" or "Read-only asset information"
+            Assert.equal(top + 110, rows[hint])
         end
     end, debug.traceback)
     Ui.label, Ui.text = originalLabel, originalText
     assert(ok, message)
 end)
+
 add("Missing registrations support ordinary delete Undo Redo and reference protection", function()
     local project = fixture(); assert(project:createEntry("Assets", "lua", "Gone", {scriptKind = "script"}))
     local reference = "Assets/Gone.lua"; local id = project:getAssetId(reference)

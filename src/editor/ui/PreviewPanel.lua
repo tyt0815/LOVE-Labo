@@ -23,7 +23,7 @@ function Panel.new(app)
     return self
 end
 function Panel:descriptor()
-    if self.app.inspector.tab == "Project" then return {} end
+    if self.app.inspectorSource == "project" then return {} end
     local app = self.app
     if app.inspectorSource == "assets" then return {reference = app.inspectedAssetReference} end
     local object = app.sceneView.selectedLObject

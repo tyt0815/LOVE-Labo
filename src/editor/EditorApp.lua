@@ -98,7 +98,6 @@ function EditorApp:setDocument(document)
     self.document = document
     self.inspectedAssetReference = nil
     self.inspectorSource = "scene"
-    self.inspector.tab = "Selection"
     self.sceneView.ping = nil
     self.instanceInspectorObject, self.instanceInspectorTarget = nil, nil
     if self.spriteAssets then self.spriteAssets:clear() end
@@ -401,6 +400,16 @@ function EditorApp:placeAssets(entries, x, y, hierarchyDrop)
     return true
 end
 
+function EditorApp:showProjectInspector()
+    if not self.project then return false end
+    self.inspector:commitEdit()
+    self:recordHistory()
+    self:cancelObjectPick()
+    self.inspectorSource = "project"
+    self:updateInspectorTarget()
+    return true
+end
+
 function EditorApp:updateInspectorTarget()
     if not self.inspector.classInspector then return self.sceneView.selectedLObject end
     local revision = self.project.draftRevision or 0
@@ -419,13 +428,11 @@ function EditorApp:updateInspectorTarget()
     self.inspectorSource = self.inspectorSource or "scene"
     local assetSelected = self.inspectorSource == "assets" and selected
     if self.project and not self.scopeInspector then self.scopeInspector = require("editor.ScopeInspector").new(self) end
-    local projectTab = self.inspector.tab == "Project"
-    if projectTab then assetSelected = false end
     local prefab = assetSelected and self.prefabDocument
         and selected and self.project:getAssetId(selected) == self.prefabDocument.assetId
     local currentLevelAsset = assetSelected and self.documentAssetId
         and self.project:getAssetId(selected) == self.documentAssetId
-    local object = not assetSelected and self.sceneView.selectedLObject or nil
+    local object = self.inspectorSource == "scene" and self.sceneView.selectedLObject or nil
     self.inspector.assetSummary = nil
     local levelAsset = assetSelected and selected:match("%.level$")
     if assetSelected and not prefab and not levelAsset then
@@ -446,10 +453,7 @@ function EditorApp:updateInspectorTarget()
         self.inspector.assetSummary = {name = name, kind = kind, reference = selected}
     end
     local target
-    if projectTab then
-        object = nil
-        target = self.scopeInspector and self.scopeInspector:projectTarget()
-    elseif levelAsset then
+    if levelAsset then
         object = nil
         target = self.scopeInspector:levelTarget(self.project:getAssetId(selected))
     elseif object then
@@ -466,7 +470,7 @@ function EditorApp:updateInspectorTarget()
         target = self.instanceInspectorTarget
     elseif not self.inspector.assetSummary then
         self.instanceInspectorObject = nil
-        target = prefab and self.prefabInspectorTarget or nil
+        target = prefab and self.prefabInspectorTarget or self.scopeInspector:projectTarget()
     end
     self.levelInspectorTarget.level = self.level
     self.inspector.classInspector.panelTop = self.inspector.y or 0
@@ -476,7 +480,7 @@ function EditorApp:updateInspectorTarget()
     -- 미리보기를 제외한 실제 패널 크기로 계산해야 매 프레임 스크롤이 다시 0으로 clamp되지 않는다.
     local bottom = (self.inspector.y or 0) + (self.inspector.height or love.graphics.getHeight() - self.statusHeight)
     self.inspector.classInspector:layout(love.graphics.getWidth() - self.inspector.width,
-        self.inspector.width, bottom, propertyTop, (self.inspector.y or 0) + (self.project and 32 or 0))
+        self.inspector.width, bottom, propertyTop, self.inspector.y or 0)
     return object
 end
 
@@ -734,7 +738,6 @@ function EditorApp:openProjectDocument(
 end
 
 function EditorApp:initializeUI()
-    self.inspector.onTabChanged = self.project and function() self:recordHistory(); self:updateInspectorTarget() end
     if self.levelInspectorTarget and self.project and self.documentReference then
         self.levelInspectorTarget.readOnly = self.project:isReadOnly(self.documentReference)
     end
@@ -774,7 +777,7 @@ function EditorApp:initializeUI()
                 self:handleGamePointer("down", x, y, button)
                 return true, self.runtimeWorld and next(self.runtimeWorld.pointerCaptures or {}) ~= nil
             end
-            if button == 1 or button == 2 then self.inspectorSource = "scene"; self.inspector.tab = "Selection" end
+            if button == 1 or button == 2 then self.inspectorSource = "scene" end
             self.sceneView:mousepressed(x, y, button)
             return true, self.sceneView.isPanning or self.sceneView.isDraggingLObject or self.sceneView.marquee ~= nil or self.sceneView.pointerDrag ~= nil
         end,
@@ -823,7 +826,7 @@ function EditorApp:initializeUI()
         draw = function() self.hierarchy:draw(self.sceneView.selectedLObject) end,
         mousepressed = function(_, x, y, button)
             if not self:isPlaying() then
-                if button == 1 or button == 2 then self.inspectorSource = "scene"; self.inspector.tab = "Selection" end
+                if button == 1 or button == 2 then self.inspectorSource = "scene" end
                 return self.hierarchy:mousepressed(x, y, button)
             end
             return true
@@ -847,7 +850,7 @@ function EditorApp:initializeUI()
             self.inspector.height, self.inspector.y = height, y
             local inspector = self.inspector.classInspector
             if inspector and inspector.target then
-                inspector:layout(x, width, y + height, nil, y + (self.project and 32 or 0))
+                inspector:layout(x, width, y + height, nil, y)
             end
         end,
         hint = function() return "Inspector: edit the selected object, level or Prefab." end,
@@ -1144,7 +1147,6 @@ function EditorApp:selectAsset(reference)
     if ok then
         self.inspectedAssetReference = reference and (self.project:getAssetId(reference) or reference)
         self.inspectorSource = "assets"
-        self.inspector.tab = "Selection"
         self:updateInspectorTarget()
     end
     return ok, err
@@ -1535,6 +1537,19 @@ function EditorApp:undoRedo(direction)
     local scopeDocument = target and target.scopeDocument
     local document = scopeDocument or (prefab and self.prefabDocument or self.document)
     local history = self.histories[document]
+    -- 빈 선택의 Project 표시는 직전 Scene 작업의 Undo/Redo를 가로막지 않는다.
+    if scopeDocument and scopeDocument == (self.scopeInspector and self.scopeInspector.projectDocument) and self.inspectorSource ~= "project" then
+        local levelHistory = self.histories[self.document]
+        local function stateStamp(candidate)
+            local nextState = candidate and candidate.entries[candidate.index + direction]
+            return nextState and (direction == -1 and candidate.entries[candidate.index].stamp or nextState.stamp)
+        end
+        local currentStamp, levelStamp = stateStamp(history), stateStamp(levelHistory)
+        if levelStamp and (not currentStamp or direction == -1 and levelStamp > currentStamp
+            or direction == 1 and levelStamp < currentStamp) then
+            document, history, scopeDocument = self.document, levelHistory, nil
+        end
+    end
     local action = self.assetActions[self.assetActionIndex + (direction == 1 and 1 or 0)]
     local nextState = history and history.entries[history.index + direction]
     local stamp = nextState and (direction == -1 and history.entries[history.index].stamp or nextState.stamp)

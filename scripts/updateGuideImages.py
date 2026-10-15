@@ -18,13 +18,14 @@ for name in report["images"]:
 marks = {
     "project-browser-create": ("project-browser-create", [(1344, 56, 65, 23, "1"), (1256, 843, 48, 23, "2")]),
     "project-browser": ("project-browser", [(325, 190, 92, 98, "1"), (720, 785, 687, 34, "2"), (1250, 843, 160, 24, "3")]),
-    "script-context": ("script-context", [(1195, 275, 86, 17, "1"), (1195, 305, 86, 17, "2"), (1368, 259, 18, 17, "3")]),
+    "project-inspector-menu": ("project-inspector-menu", [(206, 50, 135, 19, "1")]),
+    "script-context": ("script-context", [(1145, 242, 88, 17, "1"), (1145, 272, 88, 17, "2"), (1380, 227, 18, 17, "3")]),
     "asset-repair-picker": ("asset-repair-picker", [(370, 130, 17, 17, "1"), (720, 220, 290, 25, "2"), (964, 832, 36, 19, "3")]),
     "editor-overview": ("level-details", [(150, 260, 90, 175, "1"), (670, 280, 240, 160, "2"), (1240, 260, 140, 170, "3"), (620, 690, 360, 130, "4")]),
-    "level-details": ("level-details", [(1335, 215, 20, 19, "1"), (1365, 215, 20, 19, "2"), (1400, 215, 20, 19, "3")]),
+    "level-details": ("level-details", [(1335, 183, 20, 19, "1"), (1365, 183, 20, 19, "2"), (1400, 183, 20, 19, "3")]),
     "camera-details": ("camera-details", [(670, 313, 320, 180, "1"), (1240, 355, 170, 55, "2")]),
-    "sprite-details": ("sprite-details", [(1235, 259, 170, 17, "1"), (1235, 420, 165, 52, "2")]),
-    "project-details": ("project-details", [(1340, 77, 88, 17, "1"), (1235, 300, 170, 97, "2"), (1398, 52, 28, 17, "3")]),
+    "sprite-details": ("sprite-details", [(1215, 227, 200, 17, "1"), (1215, 388, 200, 53, "2")]),
+    "project-details": ("project-details", [(1080, 87, 82, 17, "1"), (1215, 274, 200, 93, "2"), (1398, 52, 28, 17, "3")]),
 }
 for name, (image, annotations) in marks.items():
     data = base64.b64encode((original / (image + ".png")).read_bytes()).decode("ascii")

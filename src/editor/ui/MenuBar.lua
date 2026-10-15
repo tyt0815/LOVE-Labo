@@ -32,6 +32,7 @@ function Bar:items(name)
     local app = self.app
     local editable = not app:isPlaying()
     if name == "project" then return {
+        {label = "Inspector", enabled = app.project ~= nil and editable, action = function() app:showProjectInspector() end},
         {label = "Refresh", shortcut = "Ctrl+R", enabled = app.project ~= nil and editable, action = function() app:refreshProject() end},
         {label = "Plugins...", enabled = app.project ~= nil and editable, action = function() require("editor.ui.PluginDialog").new(app) end},
         {label = "Export Game...", shortcut = "Ctrl+Shift+E", enabled = app.project ~= nil and editable, action = function() app:showExportDialog() end}} end

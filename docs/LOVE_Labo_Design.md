@@ -549,4 +549,4 @@ audio 프로퍼티는 에셋 참조를 저장하고 World.getAssetData로 LÖVE 
 
 Project·Level·Object는 같은 Script를 여러 개 부착한다. Project 실행 호스트는 Play 동안 유지하고, Level의 실행 인스턴스 World는 레벨 전환 시 교체한다. ScriptHost는 부착 저장소와 조회·생명주기 실행을 공유하며 World와 LObject의 상속 관계를 만들지 않는다. update는 내장으로 Project → Level → Object 순서로 호출한다. drawScreen은 게임 영역 왼쪽 위 기준이고, 기존 Object draw의 Transform·Canvas 계약은 유지한다. 자세한 수명·캐시·콜백 계약은 [ADR 0074](adr/0074-scoped-scripts-and-screen-drawing.md)를 따른다.
 
-Inspector는 Selection·Project 탭으로 범위를 구분한다. 레벨 에셋 선택으로 레벨 설정을 편집하고 빈 선택은 설정을 표시하지 않는다. 부착 헤더 안에 프로퍼티 그룹을 중첩한다. 문서 공유·기록·저장과 그룹 계층은 [ADR 0075](adr/0075-inspector-scope-tabs-and-nested-script-groups.md)를 따른다.
+Inspector는 범위 탭 없이 선택한 대상을 편집한다. 레벨 에셋 선택으로 레벨 설정을, 빈 선택 또는 Project → Inspector로 프로젝트 설정을 연다. 스크립트 내부 프로퍼티 그룹은 기본으로 접힌다. 변경 결정은 [ADR 0077](adr/0077-project-inspector-selection-and-collapsed-groups.md)을 따른다. 부착 헤더 안에 프로퍼티 그룹을 중첩한다. 문서 공유·기록·저장과 그룹 계층은 [ADR 0075](adr/0075-inspector-scope-tabs-and-nested-script-groups.md)를 따른다.

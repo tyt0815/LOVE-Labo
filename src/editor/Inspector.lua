@@ -146,15 +146,6 @@ function Inspector:mousepressed(x, y, button, windowWidth, selectedLObject)
     if not self:containsPoint(x, y, windowWidth) then
         return false
     end
-    if self.onTabChanged and button == 1 then
-        local left, top = windowWidth - self.width, (self.y or 0) + 32
-        if y >= top and y < top + 30 then
-            self:commitEdit()
-            self.tab = x < left + self.width / 2 and "Selection" or "Project"
-            self.onTabChanged(self.tab)
-            return true
-        end
-    end
     if self.classInspector and self.classInspector.preview and self.classInspector.target then
         if self.activeField then self:commitEdit() end
         return self.classInspector:mousepressed(x, y, button)
@@ -345,13 +336,6 @@ function Inspector:draw(selectedLObject)
     Ui.panel(left, self.y or 0, self.width, windowHeight)
     Ui.panelHeading("Inspector", left, self.y or 0, self.width)
     local contentTop = self.y or 0
-    if self.onTabChanged then
-        for index, name in ipairs({"Selection", "Project"}) do
-            Ui.button(name, {x = left + (index - 1) * self.width / 2 + 4, y = contentTop + 32,
-                w = self.width / 2 - 8, h = 28}, (self.tab or "Selection") == name, "Inspect " .. name)
-        end
-        contentTop = contentTop + 32
-    end
 
     if self.assetSummary then
         Ui.label(self.assetSummary.name, left + Ui.METRICS.contentPaddingX, 44 + Ui.METRICS.contentPaddingY + contentTop, self.width - 2 * Ui.METRICS.contentPaddingX)

@@ -479,6 +479,7 @@ function ClassInspector:rebuildRows()
             local key = (script and "script:" .. script or "object") .. "/" .. group
             -- 헤더는 같은 열에 정렬하고 그룹 안의 프로퍼티 이름만 들여쓴다.
             local nested = script and group ~= defaultGroup
+            if nested and self.groupExpanded[key] == nil then self.groupExpanded[key] = false end
             local isTransform = not script and group == "Transform"
             local header = {header = true, label = group, groupKey = key, depth = 0, builtIn = isTransform,
                 height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}

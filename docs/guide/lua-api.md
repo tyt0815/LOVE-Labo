@@ -116,7 +116,7 @@ Editor에서는 Game View가 포커스를 가진 경우 키보드·문자·컨�
 
 ## Project·Level·Object의 공용 Script
 
-Inspector의 **Project** 탭에서 프로젝트에, 레벨 에셋을 선택한 **Selection** 탭에서 레벨에 Script를 부착합니다. 같은 Lua 정의를 어느 범위에서든 사용할 수 있습니다. `self.owner.transform`처럼 Object 전용 정보를 사용하는 코드는 해당 범위를 전제로 작성해야 합니다.
+빈 공간 선택 또는 **Project → Inspector**로 프로젝트 설정을 열어 프로젝트에, 레벨 에셋을 선택해 레벨에 Script를 부착합니다. 같은 Lua 정의를 어느 범위에서든 사용할 수 있습니다. `self.owner.transform`처럼 Object 전용 정보를 사용하는 코드는 해당 범위를 전제로 작성해야 합니다.
 
 | 범위 | 생성·정리 | 접근 |
 |---|---|---|

@@ -30,6 +30,13 @@ function Capture.run(args)
             png:release(); pixels:release(); canvas:release()
             report.images[#report.images + 1] = name
         end
+        local function expandPropertyGroups()
+            local inspector = app.inspector.classInspector
+            for _, row in ipairs(inspector.rows) do
+                if row.header and not row.scriptId and not row.builtIn then inspector.groupExpanded[row.groupKey] = true end
+            end
+            inspector:rebuildRows()
+        end
         local browser = require("editor.ProjectStart").new(function() return true end, nil,
             {entries = {{path = project.rootPath, name = project.name}}, saveRecent = function() end})
         browser:selectEntry(2)
@@ -46,15 +53,15 @@ function Capture.run(args)
 return Session
 ]]))
         assert(project:rebuildAssetIndex()); app.assetBrowser:refresh()
-        app.inspector.tab = "Project"; app:updateInspectorTarget()
+        app:showProjectInspector()
         assert(app.inspector.classInspector.target:addScript(project:getAssetId("Assets/Session.lua"), "session"))
-        app.inspector.classInspector:reload(); shot("project-details")
+        app.inspector.classInspector:reload(); expandPropertyGroups(); shot("project-details")
+        app.menuBar:openAt(100, 14); shot("project-inspector-menu"); app.uiRoot:keypressed("escape")
         assert(app.inspector.classInspector.target:removeScript("session")); app.inspector.classInspector:reload()
-        app.inspector.tab = "Selection"
         app.sceneView:setSelection({app.level.lobjects[1]}); app.inspectorSource = "scene"; app:updateInspectorTarget()
         app.inspector.classInspector:selectScript(app.level.lobjects[1].scripts[1].id)
         app.inspector.classInspector.groupExpanded["object/Transform"] = false
-        app.inspector.classInspector:rebuildRows(); shot("camera-details")
+        app.inspector.classInspector:rebuildRows(); expandPropertyGroups(); shot("camera-details")
         assert(project:createEntry("Assets", "lua", "Player", {scriptKind = "script"}))
         assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/Player.lua")), [[-- labo-script: script
 local Player = {extends = "0619e599-48f0-49c5-92b5-aa4a81476f8c", properties = {speed = {type = "number", default = 100, group = "Movement"}}}
@@ -74,7 +81,8 @@ return Player
         app.assetBrowser:refresh(); app.sceneView:setSelection({object}); app:updateInspectorTarget()
         app.inspector.classInspector:selectScript("sprite")
         app.inspector.classInspector.groupExpanded["object/Transform"] = false
-        app.inspector.classInspector:rebuildRows(); shot("sprite-details")
+        app.inspector.classInspector:rebuildRows(); shot("sprite-groups-collapsed")
+        expandPropertyGroups(); shot("sprite-details")
         assert(app.document:save())
         assert(app:inspectAsset("Assets/PF_Player.prefab")); shot("prefab-details")
         assert(app:startPlay()); shot("game-view"); app:stopPlay()

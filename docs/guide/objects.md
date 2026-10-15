@@ -7,15 +7,23 @@ Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그
 
 ## Inspector 대상과 Script 그룹
 
-1. Object·Prefab·레벨 에셋을 선택하면 **Selection** 탭에 해당 설정이 표시됩니다. 레벨은 한 번 선택해 부착을 편집하고, 더블클릭하면 Scene View에서 엽니다.
-2. 프로젝트 전체 Script는 **Project** 탭에서 Add Script로 부착합니다. Project 설정의 Save는 프로젝트 설정을 저장합니다. 레벨·Project 초안은 Save All과 Undo/Redo에 포함됩니다.
-3. 빈 공간 클릭은 선택을 해제합니다. 레벨 설정을 보려면 레벨 에셋을 명시적으로 선택합니다.
+1. Object·Prefab·레벨 에셋을 선택하면 단일 Inspector에 해당 설정이 표시됩니다. 레벨은 한 번 선택해 부착을 편집하고, 더블클릭하면 Scene View에서 엽니다.
+2. 빈 공간을 선택하거나 **Project → Inspector**를 누르면 프로젝트 설정이 표시됩니다. 메뉴로 열면 기존 Scene 선택은 유지합니다. Add Script로 프로젝트 전체 Script를 부착하고 Save로 프로젝트 설정을 저장합니다. 레벨·Project 초안은 Save All과 Undo/Redo에 포함됩니다.
+3. 빈 공간 클릭은 선택을 해제하고 Project Inspector를 표시합니다. 레벨 설정을 보려면 레벨 에셋을 명시적으로 선택합니다.
 
-![프로젝트 탭과 부착 Script](images/project-details.svg)
+![Project 메뉴의 Inspector](images/project-inspector-menu.svg)
 
-이미지의 1은 Project 탭, 2는 부착 헤더와 내부 프로퍼티 그룹, 3은 해당 설정의 Save입니다. Project Script는 레벨을 바꿔도 같은 실행 인스턴스를 유지합니다.
+표시한 **Project → Inspector**는 현재 선택을 유지하면서 프로젝트 설정을 엽니다.
+
+![프로젝트 Inspector와 부착 Script](images/project-details.svg)
+
+이미지의 1은 프로젝트 이름, 2는 부착 헤더와 내부 프로퍼티 그룹, 3은 해당 설정의 Save입니다. Project Script는 레벨을 바꿔도 같은 실행 인스턴스를 유지합니다.
 
 Script는 `sprite (Player)`처럼 **부착 이름 (타입)** 헤더 하나로 표시합니다. 그 안의 Bounds·Movement·Script는 프로퍼티 분류이며 추가 부착이 아닙니다. 그룹 없는 필드는 부착 헤더 바로 아래에 표시합니다. 원본 돋보기·부착 제거와 우클릭의 Rename·Copy ID·Move Up/Down은 상위 부착 헤더에서 사용합니다.
+
+스크립트 내부 프로퍼티 그룹은 **기본으로 접혀 있습니다**. 그룹 이름이나 화살표를 눌러 펼치세요. 펼친 상태는 에디터 세션에서 유지하며 프로퍼티 위치 찾기는 해당 그룹을 자동으로 엽니다. Script 헤더와 Transform의 초기 열림 상태는 그대로입니다. 아래 두 이미지는 기본 접힘 상태와 수동으로 펼친 상태입니다.
+
+![기본으로 접힌 스크립트 프로퍼티 그룹](images/sprite-groups-collapsed.png)
 
 ![부착 안에 중첩된 프로퍼티 그룹](images/sprite-details.svg)
 

@@ -49,10 +49,9 @@ return Movement
         assert(app:inspectAsset("Assets/L_Start.level"))
         app:draw(); check("level Main Camera", app.inspector.classInspector.class.properties["$mainCamera"])
         assert(app.inspector.classInspector.target:addScript("Script", "levelState")); app.inspector.classInspector:reload()
-        app.inspector.tab = "Project"; app:updateInspectorTarget()
+        app:showProjectInspector()
         assert(app.inspector.classInspector.target:addScript("Script", "sessionState")); app.inspector.classInspector:reload()
         check("Project Inspector", app.inspector.classInspector.target.label == "Project")
-        app.inspector.tab = "Selection"
         local camera = app.spriteAssets:preview(app.level.lobjects[1]):getScriptByName("Camera")
         check("camera outline", #app.sceneView:getCameraBounds(camera) == 8)
         local player = app.level.lobjects[2]; app.inspectorSource = "scene"; app.sceneView:setSelection({player}); app:updateInspectorTarget(); app:draw()

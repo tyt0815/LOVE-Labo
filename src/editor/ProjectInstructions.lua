@@ -21,7 +21,7 @@ function Instructions.files()
 
 LObject는 Transform과 부모·자손을 가진다. 스크립트는 오브젝트를 상속하지 않고 독립 인스턴스로 부착된다.
 Lua 파일은 properties와 선택적인 load(world), update(dt), draw(context), drawScreen(context)를 가진 테이블을 반환한다.
-Project 탭·레벨 에셋 Inspector·Object에서 같은 Script를 부착한다. update는 Project → Level → Object 순서로 내장 호출한다.
+Project → Inspector 메뉴·레벨 에셋 Inspector·Object에서 같은 Script를 부착한다. update는 Project → Level → Object 순서로 내장 호출한다.
 Project Script는 Play 동안 유지하고 Level Script는 World마다 새로 생성한다. self:getProject(), self:getWorld()와 각 호스트의 getScriptByName/Id/Class, getScriptsByClass를 사용한다.
 Object draw는 기존 Transform·카메라·Canvas를 적용한다. Project·Level draw는 월드 좌표이며 drawScreen은 모든 범위에서 게임 영역 왼쪽 위 (0, 0) 기준 픽셀 좌표다.
 편집 화면 표시는 drawEditor(context)에서 도형을 계산한다. 이때 load/update는 실행되지 않는다.
