@@ -99,11 +99,129 @@ add("Scope Inspector tabs edit save undo separate documents and nest property gr
     local headers, nested = 0, false
     for _, row in ipairs(inspector.rows) do
         if row.scriptId then headers = headers + 1; Assert.truthy(inspector:scriptSource(row.scriptId)) end
-        if row.label == "Counters" then nested = row.depth == 1 end
+        if row.label == "Counters" then nested = row.depth == 0 end
     end
     Assert.equal(1, headers); Assert.equal(true, nested)
     assert(inspector:setProperty("levelManager.count", 7)); assert(app:saveInspectedDocument())
     Assert.equal(7, assert(require("editor.LevelDocument").load(project:resolveAssetFile("Assets/L_Test.level"))).level.scriptOverrides[level.scripts[1].id].count)
+end)
+add("Property group headers align with plain labels and indent only child names", function()
+    local project = fixture()
+    local sourcePath = project:resolveSourceFile("Assets/Trace.lua")
+    local source = assert(Fs.read(sourcePath))
+    source = source:gsub("properties = {count =", "properties = {plain = {type = 'number', default = 2}, count =", 1)
+    assert(Fs.writeAtomic(sourcePath, source)); assert(project:rebuildAssetIndex())
+    local app = require("editor.EditorApp").new(nil, project)
+    app.inspector.tab = "Project"; app:updateInspectorTarget(); app:draw()
+    local inspector, Ui = app.inspector.classInspector, require("editor.Ui")
+    local layout = require("editor.ui.PropertyLayout")
+    local group, propertyGroup, scriptHeader, propertyHeader = layout.group, layout.propertyGroup
+    layout.group = function(left, width, top, height, value, ...)
+        if value:find("manager", 1, true) then scriptHeader = true end
+        return group(left, width, top, height, value, ...)
+    end
+    layout.propertyGroup = function(left, width, top, height, value, ...)
+        if value == "Counters" then propertyHeader = true end
+        return propertyGroup(left, width, top, height, value, ...)
+    end
+    local text, field, label, positions = Ui.text, Ui.field, nil, {}
+    Ui.text = function(value, x, ...)
+        label = value
+        if value == "count" or value == "plain" or value == "Counters" then positions[value] = {name = x} end
+        return text(value, x, ...)
+    end
+    Ui.field = function(value, rect, ...)
+        if positions[label] then positions[label].value = rect.x end
+        return field(value, rect, ...)
+    end
+    local ok, err = pcall(app.draw, app)
+    Ui.text, Ui.field = text, field
+    layout.group, layout.propertyGroup = group, propertyGroup
+    assert(ok, err)
+    Assert.equal(true, scriptHeader)
+    Assert.equal(true, propertyHeader)
+    Assert.equal(positions.plain.name, positions.Counters.name)
+    Assert.equal(positions.plain.name + 14, positions.count.name)
+    Assert.truthy(positions.plain.value)
+    Assert.equal(positions.plain.value, positions.count.value)
+    local header
+    for _, row in ipairs(inspector.rows) do if row.label == "Counters" then header = row end end
+    assert(header)
+    inspector:mousepressed(inspector.left + Ui.METRICS.contentPaddingX + 1,
+        inspector.propertyTop + header.offset - inspector.scroll + 10, 1)
+    Assert.equal(false, inspector.groupExpanded[header.groupKey])
+end)
+add("Transform keeps its header while expanded property groups get inset bodies", function()
+    local project, level = fixture()
+    local sourcePath = project:resolveSourceFile("Assets/Trace.lua")
+    local source = assert(Fs.read(sourcePath)):gsub("function Trace:draw%(%)[^\n]*", "function Trace:draw() end")
+        :gsub("function Trace:drawScreen%(%)[^\n]*", "function Trace:drawScreen() end")
+        :gsub("properties = {count =", "properties = {second = {type = 'number', default = 0, group = 'Counters'}, count =", 1)
+    assert(Fs.writeAtomic(sourcePath, source)); assert(project:rebuildAssetIndex())
+    local app = require("editor.EditorApp").new(require("editor.LevelDocument").new(level), project)
+    app.sceneView:setSelection({level.lobjects[1]}); app.inspectorSource = "scene"; app:updateInspectorTarget()
+    local layout = require("editor.ui.PropertyLayout")
+    local group, propertyGroup, body = layout.group, layout.propertyGroup, layout.groupBody
+    local transform, counters, bodies, childHeight = false, false, 0, nil
+    layout.group = function(left, width, top, height, label, ...)
+        if label == "Transform" then transform = true end
+        return group(left, width, top, height, label, ...)
+    end
+    layout.propertyGroup = function(left, width, top, height, label, ...)
+        if label == "Counters" then counters = true; childHeight = height - layout.HEADER_HEIGHT end
+        Assert.truthy(label ~= "Transform")
+        return propertyGroup(left, width, top, height, label, ...)
+    end
+    layout.groupBody = function(...) bodies = bodies + 1; return body(...) end
+    local ok, err = pcall(app.draw, app)
+    layout.group, layout.propertyGroup, layout.groupBody = group, propertyGroup, body
+    assert(ok, err)
+    Assert.equal(true, transform); Assert.equal(true, counters); Assert.truthy(bodies > 0)
+    Assert.equal(2 * layout.ROW_HEIGHT, childHeight)
+    local labelRect, valueRect = layout.cells(100, 400, 0)
+    Assert.equal(100 + require("editor.Ui").METRICS.contentPaddingX + 26, labelRect.x)
+    Assert.truthy(math.abs(labelRect.w / (labelRect.w + valueRect.w) - layout.NAME_COLUMN_RATIO) < 0.00001)
+end)
+add("Property column ratio changes both columns while inset bodies preserve the value edge", function()
+    local layout = require("editor.ui.PropertyLayout")
+    local original = layout.NAME_COLUMN_RATIO
+    local ok, err = pcall(function()
+        layout.NAME_COLUMN_RATIO = 0.5
+        local label, value = layout.cells(100, 400, 0)
+        Assert.equal(label.w, value.w)
+        local body = layout.groupBodyRect(100, 400, 32, 64)
+        local Ui = require("editor.Ui")
+        Assert.equal(100 + Ui.METRICS.contentPaddingX + layout.GROUP_INDENT, body.x)
+        Assert.equal(500 - Ui.METRICS.contentPaddingX, body.x + body.w)
+        layout.NAME_COLUMN_RATIO = 0.35
+        local changedLabel, changedValue = layout.cells(100, 400, 0)
+        Assert.truthy(changedLabel.w < label.w); Assert.truthy(changedValue.w > value.w)
+        Assert.truthy(math.abs(changedLabel.w / (changedLabel.w + changedValue.w) - 0.35) < 0.00001)
+        Assert.equal(value.x + value.w, changedValue.x + changedValue.w)
+    end)
+    layout.NAME_COLUMN_RATIO = original
+    assert(ok, err)
+end)
+add("Inspector resize hit testing tolerates empty selection and unlaid out targets", function()
+    local project = fixture()
+    local app = require("editor.EditorApp").new(nil, project)
+    app:mousemoved(1200, 100, 1, 1)
+    app:draw()
+    app:mousemoved(1200, 100, 1, 1)
+    assert(app:inspectAsset("Assets/Trace.lua"))
+    app:draw()
+    app:mousemoved(1200, 100, 1, 1)
+    local inspector = app.inspector.classInspector
+    Assert.equal(nil, inspector:resizeAt(1200, 100))
+    app.inspector.tab = "Project"; app:updateInspectorTarget()
+    app:mousemoved(1200, 100, 1, 1)
+    app:draw()
+    Assert.truthy(inspector.propertyTop)
+    Assert.truthy(inspector.propertyHeight)
+    inspector.treeResize = {kind = "script"}
+    Assert.equal("script", inspector:resizeAt(1200, 100))
+    inspector:setTarget(nil)
+    Assert.equal(nil, inspector:resizeAt(1200, 100))
 end)
 add("Asset summaries stay below Inspector tabs and respect the panel offset", function()
     local Ui = require("editor.Ui")

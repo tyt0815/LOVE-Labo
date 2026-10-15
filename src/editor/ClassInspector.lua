@@ -477,14 +477,16 @@ function ClassInspector:rebuildRows()
                 return a < b
             end)
             local key = (script and "script:" .. script or "object") .. "/" .. group
-            -- 그룹이 없는 필드는 부착 헤더 바로 아래에 두고 명시적 그룹만 한 단계 들여쓴다.
+            -- 헤더는 같은 열에 정렬하고 그룹 안의 프로퍼티 이름만 들여쓴다.
             local nested = script and group ~= defaultGroup
-            local header = {header = true, label = group, groupKey = key, depth = nested and 1 or 0,
+            local isTransform = not script and group == "Transform"
+            local header = {header = true, label = group, groupKey = key, depth = 0, builtIn = isTransform,
                 height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}
             if not script or nested then rows[#rows + 1] = header end
             if script and not nested or self.groupExpanded[key] ~= false then
-                for _, name in ipairs(groups[group]) do
-                    local row = {name = name, depth = script and (nested and 2 or 1) or 0,
+                for index, name in ipairs(groups[group]) do
+                    local row = {name = name, depth = not isTransform and (not script or nested) and 1 or 0,
+                        groupFirst = index == 1,
                         height = PropertyLayout.ROW_HEIGHT * (self.class.properties[name].type == "image" and 2 or 1)}
                     rows[#rows + 1] = row; header.groupHeight = header.groupHeight + row.height
                 end
@@ -544,7 +546,9 @@ function ClassInspector:layoutTrees()
         local y = self.propertyTop + row.offset - self.scroll
         local width = self.width - 2 * Ui.METRICS.contentPaddingX - (self.scrollbar.visible and Scrollbar.WIDTH or 0)
         if row.objectTree then self.objectTree:setBounds(self.left + Ui.METRICS.contentPaddingX, y, width, self.objectTreeHeight)
-        elseif row.parentClass then self.dropdown:setBounds(self.left + self.width / 2 + 4, y, math.max(0, self.width / 2 - Ui.METRICS.contentPaddingX - 64 - (self.width - (self.contentWidth or self.width))), 28)
+        elseif row.parentClass then
+            local _, field = PropertyLayout.cells(self.left, self.width, y)
+            self.dropdown:setBounds(field.x, y, math.max(0, self:parentPickRect().x - field.x - 4), 28)
         end
         if row.scriptTree then
             self.tree:setBounds(self.left + Ui.METRICS.contentPaddingX, y + 30, width, self.scriptTreeHeight)
@@ -555,6 +559,8 @@ function ClassInspector:treeGrip(tree)
     return {x = tree.x, y = tree.y + tree.height, w = tree.width, h = 6}
 end
 function ClassInspector:resizeAt(x, y)
+    -- 빈 선택과 에셋 요약에서는 프로퍼티 영역을 배치하지 않는다.
+    if not self.target or not self.propertyTop or not self.propertyHeight then return end
     if self.treeResize then return self.treeResize.kind end
     if y < self.propertyTop or y >= self.propertyTop + self.propertyHeight then return end
     if self.objectTree and Ui.contains(x, y, self:treeGrip(self.objectTree)) then return "object" end
@@ -600,7 +606,8 @@ function ClassInspector:draw()
         elseif row.objectTree then
             self.objectTree:draw(); Ui.resizeGrip(self:treeGrip(self.objectTree))
         elseif row.parentClass then
-            Ui.label(self.target.kind == "lobject" and "Parent Prefab" or "Level Script", self.left + Ui.METRICS.contentPaddingX + 12, self.dropdown.y + 6, self.width / 2 - Ui.METRICS.contentPaddingX - 20)
+            local labelRect = PropertyLayout.cells(self.left, self.width, self.dropdown.y)
+            Ui.label(self.target.kind == "lobject" and "Parent Prefab" or "Level Script", labelRect.x, self.dropdown.y + 6, labelRect.w)
             self.dropdown:draw()
             Ui.eyedropperButton(self:parentPickRect(), self.isPicking and self.isPicking("$parent"))
             Ui.browseButton(self:parentBrowseRect(), self.dropdown.value ~= false)
@@ -618,8 +625,17 @@ function ClassInspector:draw()
             self.tree:draw()
             Ui.resizeGrip(self:treeGrip(self.tree))
         elseif row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
-            local indent = (row.depth or 0) * 14
-            PropertyLayout.group(self.left + indent, (self.contentWidth or self.width) - indent, y, row.groupHeight, row.label, self.groupExpanded[row.groupKey] ~= false, row.scriptId and 60 or 0)
+            if row.scriptId or row.builtIn then
+                PropertyLayout.group(self.left, self.contentWidth or self.width, y, row.groupHeight, row.label,
+                    self.groupExpanded[row.groupKey] ~= false, row.scriptId and 60 or 0)
+            else
+                PropertyLayout.propertyGroup(self.left, self.width, y, row.groupHeight, row.label,
+                    self.groupExpanded[row.groupKey] ~= false, self.width - (self.contentWidth or self.width))
+                if self.groupExpanded[row.groupKey] ~= false then
+                    PropertyLayout.groupBody(self.left, self.width, y + row.height, row.groupHeight - row.height,
+                        self.width - (self.contentWidth or self.width))
+                end
+            end
             if row.scriptId then
                 local actions = self:scriptHeaderRects(y)
                 Ui.browseButton(actions.browse, self:scriptSource(row.scriptId) ~= nil, "Locate script asset")
@@ -628,13 +644,15 @@ function ClassInspector:draw()
                 end
             end
         elseif name and y + row.height > self.propertyTop and y < self.propertyTop + self.propertyHeight then
-            Ui.row({x = self.left + Ui.METRICS.contentPaddingX, y = y, w = (self.contentWidth or self.width) - 2 * Ui.METRICS.contentPaddingX, h = row.height}, false)
-            PropertyLayout.separators(self.left, self.width, y, row.height, self.width - (self.contentWidth or self.width))
+            local indent = (row.depth or 0) * PropertyLayout.GROUP_INDENT
+            Ui.row({x = self.left + Ui.METRICS.contentPaddingX + indent, y = y,
+                w = (self.contentWidth or self.width) - 2 * Ui.METRICS.contentPaddingX - indent, h = row.height}, false)
+            PropertyLayout.separators(self.left, self.width, y, row.height, self.width - (self.contentWidth or self.width),
+                indent, indent > 0 and row.groupFirst)
             local declaration = self.class.properties[name]
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
             local labelRect, rect = PropertyLayout.cells(self.left, self.width, y)
-            local indent = (row.depth or 0) * 14
             labelRect.x, labelRect.w = labelRect.x + indent, math.max(0, labelRect.w - indent)
             if declaration.type == "image" then
                 local imageRects = self:imageRects(y)
@@ -763,7 +781,7 @@ function ClassInspector:mousepressed(x, y, button)
         if Ui.contains(x, y, self:scriptActionRect(top)) then
             if row.scriptActions and self.target.addScript then self:commitEdit(); self:showAddScript(top); return true end
         end
-        if row.header and x >= self.left + Ui.METRICS.contentPaddingX + (row.depth or 0) * 14 and y >= top and y < top + row.height then
+        if row.header and x >= self.left + Ui.METRICS.contentPaddingX and y >= top and y < top + row.height then
             self:commitEdit()
             self.groupExpanded[row.groupKey] = self.groupExpanded[row.groupKey] == false
             self:rebuildRows()
