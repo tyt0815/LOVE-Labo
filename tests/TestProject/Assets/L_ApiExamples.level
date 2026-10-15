@@ -7,8 +7,8 @@
       "scripts": [
         {
           "id": "5645ea14-36e5-4589-8604-ad958f93441b",
-          "source": "Camera",
-          "name": "camera"
+          "name": "camera",
+          "source": "Camera"
         }
       ],
       "transform": {
@@ -20,32 +20,32 @@
       "authoringId": 2,
       "name": "Motion and Property References 1",
       "scriptOverrides": {
+        "b86d10f5-83fe-4bde-823e-f7dc9cdb6b8a": {
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+        },
         "d8959fdb-2b28-416d-8a37-bfd4848f99cb": {
           "sibling": {
             "authoringId": 2,
             "script": "b86d10f5-83fe-4bde-823e-f7dc9cdb6b8a"
           },
           "target": 3
-        },
-        "b86d10f5-83fe-4bde-823e-f7dc9cdb6b8a": {
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
         }
       },
       "scripts": [
         {
           "id": "d8959fdb-2b28-416d-8a37-bfd4848f99cb",
-          "source": "3defeca7-bbad-4be8-b9a2-564875422203",
-          "name": "motion"
+          "name": "motion",
+          "source": "3defeca7-bbad-4be8-b9a2-564875422203"
         },
         {
           "id": "b86d10f5-83fe-4bde-823e-f7dc9cdb6b8a",
-          "source": "Sprite",
-          "name": "sprite"
+          "name": "sprite",
+          "source": "Sprite"
         },
         {
           "id": "6eaa9d52-e1d3-41f4-935c-47fd6115c66d",
-          "source": "RectBounds",
-          "name": "bounds"
+          "name": "bounds",
+          "source": "RectBounds"
         }
       ],
       "transform": {
@@ -65,8 +65,8 @@
       "scripts": [
         {
           "id": "e0d8620c-d80f-45de-bf57-d3f5beb113d3",
-          "source": "Sprite",
-          "name": "sprite"
+          "name": "sprite",
+          "source": "Sprite"
         }
       ],
       "transform": {
@@ -80,8 +80,8 @@
       "scripts": [
         {
           "id": "54619b26-d3d7-4723-8b5c-7be7d2720909",
-          "source": "Canvas",
-          "name": "canvas"
+          "name": "canvas",
+          "source": "Canvas"
         }
       ],
       "transform": {
@@ -97,17 +97,17 @@
         "640c7223-3fa0-43ba-9afb-471ca5846cc7": {
           "action": "Spawn",
           "caption": "Spawn",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "640c7223-3fa0-43ba-9afb-471ca5846cc7",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -123,17 +123,17 @@
         "b57a9a3e-1ccd-4ed0-886c-a16686ab0899": {
           "action": "Remove",
           "caption": "Remove",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "b57a9a3e-1ccd-4ed0-886c-a16686ab0899",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -149,17 +149,17 @@
         "22705bbb-66ff-41ce-9887-fd5d85f29792": {
           "action": "Attach",
           "caption": "Attach",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "22705bbb-66ff-41ce-9887-fd5d85f29792",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -175,17 +175,17 @@
         "c0205078-3af3-48de-baea-2c036dbf311c": {
           "action": "Scripts",
           "caption": "Scripts",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "c0205078-3af3-48de-baea-2c036dbf311c",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -201,17 +201,17 @@
         "fdc7d587-a967-4086-a395-174a979af509": {
           "action": "Camera",
           "caption": "Camera",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "fdc7d587-a967-4086-a395-174a979af509",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -227,17 +227,17 @@
         "77f48179-d1c4-46c6-b025-fa41557e8c49": {
           "action": "Properties",
           "caption": "Properties",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "77f48179-d1c4-46c6-b025-fa41557e8c49",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -253,17 +253,17 @@
         "d84534e6-f4bd-4a65-b341-5d1862f0778d": {
           "action": "Debug",
           "caption": "Debug",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "d84534e6-f4bd-4a65-b341-5d1862f0778d",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -279,17 +279,17 @@
         "2a84ad70-b335-475b-b73e-eb218ff743d0": {
           "action": "Next",
           "caption": "Next",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "2a84ad70-b335-475b-b73e-eb218ff743d0",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -305,17 +305,17 @@
         "425970c1-8ab7-4689-89e3-9b6940c2a6d7": {
           "action": "Raw",
           "caption": "Raw",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "425970c1-8ab7-4689-89e3-9b6940c2a6d7",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -331,17 +331,17 @@
         "2f4f4561-e56a-4ea0-b167-6b2505fae99b": {
           "action": "Bounds",
           "caption": "Bounds",
+          "image": "99223763-e7eb-4567-9b30-ed61131008aa",
           "nextLevel": "92c89111-d684-4200-b330-d1cc1990b6c7",
           "target": 2,
-          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
-          "image": "99223763-e7eb-4567-9b30-ed61131008aa"
+          "template": "bf2a84dc-e412-4d13-b3b5-43523ed47f17"
         }
       },
       "scripts": [
         {
           "id": "2f4f4561-e56a-4ea0-b167-6b2505fae99b",
-          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
-          "name": "action"
+          "name": "action",
+          "source": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3"
         }
       ],
       "transform": {
@@ -353,32 +353,27 @@
       "authoringId": 15,
       "name": "Screen Space Text",
       "parentAuthoringId": 4,
-      "transform": {
-        "x": -340,
-        "y": -165,
-        "rotation": 0,
-        "rotationX": 0,
-        "rotationY": 0,
-        "scaleX": 1,
-        "scaleY": 1
+      "scriptOverrides": {
+        "70df3302-aecc-483e-a406-3af8c37e11b6": {
+          "align": "center",
+          "blue": 0.3,
+          "fontSize": 16,
+          "green": 0.2,
+          "red": 0.15,
+          "text": "Labo API Examples\nClick a button to try each API",
+          "width": 680
+        }
       },
       "scripts": [
         {
           "id": "70df3302-aecc-483e-a406-3af8c37e11b6",
-          "source": "Text",
-          "name": "text"
+          "name": "text",
+          "source": "Text"
         }
       ],
-      "scriptOverrides": {
-        "70df3302-aecc-483e-a406-3af8c37e11b6": {
-          "text": "Labo API Examples\nClick a button to try each API",
-          "width": 680,
-          "align": "center",
-          "fontSize": 16,
-          "red": 0.15,
-          "green": 0.2,
-          "blue": 0.3
-        }
+      "transform": {
+        "x": -340,
+        "y": -165
       }
     }
   ],
@@ -387,6 +382,5 @@
     "script": "5645ea14-36e5-4589-8604-ad958f93441b"
   },
   "propertyOverrides": {},
-  "scriptReference": "6a8f6dcf-d978-4b4c-afcc-110ebcbcced5",
-  "nextAuthoringId": 16
+  "scriptReference": "6a8f6dcf-d978-4b4c-afcc-110ebcbcced5"
 }
