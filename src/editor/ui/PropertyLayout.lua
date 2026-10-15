@@ -62,9 +62,9 @@ function Layout.groupBody(left, width, top, height, rightInset)
     if height <= 0 then return end
     local rect = Layout.groupBodyRect(left, width, top, height, rightInset)
     Theme.setColor("surface")
-    love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h)
+    love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 4, 4)
     Theme.setColor("border")
     love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1)
+    love.graphics.rectangle("line", rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1, 4, 4)
 end
 return Layout
