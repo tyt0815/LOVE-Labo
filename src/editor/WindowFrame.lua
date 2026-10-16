@@ -80,6 +80,9 @@ function Frame.install()
         local monitor = ffi.new("LaboMonitorInfo")
         monitor.size = ffi.sizeof(monitor)
         local function windowProc(hwnd, message, wparam, lparam)
+            -- 활성화·네이티브 이동 루프에서도 SDL 포커스 처리는 유지하고 기본 장식 그리기만 막는다.
+            if message == 0x0086 then lparam = -1 end -- WM_NCACTIVATE
+            if message == 0x0085 or message == 0x00AE or message == 0x00AF then return 0 end
             local result = user.CallWindowProcW(Frame.previousProc, hwnd, message, wparam, lparam)
             -- SDL 2는 최대화한 borderless 클라이언트를 모니터 전체로 확장한다.
             -- 계산 뒤 작업 영역으로 제한해 작업 표시줄과 화면 밖 버튼을 방지한다.

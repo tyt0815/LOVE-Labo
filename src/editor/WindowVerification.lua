@@ -22,6 +22,21 @@ function Verification.run(args)
             check(name, result == 0 and preference[0] == 2)
         end
         checkCorners("native rounded corner preference")
+        ffi.cdef[[
+            intptr_t __stdcall SendMessageW(void *hwnd, unsigned int message, uintptr_t wparam, intptr_t lparam);
+            int __stdcall GetWindowRect(void *hwnd, LaboNativeRect *rect);
+            int __stdcall GetClientRect(void *hwnd, LaboNativeRect *rect);
+        ]]
+        local user = Frame.user
+        for _, active in ipairs({0, 1, 0, 1}) do
+            user.SendMessageW(Frame.handle, 0x0086, active, 0)
+            user.SendMessageW(Frame.handle, 0x0085, 1, 0)
+            user.SendMessageW(Frame.handle, 0x00AE, 0, 0)
+            local outer, client = ffi.new("LaboNativeRect"), ffi.new("LaboNativeRect")
+            assert(user.GetWindowRect(Frame.handle, outer) ~= 0 and user.GetClientRect(Frame.handle, client) ~= 0)
+            check("activation keeps full borderless client: " .. active,
+                outer.right - outer.left == client.right and outer.bottom - outer.top == client.bottom)
+        end
         local app = require("editor.EditorApp").new()
         app:draw()
         check("borderless native window", require("bit").band(Frame.native.SDL_GetWindowFlags(Frame.window), 16) ~= 0)
