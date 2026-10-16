@@ -66,7 +66,17 @@ function Root:dispatchTo(target, event, ...)
     return false
 end
 
+function Root:handlePriorityMousepressed(x, y, button, presses)
+    if self.priorityMousepressed and self.priorityMousepressed(x, y, button, presses) then
+        self:cancelCapture()
+        return true
+    end
+    return false
+end
+
 function Root:mousepressed(x, y, button, presses)
+    -- 창 장식처럼 팝업보다 우선하는 호스트 입력은 바깥 클릭 처리 전에 소비한다.
+    if self:handlePriorityMousepressed(x, y, button, presses) then return true end
     if self.popup then
         if button == 2 and self.popup.reopenOnRightClick then
             -- 컨텍스트 메뉴는 새 우클릭 위치의 위젯이 바로 다음 메뉴를 열게 한다.

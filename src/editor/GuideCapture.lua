@@ -17,6 +17,7 @@ function Capture.run(args)
         assert(not Fs.info(directory), "Capture directory must not exist")
         assert(Fs.mkdir(directory))
         assert(love.window.setMode(1440, 900, {resizable = false}))
+        assert(require("editor.WindowFrame").install())
         local project = assert(require("editor.Project").create(directory, "GuideExample"))
         for _, name in ipairs({"LaboEssentials"}) do
             assert(require("editor.PluginOperations").apply(project, name, true, true))
@@ -31,10 +32,14 @@ function Capture.run(args)
         local report = {width = 1440, height = 900, images = {}}
         local function shot(name, hover)
             local canvas = love.graphics.newCanvas(1440, 900)
-            love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.clear(0.1, 0.1, 0.1, 1)
+            love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.origin(); love.graphics.setScissor()
+            love.graphics.clear(0.1, 0.1, 0.1, 1)
             local mousePosition = love.mouse.getPosition
             love.mouse.getPosition = function() return hover and hover.x or -1, hover and hover.y or -1 end
             local drawn, drawError = pcall(app.draw, app)
+            if app.menuBar then
+                assert(app.menuBar.x == 0 and app.menuBar.y == 0, "Menu bar must stay at the window top")
+            end
             love.mouse.getPosition = mousePosition
             assert(drawn, drawError); love.graphics.setCanvas(); love.graphics.pop()
             local pixels = canvas:newImageData(); local png = pixels:encode("png")

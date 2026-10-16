@@ -197,4 +197,77 @@ add("Tree insertion borders distinguish the last child from the next outside sib
     Assert.equal("after", inside.mode); Assert.equal(2, inside.depth); Assert.equal(66, inside.lineY)
     Assert.equal("before", outside.mode); Assert.equal(0, outside.depth); Assert.equal(66, outside.lineY)
 end)
+add("Native frame hit testing separates menus controls drag edges and maximized bounds", function()
+    local frame = require("editor.WindowFrame")
+    local function hit(x, y, maximized, blocked) return frame.hitTest(x, y, 1000, 680, maximized, blocked, 216) end
+    Assert.equal(1, hit(400, 16)); Assert.equal(0, hit(40, 16)); Assert.equal(0, hit(975, 16))
+    Assert.equal(0, hit(400, 40)); Assert.equal(0, hit(400, 16, false, true))
+    for _, point in ipairs({{1, 1, 2}, {400, 1, 3}, {999, 1, 4}, {999, 400, 5},
+        {999, 679, 6}, {400, 679, 7}, {1, 679, 8}, {1, 400, 9}}) do
+        Assert.equal(point[3], hit(point[1], point[2]))
+        Assert.equal(point[2] < 32 and point[1] >= 216 and point[1] < 862 and 1 or 0, hit(point[1], point[2], true))
+    end
+end)
+add("Window controls use the normal quit path and toggle maximize restore", function()
+    local frame = require("editor.WindowFrame")
+    local before = frame.active
+    local minimize, maximize, restore, isMaximized, quit = love.window.minimize, love.window.maximize, love.window.restore, love.window.isMaximized, love.event.quit
+    local minimized, maximized, closed = false, false, false
+    local ok, err = pcall(function()
+        frame.active = true
+        love.window.minimize = function() minimized = true end
+        love.window.maximize = function() maximized = true end
+        love.window.restore = function() maximized = false end
+        love.window.isMaximized = function() return maximized end
+        love.event.quit = function() closed = true end
+        local controls = require("editor.ui.WindowControls").new()
+        local buttons = controls:buttons(love.graphics.getWidth())
+        assert(controls:press(buttons[1].x + 10, 16, 1)); Assert.equal(true, minimized)
+        assert(controls:press(buttons[2].x + 10, 16, 1)); Assert.equal(true, maximized)
+        assert(controls:press(buttons[2].x + 10, 16, 1)); Assert.equal(false, maximized)
+        assert(controls:press(buttons[3].x + 10, 16, 1)); Assert.equal(true, closed)
+        Assert.equal(false, controls:press(400, 16, 1))
+    end)
+    frame.active = before
+    love.window.minimize, love.window.maximize, love.window.restore, love.window.isMaximized, love.event.quit = minimize, maximize, restore, isMaximized, quit
+    assert(ok, err)
+end)
+add("Window controls bypass modal dialogs and outside popup dismissal before game or picking input", function()
+    local frame = require("editor.WindowFrame")
+    local active = frame.active
+    local minimize, maximize, restore, isMaximized, quit = love.window.minimize, love.window.maximize, love.window.restore, love.window.isMaximized, love.event.quit
+    local actions, maximized = {}, false
+    local ok, err = pcall(function()
+        frame.active = true
+        love.window.minimize = function() actions[#actions + 1] = "minimize" end
+        love.window.maximize = function() actions[#actions + 1] = "maximize"; maximized = true end
+        love.window.restore = function() actions[#actions + 1] = "restore"; maximized = false end
+        love.window.isMaximized = function() return maximized end
+        love.event.quit = function() actions[#actions + 1] = "close" end
+        local app = require("editor.EditorApp").new(); app:draw()
+        app.gameEvent = function() error("Window controls must not deliver game input") end
+        app.objectPick = {}; app.pickReferenceAt = function() error("Window controls must not pick references") end
+        for _, modal in ipairs({true, false}) do
+            local popup
+            if modal then popup = require("editor.ui.Dialog").new(app.uiRoot, {title = "Modal", onConfirm = function() return true end})
+            else
+                popup = require("editor.ui.ContextMenu").new(app.uiRoot)
+                popup:show(200, 100, {{label = "Item", action = function() error("Unexpected menu action") end}})
+            end
+            local before = #actions
+            for _, index in ipairs({1, 2, 2, 3}) do
+                local button = app.menuBar.windowControls:buttons(love.graphics.getWidth())[index]
+                if modal then app:mousepressed(button.x + 20, 16, 1)
+                else assert(app.uiRoot:mousepressed(button.x + 20, 16, 1)) end
+                Assert.equal(popup, app.uiRoot.popup)
+            end
+            Assert.equal("minimize", actions[before + 1]); Assert.equal("maximize", actions[before + 2])
+            Assert.equal("restore", actions[before + 3]); Assert.equal("close", actions[before + 4])
+            app.uiRoot:dismissPopup()
+        end
+    end)
+    frame.active = active
+    love.window.minimize, love.window.maximize, love.window.restore, love.window.isMaximized, love.event.quit = minimize, maximize, restore, isMaximized, quit
+    assert(ok, err)
+end)
 return tests

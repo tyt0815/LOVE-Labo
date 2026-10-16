@@ -21,6 +21,7 @@ function ProjectStart.new(onOpen, selectFolder, options)
         cancel = options.cancel or love.event.quit,
         replace = true, error = nil, selectFolder = selectFolder or FolderDialog.selectFolder
     }, ProjectStart)
+    self.windowControls = require("editor.ui.WindowControls").new()
     love.window.setTitle("LÖVE Labo - Project Browser")
     self:setPath(love.filesystem.getUserDirectory())
     return self
@@ -53,6 +54,10 @@ function ProjectStart:layout()
         submit = rect(left + width - 204, h - 74, 88, 34),
         browse = rect(left + width - 316, h - 74, 100, 34)}
     form.columns = math.max(1, math.floor((form.grid.w + 16) / 196))
+    if require("editor.WindowFrame").active then
+        form.panel.y, form.panel.h = form.panel.y + 16, form.panel.h - 16
+        form.openExisting.y, form.grid.y, form.grid.h = form.openExisting.y + 16, form.grid.y + 16, form.grid.h - 16
+    end
     form.cardWidth, form.cardHeight = 180, 190
     local rows = math.ceil((#self.entries + 1) / form.columns)
     self.maxScroll = math.max(0, rows * 206 - 16 - form.grid.h)
@@ -126,6 +131,7 @@ function ProjectStart:draw()
     local p = layout.panel
     love.graphics.push("all")
     Theme.clear("background")
+    require("editor.WindowFrame").setHeader(0, false)
     Ui.panel(p.x, p.y, p.w, p.h)
     Ui.label("Project Browser", p.x + 16, p.y + 18)
     Ui.text("Recent projects", p.x + 16, p.y + 46, p.w - 32, Theme.color("textMuted"))
@@ -173,10 +179,12 @@ function ProjectStart:draw()
     Ui.button("Browse", layout.browse)
     Ui.button(self.mode == "create" and "Create" or "Open", layout.submit, true)
     Ui.button("Cancel", layout.cancel)
+    self.windowControls:draw()
     love.graphics.pop()
 end
 
 function ProjectStart:mousepressed(x, y, button, presses)
+    if self.windowControls:press(x, y, button) then return end
     if button ~= 1 then return end
     local r = self:layout()
     local sameField = self.activeField and (self.activeField ~= "name" or self.mode == "create") and Ui.contains(x, y, r[self.activeField])

@@ -7,6 +7,8 @@ Bar.HEIGHT = 32
 function Bar.new(app)
     local self = setmetatable(Widget.new(), Bar)
     self.app, self.focusable, self.menu = app, false, ContextMenu.new(app.uiRoot)
+    self.windowControls = require("editor.ui.WindowControls").new()
+    app.uiRoot.priorityMousepressed = function(x, y, button) return self.windowControls:press(x, y, button) end
     self.menu.menuWidth = 280
     self.menu.hitTest = function(menu, x, y)
         if self:containsPoint(x, y) then return self end
@@ -66,9 +68,11 @@ function Bar:openAt(x, y, hover)
     end
 end
 function Bar:drawButtons()
+    require("editor.WindowFrame").setHeader(self.x + 216, self.app.uiRoot.popup ~= nil)
     for _, button in ipairs(self:buttons()) do
         Ui.button(button.label, button, self.app.uiRoot.popup == self.menu and self.active == button.name,
             button.name == "file" and "Create or save." or button.name == "project" and "Refresh, plugins and export." or "Play / Pause / Stop.", true)
     end
+    self.windowControls:draw()
 end
 return Bar

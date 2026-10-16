@@ -87,3 +87,4 @@
 - [0080. Script 헤더 활성 토글과 프로퍼티 문장형 표시](adr/0080-script-header-toggle-and-property-labels.md)
 - [0081. UE 에디터를 참고한 어두운 기본 테마](adr/0081-ue-inspired-default-theme.md)
 - [0082. 편집 배경은 테마를 기본으로 하고 공용 색상 선택기로 조절한다](adr/0082-editor-background-color-picker.md)
+- [0083. 에디터 창 제어를 메뉴바에 통합한다](adr/0083-editor-window-controls-in-menu-bar.md)

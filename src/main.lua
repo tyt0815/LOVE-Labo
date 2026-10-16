@@ -21,6 +21,10 @@ function love.load(args)
     end
     require("editor.Theme").load()
     require("editor.Fonts").apply()
+    if hasArg(args, "--verify-window") then
+        require("editor.WindowVerification").run(args)
+        return
+    end
     if hasArg(args, "--capture-guide") then
         require("editor.GuideCapture").run(args)
         return
@@ -54,6 +58,8 @@ function love.load(args)
         love.event.quit(failed == 0 and 0 or 1)
         return
     end
+
+    require("editor.WindowFrame").install()
 
     local ProjectStart = require("editor.ProjectStart")
     app = ProjectStart.new(function(project)
@@ -152,6 +158,7 @@ function love.quit()
     if app and app.isPlaying and app:isPlaying() then app:stopPlay() end
     if app and app.viewportControls then app.viewportControls:commit() end
     if app and app.focus then app:focus(false) end
+    require("editor.WindowFrame").shutdown()
 end
 
 function love.resize()

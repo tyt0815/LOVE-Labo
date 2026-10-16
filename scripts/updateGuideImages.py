@@ -24,10 +24,11 @@ for name in report["images"]:
     shutil.copyfile(source / (name + ".png"), target / (name + ".png"))
 
 marks = {
+    "window-controls": ("sprite-details", [(1371, 16, 67, 13, "1"), (720, 16, 300, 13, "2"), (3, 280, 3, 100, "3")]),
     "background-picker": ("background-picker", [(1124, 282, 120, 120, "1"), (1352, 342, 56, 82, "2"), (1068, 485, 66, 18, "3")]),
     "scene-background": ("scene-background", [(922, 90, 54, 18, "1")]),
-    "project-browser-create": ("project-browser-create", [(1344, 56, 65, 23, "1"), (1256, 843, 48, 23, "2")]),
-    "project-browser": ("project-browser", [(325, 190, 92, 98, "1"), (720, 785, 687, 34, "2"), (1250, 843, 160, 24, "3")]),
+    "project-browser-create": ("project-browser-create", [(1344, 72, 65, 23, "1"), (1256, 843, 48, 23, "2")]),
+    "project-browser": ("project-browser", [(325, 206, 92, 98, "1"), (720, 785, 687, 34, "2"), (1250, 843, 160, 24, "3")]),
     "project-inspector-menu": ("project-inspector-menu", [(206, 50, 135, 19, "1")]),
     "script-context": ("script-context", [(1145, 242, 88, 17, "1"), (1145, 272, 88, 17, "2"), (1145, 302, 88, 17, "3")]),
     "asset-repair-picker": ("asset-repair-picker", [(370, 130, 17, 17, "1"), (720, 220, 290, 25, "2"), (964, 832, 36, 19, "3")]),

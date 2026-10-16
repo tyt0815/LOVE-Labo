@@ -13,6 +13,18 @@ python scripts/updateGuideImages.py C:/Temp/LaboGuideCapture --only camera-detai
 
 두 번째 명령은 캡처 원본과 번호 표시를 추가한 가이드 이미지를 갱신합니다. 결과 화면을 확인한 뒤 관련 안내문과 함께 반영합니다.
 
+## 네이티브 에디터 창 검증
+
+Windows 11에서는 둥근 모서리 설정과 최대화·복원 후 설정 유지도 확인하고 `roundedCornersSupported`에 지원 여부를 기록합니다. `editor.png`는 에디터 콘텐츠 캡처이며 운영체제가 합성하는 외곽 모서리는 포함하지 않습니다.
+
+다이얼로그가 열린 상태에서 창 제어 버튼의 우선 입력과 팝업 유지도 확인합니다. 크기 변경 후 `editor.png`를 현재 렌더링 크기로 저장하고, 저장된 PNG의 가로·세로 크기를 다시 검증합니다.
+
+```powershell
+love src --verify-window C:/Temp/LaboWindowVerification
+```
+
+새 출력 폴더에 `report.json`과 `editor.png`를 기록하고 종료합니다. 실제 Windows 창에서 제목 표시줄 제거, 메뉴바 이동 영역·크기 조절 영역·버튼 영역 판별, 최대화와 작업 표시줄 영역 보존, 복원·최소화·크기 변경을 검증합니다. 기존 프로젝트는 열거나 변경하지 않습니다. 배포판에서도 `Labo.exe --verify-window <새 출력 폴더>`로 실행할 수 있습니다.
+
 ## Project·Level Script 부착
 
 `project.script.*`와 `level.script.*`는 GUI의 Project·레벨 Inspector와 같은 부착 편집 로직을 사용합니다.

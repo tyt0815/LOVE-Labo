@@ -531,6 +531,8 @@ World.debug는 배포에서 no-op이며 Editor Play와 CLI의 명시적 디버�
 
 ## 에디터 실행 상태
 
+Windows 에디터와 Project Browser는 기본 제목 표시줄을 제거하고 메뉴바 오른쪽에 창 제어 버튼을 통합한다. 빈 메뉴바·가장자리의 영역 판별은 SDL에, 최대화 클라이언트의 작업 영역 보정은 Windows에 연결한다. 콜백의 수명과 정상 종료는 에디터 호스트가 소유하며 Core·게임 Export에 이 의존성을 추가하지 않는다. 상세 계약은 [ADR 0083](adr/0083-editor-window-controls-in-menu-bar.md)을 따른다.
+
 편집 Scene View와 Preview는 공용 색상 선택기에서 배경을 조절하며, 기본색은 테마의 viewportBackground를 따른다. Scene은 grid를 기본으로 하는 격자 선 색도 별도 탭에서 조절한다. 변경 중에는 저장값과 분리된 일시 표시 상태로 실제 화면에 즉시 반영하고 Apply에서 확정하며 취소하면 원래 색으로 돌아간다. Scene의 두 색과 이미지·인스턴스 배경은 세션 표시 상태이고 Prefab의 명시적 previewBackground만 에셋에 저장한다. 이 설정은 게임 실행 배경에 영향을 주지 않는다. 툴바의 스냅은 왼쪽, 실행은 중앙, Colors는 오른쪽이며 좁은 폭에서는 줄을 나눈다. 상세 계약은 [ADR 0082](adr/0082-editor-background-color-picker.md)를 따른다.
 
 Play·Pause·Stop은 고정된 버튼이다. Pause는 같은 Runtime World를 유지하고 Update·게임 입력·디버그 수명을 정지하며 렌더링·에디터 UI는 계속 실행한다. 테마 기반 초록·주황 테두리와 활성 버튼으로 상태를 구분한다. 게임 기능에는 테스트 프로젝트 Assets/Examples의 검수용 예제 오브젝트·레벨을 함께 제공한다. 상세 실행 상태는 [ADR 0067](adr/0067-fixed-play-pause-stop-controls.md)을 따른다.

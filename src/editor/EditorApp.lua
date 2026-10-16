@@ -1266,6 +1266,7 @@ function EditorApp:pickReferenceAt(x, y)
     if ok then self:cancelObjectPick(); self:updateInspectorTarget() end
 end
 function EditorApp:mousepressed(x, y, button, presses, istouch)
+    if self.uiRoot:handlePriorityMousepressed(x, y, button, presses) then return true end
     self:updateSceneViewport()
     self:gameEvent("mousepressed", x, y, button, istouch, presses)
     if self.objectPick then
