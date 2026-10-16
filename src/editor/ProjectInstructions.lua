@@ -48,6 +48,11 @@ audio={type="audio", default=false}로 WAV·OGG·MP3·FLAC 참조를 노출한�
 
 configure에서 Transform.bindLocal(object,{owner,resolve,unresolve})·Bounds.bind(script,provider,{primary=true})를 등록한다. 제공 함수는 부모·참조·프로퍼티를 지연 조회하고 저장 Transform을 덮어쓰지 않는다. Bounds.of/parent는 객체·부모 사각형 조회다. 바인딩·입력은 Script 종료 시 자동 정리한다. configure는 편집·Preview에도 실행하고 게임 동작·입력·자원은 load에서 시작한다. 문자열 프로퍼티 options={"left","right"}는 공통 선택 목록이다.
 
+## 배포 빌드와 게임 전용 CLI
+
+Tools/Build.lua가 Export 진입점이다. 별도 빌드 도구 설치 없이 Lua로 수정한다. builder:packageGame(), packageCli("Game-cli.exe",{entry="Assets/Tools/GameCli.lua"}), copy("Docs/ContentGuide.md","README.md"), log(message)를 사용한다. 기본 템플릿은 게임만 만든다. Project → Open Build Script로 현재 코드 편집기에서 연다.
+게임 CLI 모듈은 {summary,commands={명령={summary,parameters={인자={type,required,default,description}},run=function(context,args) ... end}}} 테이블을 반환한다. help/schema와 JSON 요청·응답, 성공 0/실패 1 종료 코드를 제공한다. 게임의 World·창·오디오는 생성하지 않는다. context.workspace는 --workspace 절대 경로를 준 경우에만 제공하며 readJson/writeJson/revision/withLock을 게임 내부 편집기와 공유한다. GUI는 외부 파일을 명시적으로 다시 읽는다. 동기화·Undo는 자동 통합하지 않는다. 문서: https://tyt0815.github.io/LOVE-Labo/guide/game-cli/
+
 ## 데이터와 CLI
 
 모든 에셋은 Assets 아래에 있으며 assets.json의 ID로 참조한다. Docs는 게임 Export에 포함하지 않는다.

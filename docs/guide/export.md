@@ -10,7 +10,7 @@ Undo/Redo는 프로퍼티·Transform·계층과 에디터에서 실행한 에셋
 
 ## 독립 실행 게임
 
-**Project → Export Game**에서 `.love` 출력 경로를 지정합니다. 엔진의 core/project/runtime과 프로젝트 소스·에셋이 포함되고 에디터 UI와 테스트는 포함하지 않습니다. 현재 레벨과 Prefab 초안을 패키징에 사용하므로 Export는 원본 문서를 저장하는 작업과 구분됩니다. 재현 가능한 빌드를 남기려면 먼저 Save All로 원하는 문서를 저장합니다.
+**Project → Export Game**에서 `.love` 출력 경로를 지정하면 `Tools/Build.lua`를 실행합니다. 기본 스크립트는 게임을 패키징하고, 프로젝트에서 CLI·문서 복사를 추가할 수 있습니다. [빌드 API와 게임 CLI](game-cli.md)를 참고하세요. 엔진의 core/project/runtime과 프로젝트 소스·에셋이 포함되고 에디터 UI와 테스트는 포함하지 않습니다. 현재 레벨과 Prefab 초안을 패키징에 사용하므로 Export는 원본 문서를 저장하는 작업과 구분됩니다. 재현 가능한 빌드를 남기려면 먼저 Save All로 원하는 문서를 저장합니다.
 
 ```powershell
 ./build/windows/Labo-cli.exe --cli export --project D:/Games/MyGame --level Assets/L_Start.level --output D:/Games/MyGame/Build/Game.love

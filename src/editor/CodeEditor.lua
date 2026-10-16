@@ -64,6 +64,11 @@ function Editor.plan(project, source, settings)
         local hash = love.data.encode("string", "hex", love.data.hash("sha256", bytes))
         path = Fs.join(project.rootPath, ".labo/CodePreview/" .. hash .. "/" .. reference:match("[^/]+$"))
     end
+    return Editor.planFile(path, settings, originalPath, readOnly)
+end
+function Editor.planFile(path, settings, originalPath, readOnly)
+    local info = assert(Fs.info(originalPath or path), "Code file does not exist")
+    assert(info.type == "file" and not info.isLink, "Code file must be a regular file")
     settings = settings or Editor.settings()
     local executable = Editor.detect(settings)
     local args, substituted = {}, false
@@ -74,7 +79,12 @@ function Editor.plan(project, source, settings)
         args[#args + 1] = argument:gsub("{file}", function() return path end)
     end
     if not substituted then args[#args + 1] = path end
-    return {executable = executable, arguments = args, path = path, sourcePath = originalPath, readOnly = readOnly}
+    return {executable = executable, arguments = args, path = path, sourcePath = originalPath or path, readOnly = readOnly == true}
+end
+function Editor.openBuild(project, dryRun)
+    local plan = Editor.planFile(require("editor.ProjectBuild").ensureScript(project))
+    if not dryRun then plan.processId = Editor.launch(plan) end
+    return plan
 end
 function Editor.launch(plan)
     local ffi = require("ffi")

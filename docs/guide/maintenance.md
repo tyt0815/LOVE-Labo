@@ -33,3 +33,7 @@ UI 배치가 바뀌면 updateGuideImages.py의 표시 위치도 실제 화면을
 ## build 정리
 
 `scripts/cleanBuild.ps1`은 알려진 테스트 프로젝트·임시 캡처·검증 경로를 미리 보여주고, `-Apply`를 지정하면 삭제합니다. 배포본 build/windows와 최신 검증 요약 build/verification-latest, 문서 캐시는 유지합니다. 조사 중인 결과는 `-Keep window-activation-check`처럼 build 바로 아래 이름으로 보존합니다. 알 수 없는 폴더와 링크가 있는 경로는 자동 삭제하지 않습니다. 커밋 전 검증 결과를 확인한 뒤 실행합니다.
+
+## 게임 CLI 배포 검증
+
+`./scripts/packageEditor.ps1 -verify` 뒤 `./scripts/verifyGameCli.ps1`를 실행합니다. 실제 배포 에디터에서 새 프로젝트·빌드 예제를 만들고 게임 CLI Export, 명령 스키마, 콘텐츠 수정과 실패 종료 코드, 창·오디오·World·Editor 미초기화, 배포 게임의 Reload/Save와 같은 파일 재조회까지 검사합니다. 결과는 build/verification-game-cli-<고유값>/report.json에 기록합니다. 필요하면 `-editorExecutable <Labo-cli.exe 절대 경로>`와 `-loveDirectory <LÖVE 폴더>`를 지정합니다.

@@ -16,6 +16,7 @@ PowerShell과 LÖVE 11.5 Windows 런타임이 필요하다. 저장소 루트에�
 
 - `build/windows/Labo.exe`: LÖVE 실행 파일과 에디터 `.love` 패키지를 바이트 스트림으로 결합한 Windows 실행 파일
 - `build/windows/Labo-cli.exe`: 같은 에디터 패키지의 콘솔 실행 파일. `--cli`에서 창 없이 JSON을 반환한다.
+- `build/windows/lovec.exe`: 게임 CLI Export에 재사용하는 원본 콘솔 런처. Labo-cli.exe와 별개이며 함께 배포합니다.
 - `build/windows/*.dll`: 같은 LÖVE 배포판의 런타임 라이브러리
 - `build/windows/Labo.love`: 실행 파일 생성에 사용한 ZIP 패키지
 - `build/windows/settings.json`, `themes/*.json`: 외부에서 수정 가능한 설정·테마

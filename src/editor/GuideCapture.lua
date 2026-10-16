@@ -325,6 +325,16 @@ return Visual
         stage:keypressed("n"); assert(app:update(0)); assert(app:update(0))
         assert(app.runtimeWorld:getScriptByName("stage").stageName == "B")
         shot("travel-b"); assert(app:stopPlay())
+        local cliExample = require("editor.GameCliExamples").create(project)
+        assert(app:openProjectDocument(cliExample.level, true))
+        local contentFolder = Fs.join(directory, "StageContent")
+        require("project.Workspace").ensureDirectory(contentFolder)
+        app.level.scriptOverrides = {[app.level.scripts[1].id] = {workspace = contentFolder}}
+        app.inspectorSource = "scene"; app.sceneView:setSelection({}); app:updateInspectorTarget()
+        assert(app:startPlay()); shot("game-cli-editor"); assert(app:stopPlay())
+        app:showExportDialog(); shot("build-export")
+        app.uiRoot.popup:submit(); shot("build-results"); app.uiRoot:dismissPopup()
+        app.menuBar.active = nil; app.menuBar:openAt(100, 15); shot("project-menu"); app.uiRoot:dismissPopup()
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

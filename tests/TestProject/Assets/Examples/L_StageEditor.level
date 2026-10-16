@@ -1,0 +1,13 @@
+{
+  "formatVersion": 3,
+  "lobjects": [],
+  "propertyOverrides": {},
+  "scriptOverrides": {},
+  "scripts": [
+    {
+      "id": "71087810-b2f2-4d43-9624-39fbbf2eccfe",
+      "name": "stageEditor",
+      "source": "3089d2cd-86fb-4df5-b4aa-9a7bd63e7836"
+    }
+  ]
+}

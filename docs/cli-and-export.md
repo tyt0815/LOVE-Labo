@@ -254,3 +254,16 @@ script.open은 GUI와 같은 소스 해석·VS Code 자동 탐색·기존 창 �
 - `project reset-save-identity`: 복사한 프로젝트를 다른 게임으로 분리할 때 저장 폴더 ID를 새로 발급합니다. 에셋·기존 세이브는 유지합니다.
 
 Export는 고정 labo-exported-game 대신 labo-<프로젝트 UUID>를 LÖVE identity로 사용합니다. 기존 프로젝트는 처음 열 때 ID를 한 번 저장합니다. 실제 검수 순서는 [게임 상태 가이드](guide/game-state.md)를 참고합니다.
+
+## 프로젝트 Lua 빌드와 게임 명령
+
+`export`는 고정 경로 Tools/Build.lua를 실행합니다. `export.package`는 스크립트를 거치지 않고 `.love`만 생성합니다. GUI·CLI가 같은 패키징 서비스를 사용하므로 빌드 스크립트에서 export를 재귀 호출할 필요가 없습니다. `build.open`은 없는 기본 스크립트를 생성하고 코드 편집기로 엽니다. `--dry-run`은 실행 계획만 반환합니다(누락된 템플릿은 생성).
+
+```powershell
+Labo-cli.exe --cli build open --project C:/Games/MyGame --dry-run
+Labo-cli.exe --cli export package --project C:/Games/MyGame --level Assets/L_Start.level --output C:/Games/MyGame/Build/Game.love
+Labo-cli.exe --cli project examples-cli --project C:/Games/MyGame
+Labo-cli.exe --cli game-cli --project C:/Games/MyGame --source Assets/Examples/StageCommands.lua --input C:/Work/command.json
+```
+
+`game-cli`는 일반 명령 모듈을 World 생성 없이 실행합니다. input 생략 시 help이며 JSON 요청의 command·arguments·workspace를 사용합니다. 프로젝트 잠금과 콘텐츠 작업 폴더 잠금은 별도 범위입니다. `project.examples-cli`는 공유 모델·게임 내 편집기·명령 모듈·배포 가이드·빌드 예제를 생성합니다. 기존 사용자 빌드나 동명 파일은 거부합니다. 상세 API·배포 예제·동시 편집 계약은 [Lua 빌드와 게임 CLI](guide/game-cli.md)를 참고합니다.

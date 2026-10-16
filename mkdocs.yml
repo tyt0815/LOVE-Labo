@@ -30,6 +30,7 @@ nav:
       - 카메라와 화면 UI: guide/camera-ui.md
       - 레벨 전환과 게임 저장: guide/game-state.md
       - 저장과 게임 Export: guide/export.md
+      - Lua 빌드와 게임 CLI: guide/game-cli.md
   - Lua API:
       - 개요와 생명주기: guide/lua-api.md
       - 스크립트와 프로퍼티: components.md

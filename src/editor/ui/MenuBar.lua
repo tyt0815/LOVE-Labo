@@ -37,6 +37,11 @@ function Bar:items(name)
         {label = "Inspector", enabled = app.project ~= nil and editable, action = function() app:showProjectInspector() end},
         {label = "Refresh", shortcut = "Ctrl+R", enabled = app.project ~= nil and editable, action = function() app:refreshProject() end},
         {label = "Plugins...", enabled = app.project ~= nil and editable, action = function() require("editor.ui.PluginDialog").new(app) end},
+        {label = "Open Build Script", enabled = app.project ~= nil and editable, action = function()
+            local ok, err = pcall(require("editor.CodeEditor").openBuild, app.project)
+            if not ok then require("editor.ui.Dialog").new(app.uiRoot, {title = "Open Build Script", message = tostring(err), confirmLabel = "OK", onConfirm = function() return true end}) end
+        end},
+        {label = "Last Build...", enabled = app.lastBuildReport ~= nil and editable, action = function() app:showBuildResults() end},
         {label = "Export Game...", shortcut = "Ctrl+Shift+E", enabled = app.project ~= nil and editable, action = function() app:showExportDialog() end}} end
     if name == "run" then return {
         {label = app.paused and "Resume" or "Play", shortcut = "F5", enabled = editable or app.paused, action = function() app:startPlay() end},

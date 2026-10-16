@@ -110,12 +110,13 @@ function Project.create(parentPath, name)
         for i = #createdDirectories, 1, -1 do fs.removeDirectory(createdDirectories[i]) end
         return nil, err
     end
-    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Docs") }) do
+    for _, directory in ipairs({ root, fs.join(root, "Assets"), fs.join(root, "Docs"), fs.join(root, "Tools") }) do
         local created, err = fs.mkdir(directory)
         if not created then return rollback(err) end
         createdDirectories[#createdDirectories + 1] = directory
     end
-    local files = {{path = fs.join(root, Project.FILE_NAME), text = text},
+    local files = {{path = fs.join(root, "Tools/Build.lua"), text = require("editor.BuildTemplate").text},
+        {path = fs.join(root, Project.FILE_NAME), text = text},
         {path = fs.join(root, "plugins.json"), text = assert(Json.encode({version = 1, enabled = Json.array({})}, true))}}
     for _, file in ipairs(require("editor.ProjectInstructions").files()) do
         files[#files + 1] = {path = fs.join(root, file.name), text = file.text}

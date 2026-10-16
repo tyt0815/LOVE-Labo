@@ -86,7 +86,7 @@ local COMMANDS = {"project.create", "project.info", "project.reset-save-identity
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
     "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.events", "level.view", "level.render", "project.migrate-rendering", "project.examples-ui", "project.examples-session",
-    "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.script.rename", "instance.reorder", "export"}
+    "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.script.rename", "instance.reorder", "export", "export.package", "build.open", "game-cli", "project.examples-cli"}
 for _, scope in ipairs({"project", "level"}) do
     for _, action in ipairs({"get", "add", "remove", "move", "rename", "set", "reset"}) do
         COMMANDS[#COMMANDS + 1] = scope .. ".script." .. action
@@ -117,6 +117,12 @@ local function execute(request, cleanups)
         return {project = project.rootPath, name = project.name}
     end
     local project = assert(Project.open(absolute(required(request, "project"))))
+    if command == "build.open" then return require("editor.CodeEditor").openBuild(project, request["dry-run"] == true) end
+    if command == "project.examples-cli" then return require("editor.GameCliExamples").create(project) end
+    if command == "game-cli" then
+        local input = request.input and assert(Json.decode(assert(Fs.read(absolute(request.input))))) or request.gameRequest or {command = "help"}
+        return require("runtime.CliHost").execute(project, required(request, "source"), input)
+    end
     if command == "script.open" then
         return require("editor.CodeEditor").open(project, request.source or required(request, "script"), request["dry-run"] == true)
     end
@@ -135,7 +141,7 @@ local function execute(request, cleanups)
     end
     local readOnlyCommand = command:match("%.get$") or command:match("%.list$") or command:match("%.tree$")
         or command:match("%.validate$") or command:match("%.simulate$") or command:match("%.events$") or command:match("%.pointer$") or command:match("%.view$") or command:match("%.render$")
-        or command == "asset.preview" or command == "asset.thumbnail" or command == "export" or command == "asset.copy" or command == "project.set-default"
+        or command == "asset.preview" or command == "asset.thumbnail" or command == "export" or command == "export.package" or command == "asset.copy" or command == "project.set-default"
     if not readOnlyCommand then
         for _, field in ipairs({"prefab", "level", "asset"}) do
             if request[field] and type(request[field]) == "string" then assert(not project:isReadOnly(request[field]), "Labo plugin assets are read-only") end
@@ -358,9 +364,10 @@ local function execute(request, cleanups)
             if command == "level.reset" then item = assert(target.class.properties[name], "Unknown property: " .. name).default else item = value(request) end
             setProperty(project, target, name, item); changed = true
         end
-    elseif command == "export" then
-        local ok, result = require("editor.Export").write(project, level, absolute(request.output or Fs.join(project.rootPath, "Build/Game.love")))
-        assert(ok, result); return result
+    elseif command == "export" or command == "export.package" then
+        local service = command == "export.package" and require("editor.GamePackage") or require("editor.Export")
+        local ok, result, report = service.write(project, level, absolute(request.output or Fs.join(project.rootPath, "Build/Game.love")))
+        assert(ok, report and table.concat(report.logs, "\n") or result); return result
     else assert(command == "level.get", "Unknown command: " .. command) end
     if changed then
         assert(require("runtime.WorldLoader").prepare(project, level:toData()))

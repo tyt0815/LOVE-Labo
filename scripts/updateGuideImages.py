@@ -24,6 +24,9 @@ for name in report["images"]:
     shutil.copyfile(source / (name + ".png"), target / (name + ".png"))
 
 marks = {
+    "build-export": ("build-export", [(720, 392, 213, 19, "1"), (720, 437, 213, 21, "2")]),
+    "build-results": ("build-results", [(720, 377, 213, 22, "1"), (720, 463, 213, 65, "2"), (803, 620, 60, 18, "3")]),
+    "game-cli-editor": ("game-cli-editor", [(649, 200, 310, 22, "1"), (649, 238, 310, 17, "2"), (616, 418, 270, 80, "3")]),
     "travel-b": ("travel-b", [(460, 143, 150, 17, "1"), (646, 227, 220, 18, "2"), (646, 435, 270, 20, "3")]),
     "ui-anchor-picker": ("ui-anchor-picker", [(1215, 370, 200, 35, "1"), (1294, 508, 83, 136, "2")]),
     "window-controls": ("sprite-details", [(1371, 16, 67, 13, "1"), (720, 16, 300, 13, "2"), (3, 280, 3, 100, "3")]),

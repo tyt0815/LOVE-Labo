@@ -5,8 +5,8 @@ $cleanupRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../build'))
 if (-not (Test-Path -LiteralPath $cleanupRoot)) { return }
 if ((Get-Item -LiteralPath $cleanupRoot -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'build must not be a link' }
 $cleanupPrefix = $cleanupRoot.TrimEnd('\') + '\'
-$cleanupTests = '^(AttachedTest|Scopes|CatalogTest|PluginTest|PreviewTest|DebugTest|AssetPlacement|Lifecycle|PublicUi|BrowserReadOnly|Browser|BrowserMode|Rendering|CreateFailure|CodeEditor|PauseTest|LegacyView|Identity)(?:_\d+)+$'
-$cleanupArtifacts = '^(verification|guide|public|camera|ui|script|order|api|review|create|cli-export|carry|save|identity|window|session)-'
+$cleanupTests = '^(AttachedTest_Build|AttachedTest|Scopes|CatalogTest|PluginTest|PreviewTest|DebugTest|AssetPlacement|Lifecycle|PublicUi|BrowserReadOnly|Browser|BrowserMode|Rendering|CreateFailure|CodeEditor|PauseTest|LegacyView|Identity)(?:_\d+)+$'
+$cleanupArtifacts = '^(game-cli|build-cli|verification|guide|public|camera|ui|script|order|api|review|create|cli-export|carry|save|identity|window|session)-'
 $cleanupCount = 0
 foreach ($cleanupEntry in Get-ChildItem -LiteralPath $cleanupRoot -Force) {
     if ($cleanupEntry.Name -notmatch $cleanupTests -and $cleanupEntry.Name -notmatch $cleanupArtifacts) { continue }

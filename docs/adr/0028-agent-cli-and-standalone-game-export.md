@@ -1,6 +1,7 @@
 # 0028. AI 작업 CLI와 독립 게임 Export의 공용 로딩 계층
 
 - 상태: 채택
+- 후속 확장: [ADR 0088](0088-project-lua-build-and-game-cli.md)의 프로젝트 Lua 빌드·게임 전용 CLI
 - 날짜: 2026-10-09
 - 확장: [ADR 0027](0027-windows-editor-packaging.md)의 배포 실행 파일
 - 확장: [ADR 0012](0012-lua-classes-properties-and-unsaved-levels.md), [ADR 0017](0017-components-instance-properties-and-prefab-placement.md)의 클래스·컴포넌트 저장 계약

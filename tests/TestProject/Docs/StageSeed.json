@@ -1,0 +1,10 @@
+{
+  "name": "CLI demo",
+  "notes": [
+    {
+      "beat": 1,
+      "lane": 2
+    }
+  ],
+  "version": 1
+}

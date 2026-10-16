@@ -11,7 +11,7 @@
 
 외부 파일·폴더를 Asset Browser에 드롭하면 복사·등록 후 해당 폴더의 목록을 즉시 갱신하고 새 에셋을 표시합니다.
 
-**Project** 메뉴에서 Refresh·Plugins·Export를 실행합니다. [에셋 관리와 복구](assets.md)를 참고하세요. 폴더뷰에는 프로젝트 이름 아래 Assets가 있으며 Lua·이미지·Prefab을 같은 기능 폴더에 둘 수 있습니다.
+**Project** 메뉴에서 Refresh·Plugins·Export를 실행합니다. Open Build Script는 프로젝트 빌드 파일을 열고 Last Build는 마지막 빌드 결과를 표시합니다. [Lua 빌드와 게임 CLI](game-cli.md)를 참고하세요. [에셋 관리와 복구](assets.md)를 참고하세요. 폴더뷰에는 프로젝트 이름 아래 Assets가 있으며 Lua·이미지·Prefab을 같은 기능 폴더에 둘 수 있습니다.
 
 ## 창 이동과 제어
 

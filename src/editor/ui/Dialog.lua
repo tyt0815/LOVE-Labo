@@ -16,7 +16,7 @@ function Dialog.new(root, options)
     self.box = { x = math.max(0, (width - 460) / 2), y = math.max(0, (height - dialogHeight) / 2), w = 460, h = dialogHeight }
     local box = self.box
     self.field = { x = box.x + 16, y = box.y + 76, w = box.w - 32, h = 32 }
-    local cancelWidth = Ui.buttonWidth("Cancel")
+    local cancelWidth = Ui.buttonWidth(options.cancelLabel or "Cancel")
     local confirmWidth = Ui.buttonWidth(options.confirmLabel or "Create")
     self.cancel = { x = box.x + box.w - 16 - cancelWidth, y = box.y + box.h - 46, w = cancelWidth, h = 30 }
     self.confirm = { x = self.cancel.x - Ui.METRICS.buttonGap - confirmWidth, y = self.cancel.y, w = confirmWidth, h = 30 }
@@ -189,7 +189,7 @@ function Dialog:draw()
         Ui.text(self.options.contentHint or "Tab: path/tree    Arrows: navigate folders", box.x + 16, box.y + 338, box.w - 32, Theme.color("textMuted"))
     end
     if self.error then Ui.text(self.error, box.x + 16, box.y + box.h - 74, box.w - 32, Theme.color("error")) end
-    Ui.button("Cancel", self.cancel)
+    Ui.button(self.options.cancelLabel or "Cancel", self.cancel)
     if self.back then Ui.button("Back", self.back) end
     Ui.button(self.options.confirmLabel or "Create", self.confirm)
 end

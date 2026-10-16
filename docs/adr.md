@@ -95,3 +95,5 @@
 
 - [0086. 프로젝트 ID로 Export 저장 폴더 구분](adr/0086-project-save-identity.md)
 - [0087. LObject 계층을 유지하는 레벨 전환](adr/0087-carried-objects-across-levels.md)
+
+- [0088. 프로젝트 Lua 빌드와 게임 전용 CLI 배포](adr/0088-project-lua-build-and-game-cli.md)

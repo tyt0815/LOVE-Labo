@@ -1573,16 +1573,38 @@ for _, name in ipairs({"mousepressed", "mousereleased", "keypressed", "focus"}) 
     end
 end
 
+function EditorApp:showBuildResults(report)
+    report = report or self.lastBuildReport
+    if not report then return false end
+    local choices = {}
+    for _, message in ipairs(report.logs or {}) do
+        for line in message:gmatch("[^\r\n]+") do choices[#choices + 1] = {label = line} end
+    end
+    require("editor.ui.Dialog").new(self.uiRoot, {
+        title = report.error and "Build failed" or "Build complete", message = "Tools/Build.lua", choices = choices,
+        detail = report.outputDirectory or "", choiceLabel = "Build log", listOnly = true,
+        confirmLabel = "Open folder", cancelLabel = "Close",
+        onConfirm = function()
+            local folder = report.outputDirectory
+            if not folder or not require("editor.HostFileSystem").info(folder) then return false, "Output folder does not exist" end
+            return love.system.openURL("file:///" .. folder)
+        end})
+    return true
+end
+
 function EditorApp:showExportDialog()
-    if not self.project then return false, "Export requires a project" end
+    if not self.project then return false end
     self.inspector:commitEdit()
-    require("editor.ui.Dialog").new(self.uiRoot, {title = "Export Game", input = true,
-        message = "Export the current level as a standalone .love game.",
-        value = require("editor.HostFileSystem").join(self.project.rootPath, "Build/Game.love"), confirmLabel = "Export",
+    require("editor.ui.Dialog").new(self.uiRoot, {
+        title = "Export Game", input = true,
+        message = "Run Tools/Build.lua with this game output path.",
+        value = require("editor.HostFileSystem").join(self.project.rootPath, "Build/Game.love"),
+        confirmLabel = "Export",
         onConfirm = function(output)
-            local called, ok, err = pcall(require("editor.Export").write, self.project, self.level, output)
-            if not called then return false, tostring(ok) end
-            return ok, err
+            local ok, result, report = require("editor.ProjectBuild").run(self.project, self.level, output)
+            self.lastBuildReport = report
+            self:showBuildResults(report)
+            return true
         end})
     return true
 end

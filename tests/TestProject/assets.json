@@ -70,6 +70,11 @@
       "id": "85cc0709-f8d5-4f05-a3e8-4c4654a133e1",
       "version": 1
     },
+    "Assets/Examples/L_StageEditor.level": {
+      "hash": "6f8b20b94aa62b2c2769644f53ba87c594f0aac9691324bbbb4529131291ca77",
+      "id": "fe05c10d-b013-4309-b65e-0738d54d5075",
+      "version": 1
+    },
     "Assets/Examples/L_TravelA.level": {
       "hash": "2f80ff8d528f151c6f6a46294c2a401afc6ed850408150adaaf13b81bea31225",
       "id": "899a4d0c-336a-4ce9-9b88-769bc7eb57ed",
@@ -174,6 +179,24 @@
     "Assets/Examples/ScriptOrderDemo.lua": {
       "hash": "09de4ef4cd9493f1fe915ca768c97478868ad49bc862ddb46d49d1707f2fde77",
       "id": "797af611-363d-4900-9ff7-5b6b7b14a434",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/StageCommands.lua": {
+      "hash": "855dcbadcf7d2f02e4bfdb74ec417d4579924864ec13556926dba9c2559b0186",
+      "id": "a0800e55-369d-4089-9d83-c08181be04d0",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/StageEditor.lua": {
+      "hash": "185bd45f9654ca76e2047cba06eb2660e670244cb0219c19b8d920968f2e6518",
+      "id": "3089d2cd-86fb-4df5-b4aa-9a7bd63e7836",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/StageModel.lua": {
+      "hash": "df8315db69916d53f15d87231e99f5152f2d55518c5af41ed328dcd04e180861",
+      "id": "b37f490c-3241-4ec1-a28d-715808b43697",
       "scriptKind": "script",
       "version": 1
     },

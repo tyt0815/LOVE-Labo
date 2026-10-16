@@ -1,3 +1,5 @@
+> 프로젝트 Export는 [ADR 0088](adr/0088-project-lua-build-and-game-cli.md)의 Tools/Build.lua와 builder API를 따른다. 게임 CLI는 일반 Lua 명령 모듈을 World·창·오디오 없이 실행하며 게임 내 편집기와 공용 콘텐츠 모델을 사용한다.
+
 > 프로젝트 저장 폴더 구분은 [ADR 0086](adr/0086-project-save-identity.md), 같은 LObject 계층을 유지하는 전환은 [ADR 0087](adr/0087-carried-objects-across-levels.md)을 따른다. 선택적 carry와 worldChanged는 범용 API이며 저장 형식은 게임 코드가 정한다.
 
 > 현재 실행 모델은 [ADR 0050](adr/0050-attached-scripts-and-unified-assets.md)을 따른다. LObject는 Transform·자손을 소유하며 여러 Script를 부착한다. 아래의 LObject 클래스 상속·Component·Sources 관련 초기 설계는 역사적 맥락이며 새 계약으로 대체되었다. 플러그인 제공과 에셋 마운트는 [ADR 0058](adr/0058-plugins-and-mounted-assets.md)을 따른다.

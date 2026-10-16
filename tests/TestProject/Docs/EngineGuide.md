@@ -57,3 +57,7 @@ Labo-cli.exe --cli script open --project <경로> --script <소스 ID 또는 경
 기본 레벨이 없으면 --level을 지정한다. 복잡한 값은 --request <UTF-8 JSON 파일>을 사용한다.
 level.events는 events 또는 --events-json 배열의 {name,args}를 같은 Script 이벤트 경로로 전달하고 상태를 반환한다. 문서를 저장하지 않고 기본적으로 draw·update·Pointer 판정은 실행하지 않는다. --step-dt를 지정하면 이벤트마다 update·레벨 전환 경계를 처리한다.
 level.simulate는 초기화·업데이트 결과를 반환하며 파일을 수정하거나 draw를 실행하지 않는다. --debug로 로그·도형 기록도 확인한다.
+
+## Lua 빌드와 게임 CLI
+
+Tools/Build.lua를 Export에서 실행한다. 기본 게임 패키징, packageCli, 문서 copy를 조합한다. Assets/Examples/L_StageEditor.level을 실행하고 화면의 작업 폴더를 Game-cli.exe --workspace에 지정한다. R은 외부 변경을 다시 읽고 S는 revision을 확인해 저장한다. Docs/StageGuide.md와 https://tyt0815.github.io/LOVE-Labo/guide/game-cli/ 를 참고한다.
