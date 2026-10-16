@@ -47,3 +47,5 @@ PowerShell과 LÖVE 11.5 Windows 런타임이 필요하다. 저장소 루트에�
 검증 결과는 출력 폴더 옆 `verification-<고유값>/report.json`에 남고, 화면은 `preview.png`로 저장한다. 실패하거나 60초 안에 종료하지 않으면 스크립트가 오류를 반환한다. 기존 사용자 프로젝트·설정은 수정하지 않는다. 검증 프로젝트를 배포 폴더에 포함하지 않도록 출력 폴더의 부모에 보관한다.
 
 AI용 CLI와 게임 `.love` Export 사용법은 [CLI와 게임 Export](cli-and-export.md)를 참고한다.
+
+검증·캡처 후 커밋 전에는 `scripts/cleanBuild.ps1`로 대상을 확인하고 `-Apply`로 임시 산출물을 정리합니다. 실패 조사 중 결과는 `-Keep`으로 보존합니다. 최종 build/windows는 유지합니다.

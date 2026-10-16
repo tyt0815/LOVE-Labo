@@ -58,3 +58,9 @@ Inspector 필드나 Prefab 계층에 에셋·인스턴스를 드래그앤드롭�
 - 기본 제공 Camera·View·Sprite·Pointer·RectBounds·Canvas·Text는 `LaboEssentials` 한 플러그인에 묶는다. 스크립트 하나마다 플러그인을 만들지 않고 기능 묶음의 의미로 구분한다.
 - 플러그인은 Lua뿐 아니라 Assets에서 지원하는 모든 에셋과 폴더를 담을 수 있다. 새 에셋 형식을 추가할 때도 플러그인 탐색·참조·Export에서 같은 계약을 적용한다.
 - 활성 플러그인은 에셋 브라우저에서 `Assets`와 같은 깊이의 `Labo Plugins/<이름>` 또는 `User Plugins/<이름>`에서 탐색한다. 추가 `Plugins` 상위 폴더를 두지 않는다. 내부 마운트 참조와 에셋 ID는 표시 계층과 별도로 유지한다.
+
+## build 임시 산출물 정리
+
+- 커밋 전 `scripts/cleanBuild.ps1`로 정리 대상을 확인하고 `-Apply`로 생성된 테스트 프로젝트·임시 캡처·검증 결과를 정리한다.
+- `build/windows` 배포본과 `build/verification-latest` 최신 검증 요약, 문서 빌드 의존성·사이트 캐시와 명시적인 `-Keep` 대상은 유지한다. 조사 중인 실패 결과는 `-Keep`으로 보존하고 조사 완료 후 정리한다.
+- 삭제는 저장소 `build` 바로 아래의 알려진 생성 패턴만 대상으로 한다. 실제 경로를 확인하고 심볼릭 링크·junction은 재귀 탐색하지 않는다. 사용자 프로젝트·알 수 없는 폴더는 자동 삭제하지 않는다.

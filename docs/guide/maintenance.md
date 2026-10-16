@@ -29,3 +29,7 @@ UI 배치가 바뀌면 updateGuideImages.py의 표시 위치도 실제 화면을
 `.github/workflows/docs.yml`은 PR에서 strict 빌드를 검증하고 main에 push되면 GitHub Pages로 배포합니다. 저장소 Settings → Pages의 Source는 GitHub Actions를 사용합니다. 공개 저장소의 기본 github.io 주소에는 별도 도메인이 필요하지 않습니다.
 
 배포 경로는 [GitHub Pages 공식 워크플로 안내](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)를 따릅니다. MkDocs 빌드는 [공식 배포 안내](https://www.mkdocs.org/user-guide/deploying-your-docs/)를 참고합니다.
+
+## build 정리
+
+`scripts/cleanBuild.ps1`은 알려진 테스트 프로젝트·임시 캡처·검증 경로를 미리 보여주고, `-Apply`를 지정하면 삭제합니다. 배포본 build/windows와 최신 검증 요약 build/verification-latest, 문서 캐시는 유지합니다. 조사 중인 결과는 `-Keep window-activation-check`처럼 build 바로 아래 이름으로 보존합니다. 알 수 없는 폴더와 링크가 있는 경로는 자동 삭제하지 않습니다. 커밋 전 검증 결과를 확인한 뒤 실행합니다.
