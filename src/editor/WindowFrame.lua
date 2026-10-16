@@ -29,6 +29,8 @@ function Frame.install()
             void SDL_GetWindowSize(void *window, int *w, int *h);
             void SDL_SetWindowSize(void *window, int w, int h);
             void SDL_GetWindowPosition(void *window, int *x, int *y);
+            void SDL_SetWindowPosition(void *window, int x, int y);
+            int SDL_GetNumVideoDisplays(void);
             int SDL_GetWindowDisplayIndex(void *window);
             int SDL_GetDisplayUsableBounds(int display, LaboWindowRect *rect);
             unsigned int SDL_GetWindowFlags(void *window);
@@ -41,6 +43,9 @@ function Frame.install()
             long __stdcall SetWindowLongW(void *window, int index, long value);
             int __stdcall SetWindowPos(void *window, void *after, int x, int y, int w, int h, unsigned int flags);
             typedef struct {long left; long top; long right; long bottom;} LaboNativeRect;
+            typedef struct {
+                LaboWindowPoint reserved, maxSize, maxPosition, minTrackSize, maxTrackSize;
+            } LaboMinMaxInfo;
             typedef struct {unsigned int size; LaboNativeRect monitor; LaboNativeRect work; unsigned int flags;} LaboMonitorInfo;
             intptr_t __stdcall SetWindowLongPtrW(void *window, int index, intptr_t value);
             intptr_t __stdcall CallWindowProcW(void *proc, void *window, unsigned int message, uintptr_t wparam, intptr_t lparam);
@@ -84,6 +89,16 @@ function Frame.install()
             if message == 0x0086 then lparam = -1 end -- WM_NCACTIVATE
             if message == 0x0085 or message == 0x00AE or message == 0x00AF then return 0 end
             local result = user.CallWindowProcW(Frame.previousProc, hwnd, message, wparam, lparam)
+            -- 클라이언트만 줄이면 실제 창은 작업 표시줄 뒤까지 덮어 전체화면으로 취급될 수 있다.
+            -- 네이티브 최대화 위치·크기부터 모니터 작업 영역에 맞춘다. 최소 추적 크기는 SDL 값을 유지한다.
+            if message == 0x0024 and user.GetMonitorInfoW(user.MonitorFromWindow(hwnd, 2), monitor) ~= 0 then
+                local limits = ffi.cast("LaboMinMaxInfo *", lparam)
+                limits.maxPosition.x = monitor.work.left - monitor.monitor.left
+                limits.maxPosition.y = monitor.work.top - monitor.monitor.top
+                limits.maxSize.x = monitor.work.right - monitor.work.left
+                limits.maxSize.y = monitor.work.bottom - monitor.work.top
+                return 0
+            end
             -- SDL 2는 최대화한 borderless 클라이언트를 모니터 전체로 확장한다.
             -- 계산 뒤 작업 영역으로 제한해 작업 표시줄과 화면 밖 버튼을 방지한다.
             if message == 0x0083 and wparam ~= 0 and user.IsZoomed(hwnd) ~= 0

@@ -28,6 +28,20 @@ function Verification.run(args)
             int __stdcall GetClientRect(void *hwnd, LaboNativeRect *rect);
         ]]
         local user = Frame.user
+        report.maximizeTransitions = {}
+        local function checkNativeMaximize(name)
+            local outer, client, monitor = ffi.new("LaboNativeRect"), ffi.new("LaboNativeRect"), ffi.new("LaboMonitorInfo")
+            monitor.size = ffi.sizeof(monitor)
+            assert(user.GetMonitorInfoW(user.MonitorFromWindow(Frame.handle, 2), monitor) ~= 0)
+            assert(user.GetWindowRect(Frame.handle, outer) ~= 0 and user.GetClientRect(Frame.handle, client) ~= 0)
+            local bounds = {left = tonumber(outer.left), top = tonumber(outer.top), right = tonumber(outer.right), bottom = tonumber(outer.bottom)}
+            report.maximizeTransitions[#report.maximizeTransitions + 1] = {name = name, bounds = bounds,
+                workArea = {left = tonumber(monitor.work.left), top = tonumber(monitor.work.top), right = tonumber(monitor.work.right), bottom = tonumber(monitor.work.bottom)}}
+            check(name .. ": native bounds match work area", outer.left == monitor.work.left and outer.top == monitor.work.top
+                and outer.right == monitor.work.right and outer.bottom == monitor.work.bottom)
+            check(name .. ": client fills native window", client.right == outer.right - outer.left and client.bottom == outer.bottom - outer.top)
+            return bounds
+        end
         for _, active in ipairs({0, 1, 0, 1}) do
             user.SendMessageW(Frame.handle, 0x0086, active, 0)
             user.SendMessageW(Frame.handle, 0x0085, 1, 0)
@@ -61,6 +75,7 @@ function Verification.run(args)
         Frame.native.SDL_GetWindowSize(Frame.window, size, size + 1)
         report.maximizedBounds = {x = tonumber(position[0]), y = tonumber(position[1]), width = tonumber(size[0]), height = tonumber(size[1])}
         report.workArea = {x = tonumber(usable.x), y = tonumber(usable.y), width = tonumber(usable.w), height = tonumber(usable.h)}
+        report.maximizedNativeBounds = checkNativeMaximize("maximize button")
         check("maximize preserves taskbar work area", position[0] >= usable.x and position[1] >= usable.y
             and position[0] + size[0] <= usable.x + usable.w and position[1] + size[1] <= usable.y + usable.h)
         press(2); check("restore button", not love.window.isMaximized())
@@ -71,6 +86,28 @@ function Verification.run(args)
         love.window.restore()
         check("restore minimized window", require("bit").band(Frame.native.SDL_GetWindowFlags(Frame.window), 64) == 0)
         app.uiRoot:dismissPopup()
+        local originalPosition = ffi.new("int[2]")
+        Frame.native.SDL_GetWindowPosition(Frame.window, originalPosition, originalPosition + 1)
+        report.displays = Frame.native.SDL_GetNumVideoDisplays()
+        -- 연결된 각 모니터에서 최대화·최소화 복원·재최대화의 실제 외곽을 확인한다.
+        for display = 0, report.displays - 1 do
+            assert(Frame.native.SDL_GetDisplayUsableBounds(display, usable) == 0)
+            Frame.native.SDL_SetWindowPosition(Frame.window, usable.x + 16, usable.y + 16)
+            love.event.pump()
+            for cycle = 1, 2 do
+                love.window.maximize(); love.event.pump()
+                check("display " .. display .. " maximize state " .. cycle, love.window.isMaximized())
+                checkNativeMaximize("display " .. display .. " maximize " .. cycle)
+                love.window.minimize(); love.window.restore(); love.event.pump()
+                check("display " .. display .. " restores maximized state " .. cycle, love.window.isMaximized())
+                checkNativeMaximize("display " .. display .. " minimized restore " .. cycle)
+                love.window.restore(); love.event.pump()
+                local restoredWidth, restoredHeight = love.graphics.getDimensions()
+                check("display " .. display .. " restores normal dimensions " .. cycle, not love.window.isMaximized()
+                    and restoredWidth == w and restoredHeight == h)
+            end
+        end
+        Frame.native.SDL_SetWindowPosition(Frame.window, originalPosition[0], originalPosition[1])
         Frame.native.SDL_SetWindowSize(Frame.window, 1100, 720)
         love.event.pump()
         Frame.native.SDL_GetWindowSize(Frame.window, size, size + 1)
