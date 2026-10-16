@@ -24,6 +24,7 @@ for name in report["images"]:
     shutil.copyfile(source / (name + ".png"), target / (name + ".png"))
 
 marks = {
+    "travel-b": ("travel-b", [(460, 143, 150, 17, "1"), (646, 227, 220, 18, "2"), (646, 435, 270, 20, "3")]),
     "ui-anchor-picker": ("ui-anchor-picker", [(1215, 370, 200, 35, "1"), (1294, 508, 83, 136, "2")]),
     "window-controls": ("sprite-details", [(1371, 16, 67, 13, "1"), (720, 16, 300, 13, "2"), (3, 280, 3, 100, "3")]),
     "background-picker": ("background-picker", [(1124, 282, 120, 120, "1"), (1352, 342, 56, 82, "2"), (1068, 485, 66, 18, "3")]),

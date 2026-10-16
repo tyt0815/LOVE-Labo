@@ -124,3 +124,9 @@ Inspector의 sound 필드로 다른 오디오 에셋을 선택할 수 있습니�
 WASD/방향키는 메인 카메라만 이동합니다. `=`/`-`는 메인 카메라의 줌, M은 미니맵 출력을 전환합니다. 레벨의 rendering 스크립트 참조에서 두 Camera를 확인하고 Assets/Examples/Multiview.lua에서 생성·정리 코드를 확인합니다. 레벨 기본 Main Camera 필드는 사용하지 않습니다.
 
 다른 프로젝트에는 `love src --cli project rendering-examples --project D:/Games/MyGame`으로 추가합니다. 동명 파일을 덮어쓰지 않으며 LaboEssentials를 활성화합니다. CLI 검수는 `level view`로 출력 구성, `level render --output ...png`로 실제 합성 결과를 확인합니다.
+
+## 플레이어 유지와 저장·복원
+
+Assets/Examples/L_TravelA.level에서 Play합니다. N은 같은 플레이어·카메라·HUD를 다음 레벨로 옮기고 S/L은 LÖVE 파일 API로 저장·복원합니다. F는 의도적 전환 실패를 검수합니다. [실행 방법과 공개 API](game-state.md)를 참고합니다. 다른 프로젝트에는 `project examples-session`으로 추가합니다.
+
+![다음 레벨에서도 유지되는 플레이어](images/travel-b.png)

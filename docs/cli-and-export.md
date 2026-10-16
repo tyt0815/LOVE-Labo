@@ -246,11 +246,11 @@ rendering-examples는 동명 에셋이 있으면 중단하며 덮어쓰지 않�
 
 script.open은 GUI와 같은 소스 해석·VS Code 자동 탐색·기존 창 재사용을 사용합니다. --dry-run은 열람 사본·편집기 프로세스를 생성하지 않고 실행 파일·인자·대상 경로·읽기 전용 여부만 반환합니다. 제공 플러그인은 실제 실행 시 읽기 전용 열람 사본을 만듭니다. dry-run을 빼면 편집기를 실행합니다.
 
-## 프로젝트 저장 폴더 ID
+## 플레이어 유지·저장 검수와 프로젝트 저장 ID
 
-Export는 고정 labo-exported-game 대신 labo-<프로젝트 UUID>를 LÖVE identity로 사용합니다. 기존 프로젝트는 처음 열 때 ID를 한 번 저장합니다. 이름·폴더 이동·재배포에서도 같은 ID를 유지합니다.
-
+- `project examples-session`: Assets/Examples에 전환·저장 예제를 생성하고 Project에 travelSession을 부착합니다. 동명 파일은 덮어쓰지 않습니다.
+- `level events --step-dt 0`: 이벤트마다 update·전환 경계를 처리합니다. 생략하면 기존 이벤트 전용 동작입니다. 반환값에 levelReference·projectScripts·levelScripts를 포함합니다.
 - `project info`: 프로젝트의 id·saveIdentity를 조회합니다.
-- `project reset-save-identity`: 복사한 프로젝트를 다른 게임으로 분리할 때 새 저장 폴더 ID를 발급합니다. 에셋·기존 세이브는 유지합니다. 에디터에서 열려 있던 프로젝트는 다시 엽니다.
+- `project reset-save-identity`: 복사한 프로젝트를 다른 게임으로 분리할 때 저장 폴더 ID를 새로 발급합니다. 에셋·기존 세이브는 유지합니다.
 
-예전 공용 저장 폴더의 세이브는 자동으로 이전하지 않습니다.
+Export는 고정 labo-exported-game 대신 labo-<프로젝트 UUID>를 LÖVE identity로 사용합니다. 기존 프로젝트는 처음 열 때 ID를 한 번 저장합니다. 실제 검수 순서는 [게임 상태 가이드](guide/game-state.md)를 참고합니다.

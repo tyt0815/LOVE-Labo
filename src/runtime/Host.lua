@@ -42,12 +42,18 @@ function Host.load(args)
                         local file = assert(io.open(assert(args[index + 1]), "rb"))
                         local bytes = file:read("*a"); file:close()
                         local events = assert(Json.decode(bytes))
+                        local stepped = false
                         for _, event in ipairs(events) do
                             assert(require("core.ScriptEvents").supported[event.name], "Unsupported script event")
                             Host[event.name](unpack(event.args))
+                            if event.dt ~= nil then
+                                assert(require("core.Transform").finite(event.dt) and event.dt >= 0, "Invalid verification event dt")
+                                stepped = true; Host.update(event.dt)
+                            end
                             if failure then return false, failure end
                         end
-                        return true
+                        if stepped then Host.draw() end
+                        return failure == nil, failure
                     end)
                 end
                 if argument == "--verify-pointer" then

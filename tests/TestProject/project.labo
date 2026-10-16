@@ -2,12 +2,22 @@
   "defaultLevelReference": "b3c66a66-f009-40fb-aa41-d92e1cad3a94",
   "id": "dcbec8ae-23ff-4cc2-a043-4c491a57d4c8",
   "name": "TestProject",
-  "scriptOverrides": {},
+  "scriptOverrides": {
+    "329af959-4246-4036-b7d9-b2f0a26bffaf": {
+      "levelA": "899a4d0c-336a-4ce9-9b88-769bc7eb57ed",
+      "levelB": "815d841c-be20-4bfe-9027-7fa92bbc46bb"
+    }
+  },
   "scripts": [
     {
       "id": "17665348-f5a2-4954-b2e1-f9ba10aed9b0",
       "name": "scopeSession",
       "source": "2e7713a2-6819-4dad-a3b0-aaea4c004b75"
+    },
+    {
+      "id": "329af959-4246-4036-b7d9-b2f0a26bffaf",
+      "name": "travelSession",
+      "source": "fa5b5f2f-c412-463d-919f-6281571406cc"
     }
   ],
   "version": 2

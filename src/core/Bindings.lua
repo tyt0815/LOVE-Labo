@@ -7,6 +7,7 @@ function Bindings.add(owner, cleanup)
     local handle = {owner = owner}
     function handle:release()
         if self.released then return end
+        assert(not self.transferPending, "Binding owner is being transferred")
         self.released = true; cleanup()
     end
     owner.bindingHandles = owner.bindingHandles or {}

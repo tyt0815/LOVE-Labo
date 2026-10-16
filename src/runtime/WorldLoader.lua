@@ -103,16 +103,25 @@ function Loader.prepare(project, data, session)
     return world, class, initial, loadClass
 end
 
-function Loader.activate(project, world, class, initial, loadClass)
-    local session, previous = world.project, world.project and world.project.world
+function Loader.activate(project, world, class, initial, loadClass, transaction)
+    local session = world.project
+    local previous = transaction and transaction.previousWorld or session and session.world
     if session then session.world = world end
     local function fail(err)
+        if transaction then
+            local rollbackError = transaction:rollback()
+            if rollbackError then err = tostring(err) .. "\nRollback callback: " .. tostring(rollbackError) end
+        end
         local ok, cleanupError = world:dispose(previous ~= nil)
         if previous then session.world = previous end
         return nil, tostring(err) .. (not ok and "\n" .. tostring(cleanupError) or "")
     end
     require("runtime.PrefabSpawner").bind(project, world, loadClass)
     require("runtime.LevelTransition").bind(project, world)
+    if transaction then
+        local ok, err = pcall(transaction.notify, transaction)
+        if not ok then return fail(err) end
+    end
     if session and not session.hasLoaded then
         local ok, err = session:load(world)
         if not ok then return fail(err) end

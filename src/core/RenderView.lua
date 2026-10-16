@@ -70,6 +70,7 @@ function View:includes(script)
     return not self.filter or self.filter(script) == true
 end
 function View:release()
+    assert(not self.transferPending, "View is being transferred")
     if self.released then return end
     self.released, self.pointerCaptures = true, {}
     for index, view in ipairs(self.world.renderViews) do

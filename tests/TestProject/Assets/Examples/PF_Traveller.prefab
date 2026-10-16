@@ -1,0 +1,78 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "id": "button",
+              "name": "Gold button",
+              "overrides": {
+                "scripts": {
+                  "faad1a44-e0f0-4087-8268-634136cfe121": {
+                    "anchor": "topLeft",
+                    "height": 52,
+                    "pivot": "topLeft",
+                    "width": 550
+                  }
+                }
+              },
+              "scripts": [
+                {
+                  "id": "faad1a44-e0f0-4087-8268-634136cfe121",
+                  "name": "layout",
+                  "source": "46e38070-1008-4196-88b5-1eb40970283b"
+                },
+                {
+                  "id": "e2081c41-2e46-4e6a-a080-0cde68a7feec",
+                  "name": "hud",
+                  "source": "e1df2a13-e796-4109-9a02-ccc8f0bcb4a4"
+                }
+              ],
+              "transform": {
+                "x": 20,
+                "y": 20
+              }
+            }
+          ],
+          "id": "hud",
+          "name": "HUD",
+          "overrides": {
+            "scripts": {}
+          },
+          "scripts": [
+            {
+              "id": "fb6e4ac6-f062-459b-9034-dfd73fc06ccd",
+              "name": "canvas",
+              "source": "dd9029e6-e54d-455b-95df-a76477884c1f"
+            }
+          ]
+        }
+      ],
+      "id": "camera",
+      "name": "Camera",
+      "overrides": {
+        "scripts": {}
+      },
+      "scripts": [
+        {
+          "id": "9abc5bf9-7d5a-45b8-9c46-10d7bdd674ac",
+          "name": "camera",
+          "source": "953e5435-cdd1-43e0-9e78-225d81618862"
+        }
+      ]
+    }
+  ],
+  "formatVersion": 4,
+  "name": "PF_Traveller",
+  "overrides": {
+    "scripts": {}
+  },
+  "scripts": [
+    {
+      "id": "636b4039-cec3-4ca3-8c1f-b74f61ca5c56",
+      "name": "traveller",
+      "source": "4264c06a-6904-49ac-81ef-e1e2e961a8ab"
+    }
+  ]
+}

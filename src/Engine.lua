@@ -5,5 +5,5 @@ return {
     Input = require("core.Input"), Viewport = require("core.Viewport"),
     Debug = require("core.Debug"), Rendering = require("Engine.Rendering"),
     spawnLObject = function(world, prefab, transform, overrides) return world:spawnLObject(prefab, transform, overrides) end,
-    openLevel = function(world, reference) return world:openLevel(reference) end
+    openLevel = function(world, reference, options) return world:openLevel(reference, options) end
 }

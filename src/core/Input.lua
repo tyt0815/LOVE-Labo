@@ -17,6 +17,8 @@ function Input.registerRegion(world, options)
     world.inputRegions = world.inputRegions or {}; world.nextRegionId = (world.nextRegionId or 0) + 1
     region.id = world.nextRegionId; world.inputRegions[#world.inputRegions + 1] = region
     local handle = Bindings.add(options.owner, function()
+        assert(not region.transferPending, "Input region is being transferred")
+        local world = region.world
         region.released = true
         for index, value in ipairs(world.inputRegions) do if value == region then table.remove(world.inputRegions, index); break end end
         for button, value in pairs(world.pointerCaptures or {}) do if value == region then world.pointerCaptures[button] = nil end end
@@ -24,7 +26,7 @@ function Input.registerRegion(world, options)
             for button, value in pairs(view.pointerCaptures) do if value == region then view.pointerCaptures[button] = nil end end
         end
     end)
-    region.release = function() handle:release() end
+    region.release = function() assert(not region.transferPending, "Input region is being transferred"); handle:release() end
     function region:isActive() return not self.released and not self.world.disposed and Bindings.live(self.owner) and self.owner:getWorld() == self.world end
     return region
 end

@@ -7,7 +7,8 @@ local function size(width, height)
 end
 function Target.new(world, options)
     size(options.width, options.height)
-    local self = setmetatable({world = world, width = options.width, height = options.height}, Target)
+    assert(not options.owner or options.owner:getWorld() == world, "Render target owner must belong to this World")
+    local self = setmetatable({world = world, owner = options.owner, width = options.width, height = options.height}, Target)
     world.renderTargets = world.renderTargets or {}
     world.renderTargets[#world.renderTargets + 1] = self
     return self
@@ -27,6 +28,7 @@ function Target:resize(width, height)
     self.width, self.height = width, height
 end
 function Target:release()
+    assert(not self.transferPending, "Render target is being transferred")
     assert(not self.writing, "Cannot release a render target during rendering")
     if self.released then return end
     if self.texture then self.texture:release(); self.texture = nil end

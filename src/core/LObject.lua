@@ -26,6 +26,7 @@ function LObject:getWorldTransform(context)
     return self.parent and Transform.compose(self.parent:getWorldTransform(context), value) or value
 end
 function LObject:attachTo(parent)
+    assert(not self.transferPending and not (parent and parent.transferPending), "Object is being transferred")
     assert(parent == nil or getmetatable(parent) == LObject, "Parent must be an LObject")
     assert(not parent or not self.world or not parent.world or self.world == parent.world, "Objects must belong to the same World")
     local ancestor = parent

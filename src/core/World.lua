@@ -61,6 +61,7 @@ function World:spawnLObject(template, transform, overrides)
     return self.spawnLObjectFactory(template, transform, overrides)
 end
 function World:removeLObject(object)
+    if object.transferPending then return false, "Object is being transferred" end
     if object.removing and object.world == self then return true end
     local live = false
     for _, current in ipairs(self.lobjects) do if current == object then live = true end end
@@ -93,8 +94,13 @@ function World:removeLObject(object)
     return cleanupError == nil, cleanupError
 end
 function World:dispose(preserveProject)
+    if self.transitionInProgress then return false, "World is being transferred" end
     if self.disposed then return true end
     self.disposed = true
+    if self.pendingLevel then
+        local pending = self.pendingLevel; self.pendingLevel = nil
+        pending.world:dispose(true)
+    end
     self:cancelPointer()
     local pending = {}; for _, object in ipairs(self.lobjects) do pending[#pending + 1] = object end
     local cleanupError
@@ -139,10 +145,10 @@ function World:cancelPointer()
     self.pointerCaptures = {}
     require("core.ScriptEvents").cancel(self)
 end
-function World:openLevel(reference)
+function World:openLevel(reference, options)
     if self.disposed then return false, "World is disposed" end
     if not self.openLevelRequest then return false, "World has no Level loader" end
-    local called, ok, err = pcall(self.openLevelRequest, reference)
+    local called, ok, err = pcall(self.openLevelRequest, reference, options)
     if not called then return false, tostring(ok) end
     return ok, err
 end

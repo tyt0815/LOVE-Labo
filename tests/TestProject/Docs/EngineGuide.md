@@ -26,6 +26,9 @@ world:openLevel(reference)은 프레임 경계에서 레벨을 전환한다. 새
 
 Rendering.normalizeProjection(data)는 width·height를 검증하고 생략된 transform을 원점 변환으로 채운 복사본을 반환한다. nil은 비활성 투영으로 유지한다. View와 Canvas는 같은 규칙을 사용한다.
 
+world:openLevel(reference,{carry={object}})는 선택 객체·자손·Script를 같은 인스턴스로 옮긴다. 기존 load/unload는 재호출하지 않고 worldChanged(previousWorld,nextWorld)를 통지한다. 실패 복구 시에는 반대로 통지한다. 캐시한 World를 여기서 갱신한다. owner가 이동하는 View·Input region·RenderTarget도 함께 옮기며 렌더 타깃은 createTarget(world,{owner=self,width=256,height=256})로 소유자를 지정한다. 포인터 캡처는 취소한다. 임시 이동 중 구조 변경·기존 등록 release는 금지한다. 사용자 Lua 필드·파일 부작용까지 복구하지 않는다.
+Project Script의 self.owner.id·saveIdentity는 프로젝트의 안정적인 UUID와 저장 폴더 이름이다. 게임 저장은 일반 테이블 직렬화와 love.filesystem.write/read로 구성한다. 예제는 saves/<saveIdentity>/slot1.json을 사용하며 Editor Play와 Export의 물리 저장 위치는 다르다. 전역 setIdentity로 에디터 설정 저장 위치를 바꾸지 않는다.
+
 audio={type="audio", default=false}로 WAV·OGG·MP3·FLAC 참조를 노출한다. world:getAssetData(id)는 직접 소유할 LÖVE FileData를 반환한다. love.audio.newSource(data,"static"/"stream")로 재생한다. 객체 제거·Play 종료·전환·오류 시 Script:unload()가 초기화한 각 부착에 한 번 호출되며 self.owner를 사용할 수 있다. enabled=false도 정리한다. 자원은 unload에서 stop/release하며 self.source는 메타데이터이므로 self.audioSource처럼 별도 필드를 쓴다.
 
 configure에서 Transform.bindLocal(object,{owner,resolve,unresolve})·Bounds.bind(script,provider,{primary=true})를 등록한다. 제공 함수는 부모·참조·프로퍼티를 지연 조회하고 저장 Transform을 덮어쓰지 않는다. Bounds.of/parent는 객체·부모 사각형 조회다. 바인딩·입력은 Script 종료 시 자동 정리한다. configure는 편집·Preview에도 실행하고 게임 동작·입력·자원은 load에서 시작한다. 문자열 프로퍼티 options={"left","right"}는 공통 선택 목록이다.
@@ -44,6 +47,7 @@ Labo-cli.exe --cli prefab script add --project <경로> --prefab Assets/PF_Playe
 Labo-cli.exe --cli prefab script move --project <경로> --prefab Assets/PF_Player.prefab --script movement --index 1
 Labo-cli.exe --cli level simulate --project <경로> --frames 60 --dt 0.0166667
 Labo-cli.exe --cli level pointer --project <경로> --space screen --x 640 --y 360
+Labo-cli.exe --cli project examples-session --project <경로>
 Labo-cli.exe --cli project examples-ui --project <경로> --public-only
 Labo-cli.exe --cli project migrate-rendering --project <경로> --dry-run
 Labo-cli.exe --cli level view --project <경로>
@@ -51,5 +55,5 @@ Labo-cli.exe --cli level render --project <경로> --output <PNG 경로>
 Labo-cli.exe --cli script open --project <경로> --script <소스 ID 또는 경로> --dry-run
 
 기본 레벨이 없으면 --level을 지정한다. 복잡한 값은 --request <UTF-8 JSON 파일>을 사용한다.
-level.events는 events 또는 --events-json 배열의 {name,args}를 같은 Script 이벤트 경로로 전달하고 상태를 반환한다. 문서를 저장하지 않고 draw·update·Pointer 판정은 실행하지 않는다.
+level.events는 events 또는 --events-json 배열의 {name,args}를 같은 Script 이벤트 경로로 전달하고 상태를 반환한다. 문서를 저장하지 않고 기본적으로 draw·update·Pointer 판정은 실행하지 않는다. --step-dt를 지정하면 이벤트마다 update·레벨 전환 경계를 처리한다.
 level.simulate는 초기화·업데이트 결과를 반환하며 파일을 수정하거나 draw를 실행하지 않는다. --debug로 로그·도형 기록도 확인한다.

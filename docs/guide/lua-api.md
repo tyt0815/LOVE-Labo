@@ -230,3 +230,7 @@ return Sound
 종료 중에는 `self.owner`와 `self.owner.world`를 사용할 수 있습니다. unload에는 별도 인자를 전달하지 않습니다. 한 unload가 예외를 발생시켜도 나머지를 정리한 뒤 오류를 보고합니다. 반환값은 무시하며 unload는 입력 이벤트나 활성 상태 변경 콜백이 아닙니다. World 전체가 종료된 뒤에는 Spawn·레벨 전환·업데이트를 실행할 수 없습니다. Level Lua 스크립트의 콜백 종류는 이번에 변경하지 않습니다.
 
 [오디오·종료 예제](examples.md#audio-lifecycle)에서 직접 검수할 수 있습니다.
+
+## 레벨 간 객체 수명
+
+`world:openLevel(reference,{carry={object}})`는 선택 객체·자손·Script를 같은 인스턴스로 옮깁니다. 기존 Script의 load·unload는 재호출하지 않고 `worldChanged(previousWorld,nextWorld)`로 현재 World를 통지합니다. 실패 복구 때 반대 방향으로도 통지합니다. View·Input·RenderTarget의 owner와 복구 범위는 [상세 가이드](game-state.md)를 참고합니다. Project 호스트의 id·saveIdentity로 게임별 저장 경로를 구분할 수 있습니다.

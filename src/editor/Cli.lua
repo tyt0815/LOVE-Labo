@@ -85,7 +85,7 @@ local COMMANDS = {"project.create", "project.info", "project.reset-save-identity
     "asset.preview", "asset.thumbnail", "script.open", "project.examples", "project.rendering-examples",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
-    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.events", "level.view", "level.render", "project.migrate-rendering", "project.examples-ui",
+    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.events", "level.view", "level.render", "project.migrate-rendering", "project.examples-ui", "project.examples-session",
     "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.script.rename", "instance.reorder", "export"}
 for _, scope in ipairs({"project", "level"}) do
     for _, action in ipairs({"get", "add", "remove", "move", "rename", "set", "reset"}) do
@@ -124,6 +124,7 @@ local function execute(request, cleanups)
         return require("editor.CliScopes").execute(project, request, api)
     end
     if command == "project.rendering-examples" then return require("editor.RenderingExamples").create(project) end
+    if command == "project.examples-session" then return require("editor.SessionExamples").create(project) end
     if command == "project.examples-ui" then return require("editor.UiExamples").create(project, request.publicOnly == true or request["public-only"] == true) end
     if command == "project.migrate-rendering" then return require("project.RenderingMigration").run(project, request.dryRun == true or request["dry-run"] == true) end
     if command == "project.examples" then local ok, result = require("editor.ApiExamples").create(project); assert(ok, result); return result end

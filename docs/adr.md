@@ -94,3 +94,4 @@
 - [0085. 공개 투영·배치·입력 API로 카메라와 UI 구성](adr/0085-public-projection-layout-and-input.md)
 
 - [0086. 프로젝트 ID로 Export 저장 폴더 구분](adr/0086-project-save-identity.md)
+- [0087. LObject 계층을 유지하는 레벨 전환](adr/0087-carried-objects-across-levels.md)

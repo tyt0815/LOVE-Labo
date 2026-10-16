@@ -6,7 +6,7 @@ local Script = {properties = {
 }, scriptType = "Script"}
 local RESERVED = {owner = true, properties = true, id = true, name = true, label = true, source = true, hasLoaded = true, hasUnloaded = true,
     load = true, unload = true, update = true, draw = true, drawEditor = true,
-    configure = true, bindingHandles = true, boundsBinding = true, super = true, scriptType = true}
+    worldChanged = true, configure = true, bindingHandles = true, boundsBinding = true, super = true, scriptType = true}
 for _, name in ipairs(require("core.ScriptEvents").names) do RESERVED[name] = true end
 Script.__index = function(instance, name)
     if Script.properties[name] then return instance.properties[name] end
@@ -41,7 +41,7 @@ function Script:extend(definition)
         end
         schema[name] = {type = field.type, default = field.default, group = Script.properties[name] and "Script" or field.group, options = options}
     end
-    for _, callback in ipairs({"configure", "load", "unload", "update", "draw", "drawEditor", "getLocalBounds", "hitTest"}) do
+    for _, callback in ipairs({"worldChanged", "configure", "load", "unload", "update", "draw", "drawEditor", "getLocalBounds", "hitTest"}) do
         assert(definition[callback] == nil or type(definition[callback]) == "function", callback .. " must be a function")
     end
     for _, name in ipairs(require("core.ScriptEvents").names) do

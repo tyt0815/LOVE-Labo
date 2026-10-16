@@ -10,6 +10,7 @@ function Runtime.unload(script)
     return ok, not ok and "Script " .. script.name .. " unload failed: " .. tostring(err) or nil
 end
 function Runtime.attach(self, id, class, overrides, name)
+    assert(not self.transferPending, "Script host is being transferred")
     assert(not self:getScriptByName(name or id), "Duplicate script name")
     assert(type(id) == "string" and require("core.ScriptId").isValid(id) and not self.scripts[id], "Invalid or duplicate script ID")
     if type(class) == "string" then class = assert(self.scriptLoader(class, "script")) end
@@ -30,6 +31,7 @@ function Runtime.attach(self, id, class, overrides, name)
     return script
 end
 function Runtime.detach(self, id)
+    assert(not self.transferPending, "Script host is being transferred")
     local script = assert(self.scripts[id], "Missing script")
     local ok, err = Runtime.unload(script)
     self.scripts[id] = nil

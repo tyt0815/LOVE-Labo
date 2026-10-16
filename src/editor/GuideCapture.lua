@@ -317,6 +317,14 @@ return Visual
         for _, object in ipairs(app.level.lobjects) do if object.name == "topRight" then app.sceneView:setSelection({object}) end end
         app.inspectorSource = "scene"; app:updateInspectorTarget()
         assert(app:startPlay()); shot("ui-public"); assert(app:stopPlay())
+        local sessionExamples = require("editor.SessionExamples").create(project)
+        assert(app:openProjectDocument(sessionExamples.level, true))
+        assert(app:startPlay()); shot("travel-a")
+        local stage = app.runtimeWorld:getScriptByName("stage")
+        stage:keypressed("g"); stage:keypressed("k"); stage:keypressed("h")
+        stage:keypressed("n"); assert(app:update(0)); assert(app:update(0))
+        assert(app.runtimeWorld:getScriptByName("stage").stageName == "B")
+        shot("travel-b"); assert(app:stopPlay())
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

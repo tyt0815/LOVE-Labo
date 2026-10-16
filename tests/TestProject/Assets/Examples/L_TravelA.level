@@ -1,0 +1,21 @@
+{
+  "formatVersion": 3,
+  "lobjects": [],
+  "propertyOverrides": {},
+  "scriptOverrides": {
+    "469056e0-b2e8-4c44-aeda-02739d5cc738": {
+      "destination": "815d841c-be20-4bfe-9027-7fa92bbc46bb",
+      "failure": "b668dc31-f6b2-4b40-b824-0bce24ffbfd5",
+      "level": "899a4d0c-336a-4ce9-9b88-769bc7eb57ed",
+      "playerPrefab": "f10a6106-1041-4123-93c5-a53a0f4ee3c2",
+      "stageName": "A"
+    }
+  },
+  "scripts": [
+    {
+      "id": "469056e0-b2e8-4c44-aeda-02739d5cc738",
+      "name": "stage",
+      "source": "ebd4f52b-7174-4316-bc23-75dbcc6a73ce"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # 0038. 프레임 경계의 런타임 레벨 전환
 
+- 객체 참조 미전달 정책은 [ADR 0087](0087-carried-objects-across-levels.md)의 명시적 carry 옵션으로 부분 대체한다.
+
 - 상태: 채택
 - 날짜: 2026-10-09
 - 관련: [ADR 0033](0033-prefab-spawn-and-resource-inspector.md)의 프로젝트 로더 주입, [ADR 0028](0028-agent-cli-and-standalone-game-export.md)의 독립 게임 호스트
