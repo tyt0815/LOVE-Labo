@@ -236,6 +236,17 @@ function Ui.resetButton(rect)
     love.graphics.pop()
 end
 
+function Ui.toggleButton(rect, enabled, editable, hint)
+    Ui.button("", rect, false, hint, true)
+    love.graphics.push("all")
+    local radius = 7
+    local x, y = rect.x + 1, rect.y + rect.h / 2 - radius
+    Theme.setColor(not editable and "textDisabled" or enabled and "focus" or "textMuted")
+    love.graphics.rectangle("fill", x, y, rect.w - 2, radius * 2, radius, radius)
+    Theme.setColor("input")
+    love.graphics.circle("fill", enabled and rect.x + rect.w - radius - 1 or x + radius, y + radius, radius - 2)
+    love.graphics.pop()
+end
 function Ui.browseButton(rect, enabled, hint)
     Ui.button("", rect, false, hint or "Find resource in Asset Browser.", true)
     love.graphics.push("all")

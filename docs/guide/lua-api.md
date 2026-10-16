@@ -10,7 +10,6 @@ local Movement = {
     properties = {
         speed = {type = "number", default = 100, group = "Movement"},
         title = {type = "string", default = "Player"},
-        enabled = {type = "boolean", default = true},
         target = {type = "object", default = false},
         other = {type = "script", default = false},
         projectile = {type = "prefab", default = false},
@@ -27,7 +26,7 @@ end
 return Movement
 ```
 
-`load(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 실행 중인 초기화 콜백에 재진입하지 않습니다. 공통 `enabled`는 기본 true이며 false이면 update·draw·포인터 입력을 건너뜁니다. load는 활성 상태와 관계없이 한 번 실행하며 다시 활성화해도 반복하지 않습니다. 화면 출력은 명시적으로 등록한 View를 사용합니다. 부모 오브젝트에서 자손으로, 같은 오브젝트에서는 부착 순서로 실행합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
+`load(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 실행 중인 초기화 콜백에 재진입하지 않습니다. 공통 `enabled`는 별도로 선언하지 않아도 상속됩니다. Inspector에서는 프로퍼티 행 대신 각 스크립트 헤더의 돋보기 왼쪽 토글로 편집합니다. 런타임의 `self.enabled`와 CLI의 `부착이름.enabled`는 그대로 사용합니다. 기본값은 true이며 false이면 update·draw·포인터 입력을 건너뜁니다. load는 활성 상태와 관계없이 한 번 실행하며 다시 활성화해도 반복하지 않습니다. 화면 출력은 명시적으로 등록한 View를 사용합니다. 부모 오브젝트에서 자손으로, 같은 오브젝트에서는 부착 순서로 실행합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
 
 이전 프로젝트의 `beginPlay` 선언과 직접 호출은 `load`로 바꿉니다. 호출 시점과 초기화 동작은 같습니다. 에셋을 읽거나 에디터 미리보기를 만들 때 호출하는 함수가 아닙니다.
 

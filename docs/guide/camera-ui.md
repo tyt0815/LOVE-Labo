@@ -9,14 +9,14 @@ Camera·View·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플
 
 1. LaboEssentials를 활성화하고 Camera 스크립트를 오브젝트에 부착합니다.
 2. 같은 오브젝트 또는 레벨에 View 스크립트를 부착합니다.
-3. View의 cameraSource 스포이드로 사용할 Camera 부착을 지정합니다. 여러 스크립트 중 Camera를 선택합니다.
+3. View의 **Camera source** (`cameraSource`) 스포이드로 사용할 Camera 부착을 지정합니다. 여러 스크립트 중 Camera를 선택합니다.
 4. ▶로 실행합니다. View가 출력을 등록하고 엔진이 매 프레임 그립니다. 카메라 이동·줌은 다음 렌더링에 반영됩니다.
 
-View의 renderOrder는 출력 순서이며 작은 값부터 그립니다. includeWorld는 월드 그리기, includeScreen은 Canvas·drawScreen을 포함합니다. acceptInput은 해당 화면 View의 Pointer 입력을 허용합니다. View 스크립트의 enabled를 끄면 출력도 멈춥니다.
+View의 renderOrder는 출력 순서이며 작은 값부터 그립니다. includeWorld는 월드 그리기, includeScreen은 Canvas·drawScreen을 포함합니다. acceptInput은 해당 화면 View의 Pointer 입력을 허용합니다. View 스크립트 헤더에서 돋보기 왼쪽 활성 토글을 끄면 출력도 멈춥니다.
 
 ![View의 Camera 스크립트 참조](images/view-details.svg)
 
-① cameraSource의 스포이드로 Camera 부착을 지정합니다.
+① Camera source의 스포이드로 Camera 부착을 지정합니다.
 
 레벨 Inspector에는 일반 Script 부착만 표시합니다. 기존 mainCamera 저장값은 명시적인 활성 View가 없는 과거 레벨에서 호환 View로 해석하며 파일 저장 시 보존합니다. 호환 View는 선택된 카메라가 제거되거나 비활성화되면 남은 카메라로 자동 대체하고, 모두 없으면 원점·배율 1로 출력합니다. 새 코드는 아래 렌더링 API를 사용합니다.
 

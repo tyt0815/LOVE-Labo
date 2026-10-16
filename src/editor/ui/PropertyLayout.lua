@@ -3,6 +3,17 @@ local Theme = require("editor.Theme")
 local Layout = {ROW_HEIGHT = 32, HEADER_HEIGHT = 32, GROUP_INDENT = 14}
 -- 재설정 버튼과 공통 패딩을 제외한 이름·값 영역의 비율. 기본은 1:1이다.
 Layout.NAME_COLUMN_RATIO = 0.5
+-- 저장 키는 그대로 두고 Inspector에서만 문장형 이름을 사용한다. 약어는 보존한다.
+function Layout.propertyLabel(name)
+    local text = name:gsub("_+", " "):gsub("(%u)(%u%l)", "%1 %2"):gsub("([%l%d])(%u)", "%1 %2")
+    local words = {}
+    for word in text:gmatch("%S+") do
+        if not word:match("^%u%u+%d*$") then word = word:lower() end
+        if #words == 0 then word = word:sub(1, 1):upper() .. word:sub(2) end
+        words[#words + 1] = word
+    end
+    return table.concat(words, " ")
+end
 function Layout.columnSplit(left, width)
     local labelLeft = left + Ui.METRICS.contentPaddingX + 26
     local valueRight = left + width - Ui.METRICS.contentPaddingX - 12 - 26 - Ui.METRICS.buttonGap

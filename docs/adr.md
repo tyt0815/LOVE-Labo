@@ -84,3 +84,4 @@
 
 - [0078. 레벨 전용 카메라 설정 대신 View와 RenderTarget을 등록한다](adr/0078-registered-views-and-render-targets.md)
 - [0079. 스크립트는 자동 탐색한 VS Code의 기존 창에서 연다](adr/0079-external-script-opening.md)
+- [0080. Script 헤더 활성 토글과 프로퍼티 문장형 표시](adr/0080-script-header-toggle-and-property-labels.md)

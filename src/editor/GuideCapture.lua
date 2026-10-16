@@ -59,13 +59,19 @@ return Session
         app:showProjectInspector()
         assert(app.inspector.classInspector.target:addScript(project:getAssetId("Assets/Session.lua"), "session"))
         app.inspector.classInspector:reload(); expandPropertyGroups(); shot("project-details")
+        local scriptId = app.inspector.classInspector.preview:getScriptByName("session").id
+        local toggle = assert(app.inspector.classInspector:ensurePropertyVisible(scriptId .. ".enabled"))
+        shot("script-enabled")
+        app.inspector.classInspector:mousepressed(toggle.x + toggle.w / 2, toggle.y + toggle.h / 2, 1)
+        shot("script-disabled")
+        app.inspector.classInspector:mousepressed(toggle.x + toggle.w / 2, toggle.y + toggle.h / 2, 1)
         app.menuBar:openAt(100, 14); shot("project-inspector-menu"); app.uiRoot:keypressed("escape")
         assert(app.inspector.classInspector.target:removeScript("session")); app.inspector.classInspector:reload()
         app.sceneView:setSelection({app.level.lobjects[1]}); app.inspectorSource = "scene"; app:updateInspectorTarget()
         app.inspector.classInspector:selectScript(app.level.lobjects[1].scripts[1].id)
         app.inspector.classInspector.groupExpanded["object/Transform"] = false
         app.inspector.classInspector:rebuildRows(); expandPropertyGroups(); shot("camera-details")
-        app.inspector.classInspector.scroll = 210; shot("view-details")
+        app.inspector.classInspector:ensurePropertyVisible(app.level.lobjects[1].scripts[2].id .. ".cameraSource"); shot("view-details")
         app.inspector.classInspector.scroll = 0
         assert(project:createEntry("Assets", "lua", "Player", {scriptKind = "script"}))
         assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/Player.lua")), [[-- labo-script: script

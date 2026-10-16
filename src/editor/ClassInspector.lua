@@ -433,7 +433,7 @@ function ClassInspector:rebuildRows()
             local declaration = self.class.properties[name]
             local belongs = script and declaration.script == script and not declaration.rootTransform
                 or not script and (not declaration.script or declaration.rootTransform)
-            if belongs then
+            if belongs and not (declaration.script and declaration.field == "enabled") then
                 self.names[#self.names + 1] = name
                 local group = declaration.rootTransform and "Transform" or declaration.group or defaultGroup
                 if not groups[group] then groups[group] = {}; groupNames[#groupNames + 1] = group end
@@ -509,12 +509,18 @@ function ClassInspector:ensurePropertyVisible(name)
     local declaration = assert(self.class.properties[name], "Missing property " .. name)
     local script = not declaration.rootTransform and declaration.script or nil
     if script and script ~= self.selectedScript then self:selectScript(script) end
-    if script then self.groupExpanded["script:" .. script] = true end
+    local enabled = script and declaration.field == "enabled"
+    if script and not enabled then self.groupExpanded["script:" .. script] = true end
     local group = declaration.rootTransform and "Transform" or declaration.group or (script and self.class.scriptTypes[script]
         or self.class.className or LuaScript.name(self.class) or "LObject")
-    self.groupExpanded[(script and "script:" .. script or "object") .. "/" .. group] = true
+    if not enabled then self.groupExpanded[(script and "script:" .. script or "object") .. "/" .. group] = true end
     self:rebuildRows()
     for _, row in ipairs(self.rows) do
+        if enabled and row.scriptId == script then
+            self.scroll = math.max(0, math.min(self.maxScroll, math.max(row.offset + row.height - self.propertyHeight, math.min(self.scroll, row.offset))))
+            self:layoutTrees()
+            return self:scriptHeaderRects(self.propertyTop + row.offset - self.scroll).enabled
+        end
         if row.name == name then
             self.scroll = math.max(0, math.min(self.maxScroll, math.max(row.offset + row.height - self.propertyHeight, math.min(self.scroll, row.offset))))
             self:layoutTrees()
@@ -620,7 +626,7 @@ function ClassInspector:draw()
         elseif row.header and y + row.groupHeight > self.propertyTop and y < self.propertyTop + self.propertyHeight then
             if row.scriptId or row.builtIn then
                 PropertyLayout.group(self.left, self.contentWidth or self.width, y, row.groupHeight, row.label,
-                    self.groupExpanded[row.groupKey] ~= false, row.scriptId and 60 or 0)
+                    self.groupExpanded[row.groupKey] ~= false, row.scriptId and 90 or 0)
             else
                 PropertyLayout.propertyGroup(self.left, self.width, y, row.groupHeight, row.label,
                     self.groupExpanded[row.groupKey] ~= false, self.width - (self.contentWidth or self.width))
@@ -631,6 +637,9 @@ function ClassInspector:draw()
             end
             if row.scriptId then
                 local actions = self:scriptHeaderRects(y)
+                local enabled = self:scriptEnabled(row.scriptId)
+                Ui.toggleButton(actions.enabled, enabled, not self.target.readOnly,
+                    (self.target.readOnly and "Read-only. " or "Toggle script callbacks. ") .. (enabled and "Enabled" or "Disabled"))
                 Ui.browseButton(actions.browse, self:scriptSource(row.scriptId) ~= nil, "Locate script asset")
                 if self.target.removeScript and (not self.target.canRemoveScript or self.target:canRemoveScript(row.scriptId)) then
                     Ui.closeButton(actions.remove, "Remove this script attachment")
@@ -664,7 +673,7 @@ function ClassInspector:draw()
                     Ui.browseButton(actions.browse, value ~= false)
                 end
             end
-            Ui.text(declaration.sceneTransform and TRANSFORM_LABELS[declaration.field] or declaration.field or name, labelRect.x, labelRect.y, labelRect.w)
+            Ui.text(declaration.sceneTransform and TRANSFORM_LABELS[declaration.field] or PropertyLayout.propertyLabel(declaration.field or name), labelRect.x, labelRect.y, labelRect.w)
             Ui.hint(labelRect, name .. ": " .. declaration.type .. ". Default: " .. tostring(declaration.default))
             if (declaration.type == "object" or declaration.type == "script") then
                 Ui.button("", rect, false, self:objectLabel(value, name) .. ". Use the eyedropper to pick a target.")
@@ -761,6 +770,14 @@ function ClassInspector:mousepressed(x, y, button)
         local top = self.propertyTop + row.offset - self.scroll
         if row.header and row.scriptId then
             local actions = self:scriptHeaderRects(top)
+            if Ui.contains(x, y, actions.enabled) then
+                self:commitEdit()
+                if not self.target.readOnly then
+                    local ok = self:setProperty(row.scriptId .. ".enabled", not self:scriptEnabled(row.scriptId))
+                    if ok and self.onCommitEdit then self.onCommitEdit() end
+                end
+                return true
+            end
             if Ui.contains(x, y, actions.browse) then
                 local source = self:scriptSource(row.scriptId)
                 if source then return self:reveal(source) end
@@ -853,7 +870,14 @@ function ClassInspector:scriptActionRect(y)
 end
 function ClassInspector:scriptHeaderRects(y)
     local right = self.left + (self.contentWidth or self.width) - Ui.METRICS.contentPaddingX
-    return {browse = {x = right - 56, y = y + 3, w = 26, h = 26}, remove = {x = right - 26, y = y + 3, w = 26, h = 26}}
+    return {enabled = {x = right - 86, y = y + 3, w = 26, h = 26},
+        browse = {x = right - 56, y = y + 3, w = 26, h = 26}, remove = {x = right - 26, y = y + 3, w = 26, h = 26}}
+end
+function ClassInspector:scriptEnabled(id)
+    local name = id .. ".enabled"
+    local value = self.target:getOverrides()[name]
+    if value == nil then value = self.class.properties[name].default end
+    return value ~= false
 end
 function ClassInspector:scriptSource(id)
     local script = self.preview and self.preview.scripts[id]

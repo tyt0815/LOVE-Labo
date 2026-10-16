@@ -46,7 +46,7 @@ audio={type="audio", default=false}로 WAV·OGG·MP3·FLAC 참조를 노출한�
 모든 에셋은 Assets 아래에 있으며 assets.json의 ID로 참조한다. Docs는 게임 Export에 포함하지 않는다.
 Prefab 형식은 4, 레벨 형식은 3이다. 이전 Sources는 Assets/Scripts로 이동하지만 옛 컴포넌트 코드·Prefab은 수동 전환해야 한다.
 부착 Script는 keypressed/keyreleased, textinput/textedited, 마우스·터치·조이스틱·게임패드, focus/mousefocus/visible/resize 콜백을 LÖVE 이름·인자로 구현한다. 전역 love 콜백을 덮어쓰지 않는다. 반환값 소비는 없고 enabled=false는 전달하지 않는다. 마우스·터치는 실제 게임 화면 왼쪽 위 기준 픽셀 좌표다. Editor에서는 Game View 포커스·팝업·Pause·에디터 단축키 경계를 따른다.
-스크립트는 공통 enabled로 실행을 켜고 끈다. 런타임 addScript/removeScript는 제공하지 않으며 부착·제거는 편집 작업이다.
+스크립트는 별도 선언 없이 상속하는 공통 enabled로 실행을 켜고 끈다. Inspector에서는 헤더의 돋보기 왼쪽 토글로 편집한다. 프로퍼티 레이블은 Sorting order처럼 문장형으로 표시하지만 코드·CLI·저장 키는 sortingOrder 등 원래 이름을 사용한다. 런타임 addScript/removeScript는 제공하지 않으며 부착·제거는 편집 작업이다.
 Prefab의 scripts는 {id,source,name} 목록, overrides.scripts는 부착 ID별 프로퍼티 재정의다.
 
 Labo-cli.exe --cli help

@@ -28,7 +28,6 @@ return LevelDemo
 ]]
 local MOTION = [[local Motion = {properties = {
     speed = {type = "number", default = 35, group = "Movement"},
-    enabled = {type = "boolean", default = true, group = "Movement"},
     title = {type = "string", default = "Moving object"},
     target = {type = "object", default = false}, sibling = {type = "script", default = false}
 }}

@@ -2,6 +2,7 @@
 
 - 상태: 승인·구현
 - 범위 탭·빈 선택과 그룹 초기 상태는 [ADR 0077](0077-project-inspector-selection-and-collapsed-groups.md)으로 부분 대체
+- 활성 토글과 프로퍼티 레이블은 [ADR 0080](0080-script-header-toggle-and-property-labels.md)에서 확장한다.
 - 관련: [0024](0024-collapsible-details-and-property-columns.md), [0069](0069-script-identity-and-editor-authored-attachments.md), [0074](0074-scoped-scripts-and-screen-drawing.md)
 
 ## 배경과 제약

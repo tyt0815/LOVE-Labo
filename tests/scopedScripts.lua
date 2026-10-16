@@ -182,7 +182,7 @@ add("Property group headers align with plain labels and indent only child names"
     local text, field, label, positions = Ui.text, Ui.field, nil, {}
     Ui.text = function(value, x, ...)
         label = value
-        if value == "count" or value == "plain" or value == "Counters" then positions[value] = {name = x} end
+        if value == "Count" or value == "Plain" or value == "Counters" then positions[value] = {name = x} end
         return text(value, x, ...)
     end
     Ui.field = function(value, rect, ...)
@@ -195,10 +195,10 @@ add("Property group headers align with plain labels and indent only child names"
     assert(ok, err)
     Assert.equal(true, scriptHeader)
     Assert.equal(true, propertyHeader)
-    Assert.equal(positions.plain.name, positions.Counters.name)
-    Assert.equal(positions.plain.name + 14, positions.count.name)
-    Assert.truthy(positions.plain.value)
-    Assert.equal(positions.plain.value, positions.count.value)
+    Assert.equal(positions.Plain.name, positions.Counters.name)
+    Assert.equal(positions.Plain.name + 14, positions.Count.name)
+    Assert.truthy(positions.Plain.value)
+    Assert.equal(positions.Plain.value, positions.Count.value)
     local header
     for _, row in ipairs(inspector.rows) do if row.label == "Counters" then header = row end end
     assert(header)
@@ -459,5 +459,108 @@ add("Save As rebinds a cached document without aliasing the original level asset
     Assert.equal(nil, app.scopeInspector.levels[copyId])
     assert(app:inspectAsset(destination)); app:draw()
     Assert.truthy(app.inspector.classInspector.target.scopeDocument ~= document)
+end)
+add("Script header toggles share saved enabled overrides across Project Level Object and Prefab", function()
+    local project, level, source = fixture()
+    assert(Fs.writeAtomic(project:resolveSourceFile(source), "return {properties = {count = {type = 'number', default = 0}}}"))
+    assert(project:rebuildAssetIndex())
+    assert(project:createEntry("Assets", "level", "L_Toggle", {level = level}))
+    assert(project:createEntry("Assets", "prefab", "PF_Toggle"))
+    local Cli = require("editor.Cli")
+    Cli.execute({command = "prefab.script.add", project = project.rootPath, prefab = "Assets/PF_Toggle.prefab", source = source, script = "behavior"})
+    local app = require("editor.EditorApp").new(nil, project)
+    assert(app:openProjectDocument("Assets/L_Toggle.level", true))
+    local function toggle(name, select)
+        select()
+        app:draw()
+        local inspector = app.inspector.classInspector
+        local id = assert(inspector.preview:getScriptByName(name)).id
+        inspector.groupExpanded["script:" .. id] = false
+        inspector:rebuildRows()
+        local rect = assert(inspector:ensurePropertyVisible(id .. ".enabled"))
+        Assert.equal(false, inspector.groupExpanded["script:" .. id])
+        local actions = inspector:scriptHeaderRects(rect.y - 3)
+        Assert.truthy(rect.x + rect.w < actions.browse.x)
+        for _, row in ipairs(inspector.rows) do Assert.truthy(row.name ~= id .. ".enabled") end
+        Assert.equal(true, inspector:scriptEnabled(id))
+        assert(inspector:mousepressed(rect.x + rect.w / 2, rect.y + rect.h / 2, 1))
+        Assert.equal(false, inspector:scriptEnabled(id))
+        Assert.equal(false, inspector.groupExpanded["script:" .. id])
+        assert(app:undoRedo(-1)); select(); inspector = app.inspector.classInspector
+        Assert.equal(true, inspector:scriptEnabled(id))
+        assert(app:undoRedo(1)); select(); inspector = app.inspector.classInspector
+        Assert.equal(false, inspector:scriptEnabled(id))
+        assert(app:saveInspectedDocument())
+        return id
+    end
+    local projectId = toggle("manager", function() app:showProjectInspector() end)
+    Assert.equal(false, assert(require("editor.Project").open(project.rootPath)).scriptOverrides[projectId].enabled)
+    local levelId = toggle("levelManager", function() assert(app:inspectAsset("Assets/L_Toggle.level")) end)
+    Assert.equal(false, assert(require("editor.LevelDocument").load(project:resolveAssetFile("Assets/L_Toggle.level"))).level.scriptOverrides[levelId].enabled)
+    local objectId = toggle("actor", function()
+        app.inspectorSource = "scene"; app.sceneView:setSelection({app.level.lobjects[1]}); app:updateInspectorTarget()
+    end)
+    Assert.equal(false, assert(require("editor.LevelDocument").load(project:resolveAssetFile("Assets/L_Toggle.level"))).level.lobjects[1].scriptOverrides[objectId].enabled)
+    local prefabId = toggle("behavior", function() assert(app:inspectAsset("Assets/PF_Toggle.prefab")) end)
+    local prefab = assert(require("editor.PrefabDocument").load(project, "Assets/PF_Toggle.prefab"))
+    Assert.equal(false, prefab.data.overrides.scripts[prefabId].enabled)
+end)
+add("Script header enabled state preserves inherited defaults and readonly targets", function()
+    local project, _, source = fixture()
+    local app = require("editor.EditorApp").new(nil, project)
+    app:showProjectInspector(); app:draw()
+    local inspector, id = app.inspector.classInspector, project.scripts[1].id
+    assert(inspector:setProperty(id .. ".enabled", false))
+    inspector:reload()
+    Assert.equal(false, inspector:scriptEnabled(id))
+    inspector.target.readOnly = true
+    local rect = assert(inspector:ensurePropertyVisible(id .. ".enabled"))
+    assert(inspector:mousepressed(rect.x + 4, rect.y + 4, 1))
+    Assert.equal(false, inspector:scriptEnabled(id))
+    inspector.target.readOnly = nil
+    assert(inspector:mousepressed(rect.x + 4, rect.y + 4, 1))
+    Assert.equal(true, inspector:scriptEnabled(id))
+    Assert.equal(nil, inspector.target:getOverrides()[id .. ".enabled"])
+    local Cli = require("editor.Cli")
+    Cli.execute({command = "prefab.create", project = project.rootPath, name = "PF_Base"})
+    Cli.execute({command = "prefab.script.add", project = project.rootPath, prefab = "Assets/PF_Base.prefab", source = source, script = "behavior"})
+    Cli.execute({command = "prefab.set", project = project.rootPath, prefab = "Assets/PF_Base.prefab", property = "behavior.enabled", value = false})
+    assert(project:rebuildAssetIndex())
+    Cli.execute({command = "prefab.create", project = project.rootPath, name = "PF_Derived", class = project:getAssetId("Assets/PF_Base.prefab")})
+    assert(project:rebuildAssetIndex())
+    assert(app:inspectAsset("Assets/PF_Derived.prefab")); app:updateInspectorTarget()
+    inspector = app.inspector.classInspector
+    id = inspector.preview:getScriptByName("behavior").id
+    Assert.equal(false, inspector:scriptEnabled(id))
+    assert(inspector:setProperty(id .. ".enabled", true)); Assert.equal(true, inspector:scriptEnabled(id))
+    assert(inspector:setProperty(id .. ".enabled", false))
+    Assert.equal(nil, inspector.target:getOverrides()[id .. ".enabled"])
+end)
+add("Property labels use sentence case without changing source keys or acronym words", function()
+    local layout = require("editor.ui.PropertyLayout")
+    for name, expected in pairs({sortingOrder = "Sorting order", ["sorting_order"] = "Sorting order", ["sorting_Order"] = "Sorting order",
+        viewWidth = "View width", URLValue = "URL value", cameraID = "Camera ID", RGB = "RGB", plain = "Plain"}) do
+        Assert.equal(expected, layout.propertyLabel(name))
+    end
+    local project, level = fixture()
+    local path = project:resolveSourceFile("Assets/Trace.lua")
+    local source = assert(Fs.read(path)):gsub("properties = {count =", "properties = {sortingOrder = {type = 'number', default = 2}, count =", 1)
+    assert(Fs.writeAtomic(path, source)); assert(project:rebuildAssetIndex())
+    local app = require("editor.EditorApp").new(nil, project)
+    app:showProjectInspector(); app:draw()
+    local inspector, id = app.inspector.classInspector, project.scripts[1].id
+    local key = id .. ".sortingOrder"
+    assert(inspector:ensurePropertyVisible(key))
+    local Ui, captured = require("editor.Ui"), false
+    local text = Ui.text
+    Ui.text = function(value, ...)
+        if value == "Sorting order" then captured = true end
+        return text(value, ...)
+    end
+    local ok, err = pcall(app.draw, app); Ui.text = text; assert(ok, err)
+    Assert.equal(true, captured)
+    assert(inspector:setProperty(key, 7))
+    Assert.equal(7, project.scriptOverrides[id].sortingOrder)
+    Assert.equal(nil, project.scriptOverrides[id]["Sorting order"])
 end)
 return tests
