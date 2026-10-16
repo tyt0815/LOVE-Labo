@@ -2,6 +2,7 @@
 
 - 상태: 채택
 - 날짜: 2026-10-08
+- 후속: [ADR 0081](0081-ue-inspired-default-theme.md)에서 기본 팔레트를 어두운 회색과 파란 강조로 대체한다. 패널과 상태 힌트 결정은 유지한다.
 - 부분 대체: [ADR 0009](0009-editor-settings-and-themes.md)의 어두운 기본 색상
 - 확장: [ADR 0013](0013-browser-drag-moves-and-asset-colors.md)의 아이콘과 드래그 안내
 

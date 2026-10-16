@@ -131,9 +131,10 @@ add("Text highlight and caret use theme colors and scroll follows the caret", fu
     if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then pixels:encode("png", "text-selection-preview.png") end
     local r, g, b = pixels:getPixel(20, 14)
     local color = require("editor.Theme").color("textSelection")
-    Assert.truthy(math.abs(r - (color[1] * color[4] + 1 - color[4])) < 0.01)
-    Assert.truthy(math.abs(g - (color[2] * color[4] + 1 - color[4])) < 0.01)
-    Assert.truthy(math.abs(b - (color[3] * color[4] + 1 - color[4])) < 0.01)
+    local background = require("editor.Theme").color("input")
+    Assert.truthy(math.abs(r - (color[1] * color[4] + background[1] * (1 - color[4]))) < 0.01)
+    Assert.truthy(math.abs(g - (color[2] * color[4] + background[2] * (1 - color[4]))) < 0.01)
+    Assert.truthy(math.abs(b - (color[3] * color[4] + background[3] * (1 - color[4]))) < 0.01)
     pixels:release()
     if os.getenv("LOVE_LABO_GIZMO_PREVIEW") then
         text = key(owner, text, "right")

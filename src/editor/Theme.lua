@@ -4,24 +4,24 @@ local Theme = {}
 -- 기본 테마의 유일한 원본이다. 외부 파일 없이도 모든 UI가 그려진다.
 -- 공통 역할을 공유하되 독립적인 조절이 필요한 UI에는 용도별 색을 제공한다.
 local DEFAULT_COLORS = {
-    -- love2d.org/style/style.css와 box.svg의 배경·텍스트·강조색을 사용한다.
-    background = "#B1E3FA", panel = "#B1E3FA", viewportBackground = "#E0F4FC", surface = "#E0F4FC",
-    button = "#E0F4FC", hover = "#FFFFFF", selection = "#25AAE14D",
-    border = "#4C90B166", panelBorder = "#4C90B166", panelTitle = "#1B4D68",
-    focus = "#EA316E", input = "#FFFFFF", textSelection = "#258AE180",
-    treeLineHighlight = "#4C90B1",
-    pluginDependencyDisabled = "#C67A00",
-    playRunning = "#319B52", playPaused = "#D98720",
-    text = "#383F4A", textMuted = "#4C90B1", textDisabled = "#7798A9", error = "#EA316E",
-    overlay = "#1B4D6866", thumbnailBackground = "#FFFFFF",
-    iconBackground = "#FFFFFF", iconBorder = "#25AAE1", iconText = "#1B4D68",
-    assetLevel = "#25AAE1", assetPrefab = "#EA316E",
-    prefabRed = "#C83232", prefabGreen = "#2D7C35", prefabBlue = "#325DC4",
-    prefabYellow = "#A66C00", prefabCyan = "#008080", prefabMagenta = "#A626A4",
-    classLevel = "#1B4D68", classLObject = "#00A651", classComponent = "#4C90B1",
-    folderTab = "#4C90B1", folderBody = "#25AAE1",
-    grid = "#B1E3FA", axisX = "#EA316E", axisY = "#00A651", axisZ = "#25AAE1", origin = "#1B4D68",
-    object = "#EA316E", objectSelected = "#00A651", gameBackground = "#E0F4FC"
+    -- 제공된 UE 에디터 화면을 참고한 중성 회색 계층과 파란 선택 강조다.
+    background = "#141414", panel = "#1B1B1B", viewportBackground = "#242424", surface = "#2B2B2B",
+    button = "#333333", hover = "#3D3D3D", selection = "#344F69",
+    border = "#414141", panelBorder = "#101010", panelTitle = "#D4D4D4",
+    focus = "#008CFF", input = "#161616", textSelection = "#0078D799",
+    treeLineHighlight = "#6A9BC4",
+    pluginDependencyDisabled = "#E1A84B",
+    playRunning = "#87B94A", playPaused = "#E1A84B",
+    text = "#D0D0D0", textMuted = "#A3A3A3", textDisabled = "#777777", error = "#EF6A65",
+    overlay = "#00000099", thumbnailBackground = "#242424",
+    iconBackground = "#242424", iconBorder = "#666666", iconText = "#C8C8C8",
+    assetLevel = "#63A9EC", assetPrefab = "#BA8CDB",
+    prefabRed = "#EF7777", prefabGreen = "#8BC878", prefabBlue = "#79B2F0",
+    prefabYellow = "#DDC36D", prefabCyan = "#71C7CF", prefabMagenta = "#D995D1",
+    classLevel = "#63A9EC", classLObject = "#8BC878", classComponent = "#DDC36D",
+    folderTab = "#9F854A", folderBody = "#C4A35B",
+    grid = "#303030", axisX = "#DA5555", axisY = "#79B94A", axisZ = "#429CEF", origin = "#A3A3A3",
+    object = "#D5A65D", objectSelected = "#008CFF", gameBackground = "#181818"
 }
 
 local function parseColor(value)
