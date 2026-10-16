@@ -19,6 +19,7 @@ end
 local function sizedWorld(viewWidth, viewHeight)
     local world = World.new()
     world.testViewSize = {width = viewWidth, height = viewHeight}
+    world.legacyCameraSelection = true
     world.getActiveCamera = function()
         return {getViewSize = function() return world.testViewSize.width, world.testViewSize.height end,
             getViewTransform = function() return {x = 0, y = 0} end}

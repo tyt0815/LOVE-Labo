@@ -4,7 +4,7 @@
 
 `tests/TestProject`의 **Assets/Examples/L_ScriptScopes.level**을 열고 ▶로 실행합니다. Game View에 포커스를 두고 **N**을 누르면 L_ScriptScopesNext와 오갑니다.
 
-- Project 탭의 `scopeSession`: token과 frames는 전환에도 유지되고 visits는 레벨을 열 때마다 증가합니다.
+- Project Inspector의 `scopeSession`: token과 frames는 전환에도 유지되고 visits는 레벨을 열 때마다 증가합니다.
 - 레벨 에셋의 `scopeLevel`: fixed steps는 새 레벨에서 0부터 시작합니다. Level Script가 시간을 누적해 Object의 일반 fixedUpdate를 직접 호출합니다.
 - `FixedActor`: update를 선언하지 않습니다. 움직이는 원은 draw, 하단의 고정 문구는 Object의 drawScreen입니다.
 - Level의 원·선은 월드 좌표, 위쪽의 Project·Level 문구는 게임 영역 왼쪽 위 기준 화면 좌표입니다.
@@ -30,13 +30,13 @@ Scene View 위의 ▶로 실행합니다. 화면의 두 열 버튼은 Canvas 아
 | Attach | 생성한 오브젝트를 움직이는 부모에 부착·분리 |
 | Scripts | 생성한 오브젝트의 Motion.enabled를 켜고 끔. 먼저 Spawn |
 | Properties | 이름·ID·클래스 조회와 복수 조회를 확인하고 프로퍼티·활성 상태 및 Transform.point 결과 기록 |
-| Camera | getActiveCamera/setActiveCamera와 zoom 변경. 화면 좌표 버튼은 이동하지 않음 |
+| Camera | 등록된 View의 Camera zoom 변경. 화면 좌표 버튼은 이동하지 않음 |
 | Debug | point·line·circle·rect·polygon, screenLog·log·marker |
 | Next / Back | openLevel로 L_ApiNext·L_ApiExamples 사이 전환 |
 | 모든 버튼 | Pointer 상속, down/up/move, blockPointer, inputPriority, sortingOrder, 영역 판정 |
 | Screen Space Text | Text 스크립트의 줄바꿈·정렬·크기, Canvas 기반 화면 공간 텍스트 |
 | 편집 화면 | Camera·RectBounds·Canvas·Sprite·Pointer의 drawEditor 영역 표시 |
-| LevelDemo.lua | 레벨 load/update와 world.properties, 레벨 전환 시 새 초기화 |
+| LevelDemo.lua | 일반 Level 부착의 load/update와 welcome 프로퍼티, 레벨 전환 시 새 초기화 |
 
 Spawn을 누른 뒤 Attach·Scripts·Remove를 순서대로 확인합니다. 화면 바깥으로 드래그해서 놓아도 Pointer capture가 up 이벤트를 전달합니다. ⏸로 멈추면 Update·게임 입력·일시적 디버그 표시 수명이 멈추고, ▶는 같은 Runtime World를 이어서 실행합니다. ■는 편집 모드로 복귀합니다.
 
@@ -81,3 +81,13 @@ Labo-cli.exe --cli project examples --project D:/Games/MyGame
 - Stop: 남은 오브젝트를 정리합니다. 에디터 로그에서 `AudioLifecycle unloaded`를 확인합니다.
 
 Inspector의 sound 필드로 다른 오디오 에셋을 선택할 수 있습니다. 이 예제는 프로젝트 전용 코드이며 새 재생 플러그인·오디오 매니저는 추가하지 않습니다. CLI의 `level.simulate --debug`에서도 종료 로그를 확인할 수 있습니다. CLI는 audio 모듈이 꺼져 있으므로 예제는 파일만 읽고 재생하지 않습니다.
+
+## 메인 화면과 미니맵
+
+**Assets/Examples/L_Multiview.level**을 실행합니다. 메인 화면은 640×360 월드 범위를 보고, 오른쪽 위 미니맵은 별도 Camera로 1440×1440 범위를 256×256 텍스처에 그려 192×192 크기로 표시합니다.
+
+![두 Camera의 출력](images/multiview.svg)
+
+WASD/방향키는 메인 카메라만 이동합니다. `=`/`-`는 메인 카메라의 줌, M은 미니맵 출력을 전환합니다. 레벨의 rendering 스크립트 참조에서 두 Camera를 확인하고 Assets/Examples/Multiview.lua에서 생성·정리 코드를 확인합니다. 레벨 기본 Main Camera 필드는 사용하지 않습니다.
+
+다른 프로젝트에는 `love src --cli project rendering-examples --project D:/Games/MyGame`으로 추가합니다. 동명 파일을 덮어쓰지 않으며 LaboEssentials를 활성화합니다. CLI 검수는 `level view`로 출력 구성, `level render --output ...png`로 실제 합성 결과를 확인합니다.

@@ -1,5 +1,7 @@
 # 0047. 레벨 Main Camera 저장과 기본 카메라 생성
 
+- View 등록·출력 대상과 레벨 전용 카메라 설정은 [ADR 0078](0078-registered-views-and-render-targets.md)으로 부분 대체한다.
+
 - 상태: 채택·구현
 - 날짜: 2026-10-10
 - 관련: [ADR 0046](0046-camera-screen-canvas-and-component-order.md)

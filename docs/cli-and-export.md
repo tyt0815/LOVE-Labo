@@ -7,6 +7,8 @@
 ```powershell
 love src --capture-guide C:/Temp/LaboGuideCapture
 python scripts/updateGuideImages.py C:/Temp/LaboGuideCapture
+# 일부 화면만 갱신할 때
+python scripts/updateGuideImages.py C:/Temp/LaboGuideCapture --only camera-details view-details script-context
 ```
 
 두 번째 명령은 캡처 원본과 번호 표시를 추가한 가이드 이미지를 갱신합니다. 결과 화면을 확인한 뒤 관련 안내문과 함께 반영합니다.
@@ -77,7 +79,9 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | prefab child rename --node root | 루트 오브젝트 이름 변경; Prefab 파일 이름 변경은 asset rename 사용 |
 | prefab child move | --prefab, --node, --destination 노드 경로, --mode attach/before/after/detach; root 앞은 로컬 자손을 새 루트로 지정하며 기존 루트의 원본 유지 |
 | level create/get/set/reset/set-parent/validate | --level, --name, --property; create --empty는 카메라 없는 레벨 |
-| level view/set-camera | 투영 정보; --instance, --script로 Main Camera 지정 |
+| level view/render | 초기화 후 활성 View·투영 정보 조회; render는 --output PNG로 실제 출력 |
+| level set-camera | 과거 mainCamera 데이터 편집용 호환 명령. 새 구성은 일반 View Script 사용 |
+| project rendering-examples | 메인 화면·미니맵 검수 예제 추가 |
 | level simulate | --frames 0..10000, --dt, --debug; 파일 수정 없이 load/update 결과와 스크립트 상태 반환, draw는 실행하지 않음. --debug는 에디터 로그·도형 기록도 반환 |
 | level pointer | --space world/screen, --x, --y, --width, --height, --events-json; 이벤트마다 최신 카메라로 좌표 변환 |
 | instance add/get/list/set/reset/rename/reparent/duplicate/delete | --instance 또는 --instances, --prefab, --parent; 재정의 프로퍼티는 movement.speed처럼 사용자 이름 또는 내부 ID 포함 |
@@ -86,7 +90,7 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | instance reorder | --instances 또는 --instance, --destination 인스턴스 ID, --mode before/after |
 | export | --output; 검증 후 독립 게임 .love 생성 |
 
-정확한 개별 인자는 help와 JSON 요청 예제를 확인합니다. 일반 스크립트 생성은 --type script, 레벨 스크립트는 --type level을 사용합니다. 생성 경로 기본값은 Assets입니다. 새 레벨은 기본 Camera 부착 오브젝트와 `{authoringId,script}` Main Camera를 저장합니다. 별도 Camera.lua를 만들지 않습니다.
+정확한 개별 인자는 help와 JSON 요청 예제를 확인합니다. 일반 스크립트 생성은 --type script, 레벨 스크립트는 --type level을 사용합니다. 생성 경로 기본값은 Assets입니다. 새 레벨은 빈 상태이며 카메라를 자동 생성하지 않습니다. LaboEssentials의 Camera·View를 부착하고 View.cameraSource를 지정하거나 Rendering API로 출력을 등록합니다.
 
 ```powershell
 Labo-cli.exe --cli prefab create --project D:/Games/MyGame --level Assets/L_Start.level --instance 2 --name PF_Enemy --link
@@ -142,7 +146,7 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 
 `asset.import --input C:/Images/Player.png --folder "Assets/User Plugins/MyPlugin"`은 파일을 복사합니다. input은 폴더도 가능하며 name으로 새 이름을 지정할 수 있습니다. 기존 파일·메타데이터를 덮어쓰지 않고 파일시스템 링크는 따라가지 않습니다.
 
-스크립트 프로퍼티 조회 결과의 schema·values 키는 `사용자이름.프로퍼티`이며 `scriptIds`가 이름과 UUID를 연결합니다. prefab get은 최상위, instance get은 properties.scriptIds에서 확인합니다. 이름 또는 ID로 편집할 수 있으며 저장된 script 참조와 Main Camera는 내부 ID를 사용합니다. `instance set`/`prefab set`의 `이름.enabled`로 활성 상태를 편집합니다.
+스크립트 프로퍼티 조회 결과의 schema·values 키는 `사용자이름.프로퍼티`이며 `scriptIds`가 이름과 UUID를 연결합니다. prefab get은 최상위, instance get은 properties.scriptIds에서 확인합니다. 이름 또는 ID로 편집할 수 있으며 저장된 script 참조는 내부 ID를 사용합니다. 과거 Main Camera도 호환 데이터에서 내부 ID를 보존합니다. `instance set`/`prefab set`의 `이름.enabled`로 활성 상태를 편집합니다.
 
 ## 일반 Script 이벤트 검증
 
@@ -185,3 +189,13 @@ Labo-cli.exe --cli level simulate --project D:/Games/MyGame --level Assets/Examp
 ```
 
 `level.simulate`, `level.events`, `level.pointer`는 완료·실패 시 임시 Runtime World를 정리하고 초기화한 Script의 unload를 호출합니다. simulate의 레벨 전환 후 최종 World도 정리합니다. 결과의 인스턴스 상태는 종료 직전에 읽고 debug 기록에는 종료 로그도 포함합니다. 에셋 검증·정적 Preview·Export 생성은 게임 load/unload를 실행하지 않습니다. 새 재생 CLI는 추가하지 않고 LÖVE Source 제어는 게임 코드에 둡니다.
+
+## 렌더링 검증
+
+```powershell
+love src --cli project rendering-examples --project tests/TestProject
+love src --cli level view --project tests/TestProject --level Assets/Examples/L_Multiview.level --width 960 --height 540
+love src --cli level render --project tests/TestProject --level Assets/Examples/L_Multiview.level --width 960 --height 540 --output C:/Temp/multiview.png
+```
+
+rendering-examples는 동명 에셋이 있으면 중단하며 덮어쓰지 않습니다. 저장소 테스트 프로젝트에는 이미 예제가 있습니다. level.view는 load를 실행해 등록된 활성 View를 조회하고 lifecycleExecuted=true를 반환합니다. views에는 출력 순서·카메라·타깃 종류·해상도·실제 viewport가 들어갑니다. 대표 화면 View의 기존 camera·scale·projected 결과도 유지합니다. level.render는 같은 구성을 실제 렌더링해 PNG로 저장합니다. 출력 부모 폴더는 미리 생성하고, width/height는 양의 정수 픽셀 수를 사용합니다. 창이 없는 CLI는 렌더링에 필요한 최소 그래픽 컨텍스트를 준비합니다. 검증용 World와 GPU 자원은 종료 시 정리합니다.

@@ -2,7 +2,7 @@
 
 [사용자 가이드 원본](docs/index.md) · [가이드 사이트](https://tyt0815.github.io/LOVE-Labo/) · [AI 시작 페이지](docs/guide/ai.md)
 
-새 레벨은 기본 Camera와 Main Camera 지정을 포함합니다. 빈 곳을 선택하면 레벨 Inspector에서 Main Camera를 편집합니다. CLI의 빈 레벨 생성은 `level create --empty`를 사용합니다. 문서 사이트의 공개 배포 설정은 [문서 유지보수](docs/guide/maintenance.md)를 참고하세요.
+새 레벨은 빈 상태로 생성됩니다. Camera와 View 스크립트를 부착해 화면 출력을 구성하며 레벨 전용 Main Camera 설정은 없습니다. 메인 화면·미니맵 구성은 [카메라와 화면 UI](docs/guide/camera-ui.md)를 참고하세요. 문서 사이트의 공개 배포 설정은 [문서 유지보수](docs/guide/maintenance.md)를 참고하세요.
 
 LÖVE 11.5 + LuaJIT을 사용하는 2D 제작 에디터다. 현재 외부 프로젝트 생성·탐색은 Windows에서 지원한다.
 

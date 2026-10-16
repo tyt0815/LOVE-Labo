@@ -688,6 +688,7 @@ end)
 add("Camera letterbox clips screen UI and ignores new clicks while preserving captured release", function()
     local world = require("core.World").new()
     local camera = {getViewSize = function() return 200, 100 end, getViewTransform = function() return {x = 0, y = 0} end}
+    world.legacyCameraSelection = true
     world.getActiveCamera = function() return camera end
     local object = assert(world:addLObject({transform = {x = 0, y = 0}}))
     local class = require("core.Script"):extend({canvas = true,
@@ -718,7 +719,7 @@ add("PIE uses the entire panel interior without a heading and preserves camera l
     Assert.equal(20 + inset, viewport.x); Assert.equal(30 + inset, viewport.y)
     Assert.equal(204 - inset * 2, viewport.width); Assert.equal(104 - inset * 2, viewport.height)
     local camera = {getViewSize = function() return 100, 100 end, getViewTransform = function() return {x = 0, y = 0} end}
-    local world = {getActiveCamera = function() return camera end}
+    local world = {legacyCameraSelection = true, getActiveCamera = function() return camera end}
     viewport = view:runtimeViewport(world)
     Assert.equal(30 + inset, viewport.y); Assert.equal(104 - inset * 2, viewport.height)
     Assert.equal(viewport.height, viewport.width)
@@ -748,6 +749,7 @@ add("Viewport toolbar avoids control overlap and exposes its actual panel gap", 
 end)
 add("Game View leaves empty LObjects invisible and draws attached scripts", function()
     local world = require("core.World").new()
+    require("core.Rendering").createView(world, {clearColor = false})
     local object = assert(world:addLObject({transform = {x = 0, y = 0}}))
     local view = require("editor.GameView").new(); view:setViewport(0, 0, 200, 200)
     local canvas = love.graphics.newCanvas(200, 200)

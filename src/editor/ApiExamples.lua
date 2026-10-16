@@ -19,11 +19,11 @@ local function assignScriptIds(level)
     if level.mainCamera then level.mainCamera.script = ids[level.mainCamera.authoringId][level.mainCamera.script] or level.mainCamera.script end
 end
 local LEVEL = [[local LevelDemo = {properties = {welcome = {type = "string", default = "API examples ready"}}}
-function LevelDemo.load(world)
+function LevelDemo:load(world)
     world.exampleElapsed = 0
-    world.debug:screenLog(world.properties.welcome, {key = "welcome", lifespan = 5})
+    world.debug:screenLog(self.welcome, {key = "welcome", lifespan = 5})
 end
-function LevelDemo.update(world, dt) world.exampleElapsed = world.exampleElapsed + dt end
+function LevelDemo:update(dt) local world = self:getWorld(); world.exampleElapsed = world.exampleElapsed + dt end
 return LevelDemo
 ]]
 local MOTION = [[local Motion = {properties = {
@@ -81,7 +81,7 @@ function Actions.onPointerDown(self, event)
         local motion = spawned:getScriptByName("motion")
         if motion then motion.enabled = not motion.enabled end
     elseif self.action == "Camera" then
-        local camera = world:getActiveCamera(); assert(world:setActiveCamera(camera)); camera.zoom = camera.zoom == 1 and 1.5 or 1
+        local camera = require("Engine").Rendering.views(world)[1].camera; camera.zoom = camera.zoom == 1 and 1.5 or 1
     elseif self.action == "Next" then assert(Engine.openLevel(world, self.nextLevel))
     elseif self.action == "Properties" and self.target then
         local motion = self.target:getScriptByName("motion")
@@ -115,7 +115,7 @@ function Examples.create(project)
     assert(project:createEntry("Assets", "folder", "Examples"))
     local actions = ACTIONS:gsub("__POINTER_ID__", assert(project.plugins.scripts.Pointer.id))
     for name, bytes in pairs({Motion = MOTION, Actions = actions, LevelDemo = LEVEL}) do
-        assert(project:createEntry(folder, "lua", name, {scriptKind = name == "LevelDemo" and "level" or "script"}))
+        assert(project:createEntry(folder, "lua", name, {scriptKind = "script"}))
         assert(Fs.writeAtomic(assert(project:resolveSourceFile(folder .. "/" .. name .. ".lua")), bytes))
     end
     assert(project:rebuildAssetIndex())
@@ -138,9 +138,10 @@ function Examples.create(project)
     assert(project:createEntry("Assets", "level", "L_ApiNext", {empty = true}))
     local Level = require("editor.Level")
     local level = Level.new()
-    assert(level:setScriptReference(project:getAssetId(folder .. "/LevelDemo.lua")))
+    level.scripts = {{id = require("project.AssetId").new(), name = "demo", source = project:getAssetId(folder .. "/LevelDemo.lua")}}
     local camera = level:addLObject(0, 0, nil, "Main Camera")
-    camera.scripts = {{id = "camera", source = "Camera"}}; level.mainCamera = {authoringId = camera.authoringId, script = "camera"}
+    camera.scripts = {{id = "camera", source = "Camera"}, {id = "view", source = "View"}}
+    camera.scriptOverrides = {view = {cameraSource = {authoringId = camera.authoringId, script = "camera"}}}
     local parent = level:addLObject(-160, 220, nil, "Motion and Property References")
     parent.scripts = {{id = "motion", source = motionId}, {id = "sprite", source = "Sprite"}, {id = "bounds", source = "RectBounds"}}
     parent.scriptOverrides = {sprite = {image = imageId}, motion = {sibling = {authoringId = parent.authoringId, script = "sprite"}}}
@@ -159,13 +160,13 @@ function Examples.create(project)
             nextLevel = project:getAssetId("Assets/L_ApiNext.level"), target = parent.authoringId}}
     end
     local nextLevel = Level.new()
-    assert(nextLevel:setScriptReference(level.scriptReference)); nextLevel.propertyOverrides = {welcome = "Second level - press Back"}
+    nextLevel.scripts = require("project.PrefabHierarchy").copy(level.scripts)
+    nextLevel.scriptOverrides = {[nextLevel.scripts[1].id] = {welcome = "Second level - press Back"}}
     nextLevel.lobjects = require("project.PrefabHierarchy").copy(level.lobjects)
-    nextLevel.nextAuthoringId, nextLevel.mainCamera = level.nextAuthoringId, level.mainCamera
+    nextLevel.nextAuthoringId = level.nextAuthoringId
     for _, object in ipairs(nextLevel.lobjects) do if object.scriptOverrides and object.scriptOverrides.action and object.scriptOverrides.action.action == "Next" then
         object.scriptOverrides.action.caption = "Back"; object.scriptOverrides.action.nextLevel = project:getAssetId("Assets/L_ApiExamples.level")
     end end
-    nextLevel.mainCamera = require("project.MainCamera").copy(level.mainCamera)
     assignScriptIds(level); assignScriptIds(nextLevel)
     assert(Fs.writeAtomic(assert(project:resolveAssetFile("Assets/L_ApiExamples.level")), assert(require("editor.LevelFile").encode(level))))
     assert(Fs.writeAtomic(assert(project:resolveAssetFile("Assets/L_ApiNext.level")), assert(require("editor.LevelFile").encode(nextLevel))))

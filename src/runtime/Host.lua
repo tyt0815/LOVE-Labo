@@ -62,7 +62,7 @@ function Host.load(args)
                 report.projectScripts = world.project and require("runtime.ScriptState").read(world.project)
                 report.levelScripts = require("runtime.ScriptState").read(world)
                 local width, height = love.graphics.getDimensions()
-                local viewport = require("core.Viewport").new(world, 0, 0, width, height)
+                local viewport = require("core.RenderPipeline").primaryViewport(world, 0, 0, width, height)
                 report.view = {scale = viewport.scale, camera = viewport.camera and viewport.camera.name,
                     x = viewport.transform.x, y = viewport.transform.y}
                 report.properties, report.instances = {}, {}
@@ -107,11 +107,11 @@ function Host.draw()
     if world then
         attempt(function()
             local width, height = love.graphics.getDimensions()
-            local viewport = require("core.Viewport").new(world, 0, 0, width, height)
+            local viewport = require("core.RenderPipeline").primaryViewport(world, 0, 0, width, height)
             love.graphics.push("all")
             love.graphics.setColor(0.05, 0.05, 0.07, 1)
             love.graphics.rectangle("fill", viewport.x, viewport.y, viewport.width, viewport.height)
-            local ok, err = pcall(require("core.Renderer").drawWorld, world, image, viewport)
+            local ok, err = pcall(require("core.RenderPipeline").draw, world, image, 0, 0, width, height)
             love.graphics.pop()
             if not ok then error(err, 0) end
             return true
@@ -130,7 +130,8 @@ function Host.pointer(kind, x, y, button, dx, dy)
     if not world then return end
     local width, height = love.graphics.getDimensions()
     return attempt(function()
-        return require("core.Viewport").new(world, 0, 0, width, height):dispatchPointer(world, kind, x, y, button, dx, dy, function(_, reference) return image(reference) end)
+        return require("core.RenderPipeline").pointer(world, kind, x, y, button, dx, dy, function(_, reference) return image(reference) end,
+            {x = 0, y = 0, width = width, height = height})
     end)
 end
 local Events = require("core.ScriptEvents")
@@ -139,7 +140,7 @@ function Host.event(name, ...)
     local args, count = {...}, select("#", ...)
     return attempt(function()
         local width, height = love.graphics.getDimensions()
-        local viewport = require("core.Viewport").new(world, 0, 0, width, height)
+        local viewport = require("core.RenderPipeline").primaryViewport(world, 0, 0, width, height)
         if name == "resize" then args = {viewport.width, viewport.height}; count = 2 end
         if name == "focus" and not args[1] then world:cancelPointer() end
         return Events.screen(world, viewport, name, unpack(args, 1, count))

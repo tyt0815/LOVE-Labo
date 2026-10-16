@@ -21,12 +21,10 @@ function Inspector:target(document, label, id)
     target.label = level and "Level" or "Project"
     target.getDisplayName = function() return level and label or self.app.project.name end
     if level then
-        target.mainCameraDetails = true
         local baseGet, baseSet = target.getOverrides, target.setOverrides
         target.getOverrides = function(current)
             local values = baseGet(current)
             for name, value in pairs(level.propertyOverrides or {}) do values[name] = value end
-            values["$mainCamera"] = level.mainCamera and level.mainCamera.authoringId or false
             return values
         end
         target.setOverrides = function(current, values)

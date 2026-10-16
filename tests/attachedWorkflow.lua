@@ -86,7 +86,7 @@ add("Unified Assets permits scripts images Prefabs and levels in the same featur
         local source = run(project, "class.create", {folder = "Assets/Player", name = "Movement"}).assetId
         run(project, "prefab.create", {folder = "Assets/Player", name = "PF_Player"})
         run(project, "level.create", {folder = "Assets/Player", name = "L_Start", empty = true})
-        Assert.equal("script", project:getScriptKind(source)); Assert.equal(7, #project:listScripts("script"))
+        Assert.equal("script", project:getScriptKind(source)); Assert.equal(8, #project:listScripts("script"))
         Assert.equal(false, project:createEntry("Sources", "lua", "Wrong", {scriptKind = "script"}))
     end)
 end)
@@ -166,32 +166,29 @@ add("Unsaved Prefab script edits are live in Preview Play and Export and partici
         Assert.equal(0, instance.transform.x)
     end)
 end)
-add("Default levels attach Camera directly and main-camera selection survives serialization", function()
+add("New levels do not create Camera or a built-in camera selection", function()
     fixture(function(project)
         local levelId = run(project, "level.create", {name = "L_Start"}).assetId
         local data = run(project, "level.get", {level = levelId}).data
-        Assert.equal(1, #data.lobjects); Assert.equal(nil, data.lobjects[1].definitionReference)
-        Assert.equal("Camera", data.lobjects[1].scripts[1].source); Assert.equal(data.lobjects[1].scripts[1].id, data.mainCamera.script)
-        Assert.equal(36, #data.mainCamera.script)
+        Assert.equal(0, #data.lobjects); Assert.equal(nil, data.mainCamera)
         local world = assert(require("runtime.WorldLoader").create(project, data))
-        Assert.equal(1, world:getActiveCamera().owner.authoringId)
-        Assert.equal(1280, world:getActiveCamera().viewWidth)
-        run(project, "level.set-camera", {level = levelId, instance = false})
-        Assert.equal(nil, run(project, "level.get", {level = levelId}).data.mainCamera)
-        local empty = run(project, "level.create", {name = "L_Empty", empty = true}).assetId
-        Assert.equal(0, #run(project, "level.get", {level = empty}).data.lobjects)
-        Assert.equal(6, #project:listScripts("script"))
+        Assert.equal(0, #require("core.Rendering").views(world)); assert(world:dispose())
+        Assert.equal(7, #project:listScripts("script"))
     end)
 end)
-add("Main Camera eyedropper chooses attached Camera scripts and reset restores Auto", function()
+add("Legacy saved Main Camera creates a compatibility View without restoring its Inspector field", function()
     fixture(function(project)
-        local level = run(project, "level.create", {name = "L_Start"}).assetId
-        local app = EditorApp.new(nil, project); assert(app:openProjectDocument(project:getAssetReference(level), true)); assert(app:inspectAsset(project:getAssetReference(level))); app:draw()
-        local target = app.inspector.classInspector.target
-        Assert.equal(true, target.mainCameraDetails)
-        local choices = assert(require("project.MainCamera").choices(project, app.level, app.level.lobjects[1]))
-        Assert.equal("Camera", choices[1].name); assert(app:setMainCamera(choices[1]))
-        assert(app.inspector.classInspector:setProperty("$mainCamera", false)); Assert.equal(nil, app.level.mainCamera)
+        local levelId = run(project, "level.create", {name = "L_Start"}).assetId
+        local instance = run(project, "instance.add", {level = levelId}).data.authoringId
+        run(project, "instance.script.add", {level = levelId, instance = instance, source = "Camera", script = "camera"})
+        run(project, "level.set-camera", {level = levelId, instance = instance})
+        local data = run(project, "level.get", {level = levelId}).data
+        local world = assert(require("runtime.WorldLoader").create(project, data))
+        Assert.equal(1, #require("core.Rendering").views(world))
+        Assert.equal(instance, world.legacyView.camera.owner.authoringId); assert(world:dispose())
+        local app = EditorApp.new(nil, project)
+        assert(app:inspectAsset(project:getAssetReference(levelId))); app:draw()
+        Assert.equal(nil, app.inspector.classInspector.class.properties["$mainCamera"])
     end)
 end)
 add("Prefab variants inherit scripts and overrides without pinning child sources", function()

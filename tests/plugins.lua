@@ -70,7 +70,9 @@ add("Missing and circular plugin dependencies reject activation without changing
 end)
 add("Used plugin cannot be disabled and packaged registries load only exported scripts", function()
     local p = project(); assert(Operations.apply(p, "LaboEssentials", true, true))
-    assert(p:createEntry("Assets", "level", "L_Camera"))
+    local level = require("editor.Level").new()
+    level:addLObject(0, 0).scripts = {{id = "camera", source = "Camera"}}
+    assert(p:createEntry("Assets", "level", "L_Camera", {level = level}))
     local ok, err = Operations.apply(p, "LaboEssentials", false, true)
     Assert.equal(false, ok); Assert.truthy(err:find("used", 1, true)); Assert.equal(true, p.plugins.enabled.LaboEssentials)
     local exported = p.plugins:export()

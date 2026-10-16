@@ -27,7 +27,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 # 배포 대상 목록을 명시하여 테스트·샘플 프로젝트·문서를 제외한다.
 $taskFiles = @('main.lua', 'conf.lua', 'Engine.lua')
-foreach ($taskFolder in @('core', 'editor', 'project', 'runtime')) {
+foreach ($taskFolder in @('core', 'editor', 'project', 'runtime', 'Engine')) {
     $taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskSource $taskFolder) -Recurse -File -Filter '*.lua' |
         ForEach-Object { $_.FullName.Substring($taskSource.Length + 1).Replace('\', '/') }
 }

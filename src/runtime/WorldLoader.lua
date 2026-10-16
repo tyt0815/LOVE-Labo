@@ -100,6 +100,7 @@ function Loader.prepare(project, data, session)
     if not ok then return nil, initial end
     local camera = require("project.MainCamera").resolve(world, data.mainCamera)
     if camera then assert(world:setActiveCamera(camera)) end
+    world.legacyMainCamera = camera
     return world, class, initial, loadClass
 end
 
@@ -128,6 +129,10 @@ function Loader.activate(project, world, class, initial, loadClass)
     if class then
         local ok, err = world:setLevelScript(class)
         if not ok then return fail(err) end
+    end
+    -- 과거 저장값만 호환 View로 변환하며 새 레벨에서는 카메라를 자동 선택하지 않는다.
+    if #require("core.Rendering").views(world) == 0 and world.legacyCameraSelection and world:getActiveCamera() then
+        world.legacyView = require("core.Rendering").createView(world, {camera = world:getActiveCamera()})
     end
     return world
 end

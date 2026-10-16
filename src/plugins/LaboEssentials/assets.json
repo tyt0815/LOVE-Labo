@@ -42,6 +42,13 @@
             "scriptKind": "script",
             "scriptName": "Text",
             "hash": "2497564d898a5a6c06e6654cbe1466e5027f64332bc7350667f7a0dae491f7dd"
+        },
+        "Assets/View.lua": {
+            "version": 1,
+            "id": "c4aa7e61-034e-4b9e-94b9-392ee2c03ec8",
+            "scriptKind": "script",
+            "scriptName": "View",
+            "hash": "6e890ca03bef89156804657d45b70535e8ff8564941e256ec371caa3ff7250b0"
         }
     }
 }

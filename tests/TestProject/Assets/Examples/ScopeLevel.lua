@@ -4,6 +4,7 @@ local LevelLogic = {properties = {
     nextLevel = {type = "string", default = ""}
 }}
 function LevelLogic:load()
+    self.view = require("Engine").Rendering.createView(self:getWorld(), {owner = self})
     self.accumulator, self.steps = 0, 0
     local manager = self:getProject():getScriptByName("scopeSession")
     if manager then manager.visits = manager.visits + 1 end

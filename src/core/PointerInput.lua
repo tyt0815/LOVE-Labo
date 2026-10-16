@@ -34,7 +34,8 @@ function Input.dispatch(world, kind, x, y, button, dx, dy, context)
     end
     local result = {consumed = false, targets = {}}
     for _, script in ipairs(candidates) do
-        if script.owner and script.properties.enabled ~= false then
+        if script.owner and script.properties.enabled ~= false
+            and (not context.view or context.view:includes(script, require("core.CoordinateSpace").canvas(script:getBoundsSource()) ~= nil)) then
             local screen = require("core.CoordinateSpace").canvas(script:getBoundsSource()) ~= nil
             local hitX, hitY = x, y
             if screen and context.screenX ~= nil then hitX, hitY = context.screenX, context.screenY end
@@ -43,7 +44,7 @@ function Input.dispatch(world, kind, x, y, button, dx, dy, context)
             if hit or captured == script or seen[script] then
                 local event = {kind = kind, worldX = x, worldY = y, localX = localX, localY = localY,
                     button = button, dx = screen and context.screenDx or dx or 0, dy = screen and context.screenDy or dy or 0,
-                    screenX = context.screenX, screenY = context.screenY, coordinateSpace = screen and "screen" or "world", inside = hit == true, world = world}
+                    screenX = context.screenX, screenY = context.screenY, coordinateSpace = screen and "screen" or "world", inside = hit == true, world = world, view = context.view, camera = context.camera, viewport = context.viewport}
                 local callback = script[CALLBACKS[kind]]
                 local owner, id = script.owner, script.id
                 local consumed = (callback and callback(script, event) == true or false) or script.properties.blockPointer == true

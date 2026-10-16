@@ -33,7 +33,7 @@ function Actions.onPointerDown(self, event)
         local motion = spawned:getScriptByName("motion")
         if motion then motion.enabled = not motion.enabled end
     elseif self.action == "Camera" then
-        local camera = world:getActiveCamera(); assert(world:setActiveCamera(camera)); camera.zoom = camera.zoom == 1 and 1.5 or 1
+        local camera = require("Engine").Rendering.views(world)[1].camera; camera.zoom = camera.zoom == 1 and 1.5 or 1
     elseif self.action == "Next" then assert(Engine.openLevel(world, self.nextLevel))
     elseif self.action == "Properties" and self.target then
         local motion = self.target:getScriptByName("motion")

@@ -115,6 +115,7 @@ function World:dispose(preserveProject)
         project.world, project.disposed = nil, true
         if not cleaned and not cleanupError then cleanupError = cleanup end
     end
+    require("core.Rendering").dispose(self)
     return cleanupError == nil, cleanupError
 end
 for _, name in ipairs({"getScriptOrder", "getScriptById", "getScriptByName", "getScriptByClass", "getScriptsByClass", "getWorld", "getProject", "getWorldTransform"}) do
@@ -136,20 +137,25 @@ function World:dispatchPointer(kind, x, y, button, dx, dy, context)
 end
 function World:dispatchEvent(name, ...) return require("core.ScriptEvents").dispatch(self, name, ...) end
 function World:cancelPointer()
+    for _, view in ipairs(self.renderViews or {}) do view.pointerCaptures = {} end
     self.pointerCaptures = {}
     require("core.ScriptEvents").cancel(self)
 end
+-- 과거 단일 화면 코드의 호환 API다. 새 출력 구성은 Rendering.createView를 사용한다.
 function World:setActiveCamera(camera)
-    if camera == nil then self.activeCamera = nil; return true end
-    if type(camera) ~= "table" or not camera.camera or type(camera.getViewSize) ~= "function" or type(camera.getViewTransform) ~= "function" then return false, "Expected a camera script" end
-    local hosts = self:getObjects(); table.insert(hosts, 1, self)
-    if self.project then table.insert(hosts, 1, self.project) end
-    for _, object in ipairs(hosts) do
-        if camera.owner == object and object.scripts[camera.id] == camera then self.activeCamera = camera; return true end
-    end
-    return false, "Camera must belong to this World"
+    if camera ~= nil and not require("core.RenderView").validCamera(self, camera) then return false, "Camera must belong to this World" end
+    if self.disposed then return false, "World is disposed" end
+    self.legacyCameraSelection, self.activeCamera = true, camera
+    if self.legacyView then self.legacyView:setCamera(camera or self:getActiveCamera()) end
+    return true
 end
 function World:getActiveCamera()
+    if not self.legacyCameraSelection then
+        local views = require("core.Rendering").views(self)
+        for index = #views, 1, -1 do
+            if views[index].target == require("core.Rendering").screen then return views[index].camera end
+        end
+    end
     local first
     local hosts = self:getObjects(); table.insert(hosts, 1, self)
     if self.project then table.insert(hosts, 1, self.project) end

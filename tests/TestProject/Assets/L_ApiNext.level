@@ -9,11 +9,24 @@
           "id": "6391575c-6f45-4feb-837a-8f0addd8bd61",
           "source": "Camera",
           "name": "camera"
+        },
+        {
+          "id": "de37cc9d-2938-4e2b-9c75-fa4137c93be7",
+          "name": "View",
+          "source": "c4aa7e61-034e-4b9e-94b9-392ee2c03ec8"
         }
       ],
       "transform": {
         "x": 0,
         "y": 0
+      },
+      "scriptOverrides": {
+        "de37cc9d-2938-4e2b-9c75-fa4137c93be7": {
+          "cameraSource": {
+            "authoringId": 1,
+            "script": "6391575c-6f45-4feb-837a-8f0addd8bd61"
+          }
+        }
       }
     },
     {
@@ -382,13 +395,17 @@
       }
     }
   ],
-  "mainCamera": {
-    "authoringId": 1,
-    "script": "6391575c-6f45-4feb-837a-8f0addd8bd61"
-  },
-  "propertyOverrides": {
-    "welcome": "Second level - press Back"
-  },
-  "scriptReference": "6a8f6dcf-d978-4b4c-afcc-110ebcbcced5",
-  "nextAuthoringId": 16
+  "nextAuthoringId": 16,
+  "scripts": [
+    {
+      "id": "ec25c778-2de4-4fa5-91c4-be3cd4a46c99",
+      "name": "demo",
+      "source": "6a8f6dcf-d978-4b4c-afcc-110ebcbcced5"
+    }
+  ],
+  "scriptOverrides": {
+    "ec25c778-2de4-4fa5-91c4-be3cd4a46c99": {
+      "welcome": "Second level - press Back"
+    }
+  }
 }

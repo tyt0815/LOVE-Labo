@@ -31,7 +31,7 @@ function Export.write(project, level, output)
             elseif name:match("%.lua$") then add(path, assert(love.filesystem.read(path))) end
         end
     end
-    for _, folder in ipairs({"core", "project", "runtime"}) do collect(folder) end
+    for _, folder in ipairs({"core", "project", "runtime", "Engine"}) do collect(folder) end
     local plugins = project.plugins:export()
     for _, plugin in ipairs(plugins.manifests) do
         for name, file in pairs(plugin.scripts) do

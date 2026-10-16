@@ -1,0 +1,67 @@
+{
+  "formatVersion": 3,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "name": "Main Camera 1",
+      "scriptOverrides": {
+        "9569aef4-1b4e-4676-8822-61aab99daa50": {
+          "viewHeight": 360,
+          "viewWidth": 640
+        }
+      },
+      "scripts": [
+        {
+          "id": "9569aef4-1b4e-4676-8822-61aab99daa50",
+          "name": "Camera",
+          "source": "Camera"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 2,
+      "name": "Map Camera 1",
+      "scriptOverrides": {
+        "6ebc661a-f74e-40cf-8a2f-a7e697b7df5d": {
+          "viewHeight": 1440,
+          "viewWidth": 1440
+        }
+      },
+      "scripts": [
+        {
+          "id": "6ebc661a-f74e-40cf-8a2f-a7e697b7df5d",
+          "name": "Camera",
+          "source": "Camera"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  ],
+  "propertyOverrides": {},
+  "scriptOverrides": {
+    "11603209-64fa-42ee-871e-d3de36bc301a": {
+      "mainCamera": {
+        "authoringId": 1,
+        "script": "9569aef4-1b4e-4676-8822-61aab99daa50"
+      },
+      "mapCamera": {
+        "authoringId": 2,
+        "script": "6ebc661a-f74e-40cf-8a2f-a7e697b7df5d"
+      }
+    }
+  },
+  "scripts": [
+    {
+      "id": "11603209-64fa-42ee-871e-d3de36bc301a",
+      "name": "rendering",
+      "source": "f35e4011-e715-403c-afb5-d600b6b95358"
+    }
+  ]
+}

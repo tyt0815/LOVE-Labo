@@ -1,5 +1,7 @@
 # 0049. 카메라 선택을 Main Camera 지정과 런타임 전환으로 통일한다
 
+- View 등록·출력 대상과 레벨 전용 카메라 설정은 [ADR 0078](0078-registered-views-and-render-targets.md)으로 부분 대체한다.
+
 - 상태: 채택·구현
 - 날짜: 2026-10-10
 - 부분 대체: [ADR 0046](0046-camera-screen-canvas-and-component-order.md), [ADR 0047](0047-level-main-camera-and-default-camera.md)의 enabled 선택 조건

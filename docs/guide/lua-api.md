@@ -27,7 +27,7 @@ end
 return Movement
 ```
 
-`load(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 실행 중인 초기화 콜백에 재진입하지 않습니다. 공통 `enabled`는 기본 true이며 false이면 update·draw·포인터 입력을 건너뜁니다. load는 활성 상태와 관계없이 한 번 실행하며 다시 활성화해도 반복하지 않습니다. 비활성 카메라는 자동 선택에서 제외합니다. 부모 오브젝트에서 자손으로, 같은 오브젝트에서는 부착 순서로 실행합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
+`load(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 실행 중인 초기화 콜백에 재진입하지 않습니다. 공통 `enabled`는 기본 true이며 false이면 update·draw·포인터 입력을 건너뜁니다. load는 활성 상태와 관계없이 한 번 실행하며 다시 활성화해도 반복하지 않습니다. 화면 출력은 명시적으로 등록한 View를 사용합니다. 부모 오브젝트에서 자손으로, 같은 오브젝트에서는 부착 순서로 실행합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
 
 이전 프로젝트의 `beginPlay` 선언과 직접 호출은 `load`로 바꿉니다. 호출 시점과 초기화 동작은 같습니다. 에셋을 읽거나 에디터 미리보기를 만들 때 호출하는 함수가 아닙니다.
 
@@ -45,7 +45,7 @@ return Movement
 | object:attachTo(parent) | 부모 변경, nil이면 독립 |
 | world:spawnLObject(prefab, transform, overrides) | Prefab 계층 생성 |
 | world:removeLObject(object) | 자손·입력 캡처까지 제거 |
-| world:setActiveCamera(script) | 런타임 카메라 지정 |
+| Rendering.createView(world, options) | 카메라·타깃을 연결해 자동 출력 등록. [렌더링 API](camera-ui.md) |
 | world:openLevel(reference) | 프레임 경계에서 레벨 전환 |
 | world.debug | [에디터 로그·화면 로그·디버그 도형](debugging.md); 배포에서는 no-op |
 
@@ -155,7 +155,7 @@ end
 | Object의 draw | 기존 객체 로컬 좌표, Transform·카메라 또는 Canvas 적용 |
 | 모든 범위의 drawScreen | 게임 영역 왼쪽 위 (0, 0), 실제 픽셀. 카메라·객체 Transform 미적용 |
 
-`context`는 Object가 아니라 Renderer가 전달한 그리기 환경입니다. `context:image(reference)`로 이미지를 가져오고, `context.viewport.width/height`로 레터박스를 제외한 게임 영역 크기를 얻습니다. Labo가 변환·클리핑·그래픽 상태 복원을 처리하므로 콜백 안에서는 일반 `love.graphics` API로 그립니다. 다른 Script의 draw를 직접 호출하면 그 대상의 Transform 준비 과정이 생략됩니다.
+`context`는 Object가 아니라 Renderer가 전달한 그리기 환경입니다. `context.view`, `context.camera`, `context.target`은 이번 출력을 식별합니다. 여러 View에 포함된 draw는 출력마다 호출되며 update는 한 번 실행합니다. `context:image(reference)`로 이미지를 가져오고, `context.viewport.width/height`로 레터박스를 제외한 게임 영역 크기를 얻습니다. Labo가 변환·클리핑·그래픽 상태 복원을 처리하므로 콜백 안에서는 일반 `love.graphics` API로 그립니다. 다른 Script의 draw를 직접 호출하면 그 대상의 Transform 준비 과정이 생략됩니다.
 
 그리기 순서는 **Project.draw → Level.draw → 기존 Object 렌더링(Canvas 포함) → Object.drawScreen → Level.drawScreen → Project.drawScreen**입니다. Object drawScreen끼리는 기존 렌더링 정렬 규칙을 사용합니다. enabled=false는 draw와 drawScreen 모두 중단합니다. 화면 콜백에서 객체 머리 위에 표시하려면 객체의 월드 위치를 화면 위치로 직접 변환해야 합니다.
 

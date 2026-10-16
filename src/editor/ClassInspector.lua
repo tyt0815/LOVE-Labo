@@ -73,13 +73,6 @@ function ClassInspector:reload()
         if definition then target, err = Definition.inspectorTarget(self.project, {}, definition, nil, "Prefab") end
         if target then self.class, self.preview = target.class, target.preview else self.error = err end
     elseif reference then self.class, self.error = LuaScript.load(self.project, reference, self.target.kind) end
-    if self.target.mainCameraDetails then
-        local properties = {}
-        for name, declaration in pairs(self.class and self.class.properties or {}) do properties[name] = declaration end
-        properties["$mainCamera"] = {type = "object", default = false, field = "Main Camera", group = "Camera"}
-        self.class = {properties = properties, scriptTypes = self.class and self.class.scriptTypes,
-            className = self.class and (self.class.className or LuaScript.name(self.class)) or "Level"}
-    end
     if not self.preview then self.selectedScript = nil end
     self.allNames = {}
     for name in pairs(self.class and self.class.properties or {}) do self.allNames[#self.allNames + 1] = name end

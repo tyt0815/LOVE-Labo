@@ -1,11 +1,18 @@
 local Transform = require("core.Transform")
 local Viewport = {}
 Viewport.__index = Viewport
-function Viewport.new(world, x, y, width, height)
+function Viewport.new(world, x, y, width, height, view)
     assert(Transform.finite(width) and width > 0 and Transform.finite(height) and height > 0, "Invalid viewport size")
     assert(Transform.finite(x or 0) and Transform.finite(y or 0), "Invalid viewport origin")
     local self = setmetatable({x = x or 0, y = y or 0, width = width, height = height, scale = 1}, Viewport)
-    self.camera = world and world:getActiveCamera()
+    if not view and world then
+        local views = require("core.Rendering").views(world)
+        for index = #views, 1, -1 do
+            if views[index].target == require("core.Rendering").screen then view = views[index]; break end
+        end
+    end
+    self.view, self.camera = view, view and view.camera
+    if not view and world and world.legacyCameraSelection then self.camera = world:getActiveCamera() end
     self.transform = {x = 0, y = 0}
     if self.camera then
         local w, h = self.camera:getViewSize()
@@ -30,7 +37,7 @@ function Viewport:containsWorldScreen(x, y)
         and math.abs(y - self.y - self.height / 2) <= self.contentHeight / 2
 end
 function Viewport:context(image)
-    return {image = image, viewport = self, transform = function(_, script) return require("core.CoordinateSpace").transform(script) end}
+    return {image = image, viewport = self, camera = self.camera, view = self.view, target = self.view and self.view.target, transform = function(_, script) return require("core.CoordinateSpace").transform(script) end}
 end
 function Viewport:dispatchPointer(world, kind, x, y, button, dx, dy, image)
     local wx, wy = self:screenToWorld(x, y)

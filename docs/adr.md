@@ -81,3 +81,5 @@
 - [0075. Inspector 범위 탭과 Script 내부 프로퍼티 그룹](adr/0075-inspector-scope-tabs-and-nested-script-groups.md)
 - [0076. Project Browser 카드와 최근 프로젝트](adr/0076-project-browser-cards-and-recent-projects.md)
 - [0077. 빈 선택과 메뉴의 Project Inspector 및 기본 접힘 그룹](adr/0077-project-inspector-selection-and-collapsed-groups.md)
+
+- [0078. 레벨 전용 카메라 설정 대신 View와 RenderTarget을 등록한다](adr/0078-registered-views-and-render-targets.md)

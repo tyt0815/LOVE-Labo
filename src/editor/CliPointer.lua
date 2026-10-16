@@ -21,7 +21,8 @@ function Operations.execute(project, level, request)
                 local viewport = require("core.Viewport").new(world, 0, 0, tonumber(request.width or 1280), tonumber(request.height or 720))
                 local valid, response
                 if request.space == "screen" then
-                    valid, response = viewport:dispatchPointer(world, event.kind, event.x, event.y, event.button, event.dx, event.dy, context.image)
+                    valid, response = require("core.RenderPipeline").pointer(world, event.kind, event.x, event.y, event.button, event.dx, event.dy, context.image,
+                        {x = 0, y = 0, width = tonumber(request.width or 1280), height = tonumber(request.height or 720)})
                 else
                     local sx, sy = viewport:worldToScreen(event.x, event.y)
                     local px, py = viewport:worldToScreen(event.x - (event.dx or 0), event.y - (event.dy or 0))

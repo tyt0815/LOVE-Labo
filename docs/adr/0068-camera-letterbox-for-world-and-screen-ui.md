@@ -1,5 +1,7 @@
 # 0068. 카메라 비율의 실제 게임 영역과 레터박스
 
+- View 등록·출력 대상과 레벨 전용 카메라 설정은 [ADR 0078](0078-registered-views-and-render-targets.md)으로 부분 대체한다.
+
 - 상태: 승인·구현
 - 부분 대체: [ADR 0046](0046-camera-screen-canvas-and-component-order.md)의 Canvas 전체 창 영역 계약
 

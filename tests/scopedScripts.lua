@@ -105,41 +105,16 @@ add("Project Inspector follows empty selection and the Project menu without scop
     Assert.equal(nil, app.sceneView.selectedLObject)
     Assert.equal("Project", app.inspector.classInspector.target.label)
 end)
-add("Level Camera uses the same section box and property columns as other Inspector roots", function()
+add("Level Inspector has no built-in Camera field while scoped scripts remain editable", function()
     local project, level = fixture()
     assert(project:createEntry("Assets", "level", "L_Inspector", {empty = true}))
     assert(require("editor.LevelFile").save(project:resolveAssetFile("Assets/L_Inspector.level"), level))
     local app = require("editor.EditorApp").new(nil, project)
     assert(app:inspectAsset("Assets/L_Inspector.level")); app:draw()
-    local inspector, cameraHeader, cameraRow = app.inspector.classInspector
-    for _, row in ipairs(inspector.rows) do
-        if row.label == "Camera" then cameraHeader = row end
-        if row.name == "$mainCamera" then cameraRow = row end
-    end
-    assert(cameraHeader); assert(cameraRow)
-    Assert.equal(true, cameraHeader.builtIn); Assert.equal(0, cameraRow.depth)
-    local layout, Ui = require("editor.ui.PropertyLayout"), require("editor.Ui")
-    local group, propertyGroup, text = layout.group, layout.propertyGroup, Ui.text
-    local usedBox, labelX = false, nil
-    layout.group = function(left, width, top, height, label, ...)
-        if label == "Camera" then usedBox = true end
-        return group(left, width, top, height, label, ...)
-    end
-    layout.propertyGroup = function(left, width, top, height, label, ...)
-        Assert.truthy(label ~= "Camera")
-        return propertyGroup(left, width, top, height, label, ...)
-    end
-    Ui.text = function(label, x, ...)
-        if label == "Main Camera" then labelX = x end
-        return text(label, x, ...)
-    end
-    local ok, err = pcall(app.draw, app)
-    layout.group, layout.propertyGroup, Ui.text = group, propertyGroup, text
-    assert(ok, err); Assert.equal(true, usedBox)
-    Assert.equal(layout.cells(inspector.left, inspector.width, 0).x, labelX)
-    inspector:mousepressed(inspector.left + Ui.METRICS.contentPaddingX + 1,
-        inspector.propertyTop + cameraHeader.offset - inspector.scroll + 10, 1)
-    Assert.equal(false, inspector.groupExpanded[cameraHeader.groupKey])
+    local inspector = app.inspector.classInspector
+    Assert.equal(nil, inspector.class.properties["$mainCamera"])
+    Assert.truthy(inspector.preview:getScriptByName("levelManager"))
+    for _, row in ipairs(inspector.rows) do Assert.truthy(row.name ~= "$mainCamera") end
 end)
 add("Script property groups start collapsed preserve manual expansion and reveal hidden fields", function()
     local project = fixture()

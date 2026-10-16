@@ -40,6 +40,12 @@ return Movement
         run("prefab.set", {prefab = prefab, property = "sprite.image", value = project:getAssetId("Assets/Player.png")})
         local level = run("level.create", {name = "L_Start"}).assetId
         run("project.set-default", {level = level})
+        local cameraObject = run("instance.add", {name = "Camera"}).data
+        cameraObject = run("instance.script.add", {instance = cameraObject.authoringId, source = "Camera", script = "Camera"}).data
+        run("instance.script.add", {instance = cameraObject.authoringId, source = "View", script = "view"})
+        run("instance.set", {instance = cameraObject.authoringId, property = "view.cameraSource",
+            value = {authoringId = cameraObject.authoringId, script = cameraObject.scripts[1].id}})
+
         run("instance.add", {prefab = prefab, x = 0, y = 0})
         check("single Assets root", Fs.info(Fs.join(project.rootPath, "Assets")) and not Fs.info(Fs.join(project.rootPath, "Sources")))
         check("project AI instructions", Fs.info(Fs.join(project.rootPath, "AGENTS.md")) and Fs.info(Fs.join(project.rootPath, "Docs/EngineGuide.md")))
@@ -47,7 +53,7 @@ return Movement
         local app = require("editor.EditorApp").new(nil, project)
         assert(app:openProjectDocument("Assets/L_Start.level", true))
         assert(app:inspectAsset("Assets/L_Start.level"))
-        app:draw(); check("level Main Camera", app.inspector.classInspector.class.properties["$mainCamera"])
+        app:draw(); check("no built-in level Main Camera", not app.inspector.classInspector.class.properties["$mainCamera"])
         assert(app.inspector.classInspector.target:addScript("Script", "levelState")); app.inspector.classInspector:reload()
         app:showProjectInspector()
         assert(app.inspector.classInspector.target:addScript("Script", "sessionState")); app.inspector.classInspector:reload()

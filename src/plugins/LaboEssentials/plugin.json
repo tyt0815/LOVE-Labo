@@ -8,6 +8,7 @@
         "Pointer": "Assets/Pointer.lua",
         "RectBounds": "Assets/RectBounds.lua",
         "Canvas": "Assets/Canvas.lua",
-        "Text": "Assets/Text.lua"
+        "Text": "Assets/Text.lua",
+        "View": "Assets/View.lua"
     }
 }

@@ -41,7 +41,7 @@ function GameView:runtimeViewport(world)
     local x, y, width, height = self:getViewport()
     local inset = Ui.METRICS.panelGap / 2
     if width <= inset * 2 or height <= inset * 2 then return nil end
-    return require("core.Viewport").new(world, x + inset, y + inset, width - inset * 2, height - inset * 2)
+    return require("core.RenderPipeline").primaryViewport(world, x + inset, y + inset, width - inset * 2, height - inset * 2)
 end
 function GameView:worldToScreen(x, y)
     local viewport = self:runtimeViewport(self.world)
@@ -53,8 +53,11 @@ function GameView:dispatchPointer(world, kind, x, y, button, dx, dy)
     local called, ok, result = pcall(function()
         local viewport = self:runtimeViewport(world)
         if not viewport then return true, {consumed = false, targets = {}} end
-        return viewport:dispatchPointer(world, kind, x, y, button, dx, dy,
-            function(_, reference) return self.spriteAssets and self.spriteAssets:image(reference) end)
+        local vx, vy, width, height = self:getViewport()
+        local inset = Ui.METRICS.panelGap / 2
+        return require("core.RenderPipeline").pointer(world, kind, x, y, button, dx, dy,
+            function(_, reference) return self.spriteAssets and self.spriteAssets:image(reference) end,
+            {x = vx + inset, y = vy + inset, width = width - inset * 2, height = height - inset * 2})
     end)
     if not called then return false, tostring(ok) end
     return ok, result
@@ -64,7 +67,10 @@ function GameView:drawRuntimeLObjects(world)
     self.world = world
     local viewport = self:runtimeViewport(world)
     if not viewport then return end
-    require("core.Renderer").drawWorld(world, function(reference) return self.spriteAssets and self.spriteAssets:image(reference) end, viewport)
+    local x, y, width, height = self:getViewport()
+    local inset = Ui.METRICS.panelGap / 2
+    require("core.RenderPipeline").draw(world, function(reference) return self.spriteAssets and self.spriteAssets:image(reference) end,
+        x + inset, y + inset, width - inset * 2, height - inset * 2)
 end
 
 function GameView:draw(world)

@@ -15,6 +15,9 @@ function Capture.run(args)
         assert(project:createEntry("Assets", "level", "L_Start"))
         local app = require("editor.EditorApp").new(nil, project)
         assert(app:openProjectDocument("Assets/L_Start.level", true))
+        local camera = app.level:addLObject(0, 0, nil, "Camera")
+        camera.scripts = {{id = "guideCamera", name = "Camera", source = "Camera"}, {id = "guideView", name = "View", source = "View"}}
+        camera.scriptOverrides = {guideView = {cameraSource = {authoringId = camera.authoringId, script = "guideCamera"}}}
         app.sceneView.zoom = 0.5
         local report = {width = 1440, height = 900, images = {}}
         local function shot(name, hover)
@@ -62,6 +65,8 @@ return Session
         app.inspector.classInspector:selectScript(app.level.lobjects[1].scripts[1].id)
         app.inspector.classInspector.groupExpanded["object/Transform"] = false
         app.inspector.classInspector:rebuildRows(); expandPropertyGroups(); shot("camera-details")
+        app.inspector.classInspector.scroll = 210; shot("view-details")
+        app.inspector.classInspector.scroll = 0
         assert(project:createEntry("Assets", "lua", "Player", {scriptKind = "script"}))
         assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/Player.lua")), [[-- labo-script: script
 local Player = {extends = "0619e599-48f0-49c5-92b5-aa4a81476f8c", properties = {speed = {type = "number", default = 100, group = "Movement"}}}

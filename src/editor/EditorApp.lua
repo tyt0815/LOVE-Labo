@@ -123,14 +123,12 @@ function EditorApp:setDocument(document)
     self.sceneView.isPanning = false
     self.inspector:cancelEdit()
     self.levelInspectorTarget = {data = self.level, level = self.level, kind = "level", referenceField = "scriptReference", label = "Level",
-        mainCameraDetails = true,
         getDisplayName = function()
             local path = self.documentAssetId and self.project:getAssetReference(self.documentAssetId) or self.document.path
             return path and path:gsub("\\", "/"):match("([^/]+)%.level$") or "Untitled Level"
         end,
         getOverrides = function(target)
             local values = require("project.PropertyData").copy(target.data.propertyOverrides)
-            values["$mainCamera"] = target.data.mainCamera and target.data.mainCamera.authoringId or false
             return values
         end,
         isDirty = function() return not self.document.path or self.document:isDirty() end,

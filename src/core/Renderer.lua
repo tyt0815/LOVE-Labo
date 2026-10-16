@@ -2,6 +2,7 @@ local Render = "draw"
 local Transform = require("core.Transform")
 local Renderer = {}
 local function invoke(script, callback, ctx, viewport, screen)
+    if viewport.view and not viewport.view:includes(script, screen) then return end
     local owner = script.owner
     if not owner or owner.scripts[script.id] ~= script or script.enabled == false or script.hasUnloaded then return end
     love.graphics.push("all")
@@ -94,6 +95,7 @@ function Renderer.drawWorld(world, imageFor, viewport)
             local ax, ay = Transform.point(transform, 1, 0)
             local bx, by = Transform.point(transform, 0, 1)
             local screen = Space.canvas(script) ~= nil
+            if not viewport.view or viewport.view:includes(script, screen) then
             local function project(px, py)
                 if screen then return viewport.x + viewport.width / 2 + px, viewport.y + viewport.height / 2 + py end
                 return viewport:worldToScreen(px, py)
@@ -109,6 +111,7 @@ function Renderer.drawWorld(world, imageFor, viewport)
             if not ok then error(result, 0) end
             if result == false and err then error(err, 0) end
             drawn[owner] = drawn[owner] or result ~= false
+            end
         end
     end
     for _, entry in ipairs(require("core.ScriptOrder").entries(world.lobjects, "drawScreen")) do

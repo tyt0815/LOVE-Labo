@@ -17,6 +17,7 @@ function invokeLaboRequest($taskRequest) {
 }
 $taskCreated = invokeLaboRequest @{command = 'project.create'; parent = $taskDirectory; name = 'AgentGame'}
 $taskProject = $taskCreated.project
+invokeLaboRequest @{command = 'plugin.enable'; project = $taskProject; name = 'LaboEssentials'; confirm = $true} | Out-Null
 $taskMovement = invokeLaboRequest @{command = 'script.create'; project = $taskProject; name = 'Movement'}
 $taskMovementCode = @'
 -- labo-script: script
@@ -52,6 +53,11 @@ invokeLaboRequest @{command = 'script.set-source'; project = $taskProject; class
 invokeLaboRequest @{command = 'prefab.script.add'; project = $taskProject; prefab = $taskPrefab.assetId; node = $taskChild.node; source = $taskShape.assetId; script = 'shape'} | Out-Null
 $taskLevel = invokeLaboRequest @{command = 'level.create'; project = $taskProject; name = 'L_Start'}
 invokeLaboRequest @{command = 'project.set-default'; project = $taskProject; level = $taskLevel.assetId} | Out-Null
+$taskCamera = invokeLaboRequest @{command = 'instance.add'; project = $taskProject; name = 'Camera'}
+$taskCamera = invokeLaboRequest @{command = 'instance.script.add'; project = $taskProject; instance = $taskCamera.data.authoringId; source = 'Camera'; script = 'Camera'}
+invokeLaboRequest @{command = 'instance.script.add'; project = $taskProject; instance = $taskCamera.data.authoringId; source = 'View'; script = 'view'} | Out-Null
+invokeLaboRequest @{command = 'instance.set'; project = $taskProject; instance = $taskCamera.data.authoringId; property = 'view.cameraSource'; value = @{authoringId = $taskCamera.data.authoringId; script = $taskCamera.data.scripts[0].id}} | Out-Null
+
 invokeLaboRequest @{command = 'instance.add'; project = $taskProject; prefab = $taskPrefab.assetId} | Out-Null
 $taskValidation = invokeLaboRequest @{command = 'project.validate'; project = $taskProject}
 if (-not $taskValidation.valid) { throw ($taskValidation.errors | ConvertTo-Json -Depth 8) }

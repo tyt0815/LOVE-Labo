@@ -550,3 +550,7 @@ audio 프로퍼티는 에셋 참조를 저장하고 World.getAssetData로 LÖVE 
 Project·Level·Object는 같은 Script를 여러 개 부착한다. Project 실행 호스트는 Play 동안 유지하고, Level의 실행 인스턴스 World는 레벨 전환 시 교체한다. ScriptHost는 부착 저장소와 조회·생명주기 실행을 공유하며 World와 LObject의 상속 관계를 만들지 않는다. update는 내장으로 Project → Level → Object 순서로 호출한다. drawScreen은 게임 영역 왼쪽 위 기준이고, 기존 Object draw의 Transform·Canvas 계약은 유지한다. 자세한 수명·캐시·콜백 계약은 [ADR 0074](adr/0074-scoped-scripts-and-screen-drawing.md)를 따른다.
 
 Inspector는 범위 탭 없이 선택한 대상을 편집한다. 레벨 에셋 선택으로 레벨 설정을, 빈 선택 또는 Project → Inspector로 프로젝트 설정을 연다. 스크립트 내부 프로퍼티 그룹은 기본으로 접힌다. 변경 결정은 [ADR 0077](adr/0077-project-inspector-selection-and-collapsed-groups.md)을 따른다. 부착 헤더 안에 프로퍼티 그룹을 중첩한다. 문서 공유·기록·저장과 그룹 계층은 [ADR 0075](adr/0075-inspector-scope-tabs-and-nested-script-groups.md)를 따른다.
+
+## 등록 View와 렌더 타깃
+
+레벨 전용 Main Camera 설정과 새 레벨 카메라 자동 생성은 제거한다. Camera는 플러그인 Script, View는 World·Camera·출력 대상을 연결하는 실행 구성, RenderTarget은 화면 또는 텍스처 출력이다. load에서 등록한 View를 엔진이 매 프레임 처리하고 별도 render 콜백은 두지 않는다. Core의 Rendering·RenderPipeline·RenderView·RenderTarget은 범용 실행 API이며 제공 View 스크립트는 LaboEssentials에 둔다. World는 View와 타깃을 소유하며 종료 시 정리한다. 기존 mainCamera는 호환 해석만 유지한다. 상세 계약과 이전 ADR의 대체 범위는 [ADR 0078](adr/0078-registered-views-and-render-targets.md)을 따른다.

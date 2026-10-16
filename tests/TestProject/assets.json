@@ -1,7 +1,7 @@
 {
   "assets": {
     "Assets/Examples/Actions.lua": {
-      "hash": "84f429ff84cbaff9a3f17008da67ed26051e304f8f68eb81ddbba4939f17571c",
+      "hash": "b97f649d04cccd7a283b6a6484a74429fd9cc7e4862de0b2566ab6ab76ca02ce",
       "id": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
       "scriptKind": "script",
       "version": 1
@@ -25,13 +25,18 @@
       "version": 1
     },
     "Assets/Examples/L_AudioLifecycle.level": {
-      "hash": "7072f3c3ed0d02c9bab20cc7d3c0a5d5e257d546a0251d2852ab73016937730c",
+      "hash": "b3f479bee8abe273e0c6dea20eddadd1db8736c1382cd7684df0dae493b8fe4e",
       "id": "e1e3cd73-330f-4a4c-8575-45cd255df777",
       "version": 1
     },
     "Assets/Examples/L_InputEvents.level": {
-      "hash": "0f2933590f271e9ea2812966e4e16427961a912b347d6120d5f0babe5ff1f2f0",
+      "hash": "624d23c5358bcb18ab30942ee364ac6cbf9d2a9219545c6ff0c434319ae5710f",
       "id": "06bc0deb-d9b3-4e8c-a09a-b39bedd49f55",
+      "version": 1
+    },
+    "Assets/Examples/L_Multiview.level": {
+      "hash": "eeffecf9d11c0fbc77ef1b3386b95c74bc4a3a853091d63fa2577ea169ebb8c9",
+      "id": "108ca5ce-3ba6-4612-b9c8-970fd2176c87",
       "version": 1
     },
     "Assets/Examples/L_ScriptScopes.level": {
@@ -45,14 +50,20 @@
       "version": 1
     },
     "Assets/Examples/LevelDemo.lua": {
-      "hash": "77e0957eed9f1d43e072abcde9cae20093fe5f4c76138eb4969d48c35b08a135",
+      "hash": "48ff9cdf0bad8224944c7918fccee6e8c7ba283de1377f87bc12d7ef32cce452",
       "id": "6a8f6dcf-d978-4b4c-afcc-110ebcbcced5",
-      "scriptKind": "level",
+      "scriptKind": "script",
       "version": 1
     },
     "Assets/Examples/Motion.lua": {
       "hash": "287bf82324c9c2ec1484614128e9565c4e453fc0a786a14891808486e939860a",
       "id": "3defeca7-bbad-4be8-b9a2-564875422203",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/Multiview.lua": {
+      "hash": "a1c15e10538d0e69a415bd665cb60f4220b327b0e79093f73d81408b77f1d653",
+      "id": "f35e4011-e715-403c-afb5-d600b6b95358",
       "scriptKind": "script",
       "version": 1
     },
@@ -62,7 +73,7 @@
       "version": 1
     },
     "Assets/Examples/ScopeLevel.lua": {
-      "hash": "d0b394c5b6ba7a1ff655a41c8e6017601a9dfdb84f78b7be13008c478dbbf846",
+      "hash": "18b8eafaee1af2fe757ff22062ef91348d91b00619877d584ce90f11cc7b735d",
       "id": "ce64f96e-3612-4335-8200-fbae85f7c909",
       "scriptKind": "script",
       "version": 1
@@ -84,12 +95,12 @@
       "version": 1
     },
     "Assets/L_ApiExamples.level": {
-      "hash": "d9a1ef9c6cbdc687ced6116b8029dd3c7a6fb0c5cba582e7fb7aad9a60178663",
+      "hash": "5bdfdff4a79fa8a87bcf5c043509d0a261a6b516ff640911db504fee731897b3",
       "id": "b3c66a66-f009-40fb-aa41-d92e1cad3a94",
       "version": 1
     },
     "Assets/L_ApiNext.level": {
-      "hash": "8181abf4bee52bb41d1a646b90064e9b8e7154745d01e0243cef8e0f883c1c63",
+      "hash": "8f7bdc1e3f0adafb5d743f1528eb6c49fb7ceb718078e2f8170ac2f33f71ff2e",
       "id": "92c89111-d684-4200-b330-d1cc1990b6c7",
       "version": 1
     }

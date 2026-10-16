@@ -9,11 +9,24 @@
           "id": "63125e72-060e-428c-9336-9ff509212aa7",
           "name": "Camera",
           "source": "Camera"
+        },
+        {
+          "id": "73258ade-f860-40c9-bb4d-6c8b749b3a39",
+          "name": "View",
+          "source": "c4aa7e61-034e-4b9e-94b9-392ee2c03ec8"
         }
       ],
       "transform": {
         "x": 0,
         "y": 0
+      },
+      "scriptOverrides": {
+        "73258ade-f860-40c9-bb4d-6c8b749b3a39": {
+          "cameraSource": {
+            "authoringId": 1,
+            "script": "63125e72-060e-428c-9336-9ff509212aa7"
+          }
+        }
       }
     },
     {
@@ -37,9 +50,5 @@
       }
     }
   ],
-  "mainCamera": {
-    "authoringId": 1,
-    "script": "63125e72-060e-428c-9336-9ff509212aa7"
-  },
   "propertyOverrides": {}
 }
