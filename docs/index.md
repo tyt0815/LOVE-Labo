@@ -8,7 +8,7 @@ LÖVE Labo는 Lua로 게임 동작을 작성하고 에디터로 스크립트·Pr
 
 - 처음 사용한다면 [첫 프로젝트와 실행](guide/getting-started.md)을 따라 하세요.
 - 화면 조작은 [에디터 화면과 선택](guide/editor.md)에 정리했습니다.
-- 게임 코드는 [Lua API](guide/lua-api.md), 자동화는 [AI 시작 페이지](guide/ai.md)와 [CLI 명령](cli-and-export.md)을 참고하세요.
-- [부착 스크립트](components.md)와 [계층 Prefab](hierarchy-prefabs.md)의 상세 예제도 같은 사이트에서 읽을 수 있습니다.
+- 게임 코드는 [Lua API](guide/lua-api.md), 자동화는 [AI 시작 페이지](guide/ai.md)와 [CLI 명령](guide/cli-and-export.md)을 참고하세요.
+- [부착 스크립트](guide/lua-api.md)와 [계층 Prefab](guide/hierarchy-prefabs.md)의 상세 예제도 같은 사이트에서 읽을 수 있습니다.
 
 위 이미지의 번호는 **1 계층, 2 뷰포트, 3 Inspector, 4 에셋 브라우저**입니다. 모든 화면 이미지는 실제 에디터에서 생성한 예제 프로젝트를 캡처했습니다.

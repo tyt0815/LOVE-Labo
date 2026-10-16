@@ -7,7 +7,7 @@
 - 날짜: 2026-10-09
 - 확장: [ADR 0032](0032-parent-first-creation-and-prefab-inheritance.md)의 Prefab 값 상속·생성 단계
 - 부분 대체: [ADR 0026](0026-resource-property-previews-and-reveal.md)의 이미지 행 높이·리셋 배치
-- 유지: [설계 문서](../LOVE_Labo_Design.md)의 Core → Editor 의존 금지 및 authoring/runtime 분리
+- 유지: Core → Editor 의존 금지 및 authoring/runtime 분리. 현재 원칙의 문서 위치는 [ADR 0089](0089-guide-and-adr-documentation.md)를 따른다
 
 ## 배경과 제약
 

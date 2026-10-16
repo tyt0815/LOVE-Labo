@@ -35,7 +35,7 @@ configure에서 Transform.bindLocal(object,{owner,resolve,unresolve})·Bounds.bi
 
 ## 데이터와 CLI
 
-모든 에셋은 Assets 아래에 있으며 assets.json의 ID로 참조한다. Docs는 게임 Export에 포함하지 않는다.
+모든 에셋은 Assets 아래에 있으며 assets.json의 ID로 참조한다. Docs는 자동으로 패키지에 포함하지 않으며 Tools/Build.lua의 builder:copy로 필요한 문서를 배포 폴더에 동봉할 수 있다.
 Prefab 형식은 4, 레벨 형식은 3이다. 이전 Sources는 Assets/Scripts로 이동하지만 옛 컴포넌트 코드·Prefab은 수동 전환해야 한다.
 부착 Script는 keypressed/keyreleased, textinput/textedited, 마우스·터치·조이스틱·게임패드, focus/mousefocus/visible/resize 콜백을 LÖVE 이름·인자로 구현한다. 전역 love 콜백을 덮어쓰지 않는다. 반환값 소비는 없고 enabled=false는 전달하지 않는다. 마우스·터치는 실제 게임 화면 왼쪽 위 기준 픽셀 좌표다. Editor에서는 Game View 포커스·팝업·Pause·에디터 단축키 경계를 따른다.
 스크립트는 별도 선언 없이 상속하는 공통 enabled로 실행을 켜고 끈다. Inspector에서는 헤더의 돋보기 왼쪽 토글로 편집한다. 공통 updateOrder·drawOrder는 기본 0이며 작은 값부터 실행한다. Inspector의 Script 그룹은 맨 위에 표시하고 실제 update·draw 콜백이 있는 순서만 노출한다. 프로퍼티 레이블은 Draw order처럼 표시하고 코드·CLI·저장 키는 drawOrder 등 원래 이름을 사용한다. 런타임 addScript/removeScript는 제공하지 않으며 부착·제거는 편집 작업이다.

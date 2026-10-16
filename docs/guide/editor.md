@@ -101,6 +101,22 @@ Atom Light에서는 호버한 항목의 배경이 조금 어두워지고, 선택
 
 ![접힌 Prefab은 아이콘만 표시](images/prefab-collapsed.png)
 
+## 다중 선택과 부모 변경
+
+![Hierarchy의 선택과 원본 Prefab 표시](images/prefab-hierarchy.png)
+
+Hierarchy와 Scene View는 같은 선택 목록을 사용합니다. 빈 곳에서 드래그하면 영역 선택, Ctrl+클릭은 추가·해제, Hierarchy의 Shift+클릭은 범위 선택입니다. Inspector는 마지막으로 선택한 오브젝트를 표시합니다.
+
+- 선택한 오브젝트를 기즈모로 이동하면 부모와 자식이 함께 선택돼도 자식이 두 번 이동하지 않습니다. 회전·스케일은 선택한 최상위 오브젝트 각각에 적용합니다. Esc로 취소합니다.
+- Hierarchy에서 다른 오브젝트 위에 드롭하면 자식이 됩니다. 현재 부모에 다시 드롭하거나 빈 곳에 놓거나 **Detach from Parent**를 사용하면 최상위로 분리합니다. 다중 선택에서는 선택한 최상위 오브젝트가 모두 해당 부모의 직접 자식일 때 함께 분리합니다. 순환 부착은 거부합니다.
+- 에디터와 CLI의 부모 변경은 현재 유효 배치에 따른 월드 위치를 유지합니다. 앵커 배치도 같은 계산을 사용하며, 로컬 회전·스케일은 새 부모 기준으로 유지합니다.
+- **Duplicate**, **Delete**, **Frame Selection**, **Select All**과 Ctrl+D·Delete·F를 사용할 수 있습니다. 복제·삭제는 자손을 포함하고 부모·자식 동시 선택은 중복 처리하지 않습니다. 복제 시 기존 인스턴스에 대한 프로퍼티 참조는 원래 대상을 유지합니다.
+- 여러 Prefab을 Scene View나 Hierarchy로 함께 드롭할 수 있습니다. 오브젝트 위에 놓으면 그 부모의 로컬 원점에 배치합니다. 생성한 이름은 Prefab 파일 이름과 숫자로 구별합니다.
+
+런타임의 `object:attachTo(parent)`는 로컬 Transform을 유지하며 부모를 바꿉니다. `object:attachTo(nil)`은 분리합니다. `object:getWorldTransform(context)`는 부모와 배치 바인딩을 적용한 월드 Transform을 반환합니다. GUI·CLI의 월드 위치 보존과 런타임 attachTo의 로컬 값 유지는 서로 다른 계약입니다. [계층 Prefab](hierarchy-prefabs.md)의 상속 구조 제한도 적용됩니다.
+
+에셋 브라우저의 영역 선택·Ctrl/Shift 선택·일괄 이동과 삭제는 [에셋 관리](assets.md)를 참고하세요.
+
 ## 생성과 이름 변경
 
 Windows 파일 탐색기에서 파일·폴더를 에셋 브라우저로 드롭하면 해당 폴더로 **복사**합니다. 폴더 트리에서는 가리킨 폴더, 파일 영역에서는 열린 폴더 또는 가리킨 하위 폴더가 대상입니다. 원본은 유지하고 같은 이름은 덮어쓰지 않습니다. 임포트에는 새 에셋 ID를 발급하며 기존 `.meta` 파일은 가져오지 않습니다. User 플러그인에도 임포트할 수 있고 Labo 플러그인은 읽기 전용입니다. 임포트는 Undo/Redo할 수 있습니다.

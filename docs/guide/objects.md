@@ -51,7 +51,7 @@ Lua **오브젝트 스크립트**를 에셋 브라우저에서 Scene View 또는
 
 ![스크립트를 배치해 만든 오브젝트](images/script-placement.png)
 4. 각 스크립트 그룹의 프로퍼티를 설정하고 우측 상단 Save를 누릅니다.
-5. Prefab을 뷰포트나 Hierarchy에 드롭해 인스턴스를 배치합니다. Lua 스크립트 자체는 배치 대상이 아닙니다.
+5. Prefab을 뷰포트나 Hierarchy에 드롭해 인스턴스를 배치합니다. Lua 오브젝트 스크립트를 직접 드롭하면 해당 스크립트를 부착한 빈 LObject를 만듭니다.
 
 Prefab Inspector는 오브젝트 계층 → Parent Prefab → 선택 오브젝트의 Transform → 스크립트 그룹 순서입니다. Prefab 루트 Transform은 표시하지 않으며 자손 Transform은 편집합니다. 인스턴스는 Transform과 부착 스크립트 프로퍼티를 표시하며 부모 원본·상속한 구성은 변경하지 않으며 로컬 스크립트는 추가·제거할 수 있습니다.
 

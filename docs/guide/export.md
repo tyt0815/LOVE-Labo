@@ -19,6 +19,8 @@ love D:/Games/MyGame/Build/Game.love
 
 CLI Export는 디스크에 저장된 프로젝트를 읽습니다. GUI의 미저장 초안을 다른 프로세스의 CLI가 읽을 수는 없으므로 저장을 먼저 완료하세요. 출력은 Assets 바깥에 둡니다.
 
-현재 `.love` 게임은 LÖVE 런타임으로 실행합니다. Windows 에디터 자체 배포와 게임 Export는 서로 다른 작업입니다. 상세 패키지 검증은 [CLI와 Export](../cli-and-export.md), [패키징](../packaging.md)에 있습니다.
+현재 `.love` 게임은 LÖVE 런타임으로 실행합니다. Windows 에디터 자체 배포와 게임 Export는 서로 다른 작업입니다. 상세 패키지 검증은 [CLI와 Export](cli-and-export.md), [패키징](packaging.md)에 있습니다.
 
 Export의 저장 폴더는 프로젝트의 안정적인 UUID로 구분합니다. 이름·폴더 이동·재배포에서도 같은 값을 유지합니다. 예전 공용 저장 폴더는 자동 이전하지 않습니다. [게임 저장 예제와 ID 분리 명령](game-state.md)을 참고합니다.
+
+게임 패키지는 core·project·runtime·공개 Engine 모듈, 프로젝트 Assets와 ID/경로 매니페스트를 포함합니다. 에디터 UI·테스트·에디터 사용자 설정은 제외합니다. 등록된 프로젝트 에셋 전체를 포함하며 의존 에셋만 추리는 최적화는 하지 않습니다. 게임 Host는 시작·업데이트·렌더링 오류를 잡아 오류 화면을 표시하지만 운영체제·드라이버 오류까지 복구하지는 않습니다. 게임 CLI EXE는 [빌드 스크립트](game-cli.md)의 packageCli로 별도 생성합니다.

@@ -6,7 +6,7 @@
 
 LÖVE 11.5 + LuaJIT을 사용하는 2D 제작 에디터다. 현재 외부 프로젝트 생성·탐색은 Windows에서 지원한다.
 
-제품 코드와 번들 리소스는 `src/`, 개발 테스트·샘플 프로젝트는 `tests/`, 문서는 `docs/`, 자동화는 `scripts/`, 생성된 배포물은 `build/`에 둔다. 패키징·CLI·게임 Export 사용법은 [패키징](docs/packaging.md)과 [CLI·Export](docs/cli-and-export.md)를 참고한다.
+제품 코드와 번들 리소스는 `src/`, 개발 테스트·샘플 프로젝트는 `tests/`, 문서는 `docs/`, 자동화는 `scripts/`, 생성된 배포물은 `build/`에 둔다. 패키징·CLI·게임 Export 사용법은 [패키징](docs/guide/packaging.md)과 [CLI·Export](docs/guide/cli-and-export.md)를 참고한다.
 
 코드 컨벤션은 [AGENTS.md](AGENTS.md)를 따른다. 클래스·제품 모듈 파일은 PascalCase, 함수·변수는 camelCase, 상수는 UPPER_SNAKE_CASE다. 공개 API는 `require("Engine")`, `beginPlay`, `update`, `draw`, `getLocalBounds`, `spawnLObject`를 사용한다. 이전 대문자 API·소문자 모듈 경로를 사용하는 외부 프로젝트 코드는 새 표기로 갱신한다. 이름·들여쓰기·require 경로 검사: `python scripts/checkConventions.py`.
 
@@ -14,7 +14,7 @@ LÖVE 11.5 + LuaJIT을 사용하는 2D 제작 에디터다. 현재 외부 프로
 
 - 제품 소스: src, 개발 실행: `love src`, 테스트: `love src --test`.
 - 사용자 가이드: https://tyt0815.github.io/LOVE-Labo/ (개발 변경은 다음 문서 배포 때 반영).
-- 로컬 가이드: [시작](docs/guide/getting-started.md), [Lua API](docs/guide/lua-api.md), [CLI와 Export](docs/cli-and-export.md).
+- 로컬 가이드: [시작](docs/guide/getting-started.md), [Lua API](docs/guide/lua-api.md), [CLI와 Export](docs/guide/cli-and-export.md).
 - 예제 프로젝트: tests/TestProject. 재생성: `python scripts/rebuildTestProject.py` (기존 폴더가 있으면 중단).
 - 패키징 검증: `scripts/verifyCliExport.ps1`. 문서 빌드: `python -m mkdocs build --strict`.
 

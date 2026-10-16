@@ -21,4 +21,4 @@ level.simulate로 초기화·업데이트 결과를 확인하고 level.pointer�
 
 ![Prefab의 스크립트 그룹](images/prefab-details.png)
 
-명령 전체는 [CLI 사용법](../cli-and-export.md), 데이터 계약은 [계층 Prefab](../hierarchy-prefabs.md)을 참고하세요.
+명령 전체는 [CLI 사용법](cli-and-export.md), 데이터 계약은 [계층 Prefab](hierarchy-prefabs.md)을 참고하세요.

@@ -80,6 +80,22 @@ if movement then movement.enabled = false end
 
 ① Copy ID는 내부 식별자를 복사합니다. ② Rename은 사용자 이름을 편집합니다. ③ 돋보기와 X는 원본 찾기와 로컬 부착 제거입니다.
 
+## 프로퍼티 선언과 참조
+
+Inspector에 공개할 값은 `properties`에 선언합니다. 일반 Lua 필드는 실행 상태이며 Inspector나 문서 저장의 대상이 아닙니다. `group`은 프로퍼티 분류이고 새로운 스크립트 부착을 만들지 않습니다.
+
+| 형식 | 의미 |
+| --- | --- |
+| number / string / boolean | 숫자·문자열·참/거짓 |
+| object / script | 같은 계층·레벨의 LObject 또는 특정 부착 Script 참조 |
+| image / audio / prefab | 이미지·오디오·Prefab 에셋 ID 참조 |
+
+참조의 미지정 값은 `false`입니다. 일반 문자열의 `options`는 Inspector 선택 목록을 지정합니다. 에셋과 오브젝트 참조는 스포이드로 선택하고, 원본 찾기로 위치를 확인합니다. 재설정은 상속 기본값으로 돌아갑니다. [Inspector 조작](objects.md)과 [에셋 ID](assets.md)를 참고하세요.
+
+LaboEssentials의 Camera·View·Sprite·Pointer·RectBounds·Canvas·RectLayout·Text는 일반 Script입니다. Sprite의 순서는 공통 `drawOrder`로 제어합니다. Canvas는 `matchCamera`·`cameraSource`로 투영 제공자를 정하고 일반 Transform 배치를 계산합니다. 전용 화면 좌표계를 만드는 특수 스크립트가 아닙니다. [카메라·UI와 제공 API](camera-ui.md)에 상세 설정이 있습니다.
+
+Prefab 형식은 4, 레벨 형식은 3입니다. 예전 Component 코드·Prefab은 자동 변환하지 않습니다. `Sources`를 `Assets`로 옮기는 것과 Lua API 전환은 별개입니다. 현재 모델의 결정은 [ADR 0050](../adr/0050-attached-scripts-and-unified-assets.md)을 따릅니다.
+
 <a id="script-events"></a>
 
 ## LÖVE 이벤트 콜백
@@ -122,7 +138,7 @@ Editor에서는 Game View가 포커스를 가진 경우 키보드·문자·컨�
 
 `focus/mousefocus/visible`은 호스트 창 상태입니다. `resize`는 게임 영역의 실제 크기이며 최초 실행과 레벨 전환 때 새 World의 첫 `update` 전에 전달됩니다. 이후 Editor에서는 레이아웃 변경, Export에서는 창 크기 변경을 반영합니다. Pause 중 생긴 영역 변경은 재개 시 다음 `update` 전에 반영됩니다. 논리 해상도·월드 크기와 다릅니다.
 
-`quit`, 파일·폴더 드롭, `threaderror`, `lowmemory`, `displayrotated`, `run/conf/errorhandler`는 Script 이벤트로 제공하지 않습니다. 레벨 Lua 스크립트는 기존 `load/update`를 유지합니다. [이벤트 예제](examples.md#script-events)와 [CLI 검증](../cli-and-export.md#script-events)을 참고합니다.
+`quit`, 파일·폴더 드롭, `threaderror`, `lowmemory`, `displayrotated`, `run/conf/errorhandler`는 Script 이벤트로 제공하지 않습니다. 레벨 Lua 스크립트는 기존 `load/update`를 유지합니다. [이벤트 예제](examples.md#script-events)와 [CLI 검증](cli-and-export.md#script-events)을 참고합니다.
 
 ## Project·Level·Object의 공용 Script
 

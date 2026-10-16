@@ -1,29 +1,6 @@
 # CLI와 게임 Export
 
-## 사용자 가이드 화면 캡처
-
-`love src --capture-guide <새 절대 경로>`는 임시 예제 프로젝트로 실제 UI를 재현하고 PNG·report.json을 저장한 뒤 종료합니다. Project Browser의 카드·하단 정보, Project → Inspector 메뉴, 기본으로 접힌 그룹과 펼친 그룹, 스크립트 헤더 토글의 켜짐·꺼짐, 배경색 선택기와 편집 뷰포트 배경 예제도 포함합니다. `--theme default` 또는 `--theme atom-one-light`를 붙이면 설정 파일을 수정하지 않고 캡처에 사용할 테마를 선택합니다. 생략하면 현재 테마를 사용합니다. 기존 사용자 프로젝트와 최근 프로젝트 설정은 변경하지 않습니다.
-
-```powershell
-love src --capture-guide C:/Temp/LaboGuideCapture
-python scripts/updateGuideImages.py C:/Temp/LaboGuideCapture
-# 일부 화면만 갱신할 때
-python scripts/updateGuideImages.py C:/Temp/LaboGuideCapture --only camera-details view-details script-context
-```
-
-두 번째 명령은 캡처 원본과 번호 표시를 추가한 가이드 이미지를 갱신합니다. 결과 화면을 확인한 뒤 관련 안내문과 함께 반영합니다.
-
-## 네이티브 에디터 창 검증
-
-Windows 11에서는 둥근 모서리 설정과 최대화·복원 후 설정 유지도 확인하고 `roundedCornersSupported`에 지원 여부를 기록합니다. `editor.png`는 에디터 콘텐츠 캡처이며 운영체제가 합성하는 외곽 모서리는 포함하지 않습니다.
-
-다이얼로그가 열린 상태에서 창 제어 버튼의 우선 입력과 팝업 유지도 확인합니다. 크기 변경 후 `editor.png`를 현재 렌더링 크기로 저장하고, 저장된 PNG의 가로·세로 크기를 다시 검증합니다. SDL 크기뿐 아니라 실제 Windows 창 외곽과 클라이언트를 확인하며, 연결된 각 모니터에서 최대화·최소화 복원·재최대화 후 작업 표시줄 영역을 덮지 않는지 검사합니다. JSON의 `maximizedNativeBounds`·`maximizeTransitions`에 실제 외곽과 작업 영역을 기록합니다.
-
-```powershell
-love src --verify-window C:/Temp/LaboWindowVerification
-```
-
-새 출력 폴더에 `report.json`과 `editor.png`를 기록하고 종료합니다. 실제 Windows 창에서 제목 표시줄 제거, 메뉴바 이동 영역·크기 조절 영역·버튼 영역 판별, 최대화와 작업 표시줄 영역 보존, 복원·최소화·크기 변경을 검증합니다. 기존 프로젝트는 열거나 변경하지 않습니다. 배포판에서도 `Labo.exe --verify-window <새 출력 폴더>`로 실행할 수 있습니다.
+에디터·게임 제작 명령을 설명합니다. 제품 개발용 캡처와 네이티브 창 검증은 [문서·검증 유지보수](maintenance.md)를 참고하세요.
 
 ## Project·Level Script 부착
 
@@ -151,35 +128,17 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 
 상속된 오브젝트의 부모·순서·삭제와 상속된 스크립트의 제거·정렬은 명령 단계에서 거절합니다. 원본으로부터 구성 전체를 배치한 루트 인스턴스의 이동·삭제는 허용합니다. 로컬 항목 추가와 프로퍼티 변경은 허용하며 GUI와 같은 공용 로직을 사용합니다.
 
-## 패키징
+## 게임 Export
 
-`scripts/packageEditor.ps1`로 에디터를 패키징하고 `scripts/verifyCliExport.ps1`로 패키징된 CLI와 독립 게임을 검증합니다. 개발판 GUI의 미저장 Prefab도 Export에 포함되며 CLI는 디스크 데이터를 사용합니다.
-
-게임 패키지에는 `core/`, `project/`, `runtime/`, 공개 `Engine.lua`, 프로젝트 Assets, ID/경로/종류 매니페스트와 게임 전용 `main.lua`·`conf.lua`만 포함한다. 에디터·테스트·사용자 설정은 포함하지 않는다. 편집용 메타데이터 파일은 복사하지 않고 매니페스트에서 ID 매핑을 유지한다. 초기 Export는 의존 에셋만 추려내지 않고 등록된 프로젝트 파일 전체를 담는다.
-
-```powershell
-& 'C:\Program Files\LOVE\love.exe' D:\Games\MyGame\Build\Game.love
-```
-
-게임은 LÖVE 11.5가 필요하다. 독립 실행 게임 EXE·설치 프로그램은 이번 범위에 포함하지 않는다. 게임 호스트는 시작·update·렌더링 오류를 잡아 오류 화면을 표시하고, Editor Play와 같은 스크립트·참조·load 초기화 로직을 사용한다. 운영체제·드라이버나 네이티브 라이브러리 오류까지 복구한다는 계약은 아니다.
-
-## 복구와 검증
-
-유효한 프로젝트를 열 때 Assets가 없으면 생성한다. 같은 이름의 파일·링크, 권한 오류, 손상된 프로젝트 JSON은 덮어쓰지 않고 오류를 반환한다. 삭제된 폴더 안의 에셋·클래스 자체를 복원하지는 않는다. 시작 화면의 프로젝트 열기 콜백 오류도 에디터 전체 종료 대신 화면의 오류로 남긴다.
-
-```powershell
-.\scripts\verifyCliExport.ps1
-```
-
-위 명령은 에디터를 패키징하고 실제 CLI로 스크립트·Prefab·레벨을 생성한다. 부착 순서, 초기화·업데이트, 포인터, 사용자 draw와 독립 게임 Export를 검증한다. 결과는 `build/cli-export-<고유값>/Game.love`와 `game-report.json`에 남는다.
+`export`는 프로젝트의 Tools/Build.lua를 실행하고 `export.package`는 `.love`만 생성합니다. [저장·게임 Export](export.md), [빌드와 게임 CLI](game-cli.md), [에디터 패키징](packaging.md)을 참고하세요.
 
 ## 플러그인 관리
 
-`plugin.list`, `plugin.create`, `plugin.plan`, `plugin.enable`, `plugin.disable`을 지원합니다. 의존성을 함께 변경하려면 `--confirm true`를 사용합니다. [상태 표시·에셋 탐색·JSON 예제](guide/plugins.md)를 참고하세요.
+`plugin.list`, `plugin.create`, `plugin.plan`, `plugin.enable`, `plugin.disable`을 지원합니다. 의존성을 함께 변경하려면 `--confirm true`를 사용합니다. [상태 표시·에셋 탐색·JSON 예제](plugins.md)를 참고하세요.
 
 ## 스크립트 배치와 외부 파일·폴더 임포트
 
-`asset.preview --asset Assets/PF_Player.prefab --output D:/Captures/Player.png`은 초기화·업데이트 없이 PNG를 출력합니다. [인스턴스 캡처·배경 설정](guide/preview.md)을 참고하세요.
+`asset.preview --asset Assets/PF_Player.prefab --output D:/Captures/Player.png`은 초기화·업데이트 없이 PNG를 출력합니다. [인스턴스 캡처·배경 설정](preview.md)을 참고하세요.
 
 창 없이 시작하는 실제 CLI의 썸네일 생성·캐시 갱신·재사용과 Prefab·이미지 PNG 출력은 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verifyThumbnailCli.ps1`로 검증합니다. 검증 프로젝트와 출력은 build의 새 폴더에 보관합니다.
 
@@ -211,7 +170,7 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 }
 ```
 
-`Labo-cli.exe --cli --request request.json`으로 실행합니다. `--events-json`으로 이벤트 배열을 전달할 수도 있습니다. 이벤트는 1~1000개이며 이름은 [지원 Script 콜백](guide/lua-api.md#script-events)으로 제한됩니다. 좌표는 지정한 화면의 호스트 좌표이고 카메라 레터박스와 게임 영역 원점 변환을 적용합니다. `--debug`는 로그를 결과에 포함합니다. 게임 업데이트·Pointer 판정은 실행하지 않습니다. 실제 Joystick 객체가 필요한 조이스틱·게임패드 이벤트는 JSON CLI로 주입하지 않습니다.
+`Labo-cli.exe --cli --request request.json`으로 실행합니다. `--events-json`으로 이벤트 배열을 전달할 수도 있습니다. 이벤트는 1~1000개이며 이름은 [지원 Script 콜백](lua-api.md#script-events)으로 제한됩니다. 좌표는 지정한 화면의 호스트 좌표이고 카메라 레터박스와 게임 영역 원점 변환을 적용합니다. `--debug`는 로그를 결과에 포함합니다. 게임 업데이트·Pointer 판정은 실행하지 않습니다. 실제 Joystick 객체가 필요한 조이스틱·게임패드 이벤트는 JSON CLI로 주입하지 않습니다.
 
 Export의 실제 Host 검증에는 기존 `--verify-game`과 함께 `--verify-events <이벤트 배열 JSON 파일>`을 사용합니다.
 
@@ -253,7 +212,7 @@ script.open은 GUI와 같은 소스 해석·VS Code 자동 탐색·기존 창 �
 - `project info`: 프로젝트의 id·saveIdentity를 조회합니다.
 - `project reset-save-identity`: 복사한 프로젝트를 다른 게임으로 분리할 때 저장 폴더 ID를 새로 발급합니다. 에셋·기존 세이브는 유지합니다.
 
-Export는 고정 labo-exported-game 대신 labo-<프로젝트 UUID>를 LÖVE identity로 사용합니다. 기존 프로젝트는 처음 열 때 ID를 한 번 저장합니다. 실제 검수 순서는 [게임 상태 가이드](guide/game-state.md)를 참고합니다.
+Export는 고정 labo-exported-game 대신 labo-<프로젝트 UUID>를 LÖVE identity로 사용합니다. 기존 프로젝트는 처음 열 때 ID를 한 번 저장합니다. 실제 검수 순서는 [게임 상태 가이드](game-state.md)를 참고합니다.
 
 ## 프로젝트 Lua 빌드와 게임 명령
 
@@ -266,4 +225,4 @@ Labo-cli.exe --cli project examples-cli --project C:/Games/MyGame
 Labo-cli.exe --cli game-cli --project C:/Games/MyGame --source Assets/Examples/StageCommands.lua --input C:/Work/command.json
 ```
 
-`game-cli`는 일반 명령 모듈을 World 생성 없이 실행합니다. input 생략 시 help이며 JSON 요청의 command·arguments·workspace를 사용합니다. 프로젝트 잠금과 콘텐츠 작업 폴더 잠금은 별도 범위입니다. `project.examples-cli`는 공유 모델·게임 내 편집기·명령 모듈·배포 가이드·빌드 예제를 생성합니다. 기존 사용자 빌드나 동명 파일은 거부합니다. 상세 API·배포 예제·동시 편집 계약은 [Lua 빌드와 게임 CLI](guide/game-cli.md)를 참고합니다.
+`game-cli`는 일반 명령 모듈을 World 생성 없이 실행합니다. input 생략 시 help이며 JSON 요청의 command·arguments·workspace를 사용합니다. 프로젝트 잠금과 콘텐츠 작업 폴더 잠금은 별도 범위입니다. `project.examples-cli`는 공유 모델·게임 내 편집기·명령 모듈·배포 가이드·빌드 예제를 생성합니다. 기존 사용자 빌드나 동명 파일은 거부합니다. 상세 API·배포 예제·동시 편집 계약은 [Lua 빌드와 게임 CLI](game-cli.md)를 참고합니다.
