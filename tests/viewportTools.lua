@@ -730,7 +730,8 @@ add("Viewport toolbar avoids control overlap and exposes its actual panel gap", 
     local toolbar = app.viewportToolbar
     toolbar:setBounds(0, 0, 1100, toolbar:preferredHeight(1100))
     local play = app.playControls:buttons()
-    Assert.truthy(app.viewportControls.x >= play[3].x + play[3].w)
+    Assert.truthy(app.viewportControls.x + app.viewportControls.width <= play[1].x)
+    Assert.truthy(toolbar.backgroundControl.x >= play[3].x + play[3].w)
     toolbar:setBounds(0, 0, 350, toolbar:preferredHeight(350))
     play = app.playControls:buttons()
     Assert.truthy(app.viewportControls.y >= play[1].y + play[1].h)
@@ -738,6 +739,8 @@ add("Viewport toolbar avoids control overlap and exposes its actual panel gap", 
         Assert.truthy(pair.field.x + pair.field.w <= toolbar.x + toolbar.width - 6)
         Assert.truthy(pair.field.y + pair.field.h <= toolbar.y + toolbar.height - 6)
     end
+    Assert.truthy(toolbar.backgroundControl.y >= app.viewportControls.y + app.viewportControls.height)
+    Assert.truthy(toolbar.backgroundControl.y + toolbar.backgroundControl.height <= toolbar.y + toolbar.height)
     local metrics = require("editor.Ui").METRICS
     local previous = metrics.viewportToolbarGap
     metrics.viewportToolbarGap = 24

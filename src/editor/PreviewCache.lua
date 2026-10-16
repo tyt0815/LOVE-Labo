@@ -41,7 +41,8 @@ function Cache.save(project, reference, notify)
         if not Fs.info(directory) then assert(Fs.mkdir(directory)) end
         local drawn, err = model:png(png, 256)
         assert(drawn, err)
-        assert(Fs.writeAtomic(receipt, assert(Json.encode({version = 1, dependencies = dependencies}, true))))
+        assert(Fs.writeAtomic(receipt, assert(Json.encode({version = 2, dependencies = dependencies,
+            backgroundDefault = require("editor.Color").hex(require("editor.Color").default())}, true))))
     end)
     if model then model:release() end
     if notify ~= false then project.thumbnailRevision = (project.thumbnailRevision or 0) + 1 end
@@ -53,7 +54,8 @@ function Cache.read(project, reference)
     if not png then return nil end
     local bytes = Fs.read(receipt)
     local record = bytes and Json.decode(bytes)
-    if not record or record.version ~= 1 then return nil end
+    if not record or record.version ~= 2
+        or record.backgroundDefault ~= require("editor.Color").hex(require("editor.Color").default()) then return nil end
     for source, expected in pairs(record.dependencies or {}) do
         local path = project:resolveAssetFile(source)
         local current = path and Fs.read(path)

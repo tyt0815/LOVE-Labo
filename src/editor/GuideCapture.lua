@@ -1,10 +1,19 @@
 local Capture = {}
 function Capture.run(args)
     local Fs, Json = require("editor.HostFileSystem"), require("project.Json")
-    local directory
-    for index, value in ipairs(args) do if value == "--capture-guide" then directory = args[index + 1] end end
+    local directory, theme
+    for index, value in ipairs(args) do
+        if value == "--capture-guide" then directory = args[index + 1]
+        elseif value == "--theme" then theme = args[index + 1] end
+    end
     local ok, err = xpcall(function()
         assert(directory and directory:sub(1, 2) ~= "--", "--capture-guide requires a new output directory")
+        if theme then
+            assert(require("editor.Theme").load(function(path)
+                if path == "editor/settings.json" then return assert(Json.encode({version = 1, theme = theme})) end
+                return love.filesystem.read(path)
+            end))
+        end
         assert(not Fs.info(directory), "Capture directory must not exist")
         assert(Fs.mkdir(directory))
         assert(love.window.setMode(1440, 900, {resizable = false}))
@@ -209,6 +218,24 @@ return AudioDemo]]))
         end
         shot("audio-property")
         assert(app:inspectAsset("Assets/PF_Player.prefab"))
+        app:draw()
+        local picker = app.previewPanel:openBackgroundPicker()
+        local function inputColor(value)
+            local field = picker.fields[4]
+            picker:dispatch("mousepressed", field.x + 4, field.y + 4, 1)
+            picker:dispatch("textinput", value); picker:dispatch("keypressed", "return")
+        end
+        inputColor("1C242E")
+        shot("background-picker")
+        app.uiRoot:dismissPopup()
+        picker = app.viewportToolbar:openBackgroundPicker(app)
+        inputColor("1C242E")
+        local tab = picker.tabs[2]
+        picker:dispatch("mousepressed", tab.x + 4, tab.y + 4, 1)
+        inputColor("52677B"); shot("scene-background-picker")
+        app.uiRoot:dismissPopup()
+        assert(app.sceneView:setBackground({28, 36, 46})); shot("scene-background")
+        assert(app.sceneView:setBackground(nil, true))
         assert(app.previewPanel:setBackground({230, 230, 230})); shot("preview-live")
         assert(app:saveInspectedDocument()); app.assetBrowser:openFolder("Assets"); shot("preview-thumbnail")
         assert(app:inspectAsset("Assets/Player.png")); shot("preview-image")

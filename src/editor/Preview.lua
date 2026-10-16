@@ -1,15 +1,11 @@
 local Fs = require("editor.HostFileSystem")
 local Json = require("project.Json")
 local Transform = require("core.Transform")
+local Color = require("editor.Color")
 local Preview = {}
 Preview.__index = Preview
 function Preview.color(value)
-    value = value or {255, 255, 255}
-    if type(value) ~= "table" or #value ~= 3 then return nil, "Use three RGB values" end
-    for _, channel in ipairs(value) do
-        if not Transform.finite(channel) or channel < 0 or channel > 255 then return nil, "RGB values must be between 0 and 255" end
-    end
-    return {value[1], value[2], value[3]}
+    return Color.rgb(value or Color.default())
 end
 function Preview.new(project, descriptor)
     -- CLI는 창 없이 시작하므로 이미지·Canvas를 만들기 전에 컨텍스트를 준비한다.
@@ -18,7 +14,7 @@ function Preview.new(project, descriptor)
         assert(opened, windowError or "Could not create preview graphics context")
         love.window.minimize()
     end
-    local self = setmetatable({project = project, images = {}, dependencies = {}, background = {255, 255, 255}}, Preview)
+    local self = setmetatable({project = project, images = {}, dependencies = {}, background = Color.default()}, Preview)
     local reference = descriptor.reference and project:getAssetReference(descriptor.reference)
     if reference and ({png = true, jpg = true, jpeg = true, bmp = true, tga = true, gif = true})[(reference:match("%.([^%.]+)$") or ""):lower()] then
         self.image = self:getImage(reference)
@@ -28,7 +24,8 @@ function Preview.new(project, descriptor)
     if reference and reference:match("%.prefab$") then
         local bytes = assert(project:readAsset(reference))
         local prefab = assert(require("project.Prefab").decode(bytes))
-        self.background = assert(Preview.color(prefab.previewBackground))
+        self.backgroundOverride = prefab.previewBackground
+        self.background = assert(Preview.color(self.backgroundOverride))
         data = {lobjects = {{authoringId = 1, transform = {x = 0, y = 0}, definitionReference = project:getAssetId(reference)}}}
     elseif reference and reference:match("%.level$") then
         data = assert(require("editor.LevelFile").decode(assert(project:readAsset(reference)))):toData()

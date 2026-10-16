@@ -75,6 +75,31 @@ function SceneView:getViewport()
     return 0, 0, width, height
 end
 
+function SceneView:backgroundColor()
+    if self.colorPreview and self.colorPreview[1] then return self.colorPreview[1] end
+    return self.background or require("editor.Color").default()
+end
+
+function SceneView:gridColor()
+    if self.colorPreview and self.colorPreview[2] then return self.colorPreview[2] end
+    local theme = Theme.color("grid")
+    return self.gridColorOverride or {theme[1] * 255, theme[2] * 255, theme[3] * 255}
+end
+
+function SceneView:setGridColor(value, reset)
+    local color, err = require("editor.Color").rgb(value or self:gridColor())
+    if not color then return false, err end
+    self.gridColorOverride = not reset and color or nil
+    return true
+end
+
+function SceneView:setBackground(value, reset)
+    local color, err = require("editor.Color").rgb(value or require("editor.Color").default())
+    if not color then return false, err end
+    self.background = not reset and color or nil
+    return true
+end
+
 function SceneView:containsPoint(x, y)
     -- 테스트나 독립 사용처럼 viewport가 아직 지정되지 않았다면
     -- 입력 영역 제한 없이 기존 동작을 유지한다.
@@ -535,10 +560,16 @@ function SceneView:draw()
     love.graphics.setScissor(viewportX, viewportY, width, height)
 
     require("editor.Ui").panel(viewportX, viewportY, width, height, "viewportBackground")
+    local background = self:backgroundColor()
+    love.graphics.setColor(background[1] / 255, background[2] / 255, background[3] / 255, 1)
+    local inset = Ui.METRICS.panelGap / 2 + 1
+    love.graphics.rectangle("fill", viewportX + inset, viewportY + inset,
+        math.max(0, width - 2 * inset), math.max(0, height - 2 * inset), 5, 5)
     -- 좌표 변환의 기준 사각형은 유지하고 콘텐츠만 테두리 안쪽으로 제한한다.
     love.graphics.intersectScissor(viewportX + 12, viewportY + 12, math.max(0, width - 24), math.max(0, height - 24))
 
-    Theme.setColor("grid")
+    local grid = self:gridColor()
+    love.graphics.setColor(grid[1] / 255, grid[2] / 255, grid[3] / 255, 1)
     love.graphics.setLineWidth(1)
 
     for _, x in ipairs(vertical) do

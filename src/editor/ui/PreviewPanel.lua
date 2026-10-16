@@ -6,16 +6,11 @@ local Panel = setmetatable({}, {__index = Widget})
 Panel.__index = Panel
 function Panel.new(app)
     local self = setmetatable(Widget.new(), Panel)
-    self.app, self.background, self.panelName = app, {255, 255, 255}, "preview"
+    self.app, self.panelName = app, "preview"
     self.handlers.mousepressed = function(_, x, y, button)
         if button == 1 and Ui.contains(x, y, self:colorButton()) then
             app.inspector:commitEdit(); app:recordHistory()
-            require("editor.ui.Dialog").new(app.uiRoot, {title = "Preview Background", message = "RGB values: 0–255",
-                input = true, value = table.concat(self:backgroundColor(), ", "), confirmLabel = "Apply",
-                onConfirm = function(text)
-                    local channels = {}; for channel in text:gmatch("[^,%s]+") do channels[#channels + 1] = tonumber(channel) or false end
-                    return self:setBackground(channels)
-                end})
+            self:openBackgroundPicker()
         end
         return true
     end
@@ -30,31 +25,49 @@ function Panel:descriptor()
     if object then return {data = app.level:toData(), instance = object.authoringId} end
     return {}
 end
-function Panel:setBackground(value)
+function Panel:openBackgroundPicker()
+    return require("editor.ui.ColorPicker").new(self.app.uiRoot, {title = "Preview Background", anchor = self:colorButton(),
+        entries = {{label = "Background", color = self:backgroundColor(), defaultColor = require("editor.Color").default(),
+            useDefault = self:backgroundSetting() == nil}},
+        onChange = function(color) self.backgroundPreview = color end,
+        onDismiss = function() self.backgroundPreview = nil end,
+        onConfirm = function(color, reset) return self:setBackground(color, reset) end})
+end
+function Panel:setBackground(value, reset)
     local color, err = require("editor.Preview").color(value)
     if not color then return false, err end
     local descriptor = self:descriptor()
     local doc = self.app.prefabDocument
     if descriptor.reference and doc and self.app.project:getAssetId(self.app.project:getAssetReference(descriptor.reference)) == doc.assetId then
         if self.app.project:isReadOnly(doc.assetId) then return false, "Labo plugin assets are read-only" end
-        doc.data.previewBackground = color
+        doc.data.previewBackground = not reset and color or nil
         self.app.project.draftRevision = (self.app.project.draftRevision or 0) + 1
         self.app:recordHistory()
-    else self.background = color end
+    else self.background = not reset and color or nil end
     self.signature = nil
     return true
 end
-function Panel:colorButton() return {x = self.x + self.width - 70, y = self.y + 10, w = 54, h = 26} end
-function Panel:backgroundColor()
+function Panel:colorButton() return {x = self.x + self.width - 120, y = self.y + 10, w = 104, h = 26} end
+function Panel:backgroundSetting()
     local descriptor = self:descriptor()
     local reference = self.app.project and descriptor.reference and self.app.project:getAssetReference(descriptor.reference)
-    return reference and reference:match("%.prefab$") and self.model and self.model.background or self.background
+    local doc = self.app.prefabDocument
+    if reference and reference:match("%.prefab$") then
+        if doc and self.app.project:getAssetId(reference) == doc.assetId then
+            return doc.data.previewBackground
+        end
+        return self.model and self.model.backgroundOverride
+    end
+    return self.background
+end
+function Panel:backgroundColor()
+    return self.backgroundPreview or self:backgroundSetting() or require("editor.Color").default()
 end
 function Panel:draw()
     if self.width <= 0 or self.height <= 0 then return end
     Ui.panel(self.x, self.y, self.width, self.height)
     Ui.panelHeading("Preview", self.x, self.y, self.width)
-    Ui.button("RGB", self:colorButton(), false, "Change the preview background RGB values.", true)
+    Ui.button("Background", self:colorButton(), false, "Choose the preview background color.", true)
     local descriptor = self:descriptor()
     local project = self.app.project
     local signature = project and tostring(project.assetRevision or 0) .. ":" .. tostring(project.draftRevision or 0) .. ":" .. assert(Json.encode(descriptor))

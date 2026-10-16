@@ -2,7 +2,7 @@
 
 ## 사용자 가이드 화면 캡처
 
-`love src --capture-guide <새 절대 경로>`는 임시 예제 프로젝트로 실제 UI를 재현하고 PNG·report.json을 저장한 뒤 종료합니다. Project Browser의 카드·하단 정보, Project → Inspector 메뉴, 기본으로 접힌 그룹과 펼친 그룹, 스크립트 헤더 토글의 켜짐·꺼짐 예제도 포함합니다. 기존 사용자 프로젝트와 최근 프로젝트 설정은 변경하지 않습니다.
+`love src --capture-guide <새 절대 경로>`는 임시 예제 프로젝트로 실제 UI를 재현하고 PNG·report.json을 저장한 뒤 종료합니다. Project Browser의 카드·하단 정보, Project → Inspector 메뉴, 기본으로 접힌 그룹과 펼친 그룹, 스크립트 헤더 토글의 켜짐·꺼짐, 배경색 선택기와 편집 뷰포트 배경 예제도 포함합니다. `--theme default` 또는 `--theme atom-one-light`를 붙이면 설정 파일을 수정하지 않고 캡처에 사용할 테마를 선택합니다. 생략하면 현재 테마를 사용합니다. 기존 사용자 프로젝트와 최근 프로젝트 설정은 변경하지 않습니다.
 
 ```powershell
 love src --capture-guide C:/Temp/LaboGuideCapture

@@ -29,7 +29,13 @@
 
 ## 실행 상태
 
-뷰포트 위 **Viewport Toolbar**에는 ▶ Play·⏸ Pause·■ Stop과 Move·Rot·Scale 스냅 컨트롤이 있습니다. 제목 없이 다른 패널과 같은 라운드 외곽선으로 표시합니다. 가로 폭은 씬뷰와 같고 상단은 계층·Inspector 패널과 정렬됩니다. 실행 버튼은 중앙, 스냅은 오른쪽에 배치하며 좁은 폭에서는 스냅을 다음 줄로 내려 겹침을 막습니다. 뷰포트는 툴바 아래에서 기존 패널 간격을 유지합니다.
+뷰포트 위 **Viewport Toolbar**에는 ▶ Play·⏸ Pause·■ Stop과 Move·Rot·Scale 스냅 컨트롤, **Colors** 버튼이 있습니다. 제목 없이 다른 패널과 같은 라운드 외곽선으로 표시합니다. 가로 폭은 씬뷰와 같고 상단은 계층·Inspector 패널과 정렬됩니다. 스냅은 왼쪽, 실행 버튼은 중앙, Colors는 오른쪽에 배치하며 좁은 폭에서는 줄을 나눠 겹침을 막습니다. 뷰포트는 툴바 아래에서 기존 패널 간격을 유지합니다.
+
+![편집 뷰포트 배경 설정](images/scene-background.svg)
+
+![Colors 버튼 아래에 펼쳐진 색상 선택 팝오버](images/scene-background-picker.png)
+
+**Colors**는 편집 모드의 Scene View 배경과 그리드 선 색을 바꿉니다. 팝오버의 **Background**·**Grid lines** 탭에서 각각 조절합니다. Preview와 같은 [색상 선택기](preview.md)에서 팔레트·RGB·6자리 HEX를 사용하며, 변경하는 동안 실제 뷰포트에도 바로 표시됩니다. **Apply**는 두 탭의 설정을 함께 확정하고, **Cancel**·Esc·바깥 클릭은 두 색 모두 원래대로 돌립니다. Theme default는 선택한 탭을 현재 테마의 기본색으로 되돌립니다. 두 설정은 현재 에디터 세션 동안 유지하며 레벨 저장값이나 Play 화면에는 영향을 주지 않습니다. 실행·일시 정지 중에는 Colors 버튼을 사용할 수 없습니다.
 
 편집은 Play만, 실행은 Pause·Stop, 일시정지는 Play(재개)·Stop만 활성화됩니다. 실행 중 스냅은 비활성 상태로 표시됩니다. Pause는 Update·게임 입력을 멈추고 렌더링·에디터 UI를 유지합니다. Play는 같은 Runtime World를 재개하고 Stop은 편집 모드로 돌아갑니다.
 

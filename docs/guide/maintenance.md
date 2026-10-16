@@ -15,7 +15,7 @@ python -m mkdocs serve
 ## 실제 화면 재생성
 
 ```powershell
-love src --capture-guide C:/Work/new-capture-folder
+love src --capture-guide C:/Work/new-capture-folder --theme default
 python scripts/updateGuideImages.py C:/Work/new-capture-folder
 python -m mkdocs build --strict
 ```
