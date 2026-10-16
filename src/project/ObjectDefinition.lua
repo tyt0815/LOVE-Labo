@@ -4,6 +4,30 @@ local Attachments = require("project.ScriptAttachments")
 local Copy = require("project.PropertyData")
 local Schema = require("core.PropertySchema")
 local Definition = {}
+-- 키 호환은 각 계층을 합치기 전에 적용해야 자식의 이전 키가 부모의 새 키를 덮어쓴다.
+local function mergeOverrides(target, values, attachment, loader)
+    local schema = {}
+    if attachment then
+        local class, err = loader(attachment.source, "script")
+        if not class then return false, err end
+        schema = class.properties
+    end
+    for name, value in pairs(values) do
+        local normalized = Schema.overrideName(schema, name)
+        if normalized == name or values[normalized] == nil then target[normalized] = value end
+    end
+    return true
+end
+function Definition.mergeScriptOverrides(target, layer, attachments, loader)
+    for id, values in pairs(layer or {}) do
+        local attachment = Attachments.find(attachments, id)
+        id = attachment and attachment.id or id
+        target[id] = target[id] or {}
+        local ok, err = mergeOverrides(target[id], values, attachment, loader)
+        if not ok then return false, err end
+    end
+    return true
+end
 function Definition.resolve(project, reference, loader, excludedId)
     loader = loader or LuaScript.loader(project)
     local layers, visiting = {}, {}
@@ -31,12 +55,8 @@ function Definition.resolve(project, reference, loader, excludedId)
     for _, layer in ipairs(layers) do
         result.attachments = Attachments.merge(result.attachments, layer.scripts, layer.removedScripts)
         result.attachments = Attachments.reorder(result.attachments, layer.scriptOrder)
-        for id, fields in pairs(layer.overrides.scripts or {}) do
-            local attachment = Attachments.find(result.attachments, id)
-            id = attachment and attachment.id or id
-            result.scripts[id] = result.scripts[id] or {}
-            for name, value in pairs(fields) do result.scripts[id][name] = value end
-        end
+        local merged, mergeError = Definition.mergeScriptOverrides(result.scripts, layer.overrides.scripts, result.attachments, loader)
+        if not merged then return nil, mergeError end
         for _, id in ipairs(layer.removedScripts or {}) do result.scripts[id] = nil; result.removedScripts[id] = true end
         for _, attachment in ipairs(layer.scripts or {}) do result.removedScripts[attachment.id] = nil end
     end
@@ -55,15 +75,12 @@ end
 function Definition.configure(object, definition, propertyOverrides, scriptOverrides, attachments)
     object.scriptLoader = definition.scriptLoader
     local list = Attachments.merge(definition.attachments, attachments)
-    local fields = Copy.copyScripts(definition.scripts)
-    for id, values in pairs(scriptOverrides or {}) do
-        local attachment = Attachments.find(list, id)
-        id = attachment and attachment.id or id
-        fields[id] = fields[id] or {}
-        for name, value in pairs(values) do fields[id][name] = value end
-    end
-    local present = {}
+    local fields, present = {}, {}
     local ok, err = pcall(function()
+        for _, layer in ipairs({definition.scripts or {}, scriptOverrides or {}}) do
+            local merged, mergeError = Definition.mergeScriptOverrides(fields, layer, list, definition.scriptLoader)
+            assert(merged, mergeError)
+        end
         for _, attachment in ipairs(list) do
             local class, loadError = definition.scriptLoader(attachment.source, "script")
             assert(class, loadError)
@@ -142,7 +159,10 @@ function Definition.inspectorTarget(project, data, definition, level, label)
             for id, fields in pairs(target.data.scriptOverrides or {}) do
                 local script = target.preview:getScriptById(id) or target.preview:getScriptByName(id)
                 id = script and script.id or id
-                for field, value in pairs(fields) do values[id .. "." .. field] = value end
+                for field, value in pairs(fields) do
+                    local normalized = script and Schema.overrideName(getmetatable(script).properties, field) or field
+                    if normalized == field or fields[normalized] == nil then values[id .. "." .. normalized] = value end
+                end
             end
             if target.data.transform then
                 for field in pairs(Transform.FIELDS) do values["$transform." .. field] = target.data.transform[field] end

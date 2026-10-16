@@ -93,6 +93,8 @@ RectBounds는 게임에서 그림을 그리지 않는 영역입니다. 편집 �
 
 ## 표시와 입력 순서
 
-sortingOrder가 클수록 앞에 표시합니다. inputPriority가 큰 Pointer가 먼저 입력을 받고 기본 0에서는 참조 렌더러의 표시 순서를 따릅니다. Canvas는 월드보다 앞에 표시되고 우선 입력을 받습니다.
+drawOrder가 클수록 앞에 표시합니다. inputPriority가 큰 Pointer가 먼저 입력을 받고 기본 0에서는 참조 렌더러의 표시 순서를 따릅니다. Canvas는 월드보다 앞에 표시되고 우선 입력을 받습니다.
 
 onPointerDown/up/move에서 true를 반환하거나 blockPointer가 켜지면 뒤로 전달하지 않습니다. 소비한 down 이후 영역 밖 move/up도 캡처 대상으로 전달합니다. 여러 버튼의 캡처는 각각 해제합니다. 포커스 상실·Play 종료·입력 오류도 캡처를 정리합니다. 사용자 스크립트도 선택적인 getLocalBounds/hitTest와 포인터 콜백을 직접 구현할 수 있습니다.
+
+이전 Sprite·Text에 저장된 sortingOrder는 drawOrder로 읽습니다. 새 코드와 CLI에서는 drawOrder를 사용합니다.

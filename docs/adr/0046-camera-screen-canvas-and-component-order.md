@@ -1,5 +1,7 @@
 > 컴포넌트·공간 상속 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다. 그 밖의 동작 계약은 유지한다.
 
+> 순서 설정·표시는 [ADR 0084](0084-common-script-callback-order.md)에서 확장·부분 대체한다.
+
 > 컴포넌트·공간 상속 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다. 그 밖의 동작 계약은 유지한다.
 
 # 0046. 카메라 투영과 화면 Canvas를 분리하고 렌더링·입력 순서를 공유한다

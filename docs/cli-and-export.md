@@ -53,6 +53,18 @@ simulate 결과는 기존 instances에 더해 projectScripts·levelScripts 상�
 
 `asset.delete`는 실제 파일이 없는 등록도 제거합니다. 사용 중인 ID는 기존 복구 창과 같은 참조 보호 정책으로 거부하며, 사라진 파일에는 내용 revision을 지정할 수 없습니다. GUI 삭제는 등록만 제거한 작업도 Undo/Redo할 수 있습니다.
 
+## Script 실행·그리기 순서
+
+기존 `project.script.set`, `level.script.set`, `prefab.set`, `instance.set`의 프로퍼티 편집 명령으로 공통 updateOrder·drawOrder를 설정합니다. GUI와 같은 상속·재정의·재설정 경로를 사용합니다. 순서 값은 기본 0이며 작은 값부터 실행합니다.
+
+```powershell
+love src --cli instance set --project tests/TestProject --level Assets/Examples/L_ScriptOrder.level --instance 3 --property demo.updateOrder --value-json -100
+love src --cli instance set --project tests/TestProject --level Assets/Examples/L_ScriptOrder.level --instance 3 --property demo.drawOrder --value-json 100
+love src --cli level simulate --project tests/TestProject --level Assets/Examples/L_ScriptOrder.level --frames 2
+```
+
+simulate의 demo.trace로 업데이트 순서, 에디터 Play로 두 사각형의 겹침을 확인합니다. 명령은 기존 것을 재사용하며 별도 순서 전용 명령은 없습니다.
+
 ## 기본 사용
 
 개발판은 `love src --cli ...`, 배포판은 `Labo-cli.exe --cli ...`를 사용합니다. stdout은 JSON이며 실패는 `ok:false`와 오류를 반환합니다. `--request <UTF-8 JSON 파일>`로 배열·복잡한 값을 전달할 수 있습니다. 참조는 에셋 ID 또는 Assets 경로, 기본 레벨은 project.labo의 지정값입니다.

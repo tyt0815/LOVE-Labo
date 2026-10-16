@@ -1,5 +1,15 @@
 # 직접 검수하는 API 예제
 
+## 업데이트·그리기 순서 예제
+
+`Assets/Examples/L_ScriptOrder.level`을 실행합니다. `Late update - back`은 updateOrder 100 / drawOrder -100, `Early update - front`는 updateOrder -100 / drawOrder 100입니다. 뒤에 배치한 초록색 오브젝트가 먼저 업데이트되지만 파란색 사각형 앞에 그려집니다. 화면 로그의 Update 흔적으로 순서를 확인합니다. 두 오브젝트의 Script 그룹에서 값을 바꿔 다시 실행해 보세요. 제공 스크립트를 상속하지 않는 `ScriptOrderDemo.lua`가 공통 설정을 사용합니다.
+
+```powershell
+love src --cli level simulate --project tests/TestProject --level Assets/Examples/L_ScriptOrder.level --frames 2
+```
+
+결과 instances의 demo.trace에도 업데이트 흔적이 들어 있습니다.
+
 ## 범위별 Script와 고정 업데이트 예제
 
 `tests/TestProject`의 **Assets/Examples/L_ScriptScopes.level**을 열고 ▶로 실행합니다. Game View에 포커스를 두고 **N**을 누르면 L_ScriptScopesNext와 오갑니다.
@@ -33,7 +43,7 @@ Scene View 위의 ▶로 실행합니다. 화면의 두 열 버튼은 Canvas 아
 | Camera | 등록된 View의 Camera zoom 변경. 화면 좌표 버튼은 이동하지 않음 |
 | Debug | point·line·circle·rect·polygon, screenLog·log·marker |
 | Next / Back | openLevel로 L_ApiNext·L_ApiExamples 사이 전환 |
-| 모든 버튼 | Pointer 상속, down/up/move, blockPointer, inputPriority, sortingOrder, 영역 판정 |
+| 모든 버튼 | Pointer 상속, down/up/move, blockPointer, inputPriority, drawOrder, 영역 판정 |
 | Screen Space Text | Text 스크립트의 줄바꿈·정렬·크기, Canvas 기반 화면 공간 텍스트 |
 | 편집 화면 | Camera·RectBounds·Canvas·Sprite·Pointer의 drawEditor 영역 표시 |
 | LevelDemo.lua | 일반 Level 부착의 load/update와 welcome 프로퍼티, 레벨 전환 시 새 초기화 |
@@ -50,13 +60,13 @@ Labo-cli.exe --cli project examples --project D:/Games/MyGame
 
 새 게임 기능을 개발할 때는 관련 예제 오브젝트·레벨과 검수 방법도 함께 갱신합니다.
 
-`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `sortingOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
+`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `drawOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
 
-`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `sortingOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
+`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `drawOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
 
-`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `sortingOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
+`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `drawOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
 
-`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `sortingOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
+`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `drawOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
 
 ## LÖVE 이벤트 예제
 

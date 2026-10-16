@@ -34,7 +34,6 @@ function LObject:attachTo(parent)
     end
     self.parent = parent
     if parent then parent.children[#parent.children + 1] = self end
-    if self.world then self.world.updateOrderDirty = true end
     return self
 end
 return LObject

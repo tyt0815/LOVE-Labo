@@ -11,6 +11,11 @@ function Schema.validValue(kind, value)
     if kind ~= "number" and kind ~= "string" and kind ~= "boolean" then return false end
     return type(value) == kind and (kind ~= "number" or value == value and value ~= math.huge and value ~= -math.huge)
 end
+-- 이전 제공 렌더러의 저장 키를 공통 그리기 순서로 읽는다. 사용자 선언은 보존한다.
+function Schema.overrideName(schema, name)
+    if name == "sortingOrder" and not schema[name] and schema.drawOrder then return "drawOrder" end
+    return name
+end
 function Schema.values(schema, overrides)
     local result = {}
     for name, declaration in pairs(schema or {}) do
@@ -18,8 +23,12 @@ function Schema.values(schema, overrides)
         result[name] = type(value) == "table" and {authoringId = value.authoringId, script = value.script} or value
     end
     for name, value in pairs(overrides or {}) do
+        local original = name
+        name = Schema.overrideName(schema, name)
         if not schema[name] or not Schema.validValue(schema[name].type, value) then return nil, "Invalid property override: " .. tostring(name) end
-        result[name] = type(value) == "table" and {authoringId = value.authoringId, script = value.script} or value
+        if original == name or overrides[name] == nil then
+            result[name] = type(value) == "table" and {authoringId = value.authoringId, script = value.script} or value
+        end
     end
     return result
 end

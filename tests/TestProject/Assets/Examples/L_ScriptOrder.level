@@ -1,0 +1,86 @@
+{
+  "formatVersion": 3,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "name": "Camera 1",
+      "scriptOverrides": {
+        "5ab259cd-295b-4aa5-a914-5658b3486884": {
+          "cameraSource": {
+            "authoringId": 1,
+            "script": "7c59a001-d8c6-4df3-98ee-cdbfab84f112"
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "7c59a001-d8c6-4df3-98ee-cdbfab84f112",
+          "name": "camera",
+          "source": "Camera"
+        },
+        {
+          "id": "5ab259cd-295b-4aa5-a914-5658b3486884",
+          "name": "view",
+          "source": "View"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 2,
+      "name": "Late update - back 1",
+      "scriptOverrides": {
+        "876e8cfa-e1ab-4402-98ee-912ab6d8b7a1": {
+          "blue": 0.6,
+          "caption": "Late update - back",
+          "drawOrder": -100,
+          "green": 0.35,
+          "red": 0.25,
+          "updateOrder": 100
+        }
+      },
+      "scripts": [
+        {
+          "id": "876e8cfa-e1ab-4402-98ee-912ab6d8b7a1",
+          "name": "demo",
+          "source": "797af611-363d-4900-9ff7-5b6b7b14a434"
+        }
+      ],
+      "transform": {
+        "x": -45,
+        "y": -30
+      }
+    },
+    {
+      "authoringId": 3,
+      "name": "Early update - front 1",
+      "scriptOverrides": {
+        "c4e6e176-4f03-4451-962a-9f1833e5eb04": {
+          "blue": 0.35,
+          "caption": "Early update - front",
+          "drawOrder": 100,
+          "green": 0.55,
+          "red": 0.15,
+          "updateOrder": -100
+        }
+      },
+      "scripts": [
+        {
+          "id": "c4e6e176-4f03-4451-962a-9f1833e5eb04",
+          "name": "demo",
+          "source": "797af611-363d-4900-9ff7-5b6b7b14a434"
+        }
+      ],
+      "transform": {
+        "x": 45,
+        "y": 30
+      }
+    }
+  ],
+  "propertyOverrides": {},
+  "scriptOverrides": {},
+  "scripts": {}
+}

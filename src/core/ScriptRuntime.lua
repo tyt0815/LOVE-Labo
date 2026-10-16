@@ -18,7 +18,6 @@ function Runtime.attach(self, id, class, overrides, name)
     self.scripts[id] = script; self.scriptOrder[#self.scriptOrder + 1] = id
     if script.update then self.updateScripts[#self.updateScripts + 1] = script end
     if script.draw then self.drawScripts[#self.drawScripts + 1] = script end
-    if self.world then self.world.updateOrderDirty = true end
     if self.hasLoaded and not self.loadingScripts then
         local ok, err = self:load(self.world)
         if not ok then Runtime.detach(self, id); error(err, 0) end
@@ -33,7 +32,6 @@ function Runtime.detach(self, id)
         for index = #list, 1, -1 do if list[index] == id or list[index] == script then table.remove(list, index) end end
     end
     script.owner = nil
-    if self.world then self.world.updateOrderDirty = true end
     assert(ok, err)
     return script
 end

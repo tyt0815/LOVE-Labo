@@ -13,6 +13,8 @@ Script는 별도 Transform을 갖지 않는다. Prefab이 부착 구성·계층�
 
 스크립트 부착은 내부 UUID와 사용자 이름을 구분한다. 이름·ID·클래스 단일 조회와 클래스 복수 조회를 별도 API로 제공한다. 부착·제거는 편집 구성이고 게임은 공통 enabled로 update·draw·포인터 실행을 제어한다. 저장 참조는 이름 변경과 무관한 ID를 사용한다. 자세한 계약과 이전 런타임 부착 API 대체는 [ADR 0069](adr/0069-script-identity-and-editor-authored-attachments.md)를 따른다.
 
+공통 `updateOrder`·`drawOrder`는 인스턴스별 실행·그리기 순서이며 기본 0이다. Inspector의 Script 그룹을 항상 먼저 표시하고 실제 콜백이 있는 순서만 노출한다. 실행 범위·동률·이전 키 호환은 [ADR 0084](adr/0084-common-script-callback-order.md)를 따른다.
+
 # LÖVE Labo — Design
 
 - 상태: **개발 Baseline**

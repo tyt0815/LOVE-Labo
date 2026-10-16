@@ -35,10 +35,10 @@ marks = {
     "editor-overview": ("level-details", [(150, 260, 90, 175, "1"), (670, 280, 240, 160, "2"), (1240, 260, 140, 170, "3"), (620, 690, 360, 130, "4")]),
     "level-details": ("level-details", [(1210, 149, 210, 19, "1")]),
     "camera-details": ("camera-details", [(645, 313, 320, 180, "1"), (1215, 290, 200, 48, "2")]),
-    "view-details": ("view-details", [(1215, 427, 200, 20, "1")]),
+    "view-details": ("view-details", [(1215, 487, 200, 17, "1")]),
     "script-enabled": ("script-enabled", [(1350, 187, 33, 22, "1")]),
     "script-disabled": ("script-disabled", [(1350, 187, 33, 22, "1")]),
-    "sprite-details": ("sprite-details", [(1215, 227, 200, 17, "1"), (1215, 388, 200, 53, "2")]),
+    "sprite-details": ("sprite-details", [(1215, 227, 200, 17, "1"), (1215, 275, 200, 31, "2")]),
     "project-details": ("project-details", [(1080, 87, 82, 17, "1"), (1215, 274, 200, 93, "2"), (1398, 52, 28, 17, "3")]),
 }
 annotationCount = 0

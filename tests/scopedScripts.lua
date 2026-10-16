@@ -159,7 +159,7 @@ add("Scope Inspectors edit save undo separate documents and nest property groups
     assert(inspector:setProperty("levelManager.count", 7)); assert(app:saveInspectedDocument())
     Assert.equal(7, assert(require("editor.LevelDocument").load(project:resolveAssetFile("Assets/L_Test.level"))).level.scriptOverrides[level.scripts[1].id].count)
 end)
-add("Property group headers align with plain labels and indent only child names", function()
+add("Property group headers align and common Script grouping indents all child names", function()
     local project = fixture()
     local sourcePath = project:resolveSourceFile("Assets/Trace.lua")
     local source = assert(Fs.read(sourcePath))
@@ -182,7 +182,7 @@ add("Property group headers align with plain labels and indent only child names"
     local text, field, label, positions = Ui.text, Ui.field, nil, {}
     Ui.text = function(value, x, ...)
         label = value
-        if value == "Count" or value == "Plain" or value == "Counters" then positions[value] = {name = x} end
+        if value == "Count" or value == "Plain" or value == "Counters" or value == "Trace" then positions[value] = {name = x} end
         return text(value, x, ...)
     end
     Ui.field = function(value, rect, ...)
@@ -195,8 +195,9 @@ add("Property group headers align with plain labels and indent only child names"
     assert(ok, err)
     Assert.equal(true, scriptHeader)
     Assert.equal(true, propertyHeader)
-    Assert.equal(positions.Plain.name, positions.Counters.name)
-    Assert.equal(positions.Plain.name + 14, positions.Count.name)
+    Assert.equal(positions.Trace.name, positions.Counters.name)
+    Assert.equal(positions.Trace.name + 14, positions.Plain.name)
+    Assert.equal(positions.Plain.name, positions.Count.name)
     Assert.truthy(positions.Plain.value)
     Assert.equal(positions.Plain.value, positions.Count.value)
     local header
@@ -562,5 +563,154 @@ add("Property labels use sentence case without changing source keys or acronym w
     assert(inspector:setProperty(key, 7))
     Assert.equal(7, project.scriptOverrides[id].sortingOrder)
     Assert.equal(nil, project.scriptOverrides[id]["Sorting order"])
+end)
+add("Common orders sort project level and object callbacks across scopes", function()
+    local project, level = fixture(); local world = assert(Loader.create(project, level:toData()))
+    local manager = world.project:getScriptByName("manager")
+    local current = world:getScriptByName("levelManager")
+    local actor = world.lobjects[1]:getScriptByName("actor")
+    manager.updateOrder, current.updateOrder, actor.updateOrder = 100, 0, -100
+    assert(world:update(0)); Assert.equal("object:update,level:update,project:update", table.concat(world.project.trace, ",", 4))
+    manager.drawOrder, current.drawOrder, actor.drawOrder = 100, 0, -100
+    world.project.trace = {}
+    require("core.Renderer").drawWorld(world, function() end, require("core.Viewport").new(world, 0, 0, 400, 300))
+    Assert.equal("object:draw,level:draw,project:draw,object:screen,level:screen,project:screen", table.concat(world.project.trace, ","))
+    assert(world:dispose())
+end)
+add("Project update attachments added to later hosts wait for the next frame", function()
+    local project, level = fixture(); local world = assert(Loader.create(project, level:toData()))
+    local runtime, calls = require("core.ScriptRuntime"), 0
+    local class = require("core.Script"):extend({update = function() calls = calls + 1 end})
+    world.project:getScriptByName("manager").update = function(self)
+        if not self.added then self.added = true; runtime.attach(world.lobjects[1], "new", class) end
+    end
+    assert(world:update(0)); Assert.equal(0, calls)
+    assert(world:update(0)); Assert.equal(1, calls); assert(world:dispose())
+end)
+add("Inspector pins Script before custom groups and shows only applicable orders", function()
+    local project, level, source = fixture()
+    local app = require("editor.EditorApp").new(nil, project); app:showProjectInspector(); app:draw()
+    local inspector, id = app.inspector.classInspector, project.scripts[1].id
+    inspector.groupExpanded["script:" .. id .. "/Script"] = true; inspector:rebuildRows()
+    local firstGroup, fields = nil, {}
+    for _, row in ipairs(inspector.rows) do
+        if row.header and row.groupKey and row.groupKey:find("script:" .. id .. "/", 1, true) then firstGroup = firstGroup or row.label end
+        if row.name then fields[row.name] = true end
+    end
+    Assert.equal("Script", firstGroup); Assert.equal(true, fields[id .. ".updateOrder"]); Assert.equal(true, fields[id .. ".drawOrder"])
+    Assert.equal(nil, fields[id .. ".enabled"])
+    assert(inspector:setProperty(id .. ".updateOrder", -100)); assert(inspector:setProperty(id .. ".drawOrder", 100))
+    assert(app:saveInspectedDocument()); local reopened = assert(require("editor.Project").open(project.rootPath))
+    Assert.equal(-100, reopened.scriptOverrides[id].updateOrder); Assert.equal(100, reopened.scriptOverrides[id].drawOrder)
+    local path = project:resolveSourceFile("Assets/Trace.lua")
+    assert(Fs.writeAtomic(path, [[return {properties = {custom = {type = "number", default = 0, group = "AAA"}}}]]))
+    assert(project:rebuildAssetIndex()); inspector:reload()
+    for _, name in ipairs(inspector.names) do Assert.truthy(not name:match("Order$")) end
+    for _, callback in ipairs({"update", "draw", "drawScreen"}) do
+        assert(Fs.writeAtomic(path, "return {" .. callback .. " = function() end}"))
+        assert(project:rebuildAssetIndex()); inspector:reload()
+        local visible = {}
+        for _, name in ipairs(inspector.names) do visible[name] = true end
+        Assert.equal(callback == "update" or nil, visible[id .. ".updateOrder"])
+        Assert.equal(callback ~= "update" or nil, visible[id .. ".drawOrder"])
+    end
+end)
+add("CLI common orders inherit through prefabs and reset instance overrides", function()
+    local project, level, source = fixture()
+    assert(project:createEntry("Assets", "level", "L_Order", {empty = true}))
+    local function run(command, fields)
+        fields = fields or {}; fields.command, fields.project, fields.level = command, project.rootPath, "Assets/L_Order.level"
+        return require("editor.Cli").execute(fields)
+    end
+    run("prefab.create", {name = "PF_Order"})
+    run("prefab.script.add", {prefab = "Assets/PF_Order.prefab", source = source, script = "behavior"})
+    run("prefab.set", {prefab = "Assets/PF_Order.prefab", property = "behavior.updateOrder", value = -20})
+    run("prefab.set", {prefab = "Assets/PF_Order.prefab", property = "behavior.drawOrder", value = 30})
+    local id = run("instance.add", {prefab = "Assets/PF_Order.prefab"}).data.authoringId
+    run("instance.set", {instance = id, property = "behavior.drawOrder", value = -40})
+    local result = run("level.simulate", {frames = 1})
+    Assert.equal(-20, result.instances[1].scripts.behavior.updateOrder); Assert.equal(-40, result.instances[1].scripts.behavior.drawOrder)
+    run("instance.reset", {instance = id, property = "behavior.drawOrder"})
+    result = run("level.simulate", {frames = 1}); Assert.equal(30, result.instances[1].scripts.behavior.drawOrder)
+end)
+add("Mixed legacy draw order keys normalize before prefab and instance inheritance merges", function()
+    local project, _, source = fixture()
+    local function run(command, fields)
+        fields = fields or {}; fields.command, fields.project = command, project.rootPath
+        return require("editor.Cli").execute(fields)
+    end
+    run("prefab.create", {name = "PF_OrderBase"})
+    run("prefab.script.add", {prefab = "Assets/PF_OrderBase.prefab", source = source, script = "behavior"})
+    assert(project:rebuildAssetIndex())
+    local Prefab = require("editor.PrefabDocument")
+    local base = assert(Prefab.load(project, "Assets/PF_OrderBase.prefab"))
+    local id = base.data.scripts[1].id
+    base.data.overrides.scripts[id] = {drawOrder = 10}; assert(base:save(project))
+    run("prefab.create", {name = "PF_OrderChild", class = project:getAssetId("Assets/PF_OrderBase.prefab")})
+    assert(project:rebuildAssetIndex())
+    local child = assert(Prefab.load(project, "Assets/PF_OrderChild.prefab"))
+    child.data.overrides = {scripts = {[id] = {sortingOrder = -20}}}; assert(child:save(project))
+    local Definition = require("project.ObjectDefinition")
+    local definition = assert(Definition.resolve(project, "Assets/PF_OrderChild.prefab"))
+    Assert.equal(-20, definition.scripts[id].drawOrder); Assert.equal(nil, definition.scripts[id].sortingOrder)
+    local level = require("editor.Level").new()
+    local object = level:addLObject(0, 0, project:getAssetId("Assets/PF_OrderChild.prefab"))
+    object.scriptOverrides = {[id] = {sortingOrder = -30}}
+    local world = assert(Loader.create(project, level:toData()))
+    Assert.equal(-30, world.lobjects[1].scripts[id].drawOrder); assert(world:dispose())
+    object.scriptOverrides[id] = {sortingOrder = -30, drawOrder = 40}
+    world = assert(Loader.create(project, level:toData()))
+    Assert.equal(40, world.lobjects[1].scripts[id].drawOrder); assert(world:dispose())
+    base.data.overrides.scripts[id] = {sortingOrder = 50}; assert(base:save(project))
+    child.data.overrides.scripts[id] = {drawOrder = -60}; assert(child:save(project))
+    definition = assert(Definition.resolve(project, "Assets/PF_OrderChild.prefab"))
+    Assert.equal(-60, definition.scripts[id].drawOrder)
+    object.scriptOverrides[id] = {sortingOrder = -70}
+    world = assert(Loader.create(project, level:toData()))
+    Assert.equal(-70, world.lobjects[1].scripts[id].drawOrder); assert(world:dispose())
+    local Hierarchy = require("project.PrefabHierarchy")
+    Assert.equal(-70, assert(Hierarchy.duplicateData(project, level, object)).scriptOverrides[id].drawOrder)
+    run("prefab.create", {name = "PF_OrderWrapper"}); assert(project:rebuildAssetIndex())
+    local wrapper = assert(Prefab.load(project, "Assets/PF_OrderWrapper.prefab"))
+    wrapper.data.children = {{id = "panel", definitionReference = project:getAssetId("Assets/PF_OrderBase.prefab"),
+        overrides = {scripts = {[id] = {drawOrder = 80}}}}}
+    assert(wrapper:save(project))
+    run("prefab.create", {name = "PF_OrderWrapperChild", class = wrapper.assetId}); assert(project:rebuildAssetIndex())
+    local wrapperChild = assert(Prefab.load(project, "Assets/PF_OrderWrapperChild.prefab"))
+    wrapperChild.data.children = {{id = "panel", overrides = {scripts = {[id] = {sortingOrder = -90}}}}}
+    assert(wrapperChild:save(project))
+    local recipe = assert(Hierarchy.resolve(project, wrapperChild.assetId))
+    Assert.equal(-90, recipe.byPath["root/panel"].overrides.scripts[id].drawOrder)
+    local nestedLevel = require("editor.Level").new()
+    local root = nestedLevel:addLObject(0, 0, wrapperChild.assetId)
+    local objects = assert(Hierarchy.expandAuthoring(project, nestedLevel, root))
+    world = assert(Loader.create(project, nestedLevel:toData()))
+    Assert.equal(-90, world.lobjects[2].scripts[id].drawOrder); assert(world:dispose())
+    objects["root/panel"].scriptOverrides = {[id] = {sortingOrder = -100}}
+    world = assert(Loader.create(project, nestedLevel:toData()))
+    Assert.equal(-100, world.lobjects[2].scripts[id].drawOrder); assert(world:dispose())
+    local duplicated = assert(Hierarchy.duplicateData(project, nestedLevel, objects["root/panel"]))
+    Assert.equal(-100, duplicated.scriptOverrides[id].drawOrder)
+end)
+add("Canvas descendants share drawScreen ordering with level and project scripts", function()
+    local project, level = fixture(); local world = assert(Loader.create(project, level:toData()))
+    local actor = world.lobjects[1]:getScriptByName("actor")
+    local manager, current = world.project:getScriptByName("manager"), world:getScriptByName("levelManager")
+    local parent = assert(world:addLObject({transform = {x = 0, y = 0}}))
+    require("core.ScriptRuntime").attach(parent, "canvas", require("plugins.LaboEssentials.Assets.Canvas"))
+    actor.owner:attachTo(parent)
+    local function screenTrace()
+        world.project.trace = {}
+        require("core.Renderer").drawWorld(world, function() end, require("core.Viewport").new(world, 0, 0, 400, 300))
+        local screens = {}
+        for _, event in ipairs(world.project.trace) do if event:find(":screen", 1, true) then screens[#screens + 1] = event end end
+        return table.concat(screens, ",")
+    end
+    Assert.equal("object:screen,level:screen,project:screen", screenTrace())
+    actor.drawOrder = -100
+    Assert.equal("object:screen,level:screen,project:screen", screenTrace())
+    actor.drawOrder, manager.drawOrder = 100, -100
+    Assert.equal("project:screen,level:screen,object:screen", screenTrace())
+    assert(world:dispose())
 end)
 return tests

@@ -433,7 +433,12 @@ function ClassInspector:rebuildRows()
             local declaration = self.class.properties[name]
             local belongs = script and declaration.script == script and not declaration.rootTransform
                 or not script and (not declaration.script or declaration.rootTransform)
-            if belongs and not (declaration.script and declaration.field == "enabled") then
+            local source = declaration.script and self.preview and self.preview.scripts[declaration.script] or self.class
+            local field = declaration.field or name
+            local hidden = declaration.script and field == "enabled"
+                or field == "updateOrder" and not source.update
+                or field == "drawOrder" and not (source.draw or source.drawScreen)
+            if belongs and not hidden then
                 self.names[#self.names + 1] = name
                 local group = declaration.rootTransform and "Transform" or declaration.group or defaultGroup
                 if not groups[group] then groups[group] = {}; groupNames[#groupNames + 1] = group end
@@ -443,6 +448,8 @@ function ClassInspector:rebuildRows()
         if #groupNames == 0 and self.class and (script or not self.preview) then groups[defaultGroup] = {}; groupNames[1] = defaultGroup end
         table.sort(groupNames, function(a, b)
             if a == b then return false end
+            if a == "Script" then return true end
+            if b == "Script" then return false end
             if a == "Transform" then return true end
             if b == "Transform" then return false end
             if a == defaultGroup then return true end
@@ -471,8 +478,8 @@ function ClassInspector:rebuildRows()
             end)
             local key = (script and "script:" .. script or "object") .. "/" .. group
             -- 헤더는 같은 열에 정렬하고 그룹 안의 프로퍼티 이름만 들여쓴다.
-            local nested = script and group ~= defaultGroup
-            if nested and self.groupExpanded[key] == nil then self.groupExpanded[key] = false end
+            local nested = script and (group ~= defaultGroup or groups.Script ~= nil)
+            if nested and self.groupExpanded[key] == nil then self.groupExpanded[key] = group == defaultGroup end
             local header = {header = true, label = group, groupKey = key, depth = 0, builtIn = not script,
                 height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT}
             if not script or nested then rows[#rows + 1] = header end

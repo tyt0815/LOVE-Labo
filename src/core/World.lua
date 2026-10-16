@@ -51,7 +51,6 @@ function World:addLObject(initialState)
         lobject
     lobject.world = self
     lobject.scriptLoader = self.scriptLoader
-    self.updateOrderDirty = true
 
     return lobject
 end
@@ -91,7 +90,6 @@ function World:removeLObject(object)
         end
     end
     for button, script in pairs(self.pointerCaptures or {}) do if not script.owner then self.pointerCaptures[button] = nil end end
-    self.updateOrderDirty = true
     return cleanupError == nil, cleanupError
 end
 function World:dispose(preserveProject)
@@ -191,43 +189,11 @@ function World:update(dt)
         return false, validationError
     end
 
-    -- 이번 프레임 중 생성된 객체는 load만 즉시 호출하고 다음 프레임부터 update한다.
-    if self.updateOrderDirty or not self.updateObjects then
-        self.updateObjects = {}
-        for _, object in ipairs(require("core.ScriptOrder").objects(self.lobjects)) do
-            if #object.updateScripts > 0 then self.updateObjects[#self.updateObjects + 1] = object end
-        end
-        self.updateOrderDirty = nil
-    end
-    local pending = {}; for _, object in ipairs(self.updateObjects) do pending[#pending + 1] = object end
-    local hosts = {self.project, self}
-    if not self.project then hosts = {self} end
-    for _, host in ipairs(hosts) do
-        local ok, err = require("core.ScriptHost").update(host, dt)
-        if not ok then return false, host.scope .. " script update failed: " .. tostring(err) end
-    end
-    if self.levelScript and self.levelScript.update then
-        local ok, result, err = pcall(self.levelScript.update, self, dt)
-        if not ok or result == false then return false, "level script update failed: " .. tostring(ok and err or result) end
-    end
-
-    -- World가 Runtime LObject lifecycle의 호출 순서를 소유한다.
-    -- LObject:update()가 false를 명시적으로 반환한 경우만 실패로 취급한다.
-    -- 일반적인 Lua callback처럼 nil을 반환하는 update는 정상 완료로 본다.
-    for _, lobject in ipairs(pending) do
-        if lobject.world == self then
-        local updated, updateError =
-            lobject:update(dt)
-
-        if updated == false then
-            return false,
-                "runtime lobject "
-                .. lobject.runtimeId
-                .. " update failed: "
-                .. tostring(updateError)
-        end
-        end
-    end
+    -- 프레임 시작 시 모든 범위의 실행 목록과 순서를 고정한다. 새 부착은 다음 프레임부터 실행한다.
+    local order = require("core.ScriptOrder")
+    local pending = order.updates(order.hosts(self), self)
+    local ok, err = require("core.ScriptHost").runUpdates(pending, dt, self)
+    if not ok then return false, err end
 
     self.elapsedTime =
         self.elapsedTime + dt

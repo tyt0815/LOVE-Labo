@@ -7,8 +7,7 @@ local Text = require("core.Script"):extend({scriptType = "Text", properties = {
     red = {type = "number", default = 1, group = "Color"},
     green = {type = "number", default = 1, group = "Color"},
     blue = {type = "number", default = 1, group = "Color"},
-    alpha = {type = "number", default = 1, group = "Color"},
-    sortingOrder = {type = "number", default = 0}
+    alpha = {type = "number", default = 1, group = "Color"}
 }})
 local fonts = {}
 local function fontFor(script)

@@ -37,7 +37,6 @@ end
 function Host:load(world)
     if world and self.world ~= world then return true end
     self.world, self.hasLoaded = world, true
-    if world then world.updateOrderDirty = true end
     if self.loadingScripts then return true end
     self.loadingScripts = true
     local ok, err = pcall(function()
@@ -72,15 +71,21 @@ function Host:unload()
     end
     return firstError == nil, firstError
 end
-function Host:update(dt)
-    if self.removing then return true end
-    local pending = {}; for _, script in ipairs(self.updateScripts) do pending[#pending + 1] = script end
-    for _, script in ipairs(pending) do
-        if script.owner == self and self.scripts[script.id] == script and script.enabled ~= false then
+function Host.runUpdates(pending, dt, world)
+    for _, entry in ipairs(pending) do
+        local script, owner = entry.script, entry.owner
+        if entry.legacy then
+            local ok, result, err = pcall(entry.legacy.levelScript.update, entry.legacy, dt)
+            if not ok or result == false then return false, "level script update failed: " .. tostring(ok and err or result) end
+        elseif script.owner == owner and owner.scripts[script.id] == script and not owner.removing
+            and (not world or owner:getWorld() == world) and script.enabled ~= false and not script.hasUnloaded then
             local ok, result, err = pcall(script.update, script, dt)
-            if not ok or result == false then return false, tostring(ok and err or result) end
+            if not ok or result == false then return false, "Script " .. script.name .. " update failed: " .. tostring(ok and err or result) end
         end
     end
     return true
+end
+function Host:update(dt)
+    return Host.runUpdates(require("core.ScriptOrder").updates({self}), dt)
 end
 return Host

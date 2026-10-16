@@ -1,5 +1,7 @@
 # 0074. Project·Level·Object에 같은 Script를 부착하고 화면 그리기를 분리한다
 
+> 순서 설정·표시는 [ADR 0084](0084-common-script-callback-order.md)에서 확장·부분 대체한다.
+
 - 상태: 승인·구현
 - 확장: [0050](0050-attached-scripts-and-unified-assets.md), [0069](0069-script-identity-and-editor-authored-attachments.md), [0071](0071-love-events-on-attached-scripts.md)
 - 부분 대체: 0069의 World별 클래스 캐시를 Play 세션별 공유 캐시로 확장한다. 독립 Play·CLI 실행은 캐시를 공유하지 않는다.

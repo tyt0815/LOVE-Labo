@@ -35,8 +35,8 @@ function Order.entries(objects, capability, predicate)
         local script = entry.script
         local pointer = capability == "pointer"
         local source = pointer and script:getBoundsSource() or script
-        entry.layer = Space.canvas(source) and 1 or 0
-        entry.order = source.properties.sortingOrder or 0
+        entry.layer = capability ~= "drawScreen" and Space.canvas(source) and 1 or 0
+        entry.order = source.drawOrder ~= 0 and source.drawOrder or source.properties.sortingOrder or 0
         entry.priority = pointer and script.properties.inputPriority or 0
         entry.index = indices[source] or entry.index
     end
@@ -48,5 +48,35 @@ function Order.entries(objects, capability, predicate)
         return a.sequence < b.sequence
     end)
     return entries
+end
+-- 기본 범위·계층·부착 순서를 유지하되, 숫자가 다르면 범위를 넘어 정렬한다.
+function Order.hosts(world, screen)
+    local hosts = {}
+    if not screen then
+        if world.project then hosts[#hosts + 1] = world.project end
+        hosts[#hosts + 1] = world
+    end
+    for _, object in ipairs(Order.objects(world.lobjects)) do hosts[#hosts + 1] = object end
+    if screen then
+        hosts[#hosts + 1] = world
+        if world.project then hosts[#hosts + 1] = world.project end
+    end
+    return hosts
+end
+function Order.updates(hosts, legacyWorld)
+    local pending = {}
+    for _, host in ipairs(hosts) do
+        for _, script in ipairs(host.updateScripts) do
+            pending[#pending + 1] = {script = script, owner = host, order = script.updateOrder or 0, index = #pending + 1}
+        end
+        if host == legacyWorld and host.levelScript and host.levelScript.update then
+            pending[#pending + 1] = {legacy = host, order = 0, index = #pending + 1}
+        end
+    end
+    table.sort(pending, function(a, b)
+        if a.order ~= b.order then return a.order < b.order end
+        return a.index < b.index
+    end)
+    return pending
 end
 return Order

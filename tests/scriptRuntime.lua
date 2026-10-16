@@ -221,4 +221,53 @@ add("Draw callbacks can disable later scripts in both renderer paths", function(
     renderer.drawWorld(world, function() end, require("core.Viewport").new(world, 0, 0, 100, 100))
     Assert.equal(1, draws)
 end)
+add("Signed update order crosses objects and snapshots changes until the next frame", function()
+    local world = World.new(); local parent, child = object(world), object(world); child:attachTo(parent)
+    local calls, later = {}, nil
+    local class = Engine.Script:extend({update = function(self)
+        calls[#calls + 1] = self.id
+        if self.id == "child" then later.updateOrder = -200 end
+    end})
+    later = require("core.ScriptRuntime").attach(parent, "parent", class, {updateOrder = 100})
+    require("core.ScriptRuntime").attach(child, "child", class, {updateOrder = -100})
+    assert(world:update(0)); Assert.equal("child,parent", table.concat(calls, ","))
+    calls = {}; assert(world:update(0)); Assert.equal("parent,child", table.concat(calls, ","))
+end)
+add("Draw order controls arbitrary scripts and referenced pointer regions independently of update order", function()
+    local world = World.new(); local a, b = object(world), object(world); local calls = {}
+    local class = Engine.Script:extend({getLocalBounds = function() return -10, -10, 20, 20 end, draw = function(self) calls[#calls + 1] = self.id end})
+    local high = require("core.ScriptRuntime").attach(a, "high", class, {drawOrder = 10, updateOrder = -100})
+    local low = require("core.ScriptRuntime").attach(b, "low", class, {drawOrder = -10, updateOrder = 100})
+    require("core.ScriptRuntime").attach(a, "pointer", Engine.Pointer, {boundsSource = "high"})
+    local renderer = require("core.Renderer")
+    renderer.drawObjects(world.lobjects, function() end, function(x, y) return x, y end, 1)
+    Assert.equal("low,high", table.concat(calls, ","))
+    Assert.equal(10, require("core.ScriptOrder").entries(world.lobjects, "pointer")[1].order)
+    calls = {}; high.drawOrder = -20
+    renderer.drawWorld(world, function() end, require("core.Viewport").new(world, 0, 0, 100, 100))
+    Assert.equal("high,low", table.concat(calls, ",")); Assert.equal(-10, low.drawOrder)
+end)
+add("Common order values validate assignments and retain inherited Script grouping", function()
+    local class = Engine.Script:extend({properties = {drawOrder = {type = "number", default = -20, group = "Custom"}}})
+    Assert.equal("Script", class.properties.drawOrder.group)
+    local script = class:new(); Assert.equal(-20, script.drawOrder); Assert.equal(0, script.updateOrder)
+    for _, value in ipairs({"bad", math.huge, -math.huge, 0 / 0}) do
+        Assert.equal(false, pcall(function() script.updateOrder = value end))
+        Assert.equal(false, pcall(class.new, class, {drawOrder = value}))
+    end
+    local legacy = Engine.Sprite:new({sortingOrder = 30}); Assert.equal(30, legacy.drawOrder)
+    Assert.equal(0, Engine.Sprite:new({sortingOrder = 30, drawOrder = 0}).drawOrder)
+end)
+add("Draw order changes inside callbacks take effect on the next draw pass", function()
+    local world = World.new(); local a, b = object(world), object(world); local calls, later = {}, nil
+    require("core.ScriptRuntime").attach(a, "first", Engine.Script:extend({draw = function(self)
+        calls[#calls + 1] = self.id; later.drawOrder = -100
+    end}))
+    later = require("core.ScriptRuntime").attach(b, "later", Engine.Script:extend({draw = function(self) calls[#calls + 1] = self.id end}))
+    local renderer = require("core.Renderer")
+    renderer.drawWorld(world, function() end, require("core.Viewport").new(world, 0, 0, 100, 100))
+    Assert.equal("first,later", table.concat(calls, ",")); calls = {}
+    renderer.drawWorld(world, function() end, require("core.Viewport").new(world, 0, 0, 100, 100))
+    Assert.equal("later,first", table.concat(calls, ","))
+end)
 return tests

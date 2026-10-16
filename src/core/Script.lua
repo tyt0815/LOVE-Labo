@@ -1,5 +1,9 @@
 local Schema = require("core.PropertySchema")
-local Script = {properties = {enabled = {type = "boolean", default = true, group = "Script"}}, scriptType = "Script"}
+local Script = {properties = {
+    enabled = {type = "boolean", default = true, group = "Script"},
+    updateOrder = {type = "number", default = 0, group = "Script"},
+    drawOrder = {type = "number", default = 0, group = "Script"}
+}, scriptType = "Script"}
 local RESERVED = {owner = true, properties = true, id = true, name = true, label = true, source = true, hasLoaded = true, hasUnloaded = true,
     load = true, unload = true, update = true, draw = true, drawScreen = true, drawEditor = true, onPointerDown = true, onPointerUp = true, onPointerMove = true,
     pointer = true, camera = true, canvas = true, super = true, scriptType = true}
@@ -23,7 +27,7 @@ function Script:extend(definition)
             and Schema.validValue(field.type, field.default), "Invalid script property")
         assert(not schema[name] or schema[name].type == field.type, "Inherited property type cannot change")
         assert(field.group == nil or type(field.group) == "string" and field.group ~= "", "Invalid property group")
-        schema[name] = {type = field.type, default = field.default, group = field.group}
+        schema[name] = {type = field.type, default = field.default, group = Script.properties[name] and "Script" or field.group}
     end
     for _, callback in ipairs({"load", "unload", "update", "draw", "drawScreen", "drawEditor", "getLocalBounds", "hitTest", "onPointerDown", "onPointerUp", "onPointerMove"}) do
         assert(definition[callback] == nil or type(definition[callback]) == "function", callback .. " must be a function")

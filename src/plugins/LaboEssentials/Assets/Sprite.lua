@@ -1,8 +1,7 @@
 local Bounds = require("core.Bounds")
 local Sprite = require("core.Script"):extend({scriptType = "Sprite", properties = {
     image = {type = "image", default = false},
-    fillParent = {type = "boolean", default = false, group = "Bounds"},
-    sortingOrder = {type = "number", default = 0}
+    fillParent = {type = "boolean", default = false, group = "Bounds"}
 }})
 Sprite.getBounds, Sprite.hitTest = Bounds.getBounds, Bounds.hitTest
 function Sprite:draw(context)

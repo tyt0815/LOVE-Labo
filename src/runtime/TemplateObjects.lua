@@ -16,16 +16,19 @@ function Objects.configure(world, recipe, root, rootOverrides, authored)
         objects[node.path] = object
         local extra = node.parent and source and {properties = source.data.propertyOverrides, scripts = source.data.scriptOverrides}
             or not node.parent and rootOverrides or {}
-        local properties, scripts = Hierarchy.copy(node.overrides.properties or {}), Hierarchy.copy(node.overrides.scripts or {})
+        local properties, scripts = Hierarchy.copy(node.overrides.properties or {}), {}
         local attachments = require("project.ScriptAttachments").merge(node.definition.attachments,
             source and source.data.scripts or not node.parent and rootOverrides.attachments)
         overridden[node.path] = {}
         for name, value in pairs(extra.properties or {}) do properties[name] = value; overridden[node.path][name] = true end
+        for _, layer in ipairs({node.overrides.scripts or {}, extra.scripts or {}}) do
+            local merged, mergeError = Definition.mergeScriptOverrides(scripts, layer, attachments, node.definition.scriptLoader)
+            if not merged then return nil, mergeError end
+        end
         for name, fields in pairs(extra.scripts or {}) do
             local attachment = require("project.ScriptAttachments").find(attachments, name)
             name = attachment and attachment.id or name
-            scripts[name] = scripts[name] or {}
-            for field, value in pairs(fields) do scripts[name][field] = value; overridden[node.path][name .. "." .. field] = true end
+            for field in pairs(fields) do overridden[node.path][name .. "." .. field] = true end
         end
         local ok, err = Definition.configure(object, node.definition, properties, scripts, source and source.data.scripts or not node.parent and rootOverrides.attachments)
         if not ok then return nil, err end

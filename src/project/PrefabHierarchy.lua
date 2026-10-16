@@ -13,12 +13,24 @@ function Hierarchy.copy(value)
     return result
 end
 
-function Hierarchy.mergeChildren(base, overrides, inherited)
+function Hierarchy.mergeChildren(base, overrides, inherited, project, loader)
     local result, byId = Hierarchy.copy(base or {}), {}
     for _, node in ipairs(result) do byId[node.id] = node end
     for _, override in ipairs(overrides or {}) do
         local node = byId[override.id]
         if not node then node = {id = override.id, isInherited = inherited == true}; result[#result + 1] = node; byId[node.id] = node end
+        local normalizedOverrides
+        if override.overrides and override.overrides.scripts and project then
+            local definition, err = Definition.resolve(project, override.definitionReference or node.definitionReference, loader)
+            if not definition then return nil, err end
+            definition = Definition.withAttachments(definition, node.scripts, node.removedScripts)
+            definition = Definition.withAttachments(definition, override.scripts, override.removedScripts)
+            normalizedOverrides = Hierarchy.copy(override.overrides)
+            normalizedOverrides.scripts = {}
+            local ok, mergeError = Definition.mergeScriptOverrides(normalizedOverrides.scripts, override.overrides.scripts,
+                definition.attachments, loader)
+            if not ok then return nil, mergeError end
+        end
         local removed = {}
         for _, id in ipairs(node.removedScripts or {}) do removed[id] = true end
         for _, item in ipairs(override.scripts or {}) do removed[item.id] = nil end
@@ -26,13 +38,16 @@ function Hierarchy.mergeChildren(base, overrides, inherited)
         for key, value in pairs(override) do
             if key == "isInherited" then if inherited == nil then node.isInherited = node.isInherited or value == true end
             elseif key == "scripts" then node.scripts = require("project.ScriptAttachments").merge(node.scripts, value)
-            elseif key == "children" then node.children = Hierarchy.mergeChildren(node.children, value, inherited)
+            elseif key == "children" then
+                local children, err = Hierarchy.mergeChildren(node.children, value, inherited, project, loader)
+                if not children then return nil, err end
+                node.children = children
             elseif key == "transform" then
                 node.transform = node.transform or {}
                 for field, item in pairs(value) do node.transform[field] = item end
             elseif key == "overrides" then
                 node.overrides = node.overrides or {}
-                for kind, fields in pairs(value) do
+                for kind, fields in pairs(normalizedOverrides or value) do
                     node.overrides[kind] = node.overrides[kind] or {}
                     for name, field in pairs(fields) do
                         if kind == "scripts" then
@@ -76,7 +91,10 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
         end
         for _, layer in ipairs(definition.layers) do
             if layer.name ~= nil then name = layer.name end
-            children = Hierarchy.mergeChildren(children, layer.children, key ~= documentId or layer ~= definition.layers[#definition.layers])
+            local merged, mergeError = Hierarchy.mergeChildren(children, layer.children,
+                key ~= documentId or layer ~= definition.layers[#definition.layers], project, loadClass)
+            if not merged then return nil, mergeError end
+            children = merged
             clearFields(layer, path)
             for _, prefix in ipairs(layer.removedPaths or {}) do removed[#removed + 1] = path .. prefix:sub(5) end
             for _, binding in ipairs(layer.bindings or {}) do
@@ -87,7 +105,9 @@ function Hierarchy.resolve(project, reference, loadClass, excludedId)
         if key then visiting[key] = (visiting[key] or 0) + 1 end
         local sourceChildren = {}
         for _, child in ipairs(children) do sourceChildren[child.id] = true end
-        children = Hierarchy.mergeChildren(children, override and override.children)
+        local merged, mergeError = Hierarchy.mergeChildren(children, override and override.children, nil, project, loadClass)
+        if not merged then return nil, mergeError end
+        children = merged
         for _, prefix in ipairs(override and override.removedPaths or {}) do removed[#removed + 1] = path .. prefix:sub(5) end
         for _, prefix in ipairs(removed) do removedPaths[#removedPaths + 1] = prefix end
         local initial = {x = 0, y = 0}
@@ -289,10 +309,9 @@ function Hierarchy.authoringDefinition(project, level, object)
     local definition = {class = node.definition.class, scriptLoader = node.definition.scriptLoader,
         attachments = node.definition.attachments, classReference = node.definition.classReference, properties = Hierarchy.copy(node.definition.properties), scripts = Hierarchy.copy(node.definition.scripts), layers = node.definition.layers}
     for name, value in pairs(node.overrides.properties or {}) do definition.properties[name] = value end
-    for name, fields in pairs(node.overrides.scripts or {}) do
-        definition.scripts[name] = definition.scripts[name] or {}
-        for field, value in pairs(fields) do definition.scripts[name][field] = value end
-    end
+    local merged, mergeError = Definition.mergeScriptOverrides(definition.scripts, node.overrides.scripts,
+        definition.attachments, definition.scriptLoader)
+    if not merged then return nil, mergeError end
     local objects = {root = root}
     for _, current in ipairs(level.lobjects) do if current.prefabRootId == root.authoringId then objects[current.prefabNodePath] = current end end
     for _, binding in ipairs(recipe.bindings) do
@@ -310,12 +329,9 @@ function Hierarchy.duplicateData(project, level, object)
     if not definition then return nil, err end
     local properties, scripts = Hierarchy.copy(definition.properties), Hierarchy.copy(definition.scripts)
     for name, value in pairs(object.propertyOverrides or {}) do properties[name] = value end
-    for name, fields in pairs(object.scriptOverrides or {}) do
-        local attachment = require("project.ScriptAttachments").find(definition.attachments, name)
-        name = attachment and attachment.id or name
-        scripts[name] = scripts[name] or {}
-        for field, value in pairs(fields) do scripts[name][field] = value end
-    end
+    local merged, mergeError = Definition.mergeScriptOverrides(scripts, object.scriptOverrides,
+        definition.attachments, definition.scriptLoader)
+    if not merged then return nil, mergeError end
     local target, targetError = Definition.inspectorTarget(project, object, definition, level)
     if not target then return nil, targetError end
     local referenceFields = {}
@@ -342,10 +358,9 @@ function Hierarchy.prepareReparent(project, level, roots, parent)
                         if not definition then return false, err end
                         local properties, scripts = Hierarchy.copy(definition.properties), Hierarchy.copy(definition.scripts)
                         for name, value in pairs(object.propertyOverrides or {}) do properties[name] = value end
-                        for name, fields in pairs(object.scriptOverrides or {}) do
-                            scripts[name] = scripts[name] or {}
-                            for field, value in pairs(fields) do scripts[name][field] = value end
-                        end
+                        local merged, mergeError = Definition.mergeScriptOverrides(scripts, object.scriptOverrides,
+                            definition.attachments, definition.scriptLoader)
+                        if not merged then return false, mergeError end
                         changes[#changes + 1] = {object = object, attachments = definition.attachments, properties = properties, scripts = scripts}
                         members[object] = true
                     end

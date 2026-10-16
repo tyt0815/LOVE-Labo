@@ -26,7 +26,16 @@ end
 return Movement
 ```
 
-`load(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 실행 중인 초기화 콜백에 재진입하지 않습니다. 공통 `enabled`는 별도로 선언하지 않아도 상속됩니다. Inspector에서는 프로퍼티 행 대신 각 스크립트 헤더의 돋보기 왼쪽 토글로 편집합니다. 런타임의 `self.enabled`와 CLI의 `부착이름.enabled`는 그대로 사용합니다. 기본값은 true이며 false이면 update·draw·포인터 입력을 건너뜁니다. load는 활성 상태와 관계없이 한 번 실행하며 다시 활성화해도 반복하지 않습니다. 화면 출력은 명시적으로 등록한 View를 사용합니다. 부모 오브젝트에서 자손으로, 같은 오브젝트에서는 부착 순서로 실행합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
+`load(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 실행 중인 초기화 콜백에 재진입하지 않습니다. 공통 `enabled`는 별도로 선언하지 않아도 상속됩니다. Inspector에서는 프로퍼티 행 대신 각 스크립트 헤더의 돋보기 왼쪽 토글로 편집합니다. 런타임의 `self.enabled`와 CLI의 `부착이름.enabled`는 그대로 사용합니다. 기본값은 true이며 false이면 update·draw·포인터 입력을 건너뜁니다. load는 활성 상태와 관계없이 한 번 실행하며 다시 활성화해도 반복하지 않습니다. 화면 출력은 명시적으로 등록한 View를 사용합니다. 업데이트는 공통 `updateOrder`가 작은 순서로 실행하고, 동률이면 Project → Level → 부모 우선 Object → 부착 순서를 유지합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
+
+공통 `updateOrder`·`drawOrder`는 별도 선언 없이 기본 0으로 상속합니다. 음수는 먼저, 양수는 나중에 실행합니다. 두 설정은 독립적이며 런타임에도 변경할 수 있습니다. updateOrder 변경은 다음 프레임, drawOrder 변경은 다음 그리기 단계부터 반영합니다. 프레임 중 생성한 오브젝트·부착은 다음 프레임부터 업데이트합니다. load·unload·일반 이벤트 순서는 이 값에 영향을 받지 않습니다.
+
+```lua
+self.updateOrder = -100 -- 먼저 업데이트
+self.drawOrder = 100    -- 같은 그리기 단계에서 나중에 그려 앞에 표시
+```
+
+일반 draw는 같은 좌표계의 Project·Level·Object를 함께 정렬합니다. 기존 Canvas는 월드보다 나중에, drawScreen은 일반 draw 이후에 그리는 단계 구분을 유지합니다. drawScreen은 Canvas 소속과 무관하게 drawOrder를 사용하며 동률은 Object → Level → Project입니다. View의 order는 View 간 출력 순서이므로 스크립트의 drawOrder와 별개입니다. Inspector에서는 해당 콜백이 있는 설정만 Script 그룹에 표시합니다.
 
 이전 프로젝트의 `beginPlay` 선언과 직접 호출은 `load`로 바꿉니다. 호출 시점과 초기화 동작은 같습니다. 에셋을 읽거나 에디터 미리보기를 만들 때 호출하는 함수가 아닙니다.
 

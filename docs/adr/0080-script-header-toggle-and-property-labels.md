@@ -1,5 +1,7 @@
 # 0080. Script 활성 상태는 헤더 토글로 편집하고 프로퍼티 이름은 문장형으로 표시한다
 
+> 순서 설정·표시는 [ADR 0084](0084-common-script-callback-order.md)에서 확장·부분 대체한다.
+
 - 상태: 채택·구현
 - 날짜: 2026-10-16
 - 표시 확장: [0069](0069-script-identity-and-editor-authored-attachments.md), [0075](0075-inspector-scope-tabs-and-nested-script-groups.md)

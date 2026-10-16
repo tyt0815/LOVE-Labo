@@ -7,7 +7,7 @@ local Actions = {extends = "6a3d80b6-38e4-4e0c-92d1-2338a55c2e30", properties = 
     boundsX = {type = "number", default = -90}, boundsY = {type = "number", default = -24},
     boundsWidth = {type = "number", default = 180}, boundsHeight = {type = "number", default = 48},
     blockPointer = {type = "boolean", default = true}, inputPriority = {type = "number", default = 10},
-    sortingOrder = {type = "number", default = 100}
+    drawOrder = {type = "number", default = 100}
 }}
 function Actions.draw(self)
     love.graphics.setColor(0.15, 0.35, 0.55, 1)
