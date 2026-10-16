@@ -245,3 +245,12 @@ love src --cli script open --project tests/TestProject --script Assets/Examples/
 rendering-examples는 동명 에셋이 있으면 중단하며 덮어쓰지 않습니다. 저장소 테스트 프로젝트에는 이미 예제가 있습니다. level.view는 load를 실행해 등록된 활성 View를 조회하고 lifecycleExecuted=true를 반환합니다. views에는 출력 순서·카메라·타깃 종류·해상도·실제 viewport가 들어갑니다. 대표 화면 View의 기존 camera·scale·projected 결과도 유지합니다. level.render는 같은 구성을 실제 렌더링해 PNG로 저장합니다. 출력 부모 폴더는 미리 생성하고, width/height는 양의 정수 픽셀 수를 사용합니다. 창이 없는 CLI는 렌더링에 필요한 최소 그래픽 컨텍스트를 준비합니다. 검증용 World와 GPU 자원은 종료 시 정리합니다.
 
 script.open은 GUI와 같은 소스 해석·VS Code 자동 탐색·기존 창 재사용을 사용합니다. --dry-run은 열람 사본·편집기 프로세스를 생성하지 않고 실행 파일·인자·대상 경로·읽기 전용 여부만 반환합니다. 제공 플러그인은 실제 실행 시 읽기 전용 열람 사본을 만듭니다. dry-run을 빼면 편집기를 실행합니다.
+
+## 프로젝트 저장 폴더 ID
+
+Export는 고정 labo-exported-game 대신 labo-<프로젝트 UUID>를 LÖVE identity로 사용합니다. 기존 프로젝트는 처음 열 때 ID를 한 번 저장합니다. 이름·폴더 이동·재배포에서도 같은 ID를 유지합니다.
+
+- `project info`: 프로젝트의 id·saveIdentity를 조회합니다.
+- `project reset-save-identity`: 복사한 프로젝트를 다른 게임으로 분리할 때 새 저장 폴더 ID를 발급합니다. 에셋·기존 세이브는 유지합니다. 에디터에서 열려 있던 프로젝트는 다시 엽니다.
+
+예전 공용 저장 폴더의 세이브는 자동으로 이전하지 않습니다.

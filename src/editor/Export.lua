@@ -49,7 +49,7 @@ for _, name in ipairs(require("core.ScriptEvents").names) do love[name] = host[n
 ]])
     add("conf.lua", [[function love.conf(t)
 t.version = "11.5"
-t.identity = "labo-exported-game"
+t.identity = ]] .. string.format("%q", assert(project.saveIdentity, "Project requires a save identity")) .. "\n" .. [[
 t.window.title = "Labo Game"
 t.window.width = 1280
 t.window.height = 720
@@ -72,7 +72,7 @@ end
     end
     local data = level:toData()
     data.lobjects = Json.array(data.lobjects)
-    add("game.json", assert(Json.encode({version = 1, level = data, metadata = metadata, plugins = plugins,
+    add("game.json", assert(Json.encode({version = 1, id = project.id, saveIdentity = project.saveIdentity, level = data, metadata = metadata, plugins = plugins,
         scripts = Json.array(require("project.ScriptAttachments").copy(project.scripts)), scriptOverrides = project.scriptOverrides}, true)))
     local bytes = require("editor.Zip").encode(entries)
     local made, makeError = ensureFolder(Fs.parent(output))

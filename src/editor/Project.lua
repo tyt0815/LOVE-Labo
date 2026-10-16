@@ -101,7 +101,7 @@ function Project.create(parentPath, name)
     if existing then return nil, "Project folder already exists" end
     if existingError then return nil, existingError end
     local Json = require("editor.Json")
-    local text = assert(Json.encode({ version = 2, name = name }, true)) .. "\n"
+    local text = assert(Json.encode({ version = 2, name = name, id = require("project.AssetId").new() }, true)) .. "\n"
     local createdDirectories, createdFiles = {}, {}
     local function rollback(err)
         -- 이번 생성에서 성공한 파일·빈 폴더만 역순으로 정리한다.
@@ -142,6 +142,7 @@ function Project.open(rootPath)
     end
     local valid, nameError = Project.isValidName(data.name)
     if not valid then return nil, nameError end
+    if data.id ~= nil and not require("project.AssetId").isValid(data.id) then return nil, "Invalid project ID" end
     -- 필수 폴더의 누락만 복구한다. 파일·링크와 권한 오류는 덮어쓰지 않는다.
     local missingFolders = {}
     for _, name in ipairs({"Assets"}) do
@@ -181,7 +182,29 @@ function Project.open(rootPath)
     if not rebuilt then return nil, rebuildError end
     local migrated, migrateError = require("editor.AssetRegistry").migrate(project, data)
     if not migrated then return nil, migrateError end
+    -- 레거시 프로젝트는 한 번만 ID를 발급한다. 앞선 마이그레이션 결과를 다시 읽어 보존한다.
+    if not data.id then
+        local path = fs.join(project.rootPath, Project.FILE_NAME)
+        local current = assert(require("project.Json").decode(assert(fs.read(path))))
+        current.id = current.id or require("project.AssetId").new()
+        local saved, saveError = fs.writeAtomic(path, assert(require("project.Json").encode(current, true)) .. "\n")
+        if not saved then return nil, saveError end
+        data.id = current.id
+    end
+    project.id, project.saveIdentity = data.id, "labo-" .. data.id
     return project
+end
+
+function Project:resetSaveIdentity()
+    local fs, Json = filesystem(), require("project.Json")
+    local path = fs.join(self.rootPath, Project.FILE_NAME)
+    local data = assert(Json.decode(assert(fs.read(path))))
+    local id = require("project.AssetId").new()
+    data.id = id
+    local ok, err = fs.writeAtomic(path, assert(Json.encode(data, true)) .. "\n")
+    if not ok then return false, err end
+    self.id, self.saveIdentity = id, "labo-" .. id
+    return true
 end
 
 function Project:saveScripts()

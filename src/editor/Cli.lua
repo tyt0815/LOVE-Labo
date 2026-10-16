@@ -80,7 +80,7 @@ end
 
 local api = {required = required, absolute = absolute, revision = revision, checkRevision = checkRevision,
     basicResult = basicResult, value = value, setProperty = setProperty, properties = properties, propertyName = propertyName}
-local COMMANDS = {"project.create", "project.info", "project.refresh", "project.repair-plan", "project.repair", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
+local COMMANDS = {"project.create", "project.info", "project.reset-save-identity", "project.refresh", "project.repair-plan", "project.repair", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
     "plugin.list", "plugin.create", "plugin.enable", "plugin.disable", "plugin.plan",
     "asset.preview", "asset.thumbnail", "script.open", "project.examples", "project.rendering-examples",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
@@ -187,7 +187,11 @@ local function execute(request, cleanups)
     end
     local extra = require("editor.CliAssets").execute(project, request, api)
     if extra then return extra end
-    if command == "project.info" then return {project = project.rootPath, name = project.name, defaultLevel = project.defaultLevelReference, assets = project.assetMetadata} end
+    if command == "project.reset-save-identity" then
+        assert(project:resetSaveIdentity())
+        return {id = project.id, saveIdentity = project.saveIdentity}
+    end
+    if command == "project.info" then return {project = project.rootPath, name = project.name, id = project.id, saveIdentity = project.saveIdentity, defaultLevel = project.defaultLevelReference, assets = project.assetMetadata} end
     if command == "class.create" or command == "prefab.create" or command == "level.create" then
         local kind = command:match("^(.-)%.")
         local folder = request.folder or "Assets"

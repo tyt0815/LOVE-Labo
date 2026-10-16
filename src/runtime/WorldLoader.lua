@@ -82,6 +82,7 @@ function Loader.prepare(project, data, session)
     if not session then
         session = require("core.ScriptHost").new("project")
         session.scriptLoader = loadClass
+        session.id, session.saveIdentity = project and project.id, project and project.saveIdentity
         local configured, configureError = require("project.ScopedScripts").configure(session, project or {}, loadClass)
         if not configured then return nil, configureError end
     end
