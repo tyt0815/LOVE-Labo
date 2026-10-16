@@ -114,7 +114,7 @@ function EditorApp:setDocument(document)
     self.documentReference = nil
 
     self.sceneView.level = self.level
-    if self.spriteAssets then self.spriteAssets.level = self.level end
+    if self.spriteAssets then self.spriteAssets:setLevel(self.level) end
     self.hierarchy.level = self.level
     self.inspector.level = self.level
 
@@ -135,8 +135,7 @@ function EditorApp:setDocument(document)
         setOverrides = function(target, values)
             local properties = require("project.PropertyData").copy(values); properties["$mainCamera"] = nil
             target.data.propertyOverrides = properties
-        end,
-        setMainCamera = function(_, value) return self:setMainCamera(value) end}
+        end}
     self.runtimeError = nil
     if self.uiRoot then
         self.uiRoot:dismissPopup()
@@ -149,23 +148,6 @@ end
 
 function EditorApp:isPlaying()
     return self.runtimeWorld ~= nil
-end
-function EditorApp:setMainCamera(value)
-    local copy, err = require("project.MainCamera").copy(value)
-    if err then return false, err end
-    if copy then
-        local object = self.level:findLObject(copy.authoringId)
-        local choices, choiceError = require("project.MainCamera").choices(self.project, self.level, object)
-        if not choices then return false, choiceError end
-        local found = false
-        for _, choice in ipairs(choices) do if choice.script == copy.script then found = true end end
-        if not found then return false, "Camera script was not found" end
-    end
-    self.inspector:commitEdit(); self:recordHistory()
-    self.level.mainCamera = copy
-    if self.inspector.classInspector then self.inspector.classInspector.error = nil end
-    self:recordHistory()
-    return true
 end
 function EditorApp:discardRuntime(errorText)
     local world = self.runtimeWorld
@@ -1126,11 +1108,11 @@ function EditorApp:beginObjectPick(name, parentPath)
     if self:isPlaying() or not inspector or not inspector.target then return false, "Stop Play before picking a reference" end
     if inspector.target.readOnly then return false, "Labo plugin assets are read-only" end
     local declaration = name ~= "$parent" and inspector.class.properties[name]
-    local kind = name == "$attachScript" and "attachment" or name == "$mainCamera" and "camera" or name == "$child" and "child" or declaration and declaration.type or name == "$parent" and "parent"
+    local kind = name == "$attachScript" and "attachment" or name == "$child" and "child" or declaration and declaration.type or name == "$parent" and "parent"
     if kind == "child" and (not self.prefabEditor or inspector.target ~= self.prefabInspectorTarget) then return false, "Open a Prefab before adding children" end
-    if kind ~= "attachment" and kind ~= "camera" and kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "script" and kind ~= "image" and kind ~= "audio" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
+    if kind ~= "attachment" and kind ~= "child" and kind ~= "parent" and kind ~= "object" and kind ~= "script" and kind ~= "image" and kind ~= "audio" and not require("core.PropertySchema").isTemplate(kind) then return false, "This field cannot be picked" end
     if inspector.target.scope and inspector.target.level and inspector.target.level ~= self.level
-        and (kind == "camera" or kind == "object" or kind == "script") then
+        and (kind == "object" or kind == "script") then
         return self.scopeInspector:pickReference(inspector.target, name, kind)
     end
     if (kind == "object" or kind == "script") and inspector.target.level ~= self.level and not inspector.target.prefabScope then return false, "Pick an instance reference on a level or placed instance" end
@@ -1222,25 +1204,6 @@ function EditorApp:pickReferenceAt(x, y)
         if #options == 0 then inspector.error = "Selected object has no scripts"; return end
         self:cancelObjectPick()
         if #options == 1 then options[1].action() else require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, options) end
-        return
-    end
-    if pick.kind == "camera" then
-        local choices, err = require("project.MainCamera").choices(self.project, self.level, object)
-        if not choices then inspector.error = err; return end
-        local function apply(value)
-            local ok, applyError = self:setMainCamera(value)
-            if not ok then inspector.error = applyError end
-            self:updateInspectorTarget()
-        end
-        self:cancelObjectPick()
-        if #choices == 1 then apply(choices[1])
-        else
-            local options = {}
-            for _, value in ipairs(choices) do
-                options[#options + 1] = {label = value.script, action = function() apply(value) end}
-            end
-            require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, options)
-        end
         return
     end
     if pick.kind == "child" then

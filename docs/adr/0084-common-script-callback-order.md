@@ -1,5 +1,7 @@
 # 0084. Script 공통 설정으로 업데이트·그리기 순서를 제어한다
 
+> 카메라·화면 공간·입력·배치 계약은 [ADR 0085](0085-public-projection-layout-and-input.md)에서 부분 대체한다.
+
 - 상태: 채택·구현
 - 날짜: 2026-10-16
 - 부분 대체: [0046](0046-camera-screen-canvas-and-component-order.md)의 제공 렌더러 전용 sortingOrder, [0074](0074-scoped-scripts-and-screen-drawing.md)의 고정 범위별 update·draw 순서

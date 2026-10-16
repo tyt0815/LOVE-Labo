@@ -21,8 +21,9 @@ LObject.unload = ScriptHost.unload
 LObject.update = ScriptHost.update
 LObject.getWorld = ScriptHost.getWorld
 LObject.getProject = ScriptHost.getProject
-function LObject:getWorldTransform()
-    return self.parent and Transform.compose(self.parent:getWorldTransform(), self.transform) or self.transform
+function LObject:getWorldTransform(context)
+    local value = Transform.localValue(self, context)
+    return self.parent and Transform.compose(self.parent:getWorldTransform(context), value) or value
 end
 function LObject:attachTo(parent)
     assert(parent == nil or getmetatable(parent) == LObject, "Parent must be an LObject")

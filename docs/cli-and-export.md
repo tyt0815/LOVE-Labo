@@ -65,6 +65,21 @@ love src --cli level simulate --project tests/TestProject --level Assets/Example
 
 simulate의 demo.trace로 업데이트 순서, 에디터 Play로 두 사각형의 겹침을 확인합니다. 명령은 기존 것을 재사용하며 별도 순서 전용 명령은 없습니다.
 
+## 카메라·HUD 전환과 공개 API 예제
+
+```powershell
+love src --cli project migrate-rendering --project D:/Games/MyGame --dry-run
+love src --cli project migrate-rendering --project D:/Games/MyGame
+love src --cli project examples-ui --project D:/Games/MyGame
+love src --cli project examples-ui --project D:/Games/EmptyGame --public-only
+```
+
+migrate-rendering은 mainCamera를 View 부착으로, 이전 Canvas 설정을 새 카메라 연결·matchCamera로 변환하고 제공 View의 좌표계 플래그를 정리합니다. dry-run은 파일을 쓰지 않고 변경 경로만 반환합니다. 기존 GUI 초안을 저장한 뒤 실행합니다. 사용자 Lua의 drawScreen·createView(camera=...)는 먼저 공개 API로 직접 전환합니다. level.set-camera는 제거되었습니다.
+
+examples-ui는 Assets/Examples에 HUD Prefab·9방향 앵커·커스텀 입력과 두 검수 레벨을 생성합니다. public-only는 제공 플러그인을 활성화하지 않고 API 전용 예제만 생성합니다. 동명 파일은 덮어쓰지 않습니다.
+
+level.view는 projection·views와 instances의 authoredTransform·유효 worldTransform·대표 bounds를 반환합니다. level.render로 실제 화면을 PNG로 확인하고 level.pointer로 같은 좌표·입력 경로를 검증합니다. 다른 명령에서 설정하는 anchor·pivot은 topLeft/top/topRight/left/center/right/bottomLeft/bottom/bottomRight 문자열이며 Inspector 선택지와 같은 검증을 사용합니다.
+
 ## 기본 사용
 
 개발판은 `love src --cli ...`, 배포판은 `Labo-cli.exe --cli ...`를 사용합니다. stdout은 JSON이며 실패는 `ok:false`와 오류를 반환합니다. `--request <UTF-8 JSON 파일>`로 배열·복잡한 값을 전달할 수 있습니다. 참조는 에셋 ID 또는 Assets 경로, 기본 레벨은 project.labo의 지정값입니다.
@@ -104,7 +119,8 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | prefab child move | --prefab, --node, --destination 노드 경로, --mode attach/before/after/detach; root 앞은 로컬 자손을 새 루트로 지정하며 기존 루트의 원본 유지 |
 | level create/get/set/reset/set-parent/validate | --level, --name, --property; create --empty는 카메라 없는 레벨 |
 | level view/render | 초기화 후 활성 View·투영 정보 조회; render는 --output PNG로 실제 출력 |
-| level set-camera | 과거 mainCamera 데이터 편집용 호환 명령. 새 구성은 일반 View Script 사용 |
+| project migrate-rendering | --dry-run으로 이전 카메라·Canvas 데이터 변환 경로 확인 후 실행 |
+| project examples-ui | 카메라 아래 9방향 HUD 예제 생성. --public-only는 플러그인 없이 공개 API만 사용 |
 | script open | --script 이름·ID·경로를 외부 편집기로 열기. --dry-run으로 실행 계획 조회 |
 | project rendering-examples | 메인 화면·미니맵 검수 예제 추가 |
 | level simulate | --frames 0..10000, --dt, --debug; 파일 수정 없이 load/update 결과와 스크립트 상태 반환, draw는 실행하지 않음. --debug는 에디터 로그·도형 기록도 반환 |
@@ -173,6 +189,8 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 
 스크립트 프로퍼티 조회 결과의 schema·values 키는 `사용자이름.프로퍼티`이며 `scriptIds`가 이름과 UUID를 연결합니다. prefab get은 최상위, instance get은 properties.scriptIds에서 확인합니다. 이름 또는 ID로 편집할 수 있으며 저장된 script 참조는 내부 ID를 사용합니다. 과거 Main Camera도 호환 데이터에서 내부 ID를 보존합니다. `instance set`/`prefab set`의 `이름.enabled`로 활성 상태를 편집합니다.
 
+<a id="script-events"></a>
+
 ## 일반 Script 이벤트 검증
 
 `level.events`는 레벨을 초기화하고 일반 LÖVE 이벤트를 부착 Script에 전달한 뒤 Transform·프로퍼티 상태를 반환합니다. 레벨을 저장하지 않습니다. 입력 소비를 수행하는 `level.pointer`와 독립된 명령입니다.
@@ -193,7 +211,7 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 }
 ```
 
-`Labo-cli.exe --cli --request request.json`으로 실행합니다. `--events-json`으로 이벤트 배열을 전달할 수도 있습니다. 이벤트는 1~1000개이며 이름은 [지원 Script 콜백](guide/lua-api.md#löve-이벤트-콜백)으로 제한됩니다. 좌표는 지정한 화면의 호스트 좌표이고 카메라 레터박스와 게임 영역 원점 변환을 적용합니다. `--debug`는 로그를 결과에 포함합니다. 게임 업데이트·Pointer 판정은 실행하지 않습니다. 실제 Joystick 객체가 필요한 조이스틱·게임패드 이벤트는 JSON CLI로 주입하지 않습니다.
+`Labo-cli.exe --cli --request request.json`으로 실행합니다. `--events-json`으로 이벤트 배열을 전달할 수도 있습니다. 이벤트는 1~1000개이며 이름은 [지원 Script 콜백](guide/lua-api.md#script-events)으로 제한됩니다. 좌표는 지정한 화면의 호스트 좌표이고 카메라 레터박스와 게임 영역 원점 변환을 적용합니다. `--debug`는 로그를 결과에 포함합니다. 게임 업데이트·Pointer 판정은 실행하지 않습니다. 실제 Joystick 객체가 필요한 조이스틱·게임패드 이벤트는 JSON CLI로 주입하지 않습니다.
 
 Export의 실제 Host 검증에는 기존 `--verify-game`과 함께 `--verify-events <이벤트 배열 JSON 파일>`을 사용합니다.
 

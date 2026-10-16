@@ -1,0 +1,159 @@
+{
+  "formatVersion": 3,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "name": "Camera 1",
+      "scripts": [
+        {
+          "id": "455e9c43-9fad-4f3e-a478-644af92d3249",
+          "name": "camera",
+          "source": "fa5ac02b-e769-455b-a47b-eea554e4e094"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 2,
+      "name": "World grid 1",
+      "scripts": [
+        {
+          "id": "8a691064-f48b-4bd2-8bbb-1a7d987a057b",
+          "name": "world",
+          "source": "a8140d64-877f-42a7-b899-ce081fe74303"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 3,
+      "definitionReference": "a33f1e2f-02dd-4323-8382-e5b462f161b5",
+      "name": "HUD Prefab 1",
+      "parentAuthoringId": 1,
+      "prefabNodePath": "root",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 4,
+      "name": "topLeft",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/6d0f00ca-6e8b-48c3-beaf-319a29e6812d",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 20,
+        "y": 20
+      }
+    },
+    {
+      "authoringId": 5,
+      "name": "top",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/8c811986-b44f-4146-80f1-2612f24515c8",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 0,
+        "y": 20
+      }
+    },
+    {
+      "authoringId": 6,
+      "name": "topRight",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/d5e73fe2-0fbd-4912-8bd8-dcedfc12da7e",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": -20,
+        "y": 20
+      }
+    },
+    {
+      "authoringId": 7,
+      "name": "left",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/6f086554-7ae1-4516-9aef-32cdab6411cd",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 20,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 8,
+      "name": "center",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/2f5ebedf-e0aa-43b4-8cc1-ddf82f6c74a1",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 9,
+      "name": "right",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/65cd1c46-03c6-4be1-ab7e-9e5005dc3f17",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": -20,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 10,
+      "name": "bottomLeft",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/7e56deaa-d853-4b05-83dc-c25b88807b67",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 20,
+        "y": -20
+      }
+    },
+    {
+      "authoringId": 11,
+      "name": "bottom",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/587b1467-9308-4077-98e6-8be6d71eedce",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 0,
+        "y": -20
+      }
+    },
+    {
+      "authoringId": 12,
+      "name": "bottomRight",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/753bbffc-6261-4e6c-a5b7-17a84764f12b",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": -20,
+        "y": -20
+      }
+    }
+  ],
+  "propertyOverrides": {},
+  "scriptOverrides": {},
+  "scripts": {}
+}

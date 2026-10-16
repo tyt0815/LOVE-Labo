@@ -277,6 +277,10 @@ function Level:isDescendant(object, ancestor)
     return false
 end
 function Level:getWorldTransform(object)
+    if self.layout then
+        local preview = self.layout:preview(object)
+        if preview then return preview:getWorldTransform() end
+    end
     local parent = self:getParent(object)
     return parent and Transform.compose(self:getWorldTransform(parent), object.transform) or object.transform
 end
@@ -284,6 +288,14 @@ function Level:setWorldPosition(object, x, y)
     local parent = self:getParent(object)
     if parent then x, y = Transform.inversePoint(self:getWorldTransform(parent), x, y) end
     if not x then return false, "Parent Transform cannot be inverted" end
+    if self.layout then
+        local preview = self.layout:preview(object)
+        if preview then
+            local value = assert(Transform.copy(object.transform)); value.x, value.y = x, y
+            value = Transform.unresolve(preview, value)
+            x, y = value.x, value.y
+        end
+    end
     object.transform.x, object.transform.y = x, y
     return true
 end
@@ -305,10 +317,11 @@ function Level:reparent(objects, parent)
     for _, object in ipairs(roots) do
         if parent == object or parent and self:isDescendant(parent, object) then return false, "Object attachment cycle" end
         local world = self:getWorldTransform(object)
-        local x, y = world.x, world.y
-        if parent then x, y = Transform.inversePoint(self:getWorldTransform(parent), x, y) end
-        if not x then return false, "Parent Transform cannot be inverted" end
-        positions[object] = {x, y}
+        if parent then
+            local x = Transform.inversePoint(self:getWorldTransform(parent), world.x, world.y)
+            if not x then return false, "Parent Transform cannot be inverted" end
+        end
+        positions[object] = {world.x, world.y}
     end
     if self.beforeReparent then
         local ok, err = self.beforeReparent(roots, parent)
@@ -316,7 +329,9 @@ function Level:reparent(objects, parent)
     end
     for _, object in ipairs(roots) do
         object.parentAuthoringId = parent and parent.authoringId or nil
-        object.transform.x, object.transform.y = unpack(positions[object])
+        -- 새 부모의 배치 기준을 사용해 저장 오프셋을 역산한다.
+        local ok, err = self:setWorldPosition(object, unpack(positions[object]))
+        if not ok then return false, err end
     end
     return true
 end

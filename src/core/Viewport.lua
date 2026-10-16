@@ -11,13 +11,12 @@ function Viewport.new(world, x, y, width, height, view)
             if views[index].target == require("core.Rendering").screen then view = views[index]; break end
         end
     end
-    self.view, self.camera = view, view and view.camera
-    if not view and world and world.legacyCameraSelection then self.camera = world:getActiveCamera() end
+    self.view, self.projection = view, view and view:getProjection()
     self.transform = {x = 0, y = 0}
-    if self.camera then
-        local w, h = self.camera:getViewSize()
+    if self.projection then
+        local w, h = self.projection.width, self.projection.height
         self.scale = math.min(width / w, height / h)
-        self.transform = self.camera:getViewTransform()
+        self.transform = self.projection.transform
         self.contentWidth, self.contentHeight = w * self.scale, h * self.scale
         -- 화면 공간 UI도 레터박스를 제외한 실제 게임 화면을 기준으로 배치한다.
         self.x, self.y = self.x + (width - self.contentWidth) / 2, self.y + (height - self.contentHeight) / 2
@@ -37,13 +36,17 @@ function Viewport:containsWorldScreen(x, y)
         and math.abs(y - self.y - self.height / 2) <= self.contentHeight / 2
 end
 function Viewport:context(image)
-    return {image = image, viewport = self, camera = self.camera, view = self.view, target = self.view and self.view.target, transform = function(_, script) return require("core.CoordinateSpace").transform(script) end}
+    local context = {image = image, viewport = self, projection = self.projection, view = self.view, target = self.view and self.view.target,
+        transform = function(_, script) return script:getWorldTransform() end}
+    context.transform = function(_, script) return script:getWorldTransform(context) end
+    context.withScreen = function(_, callback) return require("core.Rendering").withScreen(context, callback) end
+    return context
 end
 function Viewport:dispatchPointer(world, kind, x, y, button, dx, dy, image)
     local wx, wy = self:screenToWorld(x, y)
     local px, py = self:screenToWorld(x - (dx or 0), y - (dy or 0))
     local context = self:context(image)
-    context.screenX, context.screenY = x - self.x - self.width / 2, y - self.y - self.height / 2
+    context.screenX, context.screenY = x - self.x, y - self.y
     context.screenDx, context.screenDy = dx or 0, dy or 0
     context.worldVisible = self:containsWorldScreen(x, y)
     return world:dispatchPointer(kind, wx, wy, button, wx - px, wy - py, context)

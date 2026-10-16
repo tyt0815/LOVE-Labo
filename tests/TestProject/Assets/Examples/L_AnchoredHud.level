@@ -1,0 +1,177 @@
+{
+  "formatVersion": 3,
+  "lobjects": [
+    {
+      "authoringId": 1,
+      "name": "Camera 1",
+      "scriptOverrides": {
+        "2dd63285-a038-4dc8-8622-cb996c09f90f": {
+          "cameraSource": {
+            "authoringId": 1,
+            "script": "6215f258-6829-4e13-a143-a501ce8ef160"
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "6215f258-6829-4e13-a143-a501ce8ef160",
+          "name": "camera",
+          "source": "953e5435-cdd1-43e0-9e78-225d81618862"
+        },
+        {
+          "id": "2dd63285-a038-4dc8-8622-cb996c09f90f",
+          "name": "view",
+          "source": "c4aa7e61-034e-4b9e-94b9-392ee2c03ec8"
+        },
+        {
+          "id": "2f8f59b1-ab7f-479d-bcd0-280b1fc0e9b5",
+          "name": "controls",
+          "source": "db48127e-7d1f-4d9e-a0b0-5e0a9b0faeaa"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 2,
+      "name": "World grid 1",
+      "scripts": [
+        {
+          "id": "fc209a1d-696a-4b14-8191-ccc4dcd8b1e3",
+          "name": "world",
+          "source": "a8140d64-877f-42a7-b899-ce081fe74303"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 3,
+      "definitionReference": "d5dc6b13-e5eb-45d4-91cb-46d07bd56d2a",
+      "name": "HUD Prefab 1",
+      "parentAuthoringId": 1,
+      "prefabNodePath": "root",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 4,
+      "name": "topLeft",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/6ee7034f-6c70-4947-80d8-372b6697ff7c",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 20,
+        "y": 20
+      }
+    },
+    {
+      "authoringId": 5,
+      "name": "top",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/04f75ab4-43ac-4d67-b9b4-4613ed16ef83",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 0,
+        "y": 20
+      }
+    },
+    {
+      "authoringId": 6,
+      "name": "topRight",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/dfe9efe6-e826-43f6-a155-4ba4b6d7f993",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": -20,
+        "y": 20
+      }
+    },
+    {
+      "authoringId": 7,
+      "name": "left",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/cfeb2b51-2409-4769-9ee4-caf6ac05d5a1",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 20,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 8,
+      "name": "center",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/c79fdabf-2be1-42dc-b4a6-dba4a690b91c",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 9,
+      "name": "right",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/64bbba70-9374-4818-a606-b66a5375eb82",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": -20,
+        "y": 0
+      }
+    },
+    {
+      "authoringId": 10,
+      "name": "bottomLeft",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/2de88674-ce0c-4576-be31-7e488fcecc27",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 20,
+        "y": -20
+      }
+    },
+    {
+      "authoringId": 11,
+      "name": "bottom",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/4d988c43-ae4c-4bd0-90d8-896593e34042",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": 0,
+        "y": -20
+      }
+    },
+    {
+      "authoringId": 12,
+      "name": "bottomRight",
+      "parentAuthoringId": 3,
+      "prefabNodePath": "root/38c04c47-11b3-4647-81ff-0f5e0ebbaf72",
+      "prefabRootId": 3,
+      "scripts": {},
+      "transform": {
+        "x": -20,
+        "y": -20
+      }
+    }
+  ],
+  "propertyOverrides": {},
+  "scriptOverrides": {},
+  "scripts": {}
+}

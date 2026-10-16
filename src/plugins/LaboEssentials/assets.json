@@ -5,35 +5,35 @@
             "scriptKind": "script",
             "version": 1,
             "id": "953e5435-cdd1-43e0-9e78-225d81618862",
-            "hash": "369352f75392bec29170ad216d2074db8b9435c046784a3aa4e06ca65063669e",
+            "hash": "bf28867fe9c1c6aa1c1f2d4e7a1625b0f521b8d2400082645a7bc363826db4cc",
             "scriptName": "Camera"
         },
         "Assets/Canvas.lua": {
             "scriptKind": "script",
             "version": 1,
             "id": "dd9029e6-e54d-455b-95df-a76477884c1f",
-            "hash": "067ce9814e5b853be0104875efa8cbd461ed609d6aa230e9d55bf74575cca6a5",
+            "hash": "9d18faa9b7cff016d144d79c155163dbdcc56a3e30e179f283eca211db275783",
             "scriptName": "Canvas"
         },
         "Assets/Pointer.lua": {
             "scriptKind": "script",
             "version": 1,
             "id": "6a3d80b6-38e4-4e0c-92d1-2338a55c2e30",
-            "hash": "a82c8d0591c0d3e2fa33aaaaab4a205c2901c8de1150a03edb12b1878d889867",
+            "hash": "c57d28b8007370adac439edf5c244ce80e540cb08c3a7e790fd13b411a1a6bbc",
             "scriptName": "Pointer"
         },
         "Assets/RectBounds.lua": {
             "scriptKind": "script",
             "version": 1,
             "id": "2910da6c-5e36-40c6-b62c-46d7a3cb96c6",
-            "hash": "0ccc5cc7d1b7f9e262d16e7f73f7923506401822804f821f34746a8b52d9b160",
+            "hash": "3ddc370fecbee1c132a126050f0edd019c581a884a6fe08d351590c0e74d987e",
             "scriptName": "RectBounds"
         },
         "Assets/Sprite.lua": {
             "scriptKind": "script",
             "version": 1,
             "id": "0619e599-48f0-49c5-92b5-aa4a81476f8c",
-            "hash": "8c2429966141cb5e32ba944cb9b7972e4e294212cff23d4ed76c83b8ebeb177b",
+            "hash": "288d8c8d5c40b3abc04c979baff882719294bada7748095d06af97508ae43021",
             "scriptName": "Sprite"
         },
         "Assets/Text.lua": {
@@ -41,14 +41,21 @@
             "id": "92441cbd-171f-4566-98df-06f549207ac5",
             "scriptKind": "script",
             "scriptName": "Text",
-            "hash": "2497564d898a5a6c06e6654cbe1466e5027f64332bc7350667f7a0dae491f7dd"
+            "hash": "599b86fa13d950d263cf70865f63e22faa57cf687ee459af51a9ee88c0721997"
         },
         "Assets/View.lua": {
             "version": 1,
             "id": "c4aa7e61-034e-4b9e-94b9-392ee2c03ec8",
             "scriptKind": "script",
             "scriptName": "View",
-            "hash": "6e890ca03bef89156804657d45b70535e8ff8564941e256ec371caa3ff7250b0"
+            "hash": "b646fcff191dc9d910c4aa1362914f2d86e6e387bdc89b2d8b146aa19c8e3c43"
+        },
+        "Assets/RectLayout.lua": {
+            "id": "46e38070-1008-4196-88b5-1eb40970283b",
+            "version": 1,
+            "scriptKind": "script",
+            "hash": "9fa80dbe45b4246c80b78e7117ef1e7b9a5e34e82e12ba4cfeb9e5224eb14655",
+            "scriptName": "RectLayout"
         }
     }
 }

@@ -63,7 +63,7 @@ function Host.load(args)
                 report.levelScripts = require("runtime.ScriptState").read(world)
                 local width, height = love.graphics.getDimensions()
                 local viewport = require("core.RenderPipeline").primaryViewport(world, 0, 0, width, height)
-                report.view = {scale = viewport.scale, camera = viewport.camera and viewport.camera.name,
+                report.view = {scale = viewport.scale, projection = viewport.projection,
                     x = viewport.transform.x, y = viewport.transform.y}
                 report.properties, report.instances = {}, {}
                 for _, object in ipairs(world.lobjects) do

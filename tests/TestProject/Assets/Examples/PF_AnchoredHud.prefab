@@ -1,0 +1,313 @@
+{
+  "children": [
+    {
+      "id": "6ee7034f-6c70-4947-80d8-372b6697ff7c",
+      "name": "topLeft",
+      "overrides": {
+        "scripts": {
+          "2e81eb93-45d1-4351-9520-3727d4df006e": {
+            "caption": "topLeft"
+          },
+          "ad9e2a73-d02b-4da2-9569-2d981551c9a5": {
+            "anchor": "topLeft",
+            "height": 44,
+            "pivot": "topLeft",
+            "width": 176
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "ad9e2a73-d02b-4da2-9569-2d981551c9a5",
+          "name": "layout",
+          "source": "46e38070-1008-4196-88b5-1eb40970283b"
+        },
+        {
+          "id": "2e81eb93-45d1-4351-9520-3727d4df006e",
+          "name": "button",
+          "source": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f"
+        }
+      ],
+      "transform": {
+        "x": 20,
+        "y": 20
+      }
+    },
+    {
+      "id": "04f75ab4-43ac-4d67-b9b4-4613ed16ef83",
+      "name": "top",
+      "overrides": {
+        "scripts": {
+          "098dc723-8173-4b58-a039-55e9ec0564b3": {
+            "anchor": "top",
+            "height": 44,
+            "pivot": "top",
+            "width": 176
+          },
+          "fe640926-79f9-41f1-9a66-85fd5ad4d89e": {
+            "caption": "top"
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "098dc723-8173-4b58-a039-55e9ec0564b3",
+          "name": "layout",
+          "source": "46e38070-1008-4196-88b5-1eb40970283b"
+        },
+        {
+          "id": "fe640926-79f9-41f1-9a66-85fd5ad4d89e",
+          "name": "button",
+          "source": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 20
+      }
+    },
+    {
+      "id": "dfe9efe6-e826-43f6-a155-4ba4b6d7f993",
+      "name": "topRight",
+      "overrides": {
+        "scripts": {
+          "26ebe0e0-95c6-48f6-9c3e-771aa9538233": {
+            "anchor": "topRight",
+            "height": 44,
+            "pivot": "topRight",
+            "width": 176
+          },
+          "45e34dce-7809-478a-8c9b-f7f70d53cb33": {
+            "caption": "topRight"
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "26ebe0e0-95c6-48f6-9c3e-771aa9538233",
+          "name": "layout",
+          "source": "46e38070-1008-4196-88b5-1eb40970283b"
+        },
+        {
+          "id": "45e34dce-7809-478a-8c9b-f7f70d53cb33",
+          "name": "button",
+          "source": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f"
+        }
+      ],
+      "transform": {
+        "x": -20,
+        "y": 20
+      }
+    },
+    {
+      "id": "cfeb2b51-2409-4769-9ee4-caf6ac05d5a1",
+      "name": "left",
+      "overrides": {
+        "scripts": {
+          "5b98aa48-092b-4a15-9e89-b7ff34641d11": {
+            "caption": "left"
+          },
+          "c3a99063-5ab6-429c-85ee-06f1018e776f": {
+            "anchor": "left",
+            "height": 44,
+            "pivot": "left",
+            "width": 176
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "c3a99063-5ab6-429c-85ee-06f1018e776f",
+          "name": "layout",
+          "source": "46e38070-1008-4196-88b5-1eb40970283b"
+        },
+        {
+          "id": "5b98aa48-092b-4a15-9e89-b7ff34641d11",
+          "name": "button",
+          "source": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f"
+        }
+      ],
+      "transform": {
+        "x": 20,
+        "y": 0
+      }
+    },
+    {
+      "id": "c79fdabf-2be1-42dc-b4a6-dba4a690b91c",
+      "name": "center",
+      "overrides": {
+        "scripts": {
+          "46f41f72-4ace-4a74-9564-8bd0b39770c6": {
+            "anchor": "center",
+            "height": 44,
+            "pivot": "center",
+            "width": 176
+          },
+          "d57be182-de5c-423f-9c06-26bf79b2a3ef": {
+            "caption": "center"
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "46f41f72-4ace-4a74-9564-8bd0b39770c6",
+          "name": "layout",
+          "source": "46e38070-1008-4196-88b5-1eb40970283b"
+        },
+        {
+          "id": "d57be182-de5c-423f-9c06-26bf79b2a3ef",
+          "name": "button",
+          "source": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "64bbba70-9374-4818-a606-b66a5375eb82",
+      "name": "right",
+      "overrides": {
+        "scripts": {
+          "57ec4ef0-33b4-4fef-90eb-2157f13ef5ae": {
+            "anchor": "right",
+            "height": 44,
+            "pivot": "right",
+            "width": 176
+          },
+          "bebcd75b-937a-45e1-94ad-d36b1c5fbfd6": {
+            "caption": "right"
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "57ec4ef0-33b4-4fef-90eb-2157f13ef5ae",
+          "name": "layout",
+          "source": "46e38070-1008-4196-88b5-1eb40970283b"
+        },
+        {
+          "id": "bebcd75b-937a-45e1-94ad-d36b1c5fbfd6",
+          "name": "button",
+          "source": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f"
+        }
+      ],
+      "transform": {
+        "x": -20,
+        "y": 0
+      }
+    },
+    {
+      "id": "2de88674-ce0c-4576-be31-7e488fcecc27",
+      "name": "bottomLeft",
+      "overrides": {
+        "scripts": {
+          "28b9cca8-7cb5-44cf-b3b0-c36bf78d7639": {
+            "caption": "bottomLeft"
+          },
+          "f546eba5-c73e-4623-8d53-d7d4be1cecfd": {
+            "anchor": "bottomLeft",
+            "height": 44,
+            "pivot": "bottomLeft",
+            "width": 176
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "f546eba5-c73e-4623-8d53-d7d4be1cecfd",
+          "name": "layout",
+          "source": "46e38070-1008-4196-88b5-1eb40970283b"
+        },
+        {
+          "id": "28b9cca8-7cb5-44cf-b3b0-c36bf78d7639",
+          "name": "button",
+          "source": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f"
+        }
+      ],
+      "transform": {
+        "x": 20,
+        "y": -20
+      }
+    },
+    {
+      "id": "4d988c43-ae4c-4bd0-90d8-896593e34042",
+      "name": "bottom",
+      "overrides": {
+        "scripts": {
+          "6a5fc8bd-8b0b-4ce3-abeb-3e287026d192": {
+            "caption": "bottom"
+          },
+          "e65cd96a-7356-41c5-b996-23c4e8c0ab2f": {
+            "anchor": "bottom",
+            "height": 44,
+            "pivot": "bottom",
+            "width": 176
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "e65cd96a-7356-41c5-b996-23c4e8c0ab2f",
+          "name": "layout",
+          "source": "46e38070-1008-4196-88b5-1eb40970283b"
+        },
+        {
+          "id": "6a5fc8bd-8b0b-4ce3-abeb-3e287026d192",
+          "name": "button",
+          "source": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f"
+        }
+      ],
+      "transform": {
+        "x": 0,
+        "y": -20
+      }
+    },
+    {
+      "id": "38c04c47-11b3-4647-81ff-0f5e0ebbaf72",
+      "name": "bottomRight",
+      "overrides": {
+        "scripts": {
+          "e8b2b093-21d1-4060-bd2d-a28373385fca": {
+            "caption": "bottomRight"
+          },
+          "f2243a5f-5a58-42b1-bbf9-ebd3d6e41aae": {
+            "anchor": "bottomRight",
+            "height": 44,
+            "pivot": "bottomRight",
+            "width": 176
+          }
+        }
+      },
+      "scripts": [
+        {
+          "id": "f2243a5f-5a58-42b1-bbf9-ebd3d6e41aae",
+          "name": "layout",
+          "source": "46e38070-1008-4196-88b5-1eb40970283b"
+        },
+        {
+          "id": "e8b2b093-21d1-4060-bd2d-a28373385fca",
+          "name": "button",
+          "source": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f"
+        }
+      ],
+      "transform": {
+        "x": -20,
+        "y": -20
+      }
+    }
+  ],
+  "formatVersion": 4,
+  "name": "PF_AnchoredHud",
+  "overrides": {
+    "scripts": {}
+  },
+  "scripts": [
+    {
+      "id": "1b61f4d9-99c4-4431-bbd4-754600f02635",
+      "name": "canvas",
+      "source": "dd9029e6-e54d-455b-95df-a76477884c1f"
+    }
+  ]
+}

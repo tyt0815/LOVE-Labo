@@ -9,6 +9,7 @@
         "RectBounds": "Assets/RectBounds.lua",
         "Canvas": "Assets/Canvas.lua",
         "Text": "Assets/Text.lua",
-        "View": "Assets/View.lua"
+        "View": "Assets/View.lua",
+        "RectLayout": "Assets/RectLayout.lua"
     }
 }

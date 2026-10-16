@@ -31,7 +31,7 @@ local function setProperty(project, target, name, item)
     if script then name = script.id .. "." .. field end
     local declaration = assert(target.class.properties[name], "Unknown property: " .. name)
     if declaration.type == "script" and target.resolveScriptReference then item = target:resolveScriptReference(item) end
-    assert(require("project.LuaScript").validValue(declaration.type, item), "Invalid property value")
+    assert(require("core.PropertySchema").validField(declaration, item), "Invalid property value")
     if declaration.type == "image" and item ~= false then
         local path = assert(project:resolveAssetFile(item))
         local pixels = love.image.newImageData(love.filesystem.newFileData(assert(project:readAsset(item)), path))
@@ -85,20 +85,20 @@ local COMMANDS = {"project.create", "project.info", "project.refresh", "project.
     "asset.preview", "asset.thumbnail", "script.open", "project.examples", "project.rendering-examples",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
-    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.events", "level.view", "level.render", "level.set-camera",
+    "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.events", "level.view", "level.render", "project.migrate-rendering", "project.examples-ui",
     "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.script.rename", "instance.reorder", "export"}
 for _, scope in ipairs({"project", "level"}) do
     for _, action in ipairs({"get", "add", "remove", "move", "rename", "set", "reset"}) do
         COMMANDS[#COMMANDS + 1] = scope .. ".script." .. action
     end
 end
-local function execute(request)
+local function execute(request, cleanups)
     local command = required(request, "command")
     if command:match("^script%.") and command ~= "script.open" then
         local normalized = {}; for key, value in pairs(request) do normalized[key] = value end
         normalized.command = command:gsub("^script%.", "class.")
         normalized.class = normalized.class or normalized.script
-        return execute(normalized)
+        return execute(normalized, cleanups)
     end
     if command == "help" then
         return {commands = COMMANDS, requestFormat = "JSON object: command, project, command arguments",
@@ -124,6 +124,8 @@ local function execute(request)
         return require("editor.CliScopes").execute(project, request, api)
     end
     if command == "project.rendering-examples" then return require("editor.RenderingExamples").create(project) end
+    if command == "project.examples-ui" then return require("editor.UiExamples").create(project, request.publicOnly == true or request["public-only"] == true) end
+    if command == "project.migrate-rendering" then return require("project.RenderingMigration").run(project, request.dryRun == true or request["dry-run"] == true) end
     if command == "project.examples" then local ok, result = require("editor.ApiExamples").create(project); assert(ok, result); return result end
     if command == "project.repair-plan" or command == "project.refresh" then return require("editor.AssetRepair").plan(project) end
     if command == "project.repair" then
@@ -243,6 +245,8 @@ local function execute(request)
     local bytes = assert(Fs.read(levelPath)); checkRevision(request, bytes)
     local document = assert(require("editor.LevelDocument").load(levelPath))
     local level = document.level
+    level.layout = require("project.AuthoringLayout").new(project, level)
+    cleanups[#cleanups + 1] = function() level.layout:clear() end
     level.beforeReparent = function(roots, parent) return require("project.PrefabHierarchy").prepareReparent(project, level, roots, parent) end
     level.duplicateData = function(object) return require("project.PrefabHierarchy").duplicateData(project, level, object) end
     local function selected()
@@ -318,18 +322,6 @@ local function execute(request)
             else setProperty(project, target, name, item) end
             changed = true
         else assert(command == "instance.get", "Unknown command: " .. command) end
-    elseif command == "level.set-camera" then
-        if request.instance == nil or request.instance == false or request.instance == "None" then level.mainCamera = nil
-        else
-            local candidates = assert(require("project.MainCamera").choices(project, level, level:findLObject(tonumber(request.instance))))
-            local selected
-            for _, candidate in ipairs(candidates) do
-                if candidate.script == request.script or candidate.name == request.script or not request.script and #candidates == 1 then selected = candidate end
-            end
-            assert(selected, "Choose a Camera script with --script")
-            level.mainCamera = assert(require("project.MainCamera").copy(selected))
-        end
-        changed = true
     elseif command == "level.simulate" then
         local result = require("editor.CliSimulation").execute(project, level, request); result.revision = revision(bytes); return result
     elseif command == "level.view" or command == "level.render" then
@@ -387,7 +379,9 @@ function Cli.execute(request)
     local lock = Fs.join(directory, ".labo-cli.lock")
     local acquired, err = Fs.createFile(lock, "Cli operation in progress\n")
     assert(acquired, "Project is busy or inaccessible: " .. tostring(err))
-    local ok, result = pcall(execute, request)
+    local cleanups = {}
+    local ok, result = pcall(execute, request, cleanups)
+    for index = #cleanups, 1, -1 do cleanups[index]() end
     local removed, removeError = Fs.removeFile(lock)
     assert(removed, removeError)
     assert(ok, result)
@@ -403,7 +397,7 @@ function Cli.parse(args)
         local item = args[i]
         if item:sub(1, 2) == "--" then
             local key = item:sub(3)
-            if key == "empty" or key == "link" or key == "debug" or key == "dry-run" then
+            if key == "empty" or key == "link" or key == "debug" or key == "dry-run" or key == "public-only" then
                 assert(request[key] == nil, "Duplicate option: " .. item)
                 request[key], i = true, i + 1
             else

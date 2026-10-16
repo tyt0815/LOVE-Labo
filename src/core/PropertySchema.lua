@@ -16,6 +16,14 @@ function Schema.overrideName(schema, name)
     if name == "sortingOrder" and not schema[name] and schema.drawOrder then return "drawOrder" end
     return name
 end
+function Schema.validField(field, value)
+    if not Schema.validValue(field.type, value) then return false end
+    if field.options then
+        for _, option in ipairs(field.options) do if option == value then return true end end
+        return false
+    end
+    return true
+end
 function Schema.values(schema, overrides)
     local result = {}
     for name, declaration in pairs(schema or {}) do
@@ -25,7 +33,7 @@ function Schema.values(schema, overrides)
     for name, value in pairs(overrides or {}) do
         local original = name
         name = Schema.overrideName(schema, name)
-        if not schema[name] or not Schema.validValue(schema[name].type, value) then return nil, "Invalid property override: " .. tostring(name) end
+        if not schema[name] or not Schema.validField(schema[name], value) then return nil, "Invalid property override: " .. tostring(name) end
         if original == name or overrides[name] == nil then
             result[name] = type(value) == "table" and {authoringId = value.authoringId, script = value.script} or value
         end

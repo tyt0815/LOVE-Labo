@@ -199,13 +199,9 @@ function ClassInspector:setProperty(name, value)
     local script = prefix and self.preview and (self.preview:getScriptById(prefix) or self.preview:getScriptByName(prefix))
     if script then name = script.id .. "." .. field end
     if self.target.readOnly then return false, "Labo plugin assets are read-only" end
-    if name == "$mainCamera" and self.target.mainCameraDetails then
-        if value == false then return self.target:setMainCamera(nil) end
-        self.error = "Use the eyedropper to select a camera instance"; return false
-    end
     local declaration = self.class and self.class.properties[name]
     if declaration and declaration.type == "script" and self.target.resolveScriptReference then value = self.target:resolveScriptReference(value) end
-    if not declaration or not LuaScript.validValue(declaration.type, value) then
+    if not declaration or not Schema.validField(declaration, value) then
         self.error = "Invalid value for " .. name
         return false
     end
@@ -315,11 +311,11 @@ function ClassInspector:parentPickRect()
     return {x = rect.x - 30, y = rect.y, w = 26, h = 26}
 end
 function ClassInspector:objectLabel(value, name)
-    if value == false then return name == "$mainCamera" and "Auto" or "None" end
+    if value == false then return "None" end
     for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
         if object.authoringId == (type(value) == "table" and value.authoringId or value) then
             local label = object.name or "LObject " .. tostring(value)
-            local scriptId = type(value) == "table" and value.script or name == "$mainCamera" and self.target.data.mainCamera.script
+            local scriptId = type(value) == "table" and value.script
             if scriptId then
                 local definition = require("project.PrefabHierarchy").authoringDefinition(self.project, self.target.level, object)
                 local attachment = definition and require("project.ScriptAttachments").find(definition.attachments, scriptId)
@@ -382,7 +378,12 @@ function ClassInspector:dropAsset() self.error = "Use the eyedropper to assign r
 function ClassInspector:choices(name, value)
     local kind = self.class.properties[name].type
     local options = {{label = "None", value = false}}
-    if kind == "object" then
+    if self.class.properties[name].options then
+        options = {}
+        for _, option in ipairs(self.class.properties[name].options) do
+            options[#options + 1] = {label = PropertyLayout.propertyLabel(option), value = option}
+        end
+    elseif kind == "object" then
         for _, object in ipairs(self.target.level and self.target.level.lobjects or {}) do
             options[#options + 1] = {label = "LObject " .. object.authoringId, value = object.authoringId}
         end
@@ -437,7 +438,7 @@ function ClassInspector:rebuildRows()
             local field = declaration.field or name
             local hidden = declaration.script and field == "enabled"
                 or field == "updateOrder" and not source.update
-                or field == "drawOrder" and not (source.draw or source.drawScreen)
+                or field == "drawOrder" and not source.draw
             if belongs and not hidden then
                 self.names[#self.names + 1] = name
                 local group = declaration.rootTransform and "Transform" or declaration.group or defaultGroup
@@ -685,7 +686,7 @@ function ClassInspector:draw()
             if (declaration.type == "object" or declaration.type == "script") then
                 Ui.button("", rect, false, self:objectLabel(value, name) .. ". Use the eyedropper to pick a target.")
                 Ui.text(self:objectLabel(value, name), rect.x + 4, rect.y + (rect.h - love.graphics.getFont():getHeight()) / 2, math.max(0, rect.w - 8))
-            elseif Schema.isResource(declaration.type) or Schema.isTemplate(declaration.type) then
+            elseif declaration.options or Schema.isResource(declaration.type) or Schema.isTemplate(declaration.type) then
                 local choice = self:choices(name, value)
                 choice:setBounds(rect.x, rect.y, rect.w, rect.h)
                 choice:draw()
@@ -848,7 +849,7 @@ function ClassInspector:mousepressed(x, y, button)
             local value = self.target:getOverrides()[name]
             if value == nil then value = declaration.default end
             if (declaration.type == "object" or declaration.type == "script") then return true end
-            if Schema.isResource(declaration.type) or Schema.isTemplate(declaration.type) then
+            if declaration.options or Schema.isResource(declaration.type) or Schema.isTemplate(declaration.type) then
                 local choice = self:choices(name, value)
                 local rect = self:propertyRect(name, top)
                 choice:setBounds(rect.x, rect.y, rect.w, rect.h)

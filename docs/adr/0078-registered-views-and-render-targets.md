@@ -1,5 +1,7 @@
 # 0078. 레벨 전용 카메라 설정 대신 View와 RenderTarget을 등록한다
 
+> 카메라·화면 공간·입력·배치 계약은 [ADR 0085](0085-public-projection-layout-and-input.md)에서 부분 대체한다.
+
 - 상태: 채택·구현
 - 날짜: 2026-10-16
 - 부분 대체: [0047](0047-level-main-camera-and-default-camera.md)의 레벨 전용 설정·자동 생성, [0049](0049-camera-selection-without-enabled.md)의 단일 카메라 선택

@@ -53,6 +53,7 @@ function Preview:getImage(reference)
     return image
 end
 function Preview:release()
+    if self.world then self.world:dispose(); self.world = nil end
     for _, image in pairs(self.images) do if image then image:release() end end
     self.images = {}
 end
@@ -71,12 +72,12 @@ function Preview:draw(rect, background)
             return true
         end
         if not self.world then return false end
-        local ctx = {image = function(_, reference) return reference and reference ~= false and self:getImage(reference) or nil end,
+        local ctx = {preview = true, image = function(_, reference) return reference and reference ~= false and self:getImage(reference) or nil end,
             viewport = {width = 1280, height = 720}, transform = function(_, script) return require("core.CoordinateSpace").transform(script) end}
         local left, top, right, bottom
         for _, entry in ipairs(require("core.ScriptOrder").entries(self.objects, "draw")) do
             local script = entry.script
-            if script.getLocalBounds then
+            if script.getBounds then
                 local x, y, width, height = script:getBounds(ctx)
                 if x then for _, point in ipairs({{x, y}, {x + width, y}, {x + width, y + height}, {x, y + height}}) do
                     local wx, wy = Transform.point(ctx:transform(script), point[1], point[2])

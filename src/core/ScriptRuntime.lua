@@ -1,6 +1,7 @@
 -- 에디터·로더 전용 부착 구성. 게임 공개 API에서는 제공하지 않는다.
 local Runtime = {}
 function Runtime.unload(script)
+    require("core.Bindings").release(script)
     if not script.hasLoaded or script.hasUnloaded then return true end
     -- 재진입이나 콜백 오류가 있어도 같은 부착을 두 번 종료하지 않는다.
     script.hasUnloaded = true
@@ -18,6 +19,10 @@ function Runtime.attach(self, id, class, overrides, name)
     self.scripts[id] = script; self.scriptOrder[#self.scriptOrder + 1] = id
     if script.update then self.updateScripts[#self.updateScripts + 1] = script end
     if script.draw then self.drawScripts[#self.drawScripts + 1] = script end
+    if script.configure then
+        local ok, err = pcall(script.configure, script)
+        if not ok then Runtime.detach(self, id); error(err, 0) end
+    end
     if self.hasLoaded and not self.loadingScripts then
         local ok, err = self:load(self.world)
         if not ok then Runtime.detach(self, id); error(err, 0) end

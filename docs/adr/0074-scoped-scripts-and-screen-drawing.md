@@ -1,5 +1,7 @@
 # 0074. Project·Level·Object에 같은 Script를 부착하고 화면 그리기를 분리한다
 
+> 카메라·화면 공간·입력·배치 계약은 [ADR 0085](0085-public-projection-layout-and-input.md)에서 부분 대체한다.
+
 > 순서 설정·표시는 [ADR 0084](0084-common-script-callback-order.md)에서 확장·부분 대체한다.
 
 - 상태: 승인·구현

@@ -37,13 +37,17 @@ end
 function LevelLogic:keypressed(key)
     if key == "n" and self.nextLevel ~= "" then assert(self:getWorld():openLevel(self.nextLevel)) end
 end
-function LevelLogic:draw(context)
+function LevelLogic:drawWorld(context)
     love.graphics.setColor(0.3, 0.4, 0.5, 1)
     love.graphics.line(-240, 0, 240, 0)
     love.graphics.circle("line", 0, 0, 100)
 end
-function LevelLogic:drawScreen(context)
+function LevelLogic:drawOverlay(context)
     love.graphics.setColor(1, 0.85, 0.25, 1)
     love.graphics.print(self.levelTitle .. " | fixed steps " .. self.steps .. " | N: change level", 20, 50)
+end
+function LevelLogic:draw(context)
+    self:drawWorld(context)
+    context:withScreen(function() self:drawOverlay(context) end)
 end
 return LevelLogic

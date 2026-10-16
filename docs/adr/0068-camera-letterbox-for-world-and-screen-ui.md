@@ -1,5 +1,7 @@
 # 0068. 카메라 비율의 실제 게임 영역과 레터박스
 
+> 카메라·화면 공간·입력·배치 계약은 [ADR 0085](0085-public-projection-layout-and-input.md)에서 부분 대체한다.
+
 - View 등록·출력 대상과 레벨 전용 카메라 설정은 [ADR 0078](0078-registered-views-and-render-targets.md)으로 부분 대체한다.
 
 - 상태: 승인·구현

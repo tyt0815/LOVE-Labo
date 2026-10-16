@@ -1,5 +1,6 @@
-local Bounds = require("core.Bounds")
-local Text = require("core.Script"):extend({scriptType = "Text", properties = {
+local Engine = require("Engine")
+local Bounds = Engine.Bounds
+local Text = Engine.Script:extend({scriptType = "Text", properties = {
     text = {type = "string", default = "Text"},
     fontSize = {type = "number", default = 20},
     width = {type = "number", default = 300, group = "Layout"},
@@ -22,11 +23,19 @@ function Text:getLocalBounds()
     local _, lines = font:getWrap(self.text, width)
     return 0, 0, width, math.max(1, #lines) * font:getHeight() * font:getLineHeight()
 end
-function Text:draw()
+function Text:configure()
+    Bounds.bind(self, function(context)
+        local x, y, w, h = Bounds.of(self.owner, context)
+        if x then return x, y, w, h end
+        return self:getLocalBounds()
+    end)
+end
+function Text:draw(context)
     local align = self.align == "center" and "center" or self.align == "right" and "right" or "left"
     love.graphics.setFont(fontFor(self))
     love.graphics.setColor(self.red, self.green, self.blue, self.alpha)
-    love.graphics.printf(self.text, 0, 0, math.max(1, self.width), align)
+    local x, y, width = self:getBounds(context)
+    love.graphics.printf(self.text, x, y, math.max(1, width), align)
     return true
 end
 function Text:drawEditor(context) context:bounds(self) end

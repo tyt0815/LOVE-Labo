@@ -39,14 +39,6 @@ function Inspector:target(document, label, id)
             local class = require("project.LuaScript").load(self.app.project, level.scriptReference, "level")
             for name, declaration in pairs(class and class.properties or {}) do target.class.properties[name] = declaration end
         end
-        target.setMainCamera = function(_, value)
-            if value ~= nil then
-                local valid, errorText = require("project.MainCamera").copy(value)
-                if errorText then return false, errorText end
-                level.mainCamera = valid
-            else level.mainCamera = nil end
-            return true
-        end
     end
     -- 부착 변경 뒤에도 문서·카메라·저장 정보가 같은 대상에 유지되도록 다시 합성한다.
     target.reloadTarget = function()
@@ -121,11 +113,7 @@ function Inspector:pickReference(target, field, kind)
     local choices = {{label = "None", value = false}}
     for _, object in ipairs(target.level.lobjects) do
         local label = object.name or "LObject " .. object.authoringId
-        if kind == "camera" then
-            local cameras, err = require("project.MainCamera").choices(self.app.project, target.level, object, true)
-            if not cameras then return false, err end
-            for _, camera in ipairs(cameras) do choices[#choices + 1] = {label = label .. " / " .. camera.name, value = camera} end
-        elseif kind == "object" then choices[#choices + 1] = {label = label, value = object.authoringId}
+        if kind == "object" then choices[#choices + 1] = {label = label, value = object.authoringId}
         else
             local definition, err = require("project.PrefabHierarchy").authoringDefinition(self.app.project, target.level, object)
             if not definition then return false, err end
@@ -138,8 +126,7 @@ function Inspector:pickReference(target, field, kind)
     require("editor.ui.Dialog").new(self.app.uiRoot, {title = "Choose a reference in this level", choices = choices, confirmLabel = "Select",
         message = "This level is not open in Scene View.", onConfirm = function(_, value)
             local ok, err
-            if kind == "camera" then ok, err = target:setMainCamera(value ~= false and value or nil)
-            else ok, err = self.app.inspector.classInspector:applyPicked(field, value) end
+            ok, err = self.app.inspector.classInspector:applyPicked(field, value)
             if ok then self.app.inspector.classInspector:reload(); self.app:recordHistory() end
             return ok, err
         end})

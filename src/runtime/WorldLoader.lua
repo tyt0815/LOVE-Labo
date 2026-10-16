@@ -73,6 +73,7 @@ end
 function Loader.prepare(project, data, session)
     local _, cameraError = require("project.MainCamera").copy(type(data) == "table" and data.mainCamera)
     if cameraError then return nil, cameraError end
+    if type(data) == "table" and data.mainCamera then return nil, "Legacy mainCamera: run project.migrate-rendering before Play or Export" end
     local world, err = require("core.World").fromLevelData(data)
     if not world then return nil, err end
     world.assetDataLoader = function(reference) return require("project.AssetData").read(project, reference) end
@@ -98,9 +99,6 @@ function Loader.prepare(project, data, session)
     world.levelPropertySchema = class and class.properties
     local ok, initial = Loader.bind(project, data, world, loadClass)
     if not ok then return nil, initial end
-    local camera = require("project.MainCamera").resolve(world, data.mainCamera)
-    if camera then assert(world:setActiveCamera(camera)) end
-    world.legacyMainCamera = camera
     return world, class, initial, loadClass
 end
 
@@ -129,10 +127,6 @@ function Loader.activate(project, world, class, initial, loadClass)
     if class then
         local ok, err = world:setLevelScript(class)
         if not ok then return fail(err) end
-    end
-    -- 과거 저장값만 호환 View로 변환하며 새 레벨에서는 카메라를 자동 선택하지 않는다.
-    if #require("core.Rendering").views(world) == 0 and world.legacyCameraSelection and world:getActiveCamera() then
-        world.legacyView = require("core.Rendering").createView(world, {camera = world:getActiveCamera()})
     end
     return world
 end

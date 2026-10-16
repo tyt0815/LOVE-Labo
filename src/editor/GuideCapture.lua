@@ -272,19 +272,24 @@ return AudioDemo]]))
         assert(app:startPlay()); shot("api-examples"); assert(app:stopPlay())
         assert(project:createEntry("Assets", "lua", "ScopeVisual", {scriptKind = "script"}))
         assert(Fs.writeAtomic(project:resolveSourceFile("Assets/ScopeVisual.lua"), [[local Visual = {}
-function Visual:draw(context)
+function Visual:drawWorld(context)
     if self.owner.scope == "level" then
         love.graphics.setColor(0.15, 0.65, 0.85, 1)
         love.graphics.circle("line", 0, 0, 150)
     end
 end
-function Visual:drawScreen(context)
+function Visual:drawOverlay(context)
+    if not self:getWorld():getScriptByName("levelOverlay") then return end
     local project = self.owner.scope == "project"
     local y = project and 20 or 48
     love.graphics.setColor(0.08, 0.12, 0.18, 0.95)
     love.graphics.rectangle("fill", 12, y - 3, context.viewport.width - 24, 24)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.print(project and "Project drawScreen: game-area pixels" or "Level draw: camera space | Level drawScreen: screen space", 20, y)
+    love.graphics.print(project and "Project screen drawing: game-area pixels" or "Level draw: camera space | Level screen drawing: screen space", 20, y)
+end
+function Visual:draw(context)
+    self:drawWorld(context)
+    context:withScreen(function() self:drawOverlay(context) end)
 end
 return Visual
 ]]))
@@ -294,6 +299,24 @@ return Visual
         assert(assert(scoped.inspectorTarget(project, project, nil, "Project")):addScript(source, "overlay"))
         assert(assert(scoped.inspectorTarget(project, app.level, app.level, "Level")):addScript(source, "levelOverlay"))
         assert(app:startPlay()); shot("scope-drawing"); assert(app:stopPlay())
+        local uiExamples = require("editor.UiExamples").create(project)
+        app.assetBrowser:refresh()
+        assert(app:openProjectDocument(uiExamples.level, true))
+        app.inspectorSource = "scene"
+        local anchorObject
+        for _, object in ipairs(app.level.lobjects) do if object.name == "topRight" then anchorObject = object end end
+        app.sceneView:setSelection({anchorObject}); app:updateInspectorTarget(); app:draw()
+        local inspector = app.inspector.classInspector
+        local layoutId = inspector.preview:getScriptByName("layout").id
+        inspector.groupExpanded["object/Transform"] = false
+        local rect = assert(inspector:ensurePropertyVisible(layoutId .. ".anchor"))
+        shot("ui-anchor")
+        inspector:mousepressed(rect.x + 6, rect.y + 6, 1); shot("ui-anchor-picker"); app.uiRoot:keypressed("escape")
+        assert(app:startPlay()); shot("ui-hud"); assert(app:stopPlay())
+        assert(app:openProjectDocument(uiExamples.publicLevel, true))
+        for _, object in ipairs(app.level.lobjects) do if object.name == "topRight" then app.sceneView:setSelection({object}) end end
+        app.inspectorSource = "scene"; app:updateInspectorTarget()
+        assert(app:startPlay()); shot("ui-public"); assert(app:stopPlay())
         assert(Fs.writeAtomic(Fs.join(directory, "report.json"), assert(Json.encode(report, true))))
     end, debug.traceback)
     if not ok then print(err) end

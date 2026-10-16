@@ -1,7 +1,7 @@
 {
   "assets": {
     "Assets/Examples/Actions.lua": {
-      "hash": "e33128e1d14850c4a1a72cfd906b3a06335a8dfd7c40a7a052eff3463f58c850",
+      "hash": "6965137991a1889b2ef6c1e601b83e3e099af89d4666b7ef342f2bc4c6d78276",
       "id": "46bcb62d-66fb-4d06-9d29-a4ceaf8619d3",
       "scriptKind": "script",
       "version": 1
@@ -13,8 +13,14 @@
       "version": 1
     },
     "Assets/Examples/FixedActor.lua": {
-      "hash": "83b25b7759017674464036bc7239d2ee471d2eb7d3513415c54afbc30581408a",
+      "hash": "9950c654988e8b4757df472ba6fc82a13246daf9897b77dacc55e925bda43a56",
       "id": "64cbfae8-a0b6-4ec3-a2a1-58073a208804",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/HudControls.lua": {
+      "hash": "08eb7a782d2c18ad27d19d1d7aa4e8d2018db759f338054e1c3965a04379d49c",
+      "id": "db48127e-7d1f-4d9e-a0b0-5e0a9b0faeaa",
       "scriptKind": "script",
       "version": 1
     },
@@ -22,6 +28,11 @@
       "hash": "703930faa241d77d182113ce0aaa4b05cab4191c6f63b6fd0a9a3b2bea317184",
       "id": "17ecece5-b84e-42de-97dc-75e467c8f5fb",
       "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/L_AnchoredHud.level": {
+      "hash": "865594e178c19e8aa4bc9a0ec028d0a92054baee010bdac32df29f0f0ac68a8b",
+      "id": "075d806d-68d2-4fae-b9f8-e9935b384dd2",
       "version": 1
     },
     "Assets/Examples/L_AudioLifecycle.level": {
@@ -37,6 +48,11 @@
     "Assets/Examples/L_Multiview.level": {
       "hash": "eeffecf9d11c0fbc77ef1b3386b95c74bc4a3a853091d63fa2577ea169ebb8c9",
       "id": "108ca5ce-3ba6-4612-b9c8-970fd2176c87",
+      "version": 1
+    },
+    "Assets/Examples/L_PublicApiHud.level": {
+      "hash": "3c36cd6cc9ee643d5700196046fd0bf5cd9407a2968304cbf377f7d250a101ad",
+      "id": "2997db04-4532-488b-9cce-e230047ab5a8",
       "version": 1
     },
     "Assets/Examples/L_ScriptOrder.level": {
@@ -67,9 +83,19 @@
       "version": 1
     },
     "Assets/Examples/Multiview.lua": {
-      "hash": "a1c15e10538d0e69a415bd665cb60f4220b327b0e79093f73d81408b77f1d653",
+      "hash": "46e4efefc4b270f1443b9c8dbb135207bbc025fd372c3ad30e9697e53db3048d",
       "id": "f35e4011-e715-403c-afb5-d600b6b95358",
       "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/PF_AnchoredHud.prefab": {
+      "hash": "b90e5311e76a26b021a90f6a04bcd9cc1b5e96e4e1662dc4e204fbc004b1bf71",
+      "id": "d5dc6b13-e5eb-45d4-91cb-46d07bd56d2a",
+      "version": 1
+    },
+    "Assets/Examples/PF_PublicHud.prefab": {
+      "hash": "f0c53e242a1ee463d9928fe5ffdeaf7b779701b29ada46c33baf8cb6a11cc4ca",
+      "id": "a33f1e2f-02dd-4323-8382-e5b462f161b5",
       "version": 1
     },
     "Assets/Examples/PF_Spawned.prefab": {
@@ -77,14 +103,44 @@
       "id": "bf2a84dc-e412-4d13-b3b5-43523ed47f17",
       "version": 1
     },
+    "Assets/Examples/PublicButton.lua": {
+      "hash": "d457e230a5f3aa986fabcbc0a798842665502508d05444f78d353ce28c154414",
+      "id": "9a4f4578-68ea-4b07-b5ea-c469aa0b0b7f",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/PublicCamera.lua": {
+      "hash": "7d90c4c10f7b75fbc337118a7a5daa504d8e17a664a03bc9831da720935df1e4",
+      "id": "fa5ac02b-e769-455b-a47b-eea554e4e094",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/PublicCanvas.lua": {
+      "hash": "1fac8579c148f224949286fc69f6d2b198ab317cfe8c5912755e0e11e902874b",
+      "id": "b4e98465-f8a4-4b4e-980f-174a6e071d49",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/PublicLayout.lua": {
+      "hash": "cfaa0471e756b83966b9d9d1622c8eb64987a325f2ce469ca8ab3de2969735c3",
+      "id": "a2a07d6e-75a4-4abf-8f08-5b808c214a97",
+      "scriptKind": "script",
+      "version": 1
+    },
+    "Assets/Examples/PublicWorld.lua": {
+      "hash": "dbb28deb7808bbde89efd8e5532d70df2f15bfd6d10daa7d17defa0082a28d86",
+      "id": "a8140d64-877f-42a7-b899-ce081fe74303",
+      "scriptKind": "script",
+      "version": 1
+    },
     "Assets/Examples/ScopeLevel.lua": {
-      "hash": "18b8eafaee1af2fe757ff22062ef91348d91b00619877d584ce90f11cc7b735d",
+      "hash": "ce236127c73dea8dc8e55602554349447df0b892be3ee401f00362e3d577a2a8",
       "id": "ce64f96e-3612-4335-8200-fbae85f7c909",
       "scriptKind": "script",
       "version": 1
     },
     "Assets/Examples/ScopeSession.lua": {
-      "hash": "fbfc75cb686fdcb8959c91c9a23ff46b13b5edf5cf30ffd5a8f048b38283ff01",
+      "hash": "2b30b0cef98cc804bffa111b930cbb0d9773115ec633bbe1cff4d125e65ca196",
       "id": "2e7713a2-6819-4dad-a3b0-aaea4c004b75",
       "scriptKind": "script",
       "version": 1
@@ -106,12 +162,12 @@
       "version": 1
     },
     "Assets/L_ApiExamples.level": {
-      "hash": "98c5b3239d33bc33deafba12b0d3f9fb6ae7c9dfba9d799749da8975439d2e25",
+      "hash": "624bf0e1392df3a7fcfba16a6fcf1ada67f3f92a08e884305de855fd9c45a01c",
       "id": "b3c66a66-f009-40fb-aa41-d92e1cad3a94",
       "version": 1
     },
     "Assets/L_ApiNext.level": {
-      "hash": "8f7bdc1e3f0adafb5d743f1528eb6c49fb7ceb718078e2f8170ac2f33f71ff2e",
+      "hash": "49a0a270a10d20eafba49a915c9a7663f532b8a7fe232a5e80a65519c0532a00",
       "id": "92c89111-d684-4200-b330-d1cc1990b6c7",
       "version": 1
     }

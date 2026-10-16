@@ -90,6 +90,15 @@
     {
       "authoringId": 4,
       "name": "Screen Space Canvas 1",
+      "parentAuthoringId": 1,
+      "scriptOverrides": {
+        "54619b26-d3d7-4723-8b5c-7be7d2720909": {
+          "cameraSource": {
+            "authoringId": 1,
+            "script": "5645ea14-36e5-4589-8604-ad958f93441b"
+          }
+        }
+      },
       "scripts": [
         {
           "id": "54619b26-d3d7-4723-8b5c-7be7d2720909",

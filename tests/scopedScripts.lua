@@ -11,6 +11,7 @@ local function fixture()
 local Trace = {properties = {count = {type = "number", default = 0, group = "Counters"}}}
 local function record(self, kind)
     local project = self:getProject()
+    if not project then return end
     project.trace = project.trace or {}
     project.trace[#project.trace + 1] = (self.owner.scope or "object") .. ":" .. kind
 end
@@ -18,8 +19,10 @@ function Trace:load() record(self, "load"); self.initialized = (self.initialized
 function Trace:update(dt) self.count = self.count + 1; record(self, "update") end
 function Trace:unload() record(self, "unload") end
 function Trace:keypressed(key) self.lastKey = key; record(self, "key") end
-function Trace:draw() record(self, "draw"); self.drawX, self.drawY = love.graphics.transformPoint(0, 0) end
-function Trace:drawScreen() record(self, "screen"); self.screenX, self.screenY = love.graphics.transformPoint(0, 0) end
+function Trace:draw(context)
+    record(self, "draw"); self.drawX, self.drawY = love.graphics.transformPoint(0, 0)
+    context:withScreen(function() record(self, "screen"); self.screenX, self.screenY = love.graphics.transformPoint(0, 0) end)
+end
 return Trace
 ]]))
     assert(project:rebuildAssetIndex())
@@ -64,7 +67,7 @@ add("World and screen drawing prepare different coordinates and restore graphics
     local manager, actor = world.project:getScriptByName("manager"), world.lobjects[1]:getScriptByName("actor")
     Assert.equal(210, manager.drawX); Assert.equal(170, manager.drawY); Assert.equal(240, actor.drawX); Assert.equal(210, actor.drawY)
     Assert.equal(10, actor.screenX); Assert.equal(20, actor.screenY)
-    Assert.equal("project:draw,level:draw,object:draw,object:screen,level:screen,project:screen", table.concat(world.project.trace, ",", 4)); assert(world:dispose())
+    Assert.equal("project:draw,project:screen,level:draw,level:screen,object:draw,object:screen", table.concat(world.project.trace, ",", 4)); assert(world:dispose())
 end)
 add("Scope CLI persists overrides names order and enforces revisions", function()
     local project, level, source = fixture(); assert(project:createEntry("Assets", "level", "L_Test", {empty = true}))
@@ -335,15 +338,14 @@ end)
 add("Screen drawing errors restore state and scoped Pointer callbacks participate in captures", function()
     local project, level = fixture(); local world = assert(Loader.create(project, level:toData()))
     local manager = world.project:getScriptByName("manager")
-    manager.pointer = true
     manager.getBoundsSource = function(self) return self end
     manager.hitTest = function() return true, 0, 0 end
     manager.onPointerDown = function(self, event) self.pressed = true; return true end
     manager.onPointerUp = function(self, event) self.released = true; return true end
-    assert(world:dispatchPointer("down", 0, 0, 1)); Assert.equal(true, manager.pressed)
-    Assert.equal(manager, world.pointerCaptures[1]); assert(world:dispatchPointer("up", 100, 100, 1)); Assert.equal(true, manager.released)
+    assert(require("tests.pointerFixture").bindWorld(world):dispatchPointer("down", 0, 0, 1)); Assert.equal(true, manager.pressed)
+    Assert.equal(manager, world.pointerCaptures[1].owner); assert(require("tests.pointerFixture").bindWorld(world):dispatchPointer("up", 100, 100, 1)); Assert.equal(true, manager.released)
     local viewport = require("core.Viewport").new(world, 0, 0, 400, 300)
-    manager.drawScreen = function() love.graphics.translate(999, 999); error("screen failure") end
+    manager.draw = function(_, context) context:withScreen(function() love.graphics.translate(999, 999); error("screen failure") end) end
     love.graphics.push("all"); love.graphics.origin(); love.graphics.translate(13, 14)
     Assert.equal(false, pcall(require("core.Renderer").drawWorld, world, function() end, viewport))
     local x, y = love.graphics.transformPoint(0, 0); love.graphics.pop()
@@ -351,6 +353,9 @@ add("Screen drawing errors restore state and scoped Pointer callbacks participat
 end)
 add("Unopened level reference picking stays within its document and preserves the current scene", function()
     local project, level = fixture()
+    local path = project:resolveSourceFile("Assets/Trace.lua")
+    assert(Fs.writeAtomic(path, assert(Fs.read(path)):gsub("properties = {count =", "properties = {targetRef = {type = 'script', default = false}, count =", 1)))
+    assert(project:rebuildAssetIndex())
     assert(project:createEntry("Assets", "level", "L_Detached", {empty = true}))
     assert(require("editor.LevelFile").save(project:resolveAssetFile("Assets/L_Detached.level"), level))
     local app = require("editor.EditorApp").new(nil, project)
@@ -358,7 +363,7 @@ add("Unopened level reference picking stays within its document and preserves th
     assert(app:inspectAsset("Assets/L_Detached.level")); app:draw()
     local target = app.inspector.classInspector.target
     Assert.truthy(target.level ~= original)
-    assert(app:beginObjectPick("$mainCamera"))
+    assert(app:beginObjectPick(level.scripts[1].id .. ".targetRef"))
     Assert.truthy(app.uiRoot.popup); Assert.equal(nil, app.objectPick)
     app.uiRoot.popup:submit(); Assert.equal(original, app.level)
     assert(app.inspector.classInspector:setProperty("levelManager.count", 11))
@@ -574,7 +579,7 @@ add("Common orders sort project level and object callbacks across scopes", funct
     manager.drawOrder, current.drawOrder, actor.drawOrder = 100, 0, -100
     world.project.trace = {}
     require("core.Renderer").drawWorld(world, function() end, require("core.Viewport").new(world, 0, 0, 400, 300))
-    Assert.equal("object:draw,level:draw,project:draw,object:screen,level:screen,project:screen", table.concat(world.project.trace, ","))
+    Assert.equal("object:draw,object:screen,level:draw,level:screen,project:draw,project:screen", table.concat(world.project.trace, ","))
     assert(world:dispose())
 end)
 add("Project update attachments added to later hosts wait for the next frame", function()
@@ -606,7 +611,7 @@ add("Inspector pins Script before custom groups and shows only applicable orders
     assert(Fs.writeAtomic(path, [[return {properties = {custom = {type = "number", default = 0, group = "AAA"}}}]]))
     assert(project:rebuildAssetIndex()); inspector:reload()
     for _, name in ipairs(inspector.names) do Assert.truthy(not name:match("Order$")) end
-    for _, callback in ipairs({"update", "draw", "drawScreen"}) do
+    for _, callback in ipairs({"update", "draw"}) do
         assert(Fs.writeAtomic(path, "return {" .. callback .. " = function() end}"))
         assert(project:rebuildAssetIndex()); inspector:reload()
         local visible = {}
@@ -692,7 +697,7 @@ add("Mixed legacy draw order keys normalize before prefab and instance inheritan
     local duplicated = assert(Hierarchy.duplicateData(project, nestedLevel, objects["root/panel"]))
     Assert.equal(-100, duplicated.scriptOverrides[id].drawOrder)
 end)
-add("Canvas descendants share drawScreen ordering with level and project scripts", function()
+add("Canvas descendants share ordinary draw ordering with level and project scripts", function()
     local project, level = fixture(); local world = assert(Loader.create(project, level:toData()))
     local actor = world.lobjects[1]:getScriptByName("actor")
     local manager, current = world.project:getScriptByName("manager"), world:getScriptByName("levelManager")
@@ -706,9 +711,9 @@ add("Canvas descendants share drawScreen ordering with level and project scripts
         for _, event in ipairs(world.project.trace) do if event:find(":screen", 1, true) then screens[#screens + 1] = event end end
         return table.concat(screens, ",")
     end
-    Assert.equal("object:screen,level:screen,project:screen", screenTrace())
+    Assert.equal("project:screen,level:screen,object:screen", screenTrace())
     actor.drawOrder = -100
-    Assert.equal("object:screen,level:screen,project:screen", screenTrace())
+    Assert.equal("object:screen,project:screen,level:screen", screenTrace())
     actor.drawOrder, manager.drawOrder = 100, -100
     Assert.equal("project:screen,level:screen,object:screen", screenTrace())
     assert(world:dispose())

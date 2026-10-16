@@ -1,100 +1,174 @@
-# 카메라와 화면 UI
+# 카메라·HUD·렌더링
 
+Camera·View·Canvas·RectLayout은 LaboEssentials의 편의 스크립트입니다. Core는 이 타입을 구분하지 않습니다. 플러그인 없이도 같은 공개 API로 카메라·UI를 직접 만들 수 있습니다.
 
-Camera·View·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그인](plugins.md)을 활성화합니다. 새 프로젝트에서는 모두 꺼져 있습니다.
+## Camera와 View
 
-## Camera와 View로 화면 구성
+1. Camera 오브젝트에 Camera와 View 스크립트를 부착합니다.
+2. View의 Camera source 스포이드로 Camera 부착을 지정합니다.
+3. Camera의 View width·View height·Zoom을 설정합니다. 1280×720, Zoom 2는 월드 640×360을 표시합니다.
+4. Play를 실행합니다. View가 없으면 게임 장면을 그리지 않습니다.
 
-레벨에는 내장 Main Camera 설정이 없으며 새 레벨은 카메라를 자동 생성하지 않습니다. Camera 오브젝트만 배치하면 게임 화면에는 아직 출력되지 않습니다.
+![View의 투영 소스 참조](images/view-details.svg)
 
-1. LaboEssentials를 활성화하고 Camera 스크립트를 오브젝트에 부착합니다.
-2. 같은 오브젝트 또는 레벨에 View 스크립트를 부착합니다.
-3. View의 **Camera source** (`cameraSource`) 스포이드로 사용할 Camera 부착을 지정합니다. 여러 스크립트 중 Camera를 선택합니다.
-4. ▶로 실행합니다. View가 출력을 등록하고 엔진이 매 프레임 그립니다. 카메라 이동·줌은 다음 렌더링에 반영됩니다.
+카메라는 자동 선택하지 않습니다. View 스크립트는 소스의 일반 getProjection 메서드를 사용합니다. 다른 구현의 스크립트도 이 메서드로 투영을 제공하면 연결할 수 있습니다.
 
-View의 renderOrder는 출력 순서이며 작은 값부터 그립니다. includeWorld는 월드 그리기, includeScreen은 Canvas·drawScreen을 포함합니다. acceptInput은 해당 화면 View의 Pointer 입력을 허용합니다. View 스크립트 헤더에서 돋보기 왼쪽 활성 토글을 끄면 출력도 멈춥니다.
+## 카메라 아래 HUD Prefab
 
-![View의 Camera 스크립트 참조](images/view-details.svg)
+```text
+Camera object [Camera, View]
+└ HUD Prefab [Canvas]
+  ├ Panel [RectLayout, Sprite]
+  ├ Button [RectLayout, Pointer 또는 사용자 입력 스크립트]
+  └ Label [RectLayout, Text]
+```
 
-① Camera source의 스포이드로 Camera 부착을 지정합니다.
+Canvas는 별도 화면 좌표계를 만들지 않습니다. 부모 카메라의 표시 영역에 맞게 일반 Transform을 계산합니다. Camera source를 비워 두면 부모 계층에서 투영 제공 스크립트를 찾습니다. Prefab 내부에 외부 카메라 참조를 저장할 필요 없이 카메라 아래에 배치할 수 있습니다. 명시적 Camera source로 다른 소스를 선택할 수도 있습니다.
 
-레벨 Inspector에는 일반 Script 부착만 표시합니다. 기존 mainCamera 저장값은 명시적인 활성 View가 없는 과거 레벨에서 호환 View로 해석하며 파일 저장 시 보존합니다. 호환 View는 선택된 카메라가 제거되거나 비활성화되면 남은 카메라로 자동 대체하고, 모두 없으면 원점·배율 1로 출력합니다. 새 코드는 아래 렌더링 API를 사용합니다.
+Match camera를 켜면 Canvas의 Width·Height를 기준 해상도로 사용하고 카메라 표시 영역에 맞는 균일 배율을 계산합니다. 종횡비가 다르면 논리 영역을 확장합니다. **같은 출력 크기에서 카메라 줌을 바꿔도 버튼 크기와 간격은 유지**됩니다. 창·View 영역의 크기를 바꾸면 기준 해상도에 맞춰 UI도 확대·축소됩니다. Match camera를 끄면 일반 고정 크기 월드 사각형입니다.
 
-## 렌더 타깃과 미니맵
+HUD 전체를 Prefab으로 저장하고 다른 Prefab으로 교체할 수 있습니다. 게임 코드에서는 기존 spawnLObject·attachTo·removeLObject를 사용합니다. 별도 UI World나 필수 UI View는 없습니다. 제공 View 스크립트는 다른 카메라에 연결된 HUD를 자신의 출력에서 제외합니다. 직접 View를 만들 때는 filter로 같은 정책을 구현합니다.
 
-`require("Engine.Rendering")` 또는 `require("Engine").Rendering`으로 공용 API에 접근합니다. 별도의 render 콜백은 없습니다.
+![카메라 자손의 9방향 HUD](images/ui-hud.png)
+
+## Anchor와 Pivot
+
+UI 오브젝트에 RectLayout을 부착합니다. **Anchor는 부모 사각형에서 위치를 잡는 기준**, **Pivot은 자기 사각형의 원점**입니다. 이동·회전·스케일도 이 원점을 기준으로 적용합니다.
+
+| 왼쪽 | 가운데 | 오른쪽 |
+|---|---|---|
+| Top left | Top | Top right |
+| Left | Center | Right |
+| Bottom left | Bottom | Bottom right |
+
+Inspector의 Anchor·Pivot 목록에서 9개 위치를 선택합니다. 코드·CLI 값은 topLeft, top, topRight, left, center, right, bottomLeft, bottom, bottomRight입니다.
+
+![앵커 선택 목록](images/ui-anchor-picker.svg)
+
+① 부모 기준 Anchor와 자기 원점 Pivot입니다. ② 목록에서 위치를 선택합니다.
+
+예를 들어 Anchor=Top right, Pivot=Top right, Transform X=-20/Y=20이면 부모 오른쪽 위에서 왼쪽으로 20, 아래로 20만큼 들어옵니다. Width·Height는 자기 사각형 크기입니다. Sprite·Text·Pointer는 같은 오브젝트의 대표 사각형을 사용할 수 있습니다.
+
+저장된 Transform에는 이 오프셋을 보존합니다. 배치는 조회 시 계산하므로 update 순서를 조정하지 않아도 됩니다. Scene에서 이동 핸들을 드래그하면 유효 위치를 다시 앵커 오프셋으로 변환합니다. 에디터·Play·Preview·입력 판정이 같은 변환을 사용합니다. CLI의 `instance list`·`instance reparent`·`instance reorder`도 같은 배치 계산과 역변환을 사용하므로 부모를 바꿔도 월드 위치를 보존합니다.
+
+## 플러그인 없는 공개 API
+
+| API | 역할 |
+|---|---|
+| Rendering.createView(world, {projection, ...}) | 투영 데이터·제공 함수로 자동 출력 등록 |
+| Rendering.normalizeProjection(data) | 투영 검증·복사. transform 생략 시 원점 변환 적용, nil은 그대로 반환 |
+| view:setProjection(dataOrFunction) | 투영 교체. 제공 함수가 nil이면 출력·입력 중단 |
+| Transform.bindLocal(object, {owner, resolve, unresolve}) | 저장 Transform → 유효 로컬 변환과 편집 역변환 등록 |
+| Transform.relative(parent, world) / affine(transform) | 부모 기준 affine 변환 계산·검증 |
+| Bounds.bind(script, provider, {primary=true}) | 스크립트 영역·객체 대표 사각형 등록 |
+| Bounds.of(object, context) / parent(object, context) | 객체·가장 가까운 부모 대표 사각형 조회 |
+| Input.registerRegion(world, options) | 명시적인 입력 영역·콜백 등록 |
+| Rendering.withScreen(context, fn) | draw 안의 특정 구간을 화면 픽셀 좌표로 그리기 |
+
+```lua
+local Engine = require("Engine")
+local CustomCamera = {}
+function CustomCamera:load(world)
+    self.view = Engine.Rendering.createView(world, {
+        owner = self,
+        projection = function()
+            return {width = 1280, height = 720,
+                transform = self.owner:getWorldTransform()}
+        end,
+    })
+end
+function CustomCamera:unload() self.view:release() end
+return CustomCamera
+```
+
+투영의 width·height는 보이는 월드 크기이고 transform은 중심·방향·배율을 나타냅니다. 역변환 가능한 affine 행렬도 받습니다. Core가 Camera 스크립트나 전용 표식을 요구하지 않습니다. projection 자체를 생략하면 원점·배율 1 출력이고, 등록한 제공 함수가 nil을 반환하면 해당 View가 비활성입니다.
+
+Transform·Bounds 등록은 configure에서 수행합니다. 제공 함수 안에서 현재 프로퍼티·부모·참조를 읽습니다. configure 시점에는 다른 부착과 참조가 아직 준비되지 않았을 수 있습니다. 입력·게임 자원은 load에서 등록합니다. 바인딩·입력 영역은 소유 Script 제거·종료 시 자동 정리되고 반환 핸들의 release로 먼저 해제할 수도 있습니다. enabled=false는 해당 등록 효과를 중단합니다. 편집 위치 조작을 지원하려면 unresolve를 제공합니다.
+
+Bounds.parent는 사각형의 로컬 x·y·폭·높이와 그 영역을 제공한 조상 오브젝트를 다섯 번째 값으로 반환합니다. 중간에 일반 그룹 오브젝트가 있으면 RectLayout은 앵커 점을 실제 부모 좌표로 변환합니다.
+
+## Pointer와 직접 입력 등록
+
+Pointer를 쓰면 같은 오브젝트의 대표 사각형을 기본 영역으로 사용합니다. Bounds source에는 같은 오브젝트의 다른 영역 스크립트 ID·이름을 지정할 수 있습니다. Input priority가 클수록 먼저 받고, 기본 우선순위에서는 참조 영역의 Draw order와 표시 순서를 따릅니다. OnPointer 콜백은 Pointer 편의 스크립트의 계약이며 Core가 자동 검색하지 않습니다.
+
+플러그인 없이 입력을 받으려면 직접 등록합니다.
+
+```lua
+local Engine = require("Engine")
+local Button = {properties = {clicks = {type = "number", default = 0}}}
+-- 같은 오브젝트의 RectLayout이 제공한 사각형을 클릭 영역으로 사용한다.
+function Button:configure()
+    Engine.Bounds.bind(self, function(context)
+        return Engine.Bounds.of(self.owner, context)
+    end)
+end
+function Button:load(world)
+    self.region = Engine.Input.registerRegion(world, {
+        owner = self,
+        hitTest = function(context, x, y)
+            return self:hitTest(context, x, y)
+        end,
+        onDown = function(event)
+            self.clicks = self.clicks + 1
+            return true
+        end,
+    })
+end
+return Button
+```
+
+hitTest는 월드 x/y를 받고 hit, localX, localY를 반환합니다. 영역은 Bounds.bind 또는 일반 getLocalBounds로 제공합니다. onDown/onUp/onMove가 true를 반환하면 소비하며 누름을 캡처합니다. 캡처 뒤 영역 밖 move/up도 같은 영역에 전달하고 event.inside로 안쪽 여부를 확인합니다.
+
+선택적 order·priority는 숫자 또는 제공 함수이고, block은 boolean 또는 제공 함수입니다. 기본 order는 owner.drawOrder입니다. filterSource는 View 필터에 사용할 Script를 반환하는 함수이며 기본은 owner입니다. 이벤트에는 worldX/Y, localX/Y, screenX/Y, dx/dy, button, inside, world, view, projection, viewport가 들어옵니다. screenX/Y는 게임 영역 왼쪽 위 기준 픽셀이고 dx/dy는 월드 좌표 변화량입니다.
+
+## RenderTarget과 미니맵
 
 ```lua
 local Rendering = require("Engine.Rendering")
-
 function GameRendering:load(world)
     self.mapTarget = Rendering.createTarget(world, {width = 512, height = 512})
     self.mapView = Rendering.createView(world, {
-        camera = self.mapCamera, target = self.mapTarget,
-        order = -10, includeScreen = false, input = false, owner = self
+        projection = function() return self.mapCamera:getProjection() end,
+        target = self.mapTarget, order = -10, input = false, owner = self,
+        filter = function(script) return script ~= self end,
     })
     self.mainView = Rendering.createView(world, {
-        camera = self.mainCamera, target = Rendering.screen, owner = self
+        projection = function() return self.mainCamera:getProjection() end,
+        owner = self,
     })
 end
-
-function GameRendering:drawScreen(context)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setBlendMode("alpha", "premultiplied")
-    love.graphics.draw(self.mapTarget:getTexture(), context.viewport.width - 276, 20, 0, 0.5, 0.5)
+function GameRendering:draw(context)
+    if context.view ~= self.mainView then return end
+    context:withScreen(function()
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.setBlendMode("alpha", "premultiplied")
+        love.graphics.draw(self.mapTarget:getTexture(), context.viewport.width - 276, 20, 0, 0.5, 0.5)
+    end)
 end
 ```
 
-mainCamera·mapCamera는 이 스크립트에 선언하는 `type="script", default=false` 참조 프로퍼티입니다. 월드 4000×4000을 512×512 텍스처에 그리고 화면에는 256×256으로 표시할 수 있습니다. 타깃 해상도·월드 가시 범위·표시 크기는 서로 독립적입니다.
+mainCamera·mapCamera는 사용자 스크립트의 일반 참조 프로퍼티입니다. 생산 View의 order를 작게 둡니다. 현재 쓰고 있는 타깃을 getTexture로 읽으면 오류입니다. 타깃 해상도·월드 가시 범위·화면 표시 크기는 서로 독립적입니다. 종료 때 View·Target을 release하거나 World 종료의 자동 정리를 사용합니다.
 
-![메인 화면과 미니맵](images/multiview.svg)
+생성 옵션은 projection·target·viewport·order·enabled·input·filter·clearColor·owner입니다. View viewport는 타깃 내 픽셀 사각형이고 카메라 비율은 레터박스로 유지합니다. clearColor는 0~1 RGBA이고 기본은 불투명 검정, false는 기존 내용을 유지합니다. filter(script)는 렌더링·Pointer 입력에 함께 적용됩니다. owner 비활성·제거, projection 제공 함수의 nil, 타깃 해제로 비활성이 되면 캡처를 취소합니다.
 
-① 메인 Camera가 게임 화면에 직접 출력합니다. ② 지도 Camera는 별도 텍스처에 먼저 그리고 HUD가 그 결과를 표시합니다. 테스트 프로젝트의 **Assets/Examples/L_Multiview.level**에서 WASD/방향키로 메인 카메라 이동, `=`/`-`로 줌, M으로 미니맵 출력을 확인합니다.
+View:setTarget/setViewport/setOrder/setEnabled, Target:getTexture/resize/release도 사용할 수 있습니다. update는 World당 한 번, draw는 포함된 View마다 실행합니다. 화면 출력만 직접 입력을 받고 텍스처 미니맵의 클릭 재투영은 사용자 코드가 결정합니다.
 
-| API | 동작 |
-|---|---|
-| Rendering.createView(world, options) | View를 생성·등록하고 자동 렌더링 시작 |
-| Rendering.createTarget(world, {width, height}) | 텍스처 타깃 생성. GPU 텍스처는 처음 사용할 때 생성 |
-| Rendering.views(world) | 활성 View의 정렬된 목록 복사본 |
-| view:setCamera(camera) / setTarget(target) | 같은 World의 카메라·타깃으로 변경 |
-| view:setViewport(rect) | 타깃 안의 x/y/width/height 픽셀 영역. nil이면 전체 |
-| view:setOrder(number) / setEnabled(boolean) | 출력 순서·활성 상태 변경 |
-| target:getTexture() / resize(width, height) | 그리기에 사용할 텍스처 조회·픽셀 크기 변경 |
-| view:release() / target:release() | 즉시 해제. World 종료 시 남은 자원도 자동 해제 |
+## 예제와 이전 데이터 전환
 
-생성 옵션은 camera·target·viewport·order·enabled·includeWorld·includeScreen·input·filter·clearColor·owner입니다. filter(script)는 true를 반환한 스크립트만 포함하고 렌더링·Pointer 입력에 함께 적용됩니다. clearColor는 0~1 RGBA 네 값이며 기본은 불투명 검정, false는 기존 내용을 유지합니다. 같은 order에서는 등록 순서로 그립니다. 생산 View를 먼저 배치하고 같은 작업에서 현재 쓰는 타깃을 getTexture로 읽지 않습니다. 타깃을 해제하면 이를 참조하는 View는 출력되지 않습니다.
+- Assets/Examples/L_AnchoredHud.level: Camera·View·Canvas·RectLayout과 재사용 가능한 HUD Prefab.
+- Assets/Examples/L_PublicApiHud.level: 제공 스크립트를 쓰지 않는 API 전용 카메라·배치·버튼.
+- Assets/Examples/L_Multiview.level: 별도 타깃 미니맵.
 
-owner를 지정하면 소유 스크립트의 비활성·제거 시 출력을 중단합니다. 비활성화로 중단된 View의 Pointer 캡처는 취소하며 재활성화해도 이전 누름을 이어받지 않습니다. 일반 View의 카메라가 제거되면 해당 출력만 중단하고, 제공 View 스크립트도 변경되지 않은 제거 참조 때문에 Runtime을 중단하지 않습니다. 다른 유효한 카메라를 지정하면 출력을 재개합니다. owner를 생략하면 명시적인 release 또는 World 종료까지 유지합니다. 카메라를 생략하면 원점·배율 1의 출력을 명시적으로 만듭니다. View가 없으면 게임 장면을 그리지 않습니다. 편집 화면과 에셋 미리보기는 별도의 표시 경로입니다.
+![공개 API만 사용하는 HUD](images/ui-public.png)
 
-게임 update는 한 번, draw·drawScreen은 포함된 View마다 실행됩니다. draw에서 게임 상태를 갱신하지 않습니다. context.view·camera·target·viewport는 이번 출력의 환경입니다. 화면 View의 Pointer 입력은 표시 역순으로 처리하고 캡처·좌표 변환은 View마다 독립적입니다. 이벤트의 view·camera·viewport로 출력을 확인할 수 있습니다. 텍스처에는 직접 입력이 전달되지 않으며, 미니맵 클릭은 표시 UI에서 별도로 좌표를 변환해야 합니다. 일반 LÖVE 화면 이벤트·resize와 디버그 오버레이는 대표 화면 View를 기준으로 합니다.
-
-## 카메라 크기와 방향
-
-카메라 인스턴스의 Camera 프로퍼티 그룹을 펼칩니다. viewWidth/viewHeight는 실제 출력 픽셀 수가 아니라 기준 월드 범위입니다. 기본 1280×720, zoom=1에서 1920×1080에 출력하면 월드 1단위는 화면 1.5픽셀입니다. zoom이 커지면 보이는 범위는 줄어듭니다. 1920×1080 기준 zoom=2는 960×540, zoom=0.5는 3840×2160을 보여 주며 실제 출력 해상도는 바꾸지 않습니다. 비율이 다르면 범위를 유지하고 여백을 둡니다.
-
-![가시 영역과 설정](images/camera-details.svg)
-
-①은 Scene View의 카메라 가시 영역, ②는 크기·zoom 설정입니다. 위치는 부모 Transform을 합성하지만 방향은 조상과 자신의 Z 회전만 합산합니다. X/Y 기울기와 스케일은 카메라 방향·확대율에 반영하지 않습니다.
-
-## Canvas와 영역
-
-Canvas 스크립트가 붙은 LObject는 화면 좌표계를 시작합니다. 화면 중심은 (0,0), 오른쪽·아래는 양수이며 1단위는 1픽셀입니다. matchViewport가 켜지면 출력 크기, 꺼지면 width/height를 사용합니다. Canvas 위 조상과 카메라 이동은 UI에 적용하지 않습니다.
-
-```text
-Hud LObject [Canvas]
-└─ Panel LObject [RectBounds]
-   └─ Button LObject [Sprite, Pointer]
-
-대괄호: 오브젝트가 소유하는 부착 스크립트
-Pointer.boundsSource → 같은 Button의 Sprite 부착 ID
+```powershell
+love src --cli project examples-ui --project D:/Games/MyGame
+# 플러그인을 활성화하지 않고 API 전용 예제만 생성
+love src --cli project examples-ui --project D:/Games/EmptyGame --public-only
+love src --cli project migrate-rendering --project D:/Games/MyGame --dry-run
+love src --cli project migrate-rendering --project D:/Games/MyGame
 ```
 
-RectBounds는 게임에서 그림을 그리지 않는 영역입니다. 편집 화면에서는 경계를 표시하고 PIE에서는 숨깁니다. 그림에는 Sprite, 클릭에는 Pointer 또는 사용자 hitTest를 부착합니다. fillParent는 가장 가까운 부모 오브젝트의 영역을 사용합니다. 정확히 채우려면 자손 Transform을 기본값으로 둡니다. 앵커·자동 레이아웃·자손 클리핑은 제공하지 않습니다.
+마이그레이션은 mainCamera를 명시적 View로 바꾸고 기존 Canvas의 카메라 연결·matchViewport → matchCamera, 제공 View의 이전 좌표계 플래그를 정리합니다. 기존의 명시적인 Canvas 카메라 참조와 이미 연결된 계층은 보존합니다. 변환 후 재실행하면 추가 변경이 없습니다. GUI 문서를 저장한 뒤 실행하고 dry-run의 파일 목록을 먼저 확인합니다.
 
-## 표시와 입력 순서
-
-drawOrder가 클수록 앞에 표시합니다. inputPriority가 큰 Pointer가 먼저 입력을 받고 기본 0에서는 참조 렌더러의 표시 순서를 따릅니다. Canvas는 월드보다 앞에 표시되고 우선 입력을 받습니다.
-
-onPointerDown/up/move에서 true를 반환하거나 blockPointer가 켜지면 뒤로 전달하지 않습니다. 소비한 down 이후 영역 밖 move/up도 캡처 대상으로 전달합니다. 여러 버튼의 캡처는 각각 해제합니다. 포커스 상실·Play 종료·입력 오류도 캡처를 정리합니다. 사용자 스크립트도 선택적인 getLocalBounds/hitTest와 포인터 콜백을 직접 구현할 수 있습니다.
-
-이전 Sprite·Text에 저장된 sortingOrder는 drawOrder로 읽습니다. 새 코드와 CLI에서는 drawOrder를 사용합니다.
+사용자 Lua의 drawScreen은 draw 안의 withScreen 호출로, createView의 camera 옵션은 projection 제공 함수로 바꿉니다. includeWorld/includeScreen은 filter로 전환합니다. 사용자 코드의 변환은 자동으로 수행하지 않으므로 저장 데이터 마이그레이션 전에 Lua를 먼저 갱신합니다. 미변환 mainCamera는 Play·Export 시 변환 명령 안내 오류를 표시합니다.

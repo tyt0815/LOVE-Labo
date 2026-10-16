@@ -27,11 +27,14 @@ SOURCES = {
 }}
 function Session:load() self.token = love.math.random(1000, 9999) end
 function Session:update(dt) self.frames = self.frames + 1 end
-function Session:drawScreen(context)
+function Session:drawOverlay(context)
     local world = self:getWorld()
     if not world or not world:getScriptByName("scopeLevel") then return end
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.print("Project token " .. self.token .. " | visits " .. self.visits .. " | frames " .. self.frames, 20, 20)
+end
+function Session:draw(context)
+    context:withScreen(function() self:drawOverlay(context) end)
 end
 return Session
 ''',
@@ -74,14 +77,18 @@ end
 function LevelLogic:keypressed(key)
     if key == "n" and self.nextLevel ~= "" then assert(self:getWorld():openLevel(self.nextLevel)) end
 end
-function LevelLogic:draw(context)
+function LevelLogic:drawWorld(context)
     love.graphics.setColor(0.3, 0.4, 0.5, 1)
     love.graphics.line(-240, 0, 240, 0)
     love.graphics.circle("line", 0, 0, 100)
 end
-function LevelLogic:drawScreen(context)
+function LevelLogic:drawOverlay(context)
     love.graphics.setColor(1, 0.85, 0.25, 1)
     love.graphics.print(self.levelTitle .. " | fixed steps " .. self.steps .. " | N: change level", 20, 50)
+end
+function LevelLogic:draw(context)
+    self:drawWorld(context)
+    context:withScreen(function() self:drawOverlay(context) end)
 end
 return LevelLogic
 ''',
@@ -94,16 +101,20 @@ function Actor:fixedUpdate(dt)
     self.elapsed = self.elapsed + dt
     self.owner.transform.x = math.sin(self.elapsed * self.speed) * 180
 end
-function Actor:draw(context)
+function Actor:drawWorld(context)
     love.graphics.setColor(0.15, 0.8, 0.9, 1)
     love.graphics.circle("fill", 0, 0, 20)
 end
-function Actor:drawScreen(context)
+function Actor:drawOverlay(context)
     love.graphics.setColor(0.15, 0.8, 0.9, 1)
-    love.graphics.print("Object drawScreen: fixed on screen while the circle moves", 20, context.viewport.height - 35)
+    love.graphics.print("Object screen drawing: fixed on screen while the circle moves", 20, context.viewport.height - 35)
 end
 function Actor:getLocalBounds() return -20, -20, 40, 40 end
 function Actor:drawEditor(context) context:bounds(self) end
+function Actor:draw(context)
+    self:drawWorld(context)
+    context:withScreen(function() self:drawOverlay(context) end)
+end
 return Actor
 ''',
 }

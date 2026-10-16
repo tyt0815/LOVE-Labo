@@ -19,11 +19,9 @@ end
 local function sizedWorld(viewWidth, viewHeight)
     local world = World.new()
     world.testViewSize = {width = viewWidth, height = viewHeight}
-    world.legacyCameraSelection = true
-    world.getActiveCamera = function()
-        return {getViewSize = function() return world.testViewSize.width, world.testViewSize.height end,
-            getViewTransform = function() return {x = 0, y = 0} end}
-    end
+    require("Engine").Rendering.createView(world, {projection = function()
+        return {width = world.testViewSize.width, height = world.testViewSize.height, transform = {x = 0, y = 0}}
+    end})
     local script = Runtime.attach(object(world), "size", Script:extend({
         resize = function(self, width, height)
             self.width, self.height = width, height

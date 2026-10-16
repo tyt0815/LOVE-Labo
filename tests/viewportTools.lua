@@ -688,15 +688,15 @@ end)
 add("Camera letterbox clips screen UI and ignores new clicks while preserving captured release", function()
     local world = require("core.World").new()
     local camera = {getViewSize = function() return 200, 100 end, getViewTransform = function() return {x = 0, y = 0} end}
-    world.legacyCameraSelection = true
-    world.getActiveCamera = function() return camera end
+    require("Engine").Rendering.createView(world, {projection = {width = 200, height = 100, transform = {x = 0, y = 0}}})
     local object = assert(world:addLObject({transform = {x = 0, y = 0}}))
-    local class = require("core.Script"):extend({canvas = true,
+    local class = require("core.Script"):extend({
         getLocalBounds = function() return -100, -100, 200, 200 end,
         onPointerDown = function(self) self.downs = (self.downs or 0) + 1; return true end,
         onPointerUp = function(self, event) self.released = true; self.inside = event.inside; return true end,
         draw = function() love.graphics.setColor(0, 1, 0, 1); love.graphics.rectangle("fill", -100, -100, 200, 200) end})
     local script = require("core.ScriptRuntime").attach(object, "screen", class)
+    require("tests.pointerFixture").bindWorld(world)
     local view = require("core.Viewport").new(world, 0, 0, 100, 100)
     Assert.equal(25, view.y); Assert.equal(50, view.height); Assert.equal(100, view.width)
     assert(view:dispatchPointer(world, "down", 50, 5, 1)); Assert.equal(nil, script.downs)
@@ -719,7 +719,8 @@ add("PIE uses the entire panel interior without a heading and preserves camera l
     Assert.equal(20 + inset, viewport.x); Assert.equal(30 + inset, viewport.y)
     Assert.equal(204 - inset * 2, viewport.width); Assert.equal(104 - inset * 2, viewport.height)
     local camera = {getViewSize = function() return 100, 100 end, getViewTransform = function() return {x = 0, y = 0} end}
-    local world = {legacyCameraSelection = true, getActiveCamera = function() return camera end}
+    local world = require("core.World").new()
+    require("Engine").Rendering.createView(world, {projection = {width = 100, height = 100, transform = {x = 0, y = 0}}})
     viewport = view:runtimeViewport(world)
     Assert.equal(30 + inset, viewport.y); Assert.equal(104 - inset * 2, viewport.height)
     Assert.equal(viewport.height, viewport.width)

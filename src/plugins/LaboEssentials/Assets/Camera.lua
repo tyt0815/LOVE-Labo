@@ -1,5 +1,6 @@
-local Transform = require("core.Transform")
-local Camera = require("core.Script"):extend({scriptType = "Camera", camera = true, properties = {
+local Engine = require("Engine")
+local Transform = Engine.Transform
+local Camera = Engine.Script:extend({scriptType = "Camera", properties = {
     viewWidth = {type = "number", default = 1280, group = "Camera"},
     viewHeight = {type = "number", default = 720, group = "Camera"},
     zoom = {type = "number", default = 1, group = "Camera"}
@@ -14,6 +15,10 @@ function Camera:getViewTransform()
     local rotation, object = 0, self.owner
     while object do rotation = rotation + (object.transform and object.transform.rotation or 0); object = object.parent end
     return {x = world.x, y = world.y, rotation = Transform.normalizeRotation(rotation), scaleX = 1, scaleY = 1}
+end
+function Camera:getProjection()
+    local width, height = self:getViewSize()
+    return {transform = self:getViewTransform(), width = width, height = height}
 end
 function Camera:drawEditor(context)
     local width, height = self:getViewSize()

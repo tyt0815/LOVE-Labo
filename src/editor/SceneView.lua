@@ -162,7 +162,7 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
     if not self.level then
         return nil
     end
-    if self.spriteAssets then self.spriteAssets.level = self.level end
+    if self.spriteAssets then self.spriteAssets:setLevel(self.level) end
 
     local halfSize = LOBJECT_SIZE * 0.5
 
@@ -581,7 +581,7 @@ function SceneView:draw()
     end
 
     self:drawWorldAxes()
-    if self.spriteAssets then self.spriteAssets.level = self.level end
+    if self.spriteAssets then self.spriteAssets:setLevel(self.level) end
     self:drawLObjects()
     if self.marquee then require("editor.ui.SelectionBox").draw(require("editor.ui.SelectionBox").rect(self.marquee.x, self.marquee.y, self.marquee.endX, self.marquee.endY)) end
 
@@ -671,10 +671,11 @@ function SceneView:applyGroupDrag()
     if drag.mode == "translate" then
         for object, saved in pairs(drag.selection) do
             local x, y = saved.x + dx, saved.y + dy
-            local parent = self.level:getParent(object)
-            if parent then x, y = Transform.inversePoint(self.level:getWorldTransform(parent), x, y) end
-            if not x then return end
-            positions[object] = {x, y}
+            local original = assert(Transform.copy(object.transform))
+            local ok = self.level:setWorldPosition(object, x, y)
+            if not ok then return end
+            positions[object] = {object.transform.x, object.transform.y}
+            object.transform.x, object.transform.y = original.x, original.y
         end
     end
     for object, saved in pairs(drag.selection) do

@@ -1,5 +1,7 @@
 > 컴포넌트·공간 상속 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다. 그 밖의 동작 계약은 유지한다.
 
+> 카메라·화면 공간·입력·배치 계약은 [ADR 0085](0085-public-projection-layout-and-input.md)에서 부분 대체한다.
+
 > 순서 설정·표시는 [ADR 0084](0084-common-script-callback-order.md)에서 확장·부분 대체한다.
 
 > 컴포넌트·공간 상속 구조는 [ADR 0050](0050-attached-scripts-and-unified-assets.md)으로 대체되었다. 그 밖의 동작 계약은 유지한다.

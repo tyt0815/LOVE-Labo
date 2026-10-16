@@ -7,29 +7,5 @@ function MainCamera.copy(value)
     end
     return {authoringId = value.authoringId, script = value.script}
 end
-function MainCamera.resolve(world, value)
-    if not value then return end
-    for _, object in ipairs(world.lobjects) do
-        if object.authoringId == value.authoringId then
-            local script = object:getScriptById(value.script) or object:getScriptByName(value.script)
-            if script and script.camera then return script end
-        end
-    end
-end
-function MainCamera.choices(project, level, object, allowEmpty)
-    if not object or level:findLObject(object.authoringId) ~= object then return nil, "Select an instance in the current level" end
-    local definition, err = require("project.PrefabHierarchy").authoringDefinition(project, level, object)
-    if not definition then return nil, err end
-    local preview = assert(require("core.LObject").new(1, object))
-    local ok, configureError = require("project.ObjectDefinition").configure(preview, definition, object.propertyOverrides, object.scriptOverrides)
-    if not ok then return nil, configureError end
-    local result = {}
-    for _, name in ipairs(preview:getScriptOrder()) do
-        if preview.scripts[name].camera then
-            result[#result + 1] = {authoringId = object.authoringId, script = name, name = preview.scripts[name].name}
-        end
-    end
-    if #result == 0 and not allowEmpty then return nil, "Selected instance has no CameraScript" end
-    return result
-end
+-- 이전 저장값 검증·마이그레이션만 담당하며 런타임 카메라 선택은 제공하지 않는다.
 return MainCamera

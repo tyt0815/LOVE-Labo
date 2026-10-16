@@ -20,7 +20,7 @@ function Pipeline.primaryViewport(world, x, y, width, height)
             if viewport then return viewport end
         end
     end
-    return Viewport.new(world and world.legacyCameraSelection and world or nil, x, y, width, height)
+    return Viewport.new(nil, x, y, width, height)
 end
 function Pipeline.draw(world, image, x, y, width, height)
     local drawn = {}

@@ -1,7 +1,7 @@
 # Lua API와 생명주기
 
 
-Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그인](plugins.md)을 활성화합니다. 새 프로젝트에서는 모두 꺼져 있습니다.
+Camera·View·Sprite·Pointer·RectBounds·Canvas·RectLayout·Text를 사용하려면 먼저 [플러그인](plugins.md)을 활성화합니다. 새 프로젝트에서는 모두 꺼져 있습니다.
 
 Lua 파일은 스크립트 정의 테이블을 반환합니다. LObject를 상속하지 않습니다. `self`는 부착마다 생성되는 스크립트이고 `self.owner`는 부착 대상입니다. Object에 부착하면 LObject, Level에 부착하면 실행 중인 World, Project에 부착하면 프로젝트 실행 호스트입니다. Lua 5.1/LuaJIT와 일반 LÖVE API를 사용할 수 있습니다.
 
@@ -26,7 +26,7 @@ end
 return Movement
 ```
 
-`load(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 실행 중인 초기화 콜백에 재진입하지 않습니다. 공통 `enabled`는 별도로 선언하지 않아도 상속됩니다. Inspector에서는 프로퍼티 행 대신 각 스크립트 헤더의 돋보기 왼쪽 토글로 편집합니다. 런타임의 `self.enabled`와 CLI의 `부착이름.enabled`는 그대로 사용합니다. 기본값은 true이며 false이면 update·draw·포인터 입력을 건너뜁니다. load는 활성 상태와 관계없이 한 번 실행하며 다시 활성화해도 반복하지 않습니다. 화면 출력은 명시적으로 등록한 View를 사용합니다. 업데이트는 공통 `updateOrder`가 작은 순서로 실행하고, 동률이면 Project → Level → 부모 우선 Object → 부착 순서를 유지합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
+`load(world)`는 한 번 초기화합니다. `update(dt)`와 `draw(context)`는 선택 사항이며 실제 구현된 콜백만 실행 목록에 등록됩니다. 실행 중인 초기화 콜백에 재진입하지 않습니다. 공통 `enabled`는 별도로 선언하지 않아도 상속됩니다. Inspector에서는 프로퍼티 행 대신 각 스크립트 헤더의 돋보기 왼쪽 토글로 편집합니다. 런타임의 `self.enabled`와 CLI의 `부착이름.enabled`는 그대로 사용합니다. 기본값은 true이며 false이면 update·draw·등록한 입력을 건너뜁니다. load는 활성 상태와 관계없이 한 번 실행하며 다시 활성화해도 반복하지 않습니다. 화면 출력은 명시적으로 등록한 View를 사용합니다. 업데이트는 공통 `updateOrder`가 작은 순서로 실행하고, 동률이면 Project → Level → 부모 우선 Object → 부착 순서를 유지합니다. Prefab의 스크립트 그룹 헤더 우클릭에서 순서를 바꿉니다.
 
 공통 `updateOrder`·`drawOrder`는 별도 선언 없이 기본 0으로 상속합니다. 음수는 먼저, 양수는 나중에 실행합니다. 두 설정은 독립적이며 런타임에도 변경할 수 있습니다. updateOrder 변경은 다음 프레임, drawOrder 변경은 다음 그리기 단계부터 반영합니다. 프레임 중 생성한 오브젝트·부착은 다음 프레임부터 업데이트합니다. load·unload·일반 이벤트 순서는 이 값에 영향을 받지 않습니다.
 
@@ -35,7 +35,7 @@ self.updateOrder = -100 -- 먼저 업데이트
 self.drawOrder = 100    -- 같은 그리기 단계에서 나중에 그려 앞에 표시
 ```
 
-일반 draw는 같은 좌표계의 Project·Level·Object를 함께 정렬합니다. 기존 Canvas는 월드보다 나중에, drawScreen은 일반 draw 이후에 그리는 단계 구분을 유지합니다. drawScreen은 Canvas 소속과 무관하게 drawOrder를 사용하며 동률은 Object → Level → Project입니다. View의 order는 View 간 출력 순서이므로 스크립트의 drawOrder와 별개입니다. Inspector에서는 해당 콜백이 있는 설정만 Script 그룹에 표시합니다.
+모든 일반 draw를 drawOrder로 정렬합니다. Canvas·화면 출력에 대한 별도 정렬 단계는 없습니다. 동률은 Project → Level → 부모 우선 Object → 부착 순서를 유지합니다. View의 order는 View 간 출력 순서이므로 스크립트의 drawOrder와 별개입니다. Inspector에서는 해당 콜백이 있는 설정만 Script 그룹에 표시합니다.
 
 이전 프로젝트의 `beginPlay` 선언과 직접 호출은 `load`로 바꿉니다. 호출 시점과 초기화 동작은 같습니다. 에셋을 읽거나 에디터 미리보기를 만들 때 호출하는 함수가 아닙니다.
 
@@ -80,6 +80,8 @@ if movement then movement.enabled = false end
 
 ① Copy ID는 내부 식별자를 복사합니다. ② Rename은 사용자 이름을 편집합니다. ③ 돋보기와 X는 원본 찾기와 로컬 부착 제거입니다.
 
+<a id="script-events"></a>
+
 ## LÖVE 이벤트 콜백
 
 부착 Script에 다음 콜백을 구현합니다. 전역 `love.keypressed` 등을 직접 덮어쓰지 않습니다. 기본 제공 플러그인 없이도 사용할 수 있습니다.
@@ -120,7 +122,7 @@ Editor에서는 Game View가 포커스를 가진 경우 키보드·문자·컨�
 
 `focus/mousefocus/visible`은 호스트 창 상태입니다. `resize`는 게임 영역의 실제 크기이며 최초 실행과 레벨 전환 때 새 World의 첫 `update` 전에 전달됩니다. 이후 Editor에서는 레이아웃 변경, Export에서는 창 크기 변경을 반영합니다. Pause 중 생긴 영역 변경은 재개 시 다음 `update` 전에 반영됩니다. 논리 해상도·월드 크기와 다릅니다.
 
-`quit`, 파일·폴더 드롭, `threaderror`, `lowmemory`, `displayrotated`, `run/conf/errorhandler`는 Script 이벤트로 제공하지 않습니다. 레벨 Lua 스크립트는 기존 `load/update`를 유지합니다. [이벤트 예제](examples.md#löve-이벤트-예제)와 [CLI 검증](../cli-and-export.md#일반-script-이벤트-검증)을 참고합니다.
+`quit`, 파일·폴더 드롭, `threaderror`, `lowmemory`, `displayrotated`, `run/conf/errorhandler`는 Script 이벤트로 제공하지 않습니다. 레벨 Lua 스크립트는 기존 `load/update`를 유지합니다. [이벤트 예제](examples.md#script-events)와 [CLI 검증](../cli-and-export.md#script-events)을 참고합니다.
 
 ## Project·Level·Object의 공용 Script
 
@@ -142,32 +144,59 @@ local levelLogic = self:getWorld():getScriptByName("scopeLevel")
 local objects = self:getWorld():getObjects()
 ```
 
-load와 update는 Project → Level → Object 순서로 Labo가 호출합니다. 같은 대상에서는 부착 순서, Object끼리는 기존 부모·자손 순서입니다. Project·Level도 같은 일반 입력 이벤트와 포인터 콜백을 사용할 수 있습니다. 포인터 콜백에는 기존처럼 영역 판정이 필요하며 Project·Level의 공간 원점은 월드 원점입니다. unload는 Object → Level → Project 순서이며 각 대상 안에서는 부착 역순입니다. 기존 별도 Level Lua의 load/update는 호환 경로로 유지하고 새 부착은 일반 Script로 작성합니다.
+load는 Project → Level → Object 순서, update는 updateOrder 순서로 Labo가 호출합니다. 같은 대상에서는 부착 순서, Object끼리는 기존 부모·자손 순서입니다. Project·Level도 같은 일반 입력 이벤트와 Input.registerRegion API를 사용할 수 있습니다. 영역 판정은 등록한 hitTest에서 수행하며 Project·Level의 공간 원점은 월드 원점입니다. unload는 Object → Level → Project 순서이며 각 대상 안에서는 부착 역순입니다. 기존 별도 Level Lua의 load/update는 호환 경로로 유지하고 새 부착은 일반 Script로 작성합니다.
 
-고정 업데이트를 직접 구현하려면 Object Script에는 update를 정의하지 않고 `fixedUpdate(dt)` 같은 일반 메서드를 작성합니다. Level Script의 update에서 시간을 누적하고 대상을 조회해 호출합니다. 활성 상태·우선순위·따라잡기 횟수는 그 코드가 관리합니다. [직접 실행할 예제](examples.md#범위별-script와-고정-업데이트-예제)를 제공합니다.
+고정 업데이트를 직접 구현하려면 Object Script에는 update를 정의하지 않고 `fixedUpdate(dt)` 같은 일반 메서드를 작성합니다. Level Script의 update에서 시간을 누적하고 대상을 조회해 호출합니다. 활성 상태·우선순위·따라잡기 횟수는 그 코드가 관리합니다. [직접 실행할 예제](examples.md#script-scopes)를 제공합니다.
 
-## 월드 그리기와 화면 그리기
+## configure와 배치·영역 바인딩
+
+configure()는 각 부착 생성 때 한 번 호출하며 에디터·미리보기에서도 실행합니다. 게임 load/update와 별개입니다. 부모·다른 스크립트·참조가 아직 연결되지 않았을 수 있으므로 조회는 등록한 제공 함수 안에서 수행합니다. 게임 동작과 입력·GPU 자원은 load에서 시작합니다.
+
+```lua
+local Engine = require("Engine")
+local Shape = {}
+function Shape:configure()
+    Engine.Bounds.bind(self, function(context)
+        return -50, -20, 100, 40
+    end, {primary = true})
+end
+function Shape:draw(context)
+    local x, y, width, height = self:getBounds(context)
+    love.graphics.rectangle("fill", x, y, width, height)
+end
+return Shape
+```
+
+Bounds.bind는 Script 영역을 등록하고 primary=true이면 같은 오브젝트의 대표 사각형으로도 제공합니다. Bounds.of(object,context)·Bounds.parent(object,context)로 조회합니다. 직접 getLocalBounds(context)를 구현하는 일반 스크립트도 사용할 수 있습니다. fillParent의 의미나 다른 제공 스크립트의 타입을 Core가 추론하지 않습니다.
+
+Transform.bindLocal(object,{owner=self,resolve=fn,unresolve=fn})는 authored Transform과 context를 받아 유효 로컬 변환을 계산합니다. 반환값은 x/y와 회전·스케일 또는 a/b/c/d affine 기저를 갖습니다. 저장된 object.transform은 유지하며 getWorldTransform(context)은 부모의 유효 변환을 합성합니다. unresolve(effective,context)는 위치 편집을 authored 오프셋으로 변환합니다. 제공자를 해제하려면 반환 핸들의 release를 호출합니다. Script 제거·종료 때는 자동 정리합니다.
+
+문자열 프로퍼티의 options 배열은 공통 Inspector 선택 목록입니다. 기본값과 재정의는 목록 안의 값이어야 하며 CLI·런타임 할당에도 같은 검증을 적용합니다.
+
+```lua
+properties = {
+    align = {type = "string", default = "left", options = {"left", "center", "right"}},
+}
+```
+
+## 월드 그리기와 명시적인 화면 좌표
 
 ```lua
 function MyScript:draw(context)
     love.graphics.circle("line", 0, 0, 50)
-end
-function MyScript:drawScreen(context)
-    love.graphics.print("Screen HUD", 20, 20)
+    context:withScreen(function()
+        love.graphics.print("Screen HUD", 20, 20)
+    end)
 end
 ```
 
-| 콜백 | 좌표 기준 |
-|---|---|
-| Project·Level의 draw | 월드 좌표, 카메라 적용 |
-| Object의 draw | 기존 객체 로컬 좌표, Transform·카메라 또는 Canvas 적용 |
-| 모든 범위의 drawScreen | 게임 영역 왼쪽 위 (0, 0), 실제 픽셀. 카메라·객체 Transform 미적용 |
+Object의 draw에는 유효 오브젝트 Transform과 View 투영을 적용합니다. Project·Level의 draw는 월드 원점에서 시작합니다. 모든 범위를 공통 drawOrder로 정렬하고 별도의 화면 콜백 단계는 없습니다. drawScreen은 제거되었으며 선언하면 전환 안내 오류를 표시합니다.
 
-`context`는 Object가 아니라 Renderer가 전달한 그리기 환경입니다. `context.view`, `context.camera`, `context.target`은 이번 출력을 식별합니다. 여러 View에 포함된 draw는 출력마다 호출되며 update는 한 번 실행합니다. `context:image(reference)`로 이미지를 가져오고, `context.viewport.width/height`로 레터박스를 제외한 게임 영역 크기를 얻습니다. Labo가 변환·클리핑·그래픽 상태 복원을 처리하므로 콜백 안에서는 일반 `love.graphics` API로 그립니다. 다른 Script의 draw를 직접 호출하면 그 대상의 Transform 준비 과정이 생략됩니다.
+context는 Renderer가 전달한 그리기 환경입니다. context.view·projection·target은 이번 출력, context.viewport는 출력 영역·좌표 변환을 제공합니다. context:image(reference)로 이미지를 가져옵니다. context:withScreen(fn)은 Rendering.withScreen(context,fn)의 편의 메서드이며 게임 영역 왼쪽 위 (0,0) 기준의 픽셀 좌표를 적용합니다. 카메라·오브젝트 변환을 잠시 해제하고 오류가 나도 그래픽 상태를 복구합니다. 에셋·Scene 미리보기에서는 이 화면 구간을 실행하지 않습니다.
 
-그리기 순서는 **Project.draw → Level.draw → 기존 Object 렌더링(Canvas 포함) → Object.drawScreen → Level.drawScreen → Project.drawScreen**입니다. Object drawScreen끼리는 기존 렌더링 정렬 규칙을 사용합니다. enabled=false는 draw와 drawScreen 모두 중단합니다. 화면 콜백에서 객체 머리 위에 표시하려면 객체의 월드 위치를 화면 위치로 직접 변환해야 합니다.
+여러 View에 포함된 draw는 출력마다 실행하며 update는 World당 한 번입니다. 다른 Script의 draw를 직접 호출하면 그 대상의 Transform 준비 과정은 생략됩니다. UI를 배치·선택·입력 가능한 객체로 만들려면 [Canvas·RectLayout과 공개 입력 API](camera-ui.md)를 사용합니다.
 
-![월드 그림과 화면 HUD](images/scope-drawing.png)
+![월드 그리기와 명시적인 화면 출력](images/scope-drawing.png)
 
 ## 오디오와 자원 정리
 
@@ -200,4 +229,4 @@ return Sound
 
 종료 중에는 `self.owner`와 `self.owner.world`를 사용할 수 있습니다. unload에는 별도 인자를 전달하지 않습니다. 한 unload가 예외를 발생시켜도 나머지를 정리한 뒤 오류를 보고합니다. 반환값은 무시하며 unload는 입력 이벤트나 활성 상태 변경 콜백이 아닙니다. World 전체가 종료된 뒤에는 Spawn·레벨 전환·업데이트를 실행할 수 없습니다. Level Lua 스크립트의 콜백 종류는 이번에 변경하지 않습니다.
 
-[오디오·종료 예제](examples.md#오디오와-종료-콜백-예제)에서 직접 검수할 수 있습니다.
+[오디오·종료 예제](examples.md#audio-lifecycle)에서 직접 검수할 수 있습니다.

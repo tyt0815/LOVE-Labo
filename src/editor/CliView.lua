@@ -10,21 +10,12 @@ function Operations.execute(project, level, request)
         local viewport = require("core.RenderPipeline").primaryViewport(world, 0, 0, width, height)
         local result = {width = viewport.width, height = viewport.height, scale = viewport.scale,
             contentWidth = viewport.contentWidth, contentHeight = viewport.contentHeight, canvases = {}}
-        if viewport.camera then
-            local camera = viewport.camera
-            local width, height = camera:getViewSize()
-            result.camera = {authoringId = camera.owner.authoringId, script = camera.name,
-                transform = camera:getViewTransform(), viewWidth = width, viewHeight = height}
-        end
+        result.projection, result.instances = viewport.projection, {}
         for _, object in ipairs(world.lobjects) do
-            for _, name in ipairs(object:getScriptOrder()) do
-                local script = object.scripts[name]
-                if script.canvas then
-                    local x, y, width, height = script:getBounds({viewport = viewport})
-                    result.canvases[#result.canvases + 1] = {authoringId = object.authoringId, script = name,
-                        x = x, y = y, width = width, height = height}
-                end
-            end
+            local x, y, width, height = require("core.Bounds").of(object)
+            result.instances[#result.instances + 1] = {authoringId = object.authoringId, name = object.name,
+                authoredTransform = require("core.Transform").toData(object.transform), worldTransform = object:getWorldTransform(),
+                bounds = x and {x = x, y = y, width = width, height = height} or nil}
         end
         if request.x or request.y then
             local x, y = tonumber(request.x or 0), tonumber(request.y or 0)
@@ -39,8 +30,7 @@ function Operations.execute(project, level, request)
             local vp = require("core.RenderPipeline").viewport(view, 0, 0, screen and width or view.target.width, screen and height or view.target.height)
             result.views[#result.views + 1] = {id = view.id, order = view.order, target = screen and "screen" or "texture",
                 width = screen and width or view.target.width, height = screen and height or view.target.height,
-                camera = view.camera and {authoringId = view.camera.owner.authoringId, script = view.camera.name},
-                includeWorld = view.includeWorld, includeScreen = view.includeScreen, input = view.input,
+                projection = view:getProjection(), input = view.input,
                 viewport = vp and {x = vp.x, y = vp.y, width = vp.width, height = vp.height, scale = vp.scale}}
         end
         if request.command == "level.render" then

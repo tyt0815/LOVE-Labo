@@ -20,7 +20,7 @@ python scripts/updateGuideImages.py C:/Work/new-capture-folder
 python -m mkdocs build --strict
 ```
 
-capture-guide는 새 출력 폴더와 그 아래 임시 예제 프로젝트를 만들고 레벨·카메라·Sprite·Prefab·Game View를 PNG로 캡처한 뒤 종료합니다. 기존 폴더는 덮어쓰지 않습니다. 사용자 프로젝트를 조작하지 않습니다. 원본은 guide/images/original, 주석 이미지는 guide/images에 둡니다. 원·번호 표시는 SVG 오버레이로 만들며 원본 픽셀은 변경하지 않습니다.
+capture-guide는 새 출력 폴더와 그 아래 임시 예제 프로젝트를 만들고 레벨·카메라·Sprite·Prefab·Game View와 9방향 HUD·Anchor 선택기·공개 API 전용 HUD를 PNG로 캡처한 뒤 종료합니다. 기존 폴더는 덮어쓰지 않습니다. 사용자 프로젝트를 조작하지 않습니다. 원본은 guide/images/original, 주석 이미지는 guide/images에 둡니다. 원·번호 표시는 SVG 오버레이로 만들며 원본 픽셀은 변경하지 않습니다.
 
 UI 배치가 바뀌면 updateGuideImages.py의 표시 위치도 실제 화면을 보고 갱신합니다. 스크린샷과 단계 설명은 함께 검토합니다.
 

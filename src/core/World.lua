@@ -139,36 +139,6 @@ function World:cancelPointer()
     self.pointerCaptures = {}
     require("core.ScriptEvents").cancel(self)
 end
--- 과거 단일 화면 코드의 호환 API다. 새 출력 구성은 Rendering.createView를 사용한다.
-function World:setActiveCamera(camera)
-    if camera ~= nil and not require("core.RenderView").validCamera(self, camera) then return false, "Camera must belong to this World" end
-    if self.disposed then return false, "World is disposed" end
-    self.legacyCameraSelection, self.activeCamera = true, camera
-    if self.legacyView then self.legacyView:setCamera(camera or self:getActiveCamera()) end
-    return true
-end
-function World:getActiveCamera()
-    if not self.legacyCameraSelection then
-        local views = require("core.Rendering").views(self)
-        for index = #views, 1, -1 do
-            if views[index].target == require("core.Rendering").screen then return views[index].camera end
-        end
-    end
-    local first
-    local hosts = self:getObjects(); table.insert(hosts, 1, self)
-    if self.project then table.insert(hosts, 1, self.project) end
-    for _, object in ipairs(hosts) do
-        for _, name in ipairs(object:getScriptOrder()) do
-            local script = object.scripts[name]
-            if script.camera and script.enabled ~= false then
-                if script == self.activeCamera then return script end
-                first = first or script
-            end
-        end
-    end
-    return first
-end
-
 function World:openLevel(reference)
     if self.disposed then return false, "World is disposed" end
     if not self.openLevelRequest then return false, "World has no Level loader" end

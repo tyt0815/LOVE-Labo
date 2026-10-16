@@ -69,7 +69,7 @@ Project·Level·Object·Prefab의 부착 스크립트는 모두 헤더의 **돋�
 
 꺼진 스크립트는 update·draw·입력 콜백을 건너뜁니다. load·unload는 초기화와 정리를 위해 실행하며, 다시 켜면 기존 상태에서 재개합니다. 설정은 기존 enabled 재정의로 저장되어 Undo/Redo·Prefab 상속·CLI·런타임 코드와 공유합니다. 별도의 Script → enabled 행은 표시하지 않습니다.
 
-공통 **Script** 그룹은 스크립트 내부의 다른 프로퍼티 그룹보다 항상 먼저 표시합니다. update가 있으면 **Update order**, draw 또는 drawScreen이 있으면 **Draw order**를 표시합니다. 둘 다 기본 0이며 음수·양수를 입력할 수 있습니다. 작은 값부터 실행하고 같은 값은 기존 순서를 유지합니다. 순서 설정도 일반 프로퍼티처럼 재정의·재설정·Undo/Redo할 수 있습니다.
+공통 **Script** 그룹은 스크립트 내부의 다른 프로퍼티 그룹보다 항상 먼저 표시합니다. update가 있으면 **Update order**, draw가 있으면 **Draw order**를 표시합니다. 둘 다 기본 0이며 음수·양수를 입력할 수 있습니다. 작은 값부터 실행하고 같은 값은 기존 순서를 유지합니다. 순서 설정도 일반 프로퍼티처럼 재정의·재설정·Undo/Redo할 수 있습니다.
 
 ![Script 그룹의 공통 그리기 순서](images/sprite-details.svg)
 

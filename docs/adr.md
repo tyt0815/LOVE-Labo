@@ -90,3 +90,5 @@
 - [0083. 에디터 창 제어를 메뉴바에 통합한다](adr/0083-editor-window-controls-in-menu-bar.md)
 
 - [0084. Script 공통 업데이트·그리기 순서](adr/0084-common-script-callback-order.md)
+
+- [0085. 공개 투영·배치·입력 API로 카메라와 UI 구성](adr/0085-public-projection-layout-and-input.md)

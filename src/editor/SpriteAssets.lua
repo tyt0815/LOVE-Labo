@@ -1,11 +1,15 @@
 local Assets = {}
 Assets.__index = Assets
 function Assets.new(project)
-    return setmetatable({project = project, images = {}, previews = setmetatable({}, {__mode = "k"})}, Assets)
+    return setmetatable({project = project, images = {}, layout = require("project.AuthoringLayout").new(project)}, Assets)
 end
 function Assets:clear()
+    self.layout:clear()
+    for _, cache in pairs(self.scopePreviews or {}) do
+        if cache.host then for _, script in pairs(cache.host.scripts) do require("core.Bindings").release(script) end end
+    end
     for _, image in pairs(self.images) do if image then image:release() end end
-    self.images, self.previews, self.error, self.scopePreviews = {}, setmetatable({}, {__mode = "k"}), nil, nil
+    self.images, self.error, self.scopePreviews = {}, nil, nil
 end
 function Assets:scopePreview(data, scope)
     local signature = assert(require("project.Json").encode({scripts = data.scripts, scriptOverrides = data.scriptOverrides}))
@@ -31,25 +35,15 @@ function Assets:image(reference)
     if not ok then self.error = tostring(image) end
     return ok and image or nil
 end
+function Assets:setLevel(level)
+    if self.layout.level ~= level then self.layout:clear() end
+    self.level, self.layout.level = level, level
+    if level then level.layout = self.layout end
+end
 function Assets:preview(data)
-    local signature = tostring(self.project.draftRevision or 0) .. require("editor.Json").encode(data)
-    local cache = self.previews[data]
-    if cache and cache.signature == signature then
-        cache.object = cache.object or nil
-        if cache.object then cache.object.parent = self.level and self.level:getParent(data) and self:preview(self.level:getParent(data)) or nil end
-        return cache.object
-    end
-    local Definition = require("editor.ObjectDefinition")
-    local definition, err
-    if self.level then definition, err = require("project.PrefabHierarchy").authoringDefinition(self.project, self.level, data)
-    else definition, err = Definition.resolve(self.project, data.definitionReference) end
-    local object = assert(require("core.LObject").new(1, data))
-    local ok, configureError
-    if definition then ok, configureError = Definition.configure(object, definition, data.propertyOverrides, data.scriptOverrides) end
-    self.previews[data] = {signature = signature, object = ok and object or nil}
-    if not ok then self.error = err or configureError end
-    if ok then object.parent = self.level and self.level:getParent(data) and self:preview(self.level:getParent(data)) or nil end
-    return ok and object or nil
+    local preview = self.layout:preview(data)
+    if self.layout.error then self.error = self.layout.error end
+    return preview
 end
 function Assets:draw(object, view, zoom)
     return require("core.Renderer").draw(object, function(reference) return self:image(reference) end,

@@ -1,15 +1,8 @@
 local Transform = require("core.Transform")
 local View = {}
 View.__index = View
-function View.validCamera(world, camera)
-    if camera == nil or camera == false then return true end
-    return not not (type(camera) == "table" and camera.camera == true and type(camera.getViewSize) == "function"
-        and type(camera.getViewTransform) == "function" and camera.owner and camera.owner:getWorld() == world
-        and camera.owner.scripts[camera.id] == camera and not camera.hasUnloaded)
-end
 function View.new(world, options)
-    local self = setmetatable({world = world, owner = options.owner, enabled = options.enabled ~= false, includeWorld = options.includeWorld ~= false,
-        includeScreen = options.includeScreen ~= false, input = options.input ~= false, filter = options.filter,
+    local self = setmetatable({world = world, owner = options.owner, enabled = options.enabled ~= false, input = options.input ~= false, filter = options.filter,
         clearColor = options.clearColor == nil and {0, 0, 0, 1} or options.clearColor,
         pointerCaptures = {}}, View)
     assert(self.filter == nil or type(self.filter) == "function", "View filter must be a function")
@@ -19,7 +12,9 @@ function View.new(world, options)
         for _, channel in ipairs(self.clearColor) do assert(Transform.finite(channel) and channel >= 0 and channel <= 1, "Invalid clear color") end
         self.clearColor = {unpack(self.clearColor)}
     end
-    self:setCamera(options.camera)
+    assert(options.includeWorld == nil and options.includeScreen == nil, "Use a View filter instead of coordinate-space flags")
+    assert(options.camera == nil, "Use projection data or a projection provider instead of camera")
+    self:setProjection(options.projection)
     self:setTarget(options.target)
     self:setViewport(options.viewport)
     self:setOrder(options.order or 0)
@@ -29,9 +24,14 @@ function View.new(world, options)
     world.renderViews[#world.renderViews + 1] = self
     return self
 end
-function View:setCamera(camera)
-    assert(not self.released and View.validCamera(self.world, camera), "Camera must belong to the View's World")
-    self.camera = camera or nil
+function View:setProjection(projection)
+    assert(not self.released and (projection == nil or type(projection) == "function" or type(projection) == "table"), "Expected projection data or a provider")
+    self.projection = projection
+end
+function View:getProjection()
+    local value = self.projection
+    if type(value) == "function" then value = value() end
+    return require("core.Rendering").normalizeProjection(value)
 end
 function View:setTarget(target)
     local screen = require("core.Rendering").screen
@@ -58,21 +58,16 @@ function View:setEnabled(enabled)
     if not enabled then self.pointerCaptures = {} end
 end
 function View:isActive()
-    -- 호환 출력은 저장 당시 참조가 아니라 과거 World의 자동 대체 규칙을 따른다.
-    if self == self.world.legacyView and self.world.legacyCameraSelection and not self.world.disposed then
-        self.camera = self.world:getActiveCamera()
-    end
     local active = not self.released and not self.world.disposed and self.enabled
         and (not self.owner or not self.owner.hasUnloaded and self.owner.enabled ~= false and self.owner:getWorld() == self.world)
-        and View.validCamera(self.world, self.camera)
+        and (self.projection == nil or self:getProjection() ~= nil)
         and not self.target.released
     -- 비활성 중 놓친 release가 재활성화 뒤의 입력을 가로채지 않게 한다.
     if not active then self.pointerCaptures = {} end
     return active
 end
-function View:includes(script, screen)
-    return (screen and self.includeScreen or not screen and self.includeWorld)
-        and (not self.filter or self.filter(script) == true)
+function View:includes(script)
+    return not self.filter or self.filter(script) == true
 end
 function View:release()
     if self.released then return end

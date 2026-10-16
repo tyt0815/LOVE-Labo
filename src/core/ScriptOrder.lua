@@ -1,4 +1,3 @@
-local Space = require("core.CoordinateSpace")
 local Order = {}
 function Order.objects(objects)
     local ordered, visited, allowed = {}, {}, {}
@@ -33,11 +32,10 @@ function Order.entries(objects, capability, predicate)
     end
     for _, entry in ipairs(entries) do
         local script = entry.script
-        local pointer = capability == "pointer"
-        local source = pointer and script:getBoundsSource() or script
-        entry.layer = capability ~= "drawScreen" and Space.canvas(source) and 1 or 0
+        local source = script
+        entry.layer = 0
         entry.order = source.drawOrder ~= 0 and source.drawOrder or source.properties.sortingOrder or 0
-        entry.priority = pointer and script.properties.inputPriority or 0
+        entry.priority = 0
         entry.index = indices[source] or entry.index
     end
     table.sort(entries, function(a, b)
@@ -50,17 +48,11 @@ function Order.entries(objects, capability, predicate)
     return entries
 end
 -- 기본 범위·계층·부착 순서를 유지하되, 숫자가 다르면 범위를 넘어 정렬한다.
-function Order.hosts(world, screen)
+function Order.hosts(world)
     local hosts = {}
-    if not screen then
-        if world.project then hosts[#hosts + 1] = world.project end
-        hosts[#hosts + 1] = world
-    end
+    if world.project then hosts[#hosts + 1] = world.project end
+    hosts[#hosts + 1] = world
     for _, object in ipairs(Order.objects(world.lobjects)) do hosts[#hosts + 1] = object end
-    if screen then
-        hosts[#hosts + 1] = world
-        if world.project then hosts[#hosts + 1] = world.project end
-    end
     return hosts
 end
 function Order.updates(hosts, legacyWorld)

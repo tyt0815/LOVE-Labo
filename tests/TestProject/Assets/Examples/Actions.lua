@@ -25,7 +25,7 @@ function Actions.onPointerDown(self, event)
         local width, height = select(3, self:getBounds({}))
         local viewport = Engine.Viewport.new(world, 0, 0, 1280, 720)
         local sx, sy = viewport:worldToScreen(0, 0); local wx, wy = viewport:screenToWorld(sx, sy)
-        local space = Engine.CoordinateSpace.canvas(self) and "screen" or "world"
+        local space = "world"
         world.debug:log(space .. " bounds " .. width .. "x" .. height .. "; hit=" .. tostring(hit) .. "; origin=" .. wx .. "," .. wy)
     elseif self.action == "Remove" and spawned and spawned.world then world:removeLObject(spawned); world.exampleSpawn = nil
     elseif self.action == "Attach" and spawned and spawned.world then spawned:attachTo(spawned.parent and nil or self.target)
@@ -33,7 +33,7 @@ function Actions.onPointerDown(self, event)
         local motion = spawned:getScriptByName("motion")
         if motion then motion.enabled = not motion.enabled end
     elseif self.action == "Camera" then
-        local camera = require("Engine").Rendering.views(world)[1].camera; camera.zoom = camera.zoom == 1 and 1.5 or 1
+        local camera = world:getObjects()[1]:getScriptByName("camera") or world:getObjects()[1]:getScriptByName("Camera"); camera.zoom = camera.zoom == 1 and 1.5 or 1
     elseif self.action == "Next" then assert(Engine.openLevel(world, self.nextLevel))
     elseif self.action == "Properties" and self.target then
         local motion = self.target:getScriptByName("motion")

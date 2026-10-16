@@ -5,9 +5,9 @@ local Multiview = {properties = {
 }}
 function Multiview:load(world)
     self.mapTarget = Rendering.createTarget(world, {width = 256, height = 256})
-    self.mapView = Rendering.createView(world, {camera = self.mapCamera, target = self.mapTarget,
-        order = -10, includeScreen = false, input = false, owner = self})
-    self.mainView = Rendering.createView(world, {camera = self.mainCamera, owner = self})
+    self.mapView = Rendering.createView(world, {projection = function() return self.mapCamera:getProjection() end, target = self.mapTarget,
+        order = -10, input = false, owner = self})
+    self.mainView = Rendering.createView(world, {projection = function() return self.mainCamera:getProjection() end, owner = self})
 end
 function Multiview:update(dt)
     local object = self.mainCamera.owner
@@ -22,7 +22,7 @@ function Multiview:keypressed(key)
     elseif key == "-" then self.mainCamera.zoom = math.max(0.25, self.mainCamera.zoom / 2)
     elseif key == "m" then self.mapView:setEnabled(not self.mapView.enabled) end
 end
-function Multiview:draw(context)
+function Multiview:drawWorld(context)
     love.graphics.setColor(0.18, 0.25, 0.35, 1)
     for coordinate = -640, 640, 80 do
         love.graphics.line(-640, coordinate, 640, coordinate)
@@ -33,7 +33,7 @@ function Multiview:draw(context)
     love.graphics.setColor(0.2, 0.8, 0.6, 1)
     love.graphics.circle("fill", 220, 120, 40)
 end
-function Multiview:drawScreen(context)
+function Multiview:drawOverlay(context)
     local width = context.viewport.width
     if self.mapView.enabled then
         love.graphics.setColor(1, 1, 1, 1)
@@ -47,5 +47,10 @@ function Multiview:drawScreen(context)
 end
 function Multiview:unload()
     self.mainView:release(); self.mapView:release(); self.mapTarget:release()
+end
+function Multiview:draw(context)
+    self:drawWorld(context)
+    if context.view ~= self.mainView then return end
+    context:withScreen(function() self:drawOverlay(context) end)
 end
 return Multiview

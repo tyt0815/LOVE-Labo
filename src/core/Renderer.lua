@@ -1,27 +1,6 @@
 local Render = "draw"
 local Transform = require("core.Transform")
 local Renderer = {}
-local function invoke(script, callback, ctx, viewport, screen)
-    if viewport.view and not viewport.view:includes(script, screen) then return end
-    local owner = script.owner
-    if not owner or owner.scripts[script.id] ~= script or script.enabled == false or script.hasUnloaded then return end
-    love.graphics.push("all")
-    love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
-    love.graphics.origin()
-    if screen then love.graphics.translate(viewport.x, viewport.y)
-    else
-        local x, y = viewport:worldToScreen(0, 0)
-        local ax, ay = viewport:worldToScreen(1, 0)
-        local bx, by = viewport:worldToScreen(0, 1)
-        local affine = love.math.newTransform()
-        affine:setMatrix(ax - x, bx - x, 0, x, ay - y, by - y, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
-        love.graphics.applyTransform(affine); affine:release()
-    end
-    local ok, result, err = pcall(script[callback], script, ctx)
-    love.graphics.pop()
-    if not ok then error(result, 0) end
-    if result == false and err then error(err, 0) end
-end
 local function context(imageFor)
     return {image = function(_, reference) if reference and reference ~= false then return imageFor(reference) end end}
 end
@@ -32,14 +11,19 @@ local function visit(object, fn)
 end
 function Renderer.drawObjects(objects, imageFor, toScreen, zoom, drawContext)
     local drawn, ctx = false, drawContext or context(imageFor)
+    if not ctx.viewport then ctx.preview = true end
+    ctx.withScreen = ctx.withScreen or function(_, callback) return require("core.Rendering").withScreen(ctx, callback) end
     for _, entry in ipairs(require("core.ScriptOrder").entries(objects, Render)) do
         local script = entry.script
-        if script.owner and script.owner.scripts[script.id] == script and script.enabled ~= false then
+        if script.owner and script.owner.scripts[script.id] == script and script.enabled ~= false and (not ctx.includes or ctx.includes(script)) then
+            local owner = script.owner
             local world = ctx.transform and ctx:transform(script) or script:getWorldTransform()
             local x, y = toScreen(world.x, world.y)
-            local a, b, c, d = Transform.basis(world)
-            local affine, z = love.math.newTransform(), zoom or 1
-            affine:setMatrix(a * z, c * z, 0, x, b * z, d * z, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
+            local ax, ay = Transform.point(world, 1, 0)
+            local bx, by = Transform.point(world, 0, 1)
+            ax, ay = toScreen(ax, ay); bx, by = toScreen(bx, by)
+            local affine = love.math.newTransform()
+            affine:setMatrix(ax - x, bx - x, 0, x, ay - y, by - y, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
             love.graphics.push("all"); love.graphics.origin(); love.graphics.applyTransform(affine)
             -- 사용자 draw가 실패해도 다음 프레임의 그래픽 상태를 오염시키지 않는다.
             local ok, result, err = pcall(script.draw, script, ctx)
@@ -47,6 +31,7 @@ function Renderer.drawObjects(objects, imageFor, toScreen, zoom, drawContext)
             if not ok then error(result, 0) end
             if result == false and err then error(err, 0) end
             drawn = drawn or result ~= false
+            if ctx.drawn then ctx.drawn[owner] = result ~= false or ctx.drawn[owner] end
         end
     end
     return drawn
@@ -77,43 +62,19 @@ function Renderer.outline(object, imageFor, toScreen, measureOnly)
     end)
 end
 function Renderer.drawWorld(world, imageFor, viewport)
-    local ctx, drawn = viewport:context(function(_, reference) return reference and reference ~= false and imageFor(reference) or nil end), {}
-    local Space = require("core.CoordinateSpace")
-    for _, entry in ipairs(require("core.ScriptOrder").entries(require("core.ScriptOrder").hosts(world), Render)) do
-        local script = entry.script
-        local owner = script.owner
-        if owner and owner:getWorld() == world and owner.scripts[script.id] == script and script.enabled ~= false then
-            if owner.scope then
-                invoke(script, "draw", ctx, viewport, false)
-            else
-                local transform = Space.transform(script)
-                local x, y = Transform.point(transform, 0, 0)
-                local ax, ay = Transform.point(transform, 1, 0)
-                local bx, by = Transform.point(transform, 0, 1)
-                local screen = Space.canvas(script) ~= nil
-                if not viewport.view or viewport.view:includes(script, screen) then
-                    local function project(px, py)
-                        if screen then return viewport.x + viewport.width / 2 + px, viewport.y + viewport.height / 2 + py end
-                        return viewport:worldToScreen(px, py)
-                    end
-                    x, y = project(x, y); ax, ay = project(ax, ay); bx, by = project(bx, by)
-                    local affine = love.math.newTransform()
-                    affine:setMatrix(ax - x, bx - x, 0, x, ay - y, by - y, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
-                    love.graphics.push("all")
-                    love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
-                    love.graphics.origin(); love.graphics.applyTransform(affine)
-                    local ok, result, err = pcall(script.draw, script, ctx)
-                    love.graphics.pop(); affine:release()
-                    if not ok then error(result, 0) end
-                    if result == false and err then error(err, 0) end
-                    drawn[owner] = drawn[owner] or result ~= false
-                end
-            end
-        end
+    local ctx = viewport:context(function(_, reference) return reference and reference ~= false and imageFor(reference) or nil end)
+    ctx.drawn = {}
+    local objects = require("core.ScriptOrder").hosts(world)
+    if viewport.view then
+        -- 범용 필터는 스크립트마다 적용하고 좌표계나 플러그인 종류를 분류하지 않는다.
+        ctx.includes = function(script) return viewport.view:includes(script) end
     end
-    for _, entry in ipairs(require("core.ScriptOrder").entries(require("core.ScriptOrder").hosts(world, true), "drawScreen")) do
-        if entry.script.owner and entry.script.owner:getWorld() == world then invoke(entry.script, "drawScreen", ctx, viewport, true) end
-    end
-    return drawn
+    love.graphics.push("all")
+    love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
+    local ok, drawn = pcall(Renderer.drawObjects, objects, imageFor,
+        function(x, y) return viewport:worldToScreen(x, y) end, viewport.scale, ctx)
+    love.graphics.pop()
+    assert(ok, drawn)
+    return ctx.drawn
 end
 return Renderer

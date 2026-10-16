@@ -52,4 +52,59 @@ function Transform.inversePoint(value, x, y)
     x, y = x - value.x, y - value.y
     return (d * x - c * y) / determinant, (-b * x + a * y) / determinant
 end
+-- 객체의 저장 Transform은 오프셋으로 유지하고 유효 로컬 변환만 계산한다.
+function Transform.bindLocal(object, options)
+    assert(object and object.transform and options and options.owner and options.owner.owner == object and type(options.resolve) == "function", "Invalid local Transform binding")
+    assert(options.unresolve == nil or type(options.unresolve) == "function", "Invalid inverse Transform binding")
+    assert(not object.localBinding or object.localBinding.released, "Only one local Transform binding is allowed")
+    local binding = {resolve = options.resolve, unresolve = options.unresolve, owner = options.owner}
+    local handle = require("core.Bindings").add(options.owner, function() binding.released = true end)
+    object.localBinding = binding
+    return handle
+end
+function Transform.localValue(object, context)
+    local binding = object.localBinding
+    if binding and not binding.released and require("core.Bindings").live(binding.owner) then
+        assert(not binding.evaluating, "Cyclic Transform binding")
+        binding.evaluating = true
+        local ok, value = pcall(binding.resolve, object.transform, context)
+        binding.evaluating = nil
+        assert(ok, value)
+        assert(value and Transform.finite(value.x) and Transform.finite(value.y), "Invalid resolved Transform")
+        local a, b, c, d = Transform.basis(value)
+        assert(Transform.finite(a) and Transform.finite(b) and Transform.finite(c) and Transform.finite(d), "Invalid resolved Transform basis")
+        return value
+    end
+    return object.transform
+end
+function Transform.relative(parent, world)
+    local x, y = Transform.inversePoint(parent, world.x, world.y)
+    if not x then return nil, "Parent Transform cannot be inverted" end
+    local a, b, c, d = Transform.basis(parent)
+    local e, f, g, h = Transform.basis(world)
+    local det = a * d - b * c
+    return {x = x, y = y, a = (d * e - c * f) / det, b = (-b * e + a * f) / det,
+        c = (d * g - c * h) / det, d = (-b * g + a * h) / det}
+end
+function Transform.unresolve(object, value, context)
+    local binding = object.localBinding
+    if binding and not binding.released and require("core.Bindings").live(binding.owner) then
+        assert(binding.unresolve, "Transform binding is read-only")
+        assert(not binding.inverting, "Cyclic inverse Transform binding")
+        binding.inverting = true
+        local ok, result = pcall(binding.unresolve, value, context)
+        binding.inverting = nil
+        assert(ok, result)
+        assert(result and Transform.finite(result.x) and Transform.finite(result.y), "Invalid authored Transform")
+        return result
+    end
+    return value
+end
+function Transform.affine(value)
+    assert(type(value) == "table" and Transform.finite(value.x) and Transform.finite(value.y), "Invalid affine origin")
+    local a, b, c, d = Transform.basis(value)
+    assert(Transform.finite(a) and Transform.finite(b) and Transform.finite(c) and Transform.finite(d)
+        and math.abs(a * d - b * c) >= 1e-8, "Invalid affine basis")
+    return {x = value.x, y = value.y, a = a, b = b, c = c, d = d}
+end
 return Transform

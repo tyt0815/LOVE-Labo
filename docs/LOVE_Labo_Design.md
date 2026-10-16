@@ -15,6 +15,8 @@ Script는 별도 Transform을 갖지 않는다. Prefab이 부착 구성·계층�
 
 공통 `updateOrder`·`drawOrder`는 인스턴스별 실행·그리기 순서이며 기본 0이다. Inspector의 Script 그룹을 항상 먼저 표시하고 실제 콜백이 있는 순서만 노출한다. 실행 범위·동률·이전 키 호환은 [ADR 0084](adr/0084-common-script-callback-order.md)를 따른다.
 
+카메라·UI는 [ADR 0085](adr/0085-public-projection-layout-and-input.md)의 공개 투영·Transform·Bounds·입력 API로 구성한다. Core는 제공 스크립트의 camera/canvas/pointer 표식과 전용 프로퍼티를 해석하지 않는다. Canvas·RectLayout은 일반 World 계층의 배치를 제공하고 화면 픽셀 출력은 draw 안의 명시적 API로 수행한다.
+
 # LÖVE Labo — Design
 
 - 상태: **개발 Baseline**
