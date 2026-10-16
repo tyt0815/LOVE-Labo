@@ -914,6 +914,10 @@ function EditorApp:initializeUI()
             end
             return false, "Referenced instance was not found"
         end
+        self.inspector.classInspector.onOpenCode = function(source)
+            local ok, result = pcall(require("editor.CodeEditor").open, self.project, source)
+            return ok, not ok and tostring(result) or nil
+        end
         self.inspector.classInspector.onReveal = function(value)
             self.assetBrowser.collapsed = false
             self:updateSceneViewport()
@@ -964,6 +968,10 @@ function EditorApp:initializeUI()
         end
         self.assetBrowser:setUIRoot(self.uiRoot)
         self.assetBrowser.onOpenFile = function(reference)
+            if reference:match("%.lua$") then
+                local ok, result = pcall(require("editor.CodeEditor").open, self.project, reference)
+                return ok, not ok and tostring(result) or nil
+            end
             if reference:match("^Assets/.+%.level$") then return self:openProjectDocument(reference) end
             return true
         end

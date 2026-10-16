@@ -82,7 +82,7 @@ local api = {required = required, absolute = absolute, revision = revision, chec
     basicResult = basicResult, value = value, setProperty = setProperty, properties = properties, propertyName = propertyName}
 local COMMANDS = {"project.create", "project.info", "project.refresh", "project.repair-plan", "project.repair", "project.set-default", "project.validate", "script.create", "script.list", "script.get", "script.set-source", "class.create", "class.list", "class.get", "class.set-source",
     "plugin.list", "plugin.create", "plugin.enable", "plugin.disable", "plugin.plan",
-    "asset.preview", "asset.thumbnail", "project.examples", "project.rendering-examples",
+    "asset.preview", "asset.thumbnail", "script.open", "project.examples", "project.rendering-examples",
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
     "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.events", "level.view", "level.render", "level.set-camera",
@@ -94,7 +94,7 @@ for _, scope in ipairs({"project", "level"}) do
 end
 local function execute(request)
     local command = required(request, "command")
-    if command:match("^script%.") then
+    if command:match("^script%.") and command ~= "script.open" then
         local normalized = {}; for key, value in pairs(request) do normalized[key] = value end
         normalized.command = command:gsub("^script%.", "class.")
         normalized.class = normalized.class or normalized.script
@@ -117,6 +117,9 @@ local function execute(request)
         return {project = project.rootPath, name = project.name}
     end
     local project = assert(Project.open(absolute(required(request, "project"))))
+    if command == "script.open" then
+        return require("editor.CodeEditor").open(project, request.source or required(request, "script"), request["dry-run"] == true)
+    end
     if command:match("^project%.script%.") or command:match("^level%.script%.") then
         return require("editor.CliScopes").execute(project, request, api)
     end
@@ -400,7 +403,7 @@ function Cli.parse(args)
         local item = args[i]
         if item:sub(1, 2) == "--" then
             local key = item:sub(3)
-            if key == "empty" or key == "link" or key == "debug" then
+            if key == "empty" or key == "link" or key == "debug" or key == "dry-run" then
                 assert(request[key] == nil, "Duplicate option: " .. item)
                 request[key], i = true, i + 1
             else

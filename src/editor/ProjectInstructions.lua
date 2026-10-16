@@ -57,6 +57,7 @@ Labo-cli.exe --cli level simulate --project <경로> --frames 60 --dt 0.0166667
 Labo-cli.exe --cli level pointer --project <경로> --space screen --x 640 --y 360
 Labo-cli.exe --cli level view --project <경로>
 Labo-cli.exe --cli level render --project <경로> --output <PNG 경로>
+Labo-cli.exe --cli script open --project <경로> --script <소스 ID 또는 경로> --dry-run
 
 기본 레벨이 없으면 --level을 지정한다. 복잡한 값은 --request <UTF-8 JSON 파일>을 사용한다.
 level.events는 events 또는 --events-json 배열의 {name,args}를 같은 Script 이벤트 경로로 전달하고 상태를 반환한다. 문서를 저장하지 않고 draw·update·Pointer 판정은 실행하지 않는다.

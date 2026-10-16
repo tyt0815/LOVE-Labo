@@ -27,7 +27,7 @@ marks = {
     "project-browser-create": ("project-browser-create", [(1344, 56, 65, 23, "1"), (1256, 843, 48, 23, "2")]),
     "project-browser": ("project-browser", [(325, 190, 92, 98, "1"), (720, 785, 687, 34, "2"), (1250, 843, 160, 24, "3")]),
     "project-inspector-menu": ("project-inspector-menu", [(206, 50, 135, 19, "1")]),
-    "script-context": ("script-context", [(1145, 242, 88, 17, "1"), (1145, 272, 88, 17, "2"), (1380, 227, 18, 17, "3")]),
+    "script-context": ("script-context", [(1145, 242, 88, 17, "1"), (1145, 272, 88, 17, "2"), (1145, 302, 88, 17, "3")]),
     "asset-repair-picker": ("asset-repair-picker", [(370, 130, 17, 17, "1"), (720, 220, 290, 25, "2"), (964, 832, 36, 19, "3")]),
     "editor-overview": ("level-details", [(150, 260, 90, 175, "1"), (670, 280, 240, 160, "2"), (1240, 260, 140, 170, "3"), (620, 690, 360, 130, "4")]),
     "level-details": ("level-details", [(1210, 149, 210, 19, "1")]),

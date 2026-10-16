@@ -83,3 +83,4 @@
 - [0077. 빈 선택과 메뉴의 Project Inspector 및 기본 접힘 그룹](adr/0077-project-inspector-selection-and-collapsed-groups.md)
 
 - [0078. 레벨 전용 카메라 설정 대신 View와 RenderTarget을 등록한다](adr/0078-registered-views-and-render-targets.md)
+- [0079. 스크립트는 자동 탐색한 VS Code의 기존 창에서 연다](adr/0079-external-script-opening.md)

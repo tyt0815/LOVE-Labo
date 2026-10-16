@@ -81,6 +81,7 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 | level create/get/set/reset/set-parent/validate | --level, --name, --property; create --empty는 카메라 없는 레벨 |
 | level view/render | 초기화 후 활성 View·투영 정보 조회; render는 --output PNG로 실제 출력 |
 | level set-camera | 과거 mainCamera 데이터 편집용 호환 명령. 새 구성은 일반 View Script 사용 |
+| script open | --script 이름·ID·경로를 외부 편집기로 열기. --dry-run으로 실행 계획 조회 |
 | project rendering-examples | 메인 화면·미니맵 검수 예제 추가 |
 | level simulate | --frames 0..10000, --dt, --debug; 파일 수정 없이 load/update 결과와 스크립트 상태 반환, draw는 실행하지 않음. --debug는 에디터 로그·도형 기록도 반환 |
 | level pointer | --space world/screen, --x, --y, --width, --height, --events-json; 이벤트마다 최신 카메라로 좌표 변환 |
@@ -190,12 +191,15 @@ Labo-cli.exe --cli level simulate --project D:/Games/MyGame --level Assets/Examp
 
 `level.simulate`, `level.events`, `level.pointer`는 완료·실패 시 임시 Runtime World를 정리하고 초기화한 Script의 unload를 호출합니다. simulate의 레벨 전환 후 최종 World도 정리합니다. 결과의 인스턴스 상태는 종료 직전에 읽고 debug 기록에는 종료 로그도 포함합니다. 에셋 검증·정적 Preview·Export 생성은 게임 load/unload를 실행하지 않습니다. 새 재생 CLI는 추가하지 않고 LÖVE Source 제어는 게임 코드에 둡니다.
 
-## 렌더링 검증
+## 렌더링과 코드 바로가기 검증
 
 ```powershell
 love src --cli project rendering-examples --project tests/TestProject
 love src --cli level view --project tests/TestProject --level Assets/Examples/L_Multiview.level --width 960 --height 540
 love src --cli level render --project tests/TestProject --level Assets/Examples/L_Multiview.level --width 960 --height 540 --output C:/Temp/multiview.png
+love src --cli script open --project tests/TestProject --script Assets/Examples/Multiview.lua --dry-run
 ```
 
 rendering-examples는 동명 에셋이 있으면 중단하며 덮어쓰지 않습니다. 저장소 테스트 프로젝트에는 이미 예제가 있습니다. level.view는 load를 실행해 등록된 활성 View를 조회하고 lifecycleExecuted=true를 반환합니다. views에는 출력 순서·카메라·타깃 종류·해상도·실제 viewport가 들어갑니다. 대표 화면 View의 기존 camera·scale·projected 결과도 유지합니다. level.render는 같은 구성을 실제 렌더링해 PNG로 저장합니다. 출력 부모 폴더는 미리 생성하고, width/height는 양의 정수 픽셀 수를 사용합니다. 창이 없는 CLI는 렌더링에 필요한 최소 그래픽 컨텍스트를 준비합니다. 검증용 World와 GPU 자원은 종료 시 정리합니다.
+
+script.open은 GUI와 같은 소스 해석·VS Code 자동 탐색·기존 창 재사용을 사용합니다. --dry-run은 열람 사본·편집기 프로세스를 생성하지 않고 실행 파일·인자·대상 경로·읽기 전용 여부만 반환합니다. 제공 플러그인은 실제 실행 시 읽기 전용 열람 사본을 만듭니다. dry-run을 빼면 편집기를 실행합니다.

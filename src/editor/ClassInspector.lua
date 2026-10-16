@@ -696,7 +696,7 @@ function ClassInspector:mousepressed(x, y, button)
     end
     if button == 1 and not self.target.instance and self.onSave and Ui.contains(x, y, self:saveRect()) then self:commitEdit(); self.onSave(); return true end
     if y < self.propertyTop or y >= self.propertyTop + self.propertyHeight then self:commitEdit(); return true end
-    if button == 2 and self.target.moveScript then
+    if button == 2 and (self.target.moveScript or self.onOpenCode) then
         self:commitEdit()
         for _, row in ipairs(self.rows) do
             local top = self.propertyTop + row.offset - self.scroll
@@ -709,6 +709,10 @@ function ClassInspector:mousepressed(x, y, button)
                 end
                 require("editor.ui.ContextMenu").new(self.root):show(x, y, {
                     {label = "Copy ID", action = function() love.system.setClipboardText(id) end},
+                    {label = "Open Code", enabled = self.onOpenCode ~= nil and self.preview.scripts[id].source ~= "Script", action = function()
+                        local ok, err = self.onOpenCode(self.preview.scripts[id].source)
+                        if not ok then self.error = err end
+                    end},
                     {label = "Rename", enabled = self.target.renameScript ~= nil, action = function()
                         local rect = {x = self.left + Ui.METRICS.contentPaddingX + 26, y = top + 3, w = math.max(60, self.width - 120), h = 26}
                         require("editor.ui.InlineRename").new(self.root, rect, self.preview.scripts[id].name, function(name)
@@ -717,8 +721,8 @@ function ClassInspector:mousepressed(x, y, button)
                             return ok, err
                         end)
                     end},
-                    {label = "Move Up", enabled = index > 1, action = function() move(index - 1) end},
-                    {label = "Move Down", enabled = index < #self.preview.scriptOrder, action = function() move(index + 1) end}})
+                    {label = "Move Up", enabled = self.target.moveScript ~= nil and index > 1, action = function() move(index - 1) end},
+                    {label = "Move Down", enabled = self.target.moveScript ~= nil and index < #self.preview.scriptOrder, action = function() move(index + 1) end}})
                 return true
             end
         end
