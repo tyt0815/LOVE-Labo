@@ -1,4 +1,5 @@
 local tests = {}
+for _, test in ipairs(require("tests.architectureBoundaries")) do tests[#tests + 1] = test end
 for _, test in ipairs(require("tests.failureBoundaries")) do tests[#tests + 1] = test end
 for _, suite in ipairs({"windowsExport", "gameCli", "sessionPersistence", "carryTransition", "publicRendering", "rendering", "codeEditor", "projectBrowser", "scopedScripts", "resourceLifecycle", "scriptEvents", "scriptRuntime", "attachedWorkflow", "plugins", "assetCatalog", "assetPlacement", "preview", "debugging", "uiTree", "viewportTools", "ime", "textEdit", "theme", "objectHierarchy"}) do
     for _, test in ipairs(require("tests." .. suite)) do tests[#tests + 1] = test end

@@ -208,17 +208,17 @@ function Registry:loadScript(name)
             definition = chunk()
         end
         assert(type(definition) == "table", "Plugin script must return a table")
+        local parent
         if not getmetatable(definition) then
-            local parent = require("core.Script")
+            parent = require("core.Script")
             if definition.extends then
                 parent = self.scripts[definition.extends] and assert(self:loadScript(definition.extends))
                     or assert((self.classLoader or require("project.LuaScript").loader(self.project))(definition.extends, "script"))
                 local source = self.scripts[definition.extends]
                 if source then definition.extends = source.id end
             end
-            definition.scriptType = name; definition = parent:extend(definition)
         end
-        return definition
+        return require("project.LuaScript").scriptClass(definition, name, parent)
     end)
     self.loading[name] = nil
     if not ok then return nil, tostring(class) end

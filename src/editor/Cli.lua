@@ -445,14 +445,11 @@ function Cli.run(args)
         request, output = Cli.parse(args)
         return Cli.execute(request)
     end)
-    local response = {version = 1, ok = ok}
-    if ok then response.result = result else response.error = tostring(result) end
-    local text = assert(Json.encode(response))
-    print(text)
-    if output then
-        local saved, err = Fs.writeAtomic(absolute(output), text .. "\n")
-        if not saved then print(tostring(err)); ok = false end
-    end
+    local text
+    text, ok = require("project.CliResponse").finish(ok, result, output and function(bytes)
+        return Fs.writeAtomic(absolute(output), bytes)
+    end)
+    io.stdout:write(text .. "\n"); io.stdout:flush()
     love.event.quit(ok and 0 or 1)
 end
 return Cli

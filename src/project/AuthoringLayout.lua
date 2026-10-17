@@ -6,7 +6,7 @@ function Layout.new(project, level)
 end
 function Layout:clear()
     for _, cache in pairs(self.previews) do
-        if cache.object then for _, script in pairs(cache.object.scripts) do require("core.Bindings").release(script) end end
+        if cache.object then require("core.ScriptHost").unload(cache.object) end
     end
     self.previews, self.error = setmetatable({}, {__mode = "k"}), nil
 end
@@ -36,6 +36,8 @@ function Layout:preview(data)
     if cache and cache.signature == signature then
         return self:linkPreview(data, cache)
     end
+    if cache and cache.object then require("core.ScriptHost").unload(cache.object) end
+    self.previews[data] = nil
     local Definition = require("project.ObjectDefinition")
     local definition, err
     if self.level then definition, err = require("project.PrefabHierarchy").authoringDefinition(self.project, self.level, data)
@@ -43,6 +45,7 @@ function Layout:preview(data)
     local object = assert(require("core.LObject").new(1, data))
     local ok, configureError
     if definition then ok, configureError = Definition.configure(object, definition, data.propertyOverrides, data.scriptOverrides) end
+    if not ok then require("core.ScriptHost").unload(object) end
     local references = {}
     if ok then for _, script in pairs(object.scripts) do
         for field, declaration in pairs(getmetatable(script).properties) do

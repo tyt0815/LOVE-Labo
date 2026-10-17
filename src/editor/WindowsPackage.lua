@@ -14,6 +14,7 @@ function WindowsPackage.write(project, level, output, options)
     options = options or {}
     assert(type(output) == "string" and output:lower():match("%.exe$"), "Windows output must be an .exe file")
     output = require("project.Workspace").absolute(output)
+    assert(require("editor.BuildOutput").check(project, output))
     local launcher = options.cliEntry and "lovec.exe" or "love.exe"
     local runtime = WindowsPackage.runtimeDirectory(launcher)
     assert(Fs.parent(output):lower() ~= runtime:lower(), "Output folder must differ from the LÖVE runtime folder")

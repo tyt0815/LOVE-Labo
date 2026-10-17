@@ -12,7 +12,7 @@ function Operations.execute(project, level, request)
             assert(type(event.args) == "table", "Expected event args array")
             assert(event.name ~= "joystickadded" and event.name ~= "joystickremoved" and not event.name:match("^gamepad")
                 and not event.name:match("^joystick"), "Device events require a live LÖVE Joystick")
-            local viewport = require("core.Viewport").new(world, 0, 0, tonumber(request.width or 1280), tonumber(request.height or 720))
+            local viewport = require("core.RenderPipeline").primaryViewport(world, 0, 0, tonumber(request.width or 1280), tonumber(request.height or 720))
             if event.name == "focus" and not event.args[1] then world:cancelPointer() end
             local ok, err = require("core.ScriptEvents").screen(world, viewport, event.name, unpack(event.args))
             assert(ok, err)

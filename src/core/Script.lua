@@ -8,6 +8,8 @@ local RESERVED = {owner = true, properties = true, id = true, name = true, label
     load = true, unload = true, update = true, draw = true, drawEditor = true,
     worldChanged = true, configure = true, bindingHandles = true, boundsBinding = true, super = true, scriptType = true}
 for _, name in ipairs(require("core.ScriptEvents").names) do RESERVED[name] = true end
+local classes = setmetatable({}, {__mode = "k"})
+function Script.isClass(value) return classes[value] == true end
 Script.__index = function(instance, name)
     if Script.properties[name] then return instance.properties[name] end
     return Script[name]
@@ -19,6 +21,7 @@ Script.__newindex = function(instance, name, value)
     else rawset(instance, name, value) end
 end
 function Script:extend(definition)
+    assert(self == Script or classes[self], "Expected a Script class")
     definition = definition or {}
     assert(definition.drawScreen == nil, "drawScreen was removed; use Rendering.withScreen inside draw")
     local schema = {}
@@ -58,6 +61,7 @@ function Script:extend(definition)
             instance.properties[name] = value
         else rawset(instance, name, value) end
     end
+    classes[definition] = true
     return setmetatable(definition, {__index = self})
 end
 function Script:new(overrides)

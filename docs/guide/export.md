@@ -17,7 +17,7 @@ Undo/Redo는 프로퍼티·Transform·계층과 에디터에서 실행한 에셋
 D:/Games/MyGame/Build/Windows/MyGame.exe
 ```
 
-CLI Export는 디스크에 저장된 프로젝트를 읽습니다. GUI의 미저장 초안을 다른 프로세스의 CLI가 읽을 수는 없으므로 저장을 먼저 완료하세요. 출력은 Assets 바깥에 둡니다.
+CLI Export는 디스크에 저장된 프로젝트를 읽습니다. GUI의 미저장 초안을 다른 프로세스의 CLI가 읽을 수는 없으므로 저장을 먼저 완료하세요. 출력은 `Build/` 같은 배포 전용 폴더에 둡니다. GUI 빌드와 `export.package` 모두 Assets·Tools·Docs·Plugins·.labo 및 프로젝트 설정 파일을 덮어쓰는 출력을 거부합니다. Windows에서는 `Assets`를 `assets`로 바꿔 적어도 같은 보호 규칙을 적용합니다.
 
 Windows 게임은 생성한 EXE와 같은 폴더의 DLL·license-love.txt를 함께 배포합니다. 사용자는 LÖVE나 Labo를 설치할 필요가 없습니다. EXE만 떼어 배포하지 않습니다. 기존 `.love` 아카이브가 필요하면 출력 확장자를 .love로 지정하며 이 경우에는 LÖVE 런타임으로 실행합니다. Windows 에디터 자체 배포와 게임 Export는 서로 다른 작업입니다. 상세 패키지 검증은 [CLI와 Export](cli-and-export.md), [패키징](packaging.md)에 있습니다.
 

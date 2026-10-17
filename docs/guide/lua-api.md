@@ -5,6 +5,17 @@ Camera·View·Sprite·Pointer·RectBounds·Canvas·RectLayout·Text를 사용하
 
 Lua 파일은 스크립트 정의 테이블을 반환합니다. LObject를 상속하지 않습니다. `self`는 부착마다 생성되는 스크립트이고 `self.owner`는 부착 대상입니다. Object에 부착하면 LObject, Level에 부착하면 실행 중인 World, Project에 부착하면 프로젝트 실행 호스트입니다. Lua 5.1/LuaJIT와 일반 LÖVE API를 사용할 수 있습니다.
 
+프로젝트 Assets와 플러그인은 같은 반환 형식을 사용합니다. 일반 정의 테이블 외에 `Engine.Script:extend(definition)`으로 만든 클래스도 반환할 수 있으므로 제공 스크립트의 소스를 Assets로 복사해 수정할 수 있습니다. 임의의 metatable 테이블과 기반 `Engine.Script` 자체는 부착 클래스가 아닙니다. `Engine.Script.isClass(value)`는 `Script:extend`로 만든 클래스인지 확인하며 인스턴스에는 false를 반환합니다. 일반 정의의 상속에는 아래의 에셋 ID `extends`를 사용합니다. 클래스 반환 방식에서는 `Parent:extend`로 부모를 정합니다. 두 방식 모두 같은 세션의 require와 부착이 같은 클래스 테이블을 사용합니다.
+
+```lua
+local Engine = require("Engine")
+local Movement = Engine.Script:extend({properties = {speed = {type = "number", default = 100}}})
+function Movement:update(dt) self.owner.transform.x = self.owner.transform.x + self.speed * dt end
+return Movement
+```
+
+일반 정의 테이블 방식도 그대로 사용할 수 있습니다.
+
 ```lua
 local Movement = {
     properties = {

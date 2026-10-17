@@ -32,14 +32,7 @@ function Build.run(project, level, output, options)
         folder = Fs.parent(output)
         -- 배포 파일로 프로젝트 소스나 빌드 스크립트를 덮어쓰지 않는다.
         local function checkOutput(path)
-            local prefix = project.rootPath:gsub("/+$", ""):lower() .. "/"
-            if path:lower():sub(1, #prefix) == prefix then
-                local reference = path:sub(#prefix + 1):lower()
-                local first = reference:match("^[^/]+")
-                assert(first ~= "assets" and first ~= "tools" and first ~= "docs" and first ~= ".labo"
-                    and reference ~= "project.labo" and reference ~= "assets.json" and reference ~= "plugins.json"
-                    and reference ~= "agents.md" and reference ~= "conf.lua", "Build output overlaps project sources: " .. path)
-            end
+            assert(require("editor.BuildOutput").check(project, path))
             return path
         end
         checkOutput(output)

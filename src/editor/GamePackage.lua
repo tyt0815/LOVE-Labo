@@ -13,8 +13,8 @@ function GamePackage.write(project, level, output, options)
     output = output:gsub("\\", "/")
     if not output:match("^%a:/") and output:sub(1, 1) ~= "/" then output = Fs.join(project.rootPath, output) end
     output = require("project.Workspace").absolute(output)
-    local relative = project:referenceForPath(output)
-    if relative and (relative == "Assets" or relative:match("^Assets/")) then return false, "Export output must be outside Assets" end
+    local safe, outputError = require("editor.BuildOutput").check(project, output)
+    if not safe then return false, outputError end
     if not options.cliEntry then
         local result, err = require("runtime.WorldLoader").validate(project, level:toData())
         if not result then return false, err end

@@ -37,7 +37,7 @@ function Operations.apply(project, name, enabled, confirm, level)
             end
         end
         local ok, usageError = pcall(function()
-            local result = require("editor.CliAssets").execute(view, {command = "project.validate"})
+            local result = require("editor.ProjectValidation").run(view)
             assert(result.valid, result.errors[1] and result.errors[1].reference .. ": " .. result.errors[1].error)
             if level then assert(require("runtime.WorldLoader").validate(view, level:toData())) end
         end)

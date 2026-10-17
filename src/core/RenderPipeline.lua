@@ -57,6 +57,16 @@ function Pipeline.draw(world, image, x, y, width, height)
     end
     return drawn
 end
+function Pipeline.captureButton(world, button)
+    for _, view in ipairs(Rendering.views(world)) do
+        if view.target == Rendering.screen and view.input then
+            for id, region in pairs(view.pointerCaptures) do
+                if not region:isActive() then view.pointerCaptures[id] = nil
+                elseif not button or id == button then return id end
+            end
+        end
+    end
+end
 function Pipeline.pointer(world, kind, x, y, button, dx, dy, image, rect)
     local views = Rendering.views(world)
     local combined = {consumed = false, targets = {}}

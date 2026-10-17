@@ -151,7 +151,7 @@ mainCamera·mapCamera는 사용자 스크립트의 일반 참조 프로퍼티입
 
 생성 옵션은 projection·target·viewport·order·enabled·input·filter·clearColor·owner입니다. View viewport는 타깃 내 픽셀 사각형이고 카메라 비율은 레터박스로 유지합니다. clearColor는 0~1 RGBA이고 기본은 불투명 검정, false는 기존 내용을 유지합니다. filter(script)는 렌더링·Pointer 입력에 함께 적용됩니다. owner 비활성·제거, projection 제공 함수의 nil, 타깃 해제로 비활성이 되면 캡처를 취소합니다.
 
-View:setTarget/setViewport/setOrder/setEnabled, Target:getTexture/resize/release도 사용할 수 있습니다. update는 World당 한 번, draw는 포함된 View마다 실행합니다. 화면 출력만 직접 입력을 받고 텍스처 미니맵의 클릭 재투영은 사용자 코드가 결정합니다.
+View:setTarget/setViewport/setOrder/setEnabled, Target:getTexture/resize/release도 사용할 수 있습니다. update는 World당 한 번, draw는 포함된 View마다 실행합니다. 화면 출력만 직접 입력을 받고 텍스처 미니맵의 클릭 재투영은 사용자 코드가 결정합니다. Play에서 입력 영역이 누름을 소비하면 같은 View가 버튼별 캡처를 유지하므로 포인터가 Game View 패널 밖으로 나가도 move/up을 받습니다. 여러 버튼을 누른 경우 마지막 캡처를 놓을 때까지 유지하며 Pause·종료·비활성화 때 취소합니다.
 
 ## 예제와 이전 데이터 전환
 

@@ -199,6 +199,13 @@ function EditorApp:handleGamePointer(kind, x, y, button, dx, dy)
     return true, result
 end
 
+function EditorApp:gameCaptureButton(button)
+    if not self.runtimeWorld or self.paused then return nil end
+    local ok, captured = pcall(require("core.RenderPipeline").captureButton, self.runtimeWorld, button)
+    if not ok then self:discardRuntime(captured); return nil end
+    return captured
+end
+
 function EditorApp:getActiveCenterView()
     if self:isPlaying() then
         return self.gameView
@@ -762,7 +769,7 @@ function EditorApp:initializeUI()
         mousepressed = function(_, x, y, button)
             if self:isPlaying() then
                 self:handleGamePointer("down", x, y, button)
-                return true, self.runtimeWorld and next(self.runtimeWorld.pointerCaptures or {}) ~= nil
+                return true, self:gameCaptureButton(button) ~= nil
             end
             if button == 1 or button == 2 then self.inspectorSource = "scene" end
             self.sceneView:mousepressed(x, y, button)
@@ -1262,7 +1269,7 @@ function EditorApp:mousereleased(x, y, button, istouch, presses)
     self.uiRoot:mousereleased(x, y, button)
     if gameCaptured then
         -- UI의 단일 버튼 캡처보다 런타임의 버튼별 캡처 수명을 우선한다.
-        local pending = self.runtimeWorld and next(self.runtimeWorld.pointerCaptures or {})
+        local pending = self:gameCaptureButton()
         self.uiRoot.captured = pending and self.sceneWidget or nil
         self.uiRoot.captureButton = pending
     end

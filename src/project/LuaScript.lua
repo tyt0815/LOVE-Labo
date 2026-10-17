@@ -4,6 +4,20 @@ local classNames = setmetatable({}, {__mode = "k"})
 -- 클래스 테이블에 Editor 필드를 추가하지 않고 현재 모듈 이름을 별도로 보관한다.
 function LuaScript.name(class) return classNames[class] end
 
+-- 에셋의 소속과 무관하게 같은 클래스 계약을 적용하고 require 동일성을 유지한다.
+function LuaScript.scriptClass(definition, name, parent)
+    local Script = require("core.Script")
+    assert(type(definition) == "table", "Lua Class must return a table")
+    assert(definition ~= Script, "Lua Class must return a definition or a derived Script class")
+    assert(not definition.build and not definition.beginPlay, "Use load and editor-authored script attachments; build/beginPlay callbacks are no longer supported")
+    if getmetatable(definition) then
+        assert(Script.isClass(definition), "Lua Class must return a plain table or a Script:extend class")
+    else definition = (parent or Script):extend(definition) end
+    definition.scriptType = name
+    classNames[definition] = name
+    return definition
+end
+
 function LuaScript.validValue(kind, value)
     return require("core.PropertySchema").validValue(kind, value)
 end
@@ -77,7 +91,13 @@ function LuaScript.loader(project)
         -- require로 가져온 클래스와 실제 부착 클래스가 같은 테이블을 사용한다.
         local ok, class = pcall(loadModule, canonical)
         if not ok then return nil, tostring(class) end
-        if type(class) ~= "table" or getmetatable(class) then return nil, "Lua Class must return a plain table" end
+        if kind == "script" and require("core.Script").isClass(class) then
+            local valid, script = pcall(LuaScript.scriptClass, class, canonical:match("([^/]+)%.lua$"))
+            if not valid then return nil, tostring(script) end
+            loaded[key] = script
+            return script
+        end
+        if type(class) ~= "table" or getmetatable(class) then return nil, "Lua Class must return a plain table or a Script:extend class" end
         visiting[key] = true
         local function fail(err) visiting[key] = nil; return nil, err end
         local parent
@@ -96,12 +116,8 @@ function LuaScript.loader(project)
             if not parent then return fail(parentError) end
         end
         if kind == "script" then
-            if class.build or class.beginPlay then return fail("Use load and editor-authored script attachments; build/beginPlay callbacks are no longer supported") end
-            parent = parent or require("core.Script")
-            class.scriptType = canonical:match("([^/]+)%.lua$")
-            local valid, script = pcall(parent.extend, parent, class)
+            local valid, script = pcall(LuaScript.scriptClass, class, canonical:match("([^/]+)%.lua$"), parent)
             if not valid then return fail(tostring(script)) end
-            classNames[script] = class.scriptType
             loaded[key], visiting[key] = script, nil
             return script
         end

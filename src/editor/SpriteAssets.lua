@@ -6,7 +6,7 @@ end
 function Assets:clear()
     self.layout:clear()
     for _, cache in pairs(self.scopePreviews or {}) do
-        if cache.host then for _, script in pairs(cache.host.scripts) do require("core.Bindings").release(script) end end
+        if cache.host then require("core.ScriptHost").unload(cache.host) end
     end
     for _, image in pairs(self.images) do if image then image:release() end end
     self.images, self.error, self.scopePreviews = {}, nil, nil
@@ -16,9 +16,12 @@ function Assets:scopePreview(data, scope)
     self.scopePreviews = self.scopePreviews or {}
     local cache = self.scopePreviews[scope]
     if cache and cache.signature == signature then return cache.host end
+    if cache and cache.host then require("core.ScriptHost").unload(cache.host) end
+    self.scopePreviews[scope] = nil
     local host = require("core.ScriptHost").new(scope)
     host.isPreview = true
     local ok, err = require("project.ScopedScripts").configure(host, data, require("project.LuaScript").loader(self.project))
+    if not ok then require("core.ScriptHost").unload(host) end
     self.scopePreviews[scope] = {signature = signature, host = ok and host or nil}
     if not ok then self.error = err end
     return ok and host or nil

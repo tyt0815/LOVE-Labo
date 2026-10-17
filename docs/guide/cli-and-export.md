@@ -61,7 +61,7 @@ level.view는 projection·views와 instances의 authoredTransform·유효 worldT
 
 ## 기본 사용
 
-개발판은 `love src --cli ...`, 배포판은 `Labo-cli.exe --cli ...`를 사용합니다. stdout은 JSON이며 실패는 `ok:false`와 오류를 반환합니다. `--request <UTF-8 JSON 파일>`로 배열·복잡한 값을 전달할 수 있습니다. 참조는 에셋 ID 또는 Assets 경로, 기본 레벨은 project.labo의 지정값입니다.
+개발판은 `love src --cli ...`, 배포판은 `Labo-cli.exe --cli ...`를 사용합니다. stdout은 JSON이며 실패는 `ok:false`와 오류를 반환합니다. `--result <파일>`을 지정하면 같은 응답을 파일에도 저장합니다. 결과 인코딩·파일 저장까지 성공해야 종료 코드 0이며 실패하면 stdout에 실패 JSON 한 개와 종료 코드 1을 반환합니다. 결과 파일의 부모 폴더는 먼저 만들어 두세요. `--request <UTF-8 JSON 파일>`로 배열·복잡한 값을 전달할 수 있습니다. 참조는 에셋 ID 또는 Assets 경로, 기본 레벨은 project.labo의 지정값입니다.
 
 ```powershell
 Labo-cli.exe --cli project create --parent D:/Games --name MyGame
@@ -154,7 +154,7 @@ Prefab과 인스턴스에서 로컬 스크립트를 추가·제거·정렬합니
 
 ## 일반 Script 이벤트 검증
 
-`level.events`는 레벨을 초기화하고 일반 LÖVE 이벤트를 부착 Script에 전달한 뒤 Transform·프로퍼티 상태를 반환합니다. 레벨을 저장하지 않습니다. 입력 소비를 수행하는 `level.pointer`와 독립된 명령입니다.
+`level.events`는 레벨을 초기화하고 일반 LÖVE 이벤트를 부착 Script에 전달한 뒤 Transform·프로퍼티 상태를 반환합니다. 레벨을 저장하지 않습니다. 입력 소비를 수행하는 `level.pointer`와 독립된 명령입니다. GUI·배포 Host와 같이 가장 위의 활성 화면 View의 부분 출력 사각형과 레터박스를 적용합니다. 마우스·터치는 실제 게임 영역 왼쪽 위 기준 픽셀 좌표로 전달하며, 영역 밖에서 시작한 누름은 전달하지 않습니다.
 
 ```json
 {
