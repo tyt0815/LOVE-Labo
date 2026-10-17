@@ -24,6 +24,7 @@ for name in report["images"]:
     shutil.copyfile(source / (name + ".png"), target / (name + ".png"))
 
 marks = {
+    "runtime-inspector": ("runtime-inspector", [(645, 54, 80, 19, "1"), (148, 280, 130, 200, "2"), (1215, 282, 202, 180, "3")]),
     "project-startup": ("project-startup", [(1214, 154, 205, 16, "1"), (1214, 183, 205, 16, "2")]),
     "build-export": ("build-export", [(730, 377, 236, 19, "1"), (784, 429, 200, 20, "2"), (784, 477, 200, 20, "3")]),
     "build-results": ("build-results", [(720, 377, 213, 22, "1"), (720, 463, 213, 65, "2"), (803, 620, 60, 18, "3")]),

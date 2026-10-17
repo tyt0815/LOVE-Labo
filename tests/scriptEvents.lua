@@ -76,12 +76,12 @@ add("Editor wheel uses cursor location independently of keyboard focus and still
         Assert.equal(2, x); Assert.equal(-3, y); calls = calls + 1
     end}))
     withLoader(world, function()
-        assert(app:startPlay()); app.uiRoot.focused = app.inspectorWidget
+        assert(app:startPlay()); assert(app:setFreeExplore(false)); app.uiRoot.focused = app.inspectorWidget
         local viewport = app.gameView:runtimeViewport(world)
         love.mouse.getPosition = function() return viewport.x + 10, viewport.y + 10 end
         app:wheelmoved(2, -3); Assert.equal(1, calls)
         assert(app:pausePlay()); app:wheelmoved(2, -3); Assert.equal(1, calls)
-        assert(app:startPlay()); app.uiRoot.popup = {}
+        assert(app:startPlay()); assert(app:setFreeExplore(false)); app.uiRoot.popup = {}
         app:wheelmoved(2, -3); Assert.equal(1, calls); app.uiRoot.popup = nil
         love.mouse.getPosition = function() return viewport.x - 1, viewport.y + 10 end
         app:wheelmoved(2, -3); Assert.equal(1, calls)
@@ -190,12 +190,13 @@ add("Editor script events honor pause popup focus and report game dimensions", f
     app:textedited("ㅎ", 0, 1); Assert.equal(1, received.textedited[3])
     local joystick = {}; app:gameEvent("gamepadpressed", joystick, "a"); Assert.equal(joystick, received.gamepadpressed[1])
     assert(app:pausePlay()); app:gameEvent("keyreleased", "a", "a"); Assert.equal(nil, received.keyreleased)
-    assert(app:startPlay()); app.uiRoot.focused = app.inspectorWidget
+    assert(app:startPlay()); assert(app:setFreeExplore(false)); app.uiRoot.focused = app.inspectorWidget
     app:gameEvent("keyreleased", "a", "a"); Assert.equal(nil, received.keyreleased)
     app.uiRoot.focused = app.sceneWidget; app.uiRoot.popup = {}
     app:gameEvent("keyreleased", "a", "a"); Assert.equal(nil, received.keyreleased)
     app.uiRoot.popup = nil; app:gameEvent("keyreleased", "a", "a"); Assert.equal("a", received.keyreleased[1])
     app:focus(false); Assert.equal(false, received.focus[1])
+    app:focus(true); app:setFreeExplore(false)
     local script = world.lobjects[1]:getScriptByName("input")
     script.textinput = function() error("editor event failure") end
     app:textinput("x"); Assert.equal(nil, app.runtimeWorld); Assert.truthy(app.runtimeError:find("editor event failure", 1, true))

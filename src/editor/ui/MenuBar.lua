@@ -45,7 +45,9 @@ function Bar:items(name)
         {label = "Export Game...", shortcut = "Ctrl+Shift+E", enabled = app.project ~= nil and editable, action = function() app:showExportDialog() end}} end
     if name == "run" then return {
         {label = app.paused and "Resume" or "Play", shortcut = "F5", enabled = editable or app.paused, action = function() app:startPlay() end},
-        {label = "Pause", enabled = not editable and not app.paused, action = function() app:pausePlay() end},
+        {label = app.freeExplore and "Control Game" or "Free Explore", shortcut = "F8", enabled = not editable and not app.paused, action = function() app:setFreeExplore(not app.freeExplore) end},
+        {label = "Step Frame", shortcut = "F7", enabled = app.paused, action = function() app:stepPlay() end},
+        {label = "Pause", shortcut = "F6", enabled = not editable and not app.paused, action = function() app:pausePlay() end},
         {label = "Stop", shortcut = not app.paused and "F5" or nil, enabled = not editable, action = function() app:stopPlay() end}}
     end
     local project = app.project ~= nil

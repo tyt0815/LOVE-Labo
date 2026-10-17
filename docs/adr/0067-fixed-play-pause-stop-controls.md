@@ -1,6 +1,7 @@
 # 0067. 고정 실행·일시정지·정지 버튼과 상태 테두리
 
 - 상태: 승인·구현
+- 후속: [ADR 0095](0095-pie-runtime-editing-and-input-ownership.md)에서 자유 탐색·런타임 편집·Step과 Pause 재개 동작을 확장한다.
 - 후속: [ADR 0082](0082-editor-background-color-picker.md)에서 스냅을 왼쪽으로 옮기고 오른쪽에 편집 배경색 버튼을 둔다.
 
 ## 배경과 제약

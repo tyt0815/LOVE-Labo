@@ -27,9 +27,10 @@ function LuaScript.moduleLoader(project, registry)
     -- 설치·활성 목록만 공유하고 실행 캐시는 각 세션이 소유한다.
     registry = registry:forProject(project)
     local modules, loadingModules = {}, {}
+    local playInput = project.playInput
     local moduleRequire
     local function environment()
-        return setmetatable({require = moduleRequire}, {__index = _G})
+        return setmetatable({require = moduleRequire, love = playInput and playInput.love}, {__index = _G})
     end
     local function loadModule(reference, bytes)
         if modules[reference] ~= nil then return modules[reference] end
@@ -47,6 +48,7 @@ function LuaScript.moduleLoader(project, registry)
         return modules[reference]
     end
     moduleRequire = function(name)
+        if playInput and playInput.modules[name] then return playInput.modules[name] end
         if name == "Engine" then
             return setmetatable({}, {__index = function(_, key)
                 if registry.scripts[key] then return assert(registry:loadScript(key)) end

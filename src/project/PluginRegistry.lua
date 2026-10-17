@@ -204,7 +204,7 @@ function Registry:loadScript(name)
         else
             local chunk = assert(loadstring(bytes, "@plugin/" .. source.plugin .. "/" .. source.file))
             self.moduleRequire = self.moduleRequire or require("project.LuaScript").moduleLoader(self.project, self)
-            setfenv(chunk, setmetatable({require = self.moduleRequire}, {__index = _G}))
+            setfenv(chunk, setmetatable({require = self.moduleRequire, love = self.moduleRequire("love")}, {__index = _G}))
             definition = chunk()
         end
         assert(type(definition) == "table", "Plugin script must return a table")

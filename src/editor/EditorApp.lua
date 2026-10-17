@@ -146,15 +146,106 @@ function EditorApp:setDocument(document)
     return true
 end
 
+function EditorApp:isGameControlling()
+    return self:isPlaying() and not self.paused and not self.freeExplore
+end
+function EditorApp:canExplore() return not self:isPlaying() or self.freeExplore or self.paused end
+function EditorApp:setFreeExplore(enabled)
+    if not self:isPlaying() then return false end
+    self.inspector:commitEdit()
+    if not self.freeExplore and (self.paused or enabled) then
+        local viewport = self:runtimeViewport()
+        if not self.runtimeWorld then return false, self.runtimeError end
+        if viewport then
+            local x, y = viewport:screenToWorld(viewport.x + viewport.width / 2, viewport.y + viewport.height / 2)
+            local a, b = require("core.Transform").basis(viewport.transform)
+            local zoom = viewport.scale / math.max(0.0001, math.sqrt(a * a + b * b))
+            self.sceneView.zoom = math.max(0.25, math.min(4, zoom))
+            self.sceneView.cameraX, self.sceneView.cameraY = -x * self.sceneView.zoom, -y * self.sceneView.zoom
+        end
+    end
+    self.freeExplore = self.paused or enabled
+    if not self.freeExplore then self.uiRoot.focused = self.sceneWidget end
+    self.sceneView:cancelDrag(false); self.sceneView.isPanning = false
+    self:applyPlayInput()
+    if not self.runtimeWorld then return false, self.runtimeError end
+    self.runtimeWorld:cancelPointer(); self.uiRoot:cancelCapture()
+    self:updateSceneViewport()
+    return true
+end
+function EditorApp:applyPlayInput()
+    if not self.playInput then return end
+    local active = self:isGameControlling() and self.uiRoot.focused == self.sceneWidget and not self.uiRoot.popup and self.focused ~= false
+    local input = self.playInput
+    if not active and self.runtimeWorld and (input.active or next(input.held)) then
+        local viewport = self:runtimeViewport()
+        if viewport then
+            for _, event in pairs(input:releaseHeld()) do
+                if not self.runtimeWorld then break end
+                -- 소유권 해제는 영역의 일반 onUp 클릭으로 전달하지 않는다.
+                -- LÖVE 해제 이벤트만 현재 좌표로 보낸 뒤 별도로 캡처를 취소한다.
+                local ok, err = require("core.ScriptEvents").screen(self.runtimeWorld, viewport, event.name, unpack(event.args))
+                if not ok then self:discardRuntime(err) end
+            end
+        end
+        if self.runtimeWorld then self.runtimeWorld:cancelPointer() end
+    end
+    if self.playInput then self.playInput:setActive(active) end
+end
+function EditorApp:syncRuntimeScene()
+    if not self.runtimeScene then return end
+    self.runtimeScene:sync()
+    local selection = {}
+    for _, object in ipairs(self.sceneView:getSelection()) do
+        if self.runtimeScene.wrappers[object.runtimeObject] then selection[#selection + 1] = object end
+    end
+    if #selection ~= #self.sceneView:getSelection() then
+        self.inspector:cancelEdit(); self.sceneView:cancelDrag(false); self.sceneView:setSelection(selection)
+        self.instanceInspectorObject = nil
+    end
+end
+function EditorApp:bindRuntimeScene(world)
+    self.runtimeScene = require("editor.RuntimeScene").new(world, self.spriteAssets)
+    self.sceneView.level, self.hierarchy.level, self.inspector.level = self.runtimeScene, self.runtimeScene, self.runtimeScene
+    self.sceneView.spriteAssets = self.runtimeScene.spriteAssets
+    self.sceneView:setSelection({})
+    self.instanceInspectorObject, self.instanceInspectorTarget = nil, nil
+    self.hierarchy.collapsed, self.hierarchy.scroll, self.hierarchy.anchor = {}, 0, nil
+end
+function EditorApp:stepPlay()
+    if not self.paused or not self.runtimeWorld then return false, "Pause before stepping" end
+    self.inspector:commitEdit()
+    self.stepPending = true
+    return self:update(1 / 60)
+end
 function EditorApp:isPlaying()
     return self.runtimeWorld ~= nil
 end
 function EditorApp:discardRuntime(errorText)
     local world = self.runtimeWorld
     self.runtimeWorld = nil
+    self.paused = false
     if world then
+        self.inspector:cancelEdit()
+        if self.inspector.classInspector then self.inspector.classInspector:setTarget(nil) end
         local ok, err = world:dispose()
         if not ok then errorText = errorText and errorText .. "\n" .. err or err end
+    end
+    if self.playInput then self.playInput:dispose(); self.playInput = nil end
+    if self.runtimeScene then
+        self.runtimeScene = nil
+        self.sceneView.level, self.hierarchy.level, self.inspector.level = self.level, self.level, self.level
+        self.sceneView.spriteAssets = self.spriteAssets
+        local saved = self.playEditorState
+        if saved then
+            self.sceneView:setSelection(saved.selection)
+            self.sceneView.cameraX, self.sceneView.cameraY, self.sceneView.zoom = saved.x, saved.y, saved.zoom
+            self.hierarchy.collapsed, self.hierarchy.scroll = saved.collapsed, saved.scroll
+            self.inspectorSource = saved.inspectorSource
+        end
+        self.instanceInspectorObject, self.instanceInspectorTarget = nil, nil
+        self.freeExplore, self.stepPending, self.playEditorState = false, nil, nil
+        if self.inspector.classInspector then self:updateInspectorTarget() end
     end
     if errorText then self.runtimeError = errorText end
     return errorText == nil, errorText
@@ -169,12 +260,24 @@ end
 function EditorApp:gameEvent(name, ...)
     if not self.runtimeWorld or self.paused then return false end
     local input = name ~= "resize" and name ~= "focus" and name ~= "visible" and name ~= "mousefocus"
-    if input and (self.uiRoot.popup or self.objectPick) then return false end
+    if input and (not self:isGameControlling() or self.uiRoot.popup or self.objectPick) then return false end
     local positional = name == "wheelmoved" or name:match("^mouse") and name ~= "mousefocus" or name:match("^touch")
+    if input and positional then
+        local args = {...}
+        local x, y = args[1], args[2]
+        if name == "wheelmoved" then x, y = love.mouse.getPosition()
+        elseif name:match("^touch") then x, y = args[2], args[3] end
+        local captures = self.runtimeWorld.eventCaptures
+        local captured = self.uiRoot.captured == self.sceneWidget or captures and (next(captures.mouse) or next(captures.touch))
+        if x and y and self.canvas:hitTest(x, y) ~= self.sceneWidget and not captured then return false end
+    end
     if input and not positional and self.uiRoot.focused ~= self.sceneWidget then return false end
     local viewport = self:runtimeViewport()
     if not viewport then return false end
-    local ok, err = require("core.ScriptEvents").screen(self.runtimeWorld, viewport, name, ...)
+    local arguments = {...}
+    if self.playInput and (name:match("^joystick") or name:match("^gamepad")) and arguments[1] then arguments[1] = self.playInput:joystick(arguments[1]) end
+    if self.playInput then self.playInput:track(name, arguments) end
+    local ok, err = require("core.ScriptEvents").screen(self.runtimeWorld, viewport, name, unpack(arguments, 1, select("#", ...)))
     if not ok then
         self:discardRuntime(err)
     end
@@ -193,21 +296,21 @@ function EditorApp:updateGameSize()
 end
 
 function EditorApp:handleGamePointer(kind, x, y, button, dx, dy)
-    if not self.runtimeWorld or self.paused then return false end
+    if not self:isGameControlling() then return false end
     local ok, result = self.gameView:dispatchPointer(self.runtimeWorld, kind, x, y, button, dx, dy)
     if not ok then self:discardRuntime(result); return false end
     return true, result
 end
 
 function EditorApp:gameCaptureButton(button)
-    if not self.runtimeWorld or self.paused then return nil end
+    if not self:isGameControlling() then return nil end
     local ok, captured = pcall(require("core.RenderPipeline").captureButton, self.runtimeWorld, button)
     if not ok then self:discardRuntime(captured); return nil end
     return captured
 end
 
 function EditorApp:getActiveCenterView()
-    if self:isPlaying() then
+    if self:isGameControlling() then
         return self.gameView
     end
 
@@ -217,7 +320,9 @@ end
 function EditorApp:startPlay()
     self:cancelObjectPick()
     if self:isPlaying() and self.paused then
+        self.inspector:commitEdit()
         self.paused = false
+        self:applyPlayInput()
         self:updateSceneViewport()
         return self.runtimeWorld ~= nil, self.runtimeError
     end
@@ -231,12 +336,20 @@ function EditorApp:startPlay()
     if self.viewportControls then self.viewportControls:commit() end
 
     self.debugSession:clearOverlay()
+    self.playInput = require("editor.PlayInput").new()
+    if self.project then self.project.playInput = self.playInput end
     local called, world, worldError = pcall(require("runtime.WorldLoader").create, self.project, self.level:toData(), self.debugSession)
+    if self.project then self.project.playInput = nil end
     if not called then worldError, world = tostring(world), nil end
-    if not world then self.runtimeError = worldError; return false, worldError end
+    if not world then self.playInput:dispose(); self.playInput = nil; self.runtimeError = worldError; return false, worldError end
     self.runtimeError, self.runtimeWorld, self.paused = nil, world, false
+    self.freeExplore = false
+    self.playEditorState = {selection = self.sceneView:getSelection(), x = self.sceneView.cameraX, y = self.sceneView.cameraY,
+        zoom = self.sceneView.zoom, collapsed = self.hierarchy.collapsed, scroll = self.hierarchy.scroll, inspectorSource = self.inspectorSource}
+    self:bindRuntimeScene(world)
     self.gameView.world = world
     self.uiRoot.focused = self.sceneWidget
+    self:applyPlayInput()
 
     -- Play 중 hidden Scene View drag/pan 상태가 남아 있지 않게 정리한다.
     self.sceneView:cancelDrag(false)
@@ -251,8 +364,7 @@ end
 function EditorApp:pausePlay()
     if not self:isPlaying() or self.paused then return false, "Game is not running" end
     self.paused = true
-    self.runtimeWorld:cancelPointer(); self.uiRoot:cancelCapture()
-    return true
+    return self:setFreeExplore(true)
 end
 
 function EditorApp:stopPlay()
@@ -324,7 +436,22 @@ function EditorApp:importExternalAsset(input, x, y)
 end
 
 function EditorApp:placeAsset(reference, x, y, hierarchyDrop)
-    if self:isPlaying() then return false, "Stop Play before placing a Prefab" end
+    if self:isPlaying() then
+        if not self:canExplore() then return false, "Enter free exploration before placing a Prefab" end
+        local source, err = self.project:getAssetReference(reference)
+        if not source or not source:match("%.prefab$") then return false, err or "Drop a Prefab" end
+        self.inspector:commitEdit()
+        local wx, wy = self.sceneView:screenToWorld(x, y)
+        local object, spawnError = self.runtimeWorld:spawnLObject(reference, {x = hierarchyDrop and 0 or wx, y = hierarchyDrop and 0 or wy})
+        if not object then return false, spawnError end
+        self.runtimeScene:sync()
+        local parent = hierarchyDrop and self.hierarchy:getLObjectAtPosition(x, y)
+        if parent then object:attachTo(parent.runtimeObject) end
+        self.runtimeScene:sync()
+        self.sceneView:setSelection({self.runtimeScene.wrappers[object]})
+        self.inspectorSource = "scene"
+        return true
+    end
     if not hierarchyDrop and not self.sceneView:containsPoint(x, y) then return false, "Drop inside the Scene View" end
     if self.viewportControls:containsPoint(x, y) then return false, "Drop outside the viewport controls" end
     local source, sourceError = self.project:getAssetReference(reference)
@@ -371,6 +498,20 @@ function EditorApp:placeAsset(reference, x, y, hierarchyDrop)
 end
 
 function EditorApp:placeAssets(entries, x, y, hierarchyDrop)
+    if self.runtimeScene then
+        local spawned = {}
+        for _, entry in ipairs(entries) do
+            local ok, err = self:placeAsset(entry.reference, x, y, hierarchyDrop)
+            if not ok then
+                for _, object in ipairs(spawned) do if object.runtimeObject.world == self.runtimeWorld then self.runtimeWorld:removeLObject(object.runtimeObject) end end
+                self.runtimeScene:sync(); self.sceneView:setSelection({})
+                return false, err
+            end
+            spawned[#spawned + 1] = self.sceneView.selectedLObject
+        end
+        self.sceneView:setSelection(spawned)
+        return true
+    end
     local startId, previous = self.level.nextAuthoringId, self.sceneView:getSelection()
     local previousSource, previousPanel = self.inspectorSource, self.activePanel
     local collapsed = {}; for id, value in pairs(self.hierarchy.collapsed) do collapsed[id] = value end
@@ -406,6 +547,23 @@ function EditorApp:showProjectInspector()
 end
 
 function EditorApp:updateInspectorTarget()
+    if self.runtimeScene then
+        self.runtimeScene:sync()
+        local object = self.sceneView.selectedLObject
+        if object and not self.runtimeScene.wrappers[object.runtimeObject] then self.sceneView:setSelection({}); object = nil end
+        if self.inspector.classInspector then
+            if self.instanceInspectorObject ~= object then
+                self.inspector:commitEdit()
+                self.instanceInspectorObject = object
+                self.instanceInspectorTarget = object and self.runtimeScene:target(object) or nil
+            end
+            local inspector = self.inspector.classInspector
+            inspector:setTarget(self.instanceInspectorTarget)
+            inspector:layout(love.graphics.getWidth() - self.inspector.width, self.inspector.width,
+                (self.inspector.y or 0) + (self.inspector.height or love.graphics.getHeight()), nil, self.inspector.y or 0)
+        end
+        return object
+    end
     if not self.inspector.classInspector then return self.sceneView.selectedLObject end
     local revision = self.project.draftRevision or 0
     if self.prefabSyncLevel ~= self.level or self.prefabSyncRevision ~= revision then
@@ -749,13 +907,14 @@ function EditorApp:initializeUI()
         return canvas, content
     end
     local center, sceneWidget = panel("scene", {
-        hint = function() return self.paused and "Game View paused. Play / F5: resume." or self:isPlaying() and "Game View. F5: stop Play." or "Scene View. Drag gizmo: move. Ctrl+D: duplicate. F: frame. Middle drag: pan. Wheel: zoom." end,
+        hint = function() return self.paused and "Paused: free exploration. F7: step. F5: resume." or self.freeExplore and "Runtime free exploration. F8: control game. F6: pause." or self:isPlaying() and "Game View. F8: free exploration. F6: pause. F5: stop Play." or "Scene View. Drag gizmo: move. Ctrl+D: duplicate. F: frame. Middle drag: pan. Wheel: zoom." end,
         bounds = function(_, x, y, width, height)
             self.sceneView:setViewport(x, y, width, height)
             self.gameView:setViewport(x, y, width, height)
         end,
         draw = function()
-            if self:isPlaying() then
+
+            if self:isGameControlling() then
                 local ok, err = pcall(self.gameView.draw, self.gameView, self.runtimeWorld)
                 if not ok then self:discardRuntime(tostring(err)) end
             else
@@ -773,7 +932,7 @@ function EditorApp:initializeUI()
             end
         end,
         mousepressed = function(_, x, y, button)
-            if self:isPlaying() then
+            if self:isGameControlling() then
                 self:handleGamePointer("down", x, y, button)
                 return true, self:gameCaptureButton(button) ~= nil
             end
@@ -782,17 +941,17 @@ function EditorApp:initializeUI()
             return true, self.sceneView.isPanning or self.sceneView.isDraggingLObject or self.sceneView.marquee ~= nil or self.sceneView.pointerDrag ~= nil
         end,
         mousemoved = function(_, x, y, dx, dy)
-            if self:isPlaying() then self:handleGamePointer("move", x, y, 1, dx, dy)
+            if self:isGameControlling() then self:handleGamePointer("move", x, y, 1, dx, dy)
             else self.sceneView:mousemoved(x, y, dx, dy) end
             return true
         end,
         mousereleased = function(_, x, y, button)
-            if self:isPlaying() then self:handleGamePointer("up", x, y, button)
+            if self:isGameControlling() then self:handleGamePointer("up", x, y, button)
             else self.sceneView:mousereleased(x, y, button) end
             return true
         end,
         wheelmoved = function(_, _, _, amount)
-            if not self:isPlaying() then self.sceneView:wheelmoved(0, amount) end
+            if self:canExplore() then self.sceneView:wheelmoved(0, amount) end
             return true
         end,
         keypressed = function(_, key) return self:handleSceneKey(key) end,
@@ -825,7 +984,7 @@ function EditorApp:initializeUI()
         bounds = function(_, _, y, _, height) self.hierarchy.height, self.hierarchy.y = height, y end,
         draw = function() self.hierarchy:draw(self.sceneView.selectedLObject) end,
         mousepressed = function(_, x, y, button)
-            if not self:isPlaying() then
+            if self:canExplore() then
                 if button == 1 or button == 2 then self.inspectorSource = "scene" end
                 return self.hierarchy:mousepressed(x, y, button)
             end
@@ -856,7 +1015,7 @@ function EditorApp:initializeUI()
         hint = function() return "Inspector: edit the selected object, level or Prefab." end,
         draw = function() self.inspector:draw(self:updateInspectorTarget()) end,
         mousepressed = function(_, x, y, button)
-            if not self:isPlaying() then
+            if self:canExplore() then
                 return self.inspector:mousepressed(x, y, button, love.graphics.getWidth(), self:updateInspectorTarget())
             end
             return true
@@ -868,7 +1027,7 @@ function EditorApp:initializeUI()
         textinput = function(_, text) return self.inspector:textinput(text) end,
         textedited = function(_, text) return self.inspector:textedited(text) end,
         wheelmoved = function(_, x, y, amount)
-            if not self:isPlaying() and self.inspector.classInspector and self.inspector.classInspector.target then
+            if self:canExplore() and self.inspector.classInspector and self.inspector.classInspector.target then
                 self.inspector.classInspector:wheelmoved(amount, x, y)
             end
             return true
@@ -911,7 +1070,7 @@ function EditorApp:initializeUI()
                 if not object then return false, "Referenced Prefab object is missing" end
                 return inspector.objectTree:reveal(object.path)
             end
-            for _, object in ipairs(self.level.lobjects) do
+            for _, object in ipairs((self.runtimeScene or self.level).lobjects) do
                 if object.authoringId == value then self.sceneView:frameLObject(object); self.sceneView.ping = {object = object, remaining = 1.5}; return true end
             end
             return false, "Referenced instance was not found"
@@ -931,14 +1090,17 @@ function EditorApp:initializeUI()
         self:updateInspectorTarget()
         self.assetBrowser.onSelect = function(reference) return self:selectAsset(reference) end
         self.assetBrowser.externalDropTarget = function(entry, x, y)
+            if self:isPlaying() and not entry.reference:match("%.prefab$") and (self.hierarchy:containsPoint(x, y) or self.sceneView:containsPoint(x, y)) then
+                return false, nil, "Drop a Prefab into the runtime"
+            end
             if self.inspectorWidget:containsPoint(x, y) then return false, nil, "Use the eyedropper to assign resources" end
             if self.hierarchy:containsPoint(x, y) then
-                if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
+                if not self:canExplore() then return false, nil, "Enter free exploration before placing a Prefab" end
                 if entry.type ~= "file" or not (require("project.LObjectTemplate").source(self.project, entry.reference) or self.project:getScriptKind(entry.reference) == "script") then return false, nil, "Drop a Prefab into the Hierarchy" end
                 return "hierarchy", {x = 0, y = self.hierarchy.y or 0, w = self.hierarchy.width, h = self.hierarchy.height}
             end
             if not self.sceneView:containsPoint(x, y) then return end
-            if self:isPlaying() then return false, nil, "Stop Play before placing a Prefab" end
+            if not self:canExplore() then return false, nil, "Enter free exploration before placing a Prefab" end
             if self.viewportControls:containsPoint(x, y) then return false, nil, "Drop outside the viewport controls" end
             if entry.type ~= "file" or not (require("project.LObjectTemplate").source(self.project, entry.reference) or self.project:getScriptKind(entry.reference) == "script") then return false, nil, "Drop a Prefab into the Scene View" end
             local vx, vy, width, height = self.sceneView:getViewport()
@@ -970,6 +1132,7 @@ function EditorApp:initializeUI()
         end
         self.assetBrowser:setUIRoot(self.uiRoot)
         self.assetBrowser.onOpenFile = function(reference)
+            if self:isPlaying() then return false, "Stop Play before opening an asset for editing" end
             if reference:match("%.lua$") then
                 local ok, result = pcall(require("editor.CodeEditor").open, self.project, reference)
                 return ok, not ok and tostring(result) or nil
@@ -1046,9 +1209,10 @@ function EditorApp:initializeUI()
         local ancestor = target
         while ancestor and not ancestor.panelName do ancestor = ancestor.parent end
         local name = ancestor and ancestor.panelName
-        if target == self.menuBar then return end
+        if target == self.menuBar then self:applyPlayInput(); return end
+        self:applyPlayInput()
         if name then self.activePanel = name end
-        if not self:isPlaying() and name ~= "inspector" then self.inspector:commitEdit() end
+        if name ~= "inspector" then self.inspector:commitEdit() end
         if name ~= "scene" then
             self.sceneView:cancelDrag(false)
             self.sceneView.isPanning = false
@@ -1064,20 +1228,24 @@ function EditorApp:initializeUI()
 end
 
 function EditorApp:updateSceneViewport()
-    self.viewportControls.enabled = not self:isPlaying()
+    self.viewportControls.enabled = self:canExplore()
     self.uiLayout:arrange(love.graphics.getDimensions())
     self:updateGameSize()
 end
 
 function EditorApp:update(dt)
-    if not self.paused then self.debugSession:update(dt) end
+    if not self.paused or self.stepPending then self.debugSession:update(dt) end
     local objectTree = self.inspector.classInspector and self.inspector.classInspector.objectTree
     if objectTree and objectTree.ping then objectTree.ping.remaining = objectTree.ping.remaining - dt; if objectTree.ping.remaining <= 0 then objectTree.ping = nil end end
     if self.sceneView.ping then self.sceneView.ping.remaining = self.sceneView.ping.remaining - dt; if self.sceneView.ping.remaining <= 0 then self.sceneView.ping = nil end end
+    self:applyPlayInput()
     self.uiRoot:update(dt)
-    if self.runtimeWorld and not self.paused then
+    self:syncRuntimeScene()
+    if self.runtimeWorld and (not self.paused or self.stepPending) then
+        self.stepPending = nil
         self:updateGameSize()
         if not self.runtimeWorld then return false, self.runtimeError end
+
         local ok, updated, err = pcall(self.runtimeWorld.update, self.runtimeWorld, dt)
         if not ok then err, updated = tostring(updated), false end
         if updated == false then self:discardRuntime(err) end
@@ -1085,6 +1253,7 @@ function EditorApp:update(dt)
             local candidate, transitionError = self.runtimeWorld:takeLevelTransition()
             if candidate then
                 self.runtimeWorld, self.runtimeError = candidate, transitionError
+                self:bindRuntimeScene(candidate)
                 self:updateSceneViewport()
                 if not self.runtimeWorld then return false, self.runtimeError end
             elseif transitionError then self.runtimeError = transitionError end
@@ -1107,6 +1276,8 @@ function EditorApp:refreshProject(showRepair)
 end
 
 function EditorApp:draw()
+    self:syncRuntimeScene()
+
     self:updateSceneViewport()
     local Ui = require("editor.Ui")
     local x, y = love.mouse.getPosition()
@@ -1114,6 +1285,7 @@ function EditorApp:draw()
     Theme.clear("background")
     self.uiRoot:draw()
     self.debugSession:finishFrame()
+
 end
 
 function EditorApp:cancelObjectPick()
@@ -1125,7 +1297,7 @@ end
 
 function EditorApp:beginObjectPick(name, parentPath)
     local inspector = self.inspector.classInspector
-    if self:isPlaying() or not inspector or not inspector.target then return false, "Stop Play before picking a reference" end
+    if not self:canExplore() or not inspector or not inspector.target then return false, "Enter free exploration before picking a reference" end
     if inspector.target.readOnly then return false, "Labo plugin assets are read-only" end
     local declaration = name ~= "$parent" and inspector.class.properties[name]
     local kind = name == "$attachScript" and "attachment" or name == "$child" and "child" or declaration and declaration.type or name == "$parent" and "parent"
@@ -1135,7 +1307,7 @@ function EditorApp:beginObjectPick(name, parentPath)
         and (kind == "object" or kind == "script") then
         return self.scopeInspector:pickReference(inspector.target, name, kind)
     end
-    if (kind == "object" or kind == "script") and inspector.target.level ~= self.level and not inspector.target.prefabScope then return false, "Pick an instance reference on a level or placed instance" end
+    if (kind == "object" or kind == "script") and inspector.target.level ~= (self.runtimeScene or self.level) and not inspector.target.prefabScope then return false, "Pick an instance reference on a level or placed instance" end
     if self.objectPick then self:cancelObjectPick(); return true end
     self.inspector:commitEdit(); self.uiRoot:cancelCapture(); self.uiRoot:dismissPopup()
     self.objectPick = {target = inspector.target, script = inspector.selectedScript, name = name, kind = kind, cursor = love.mouse.getCursor()}
@@ -1207,7 +1379,8 @@ function EditorApp:pickReferenceAt(x, y)
     if pick.kind == "script" then
         if not object then inspector.error = "Select an object with attached scripts"; return end
         local target, err
-        if inspector.target.prefabScope then target, err = self.prefabEditor:target(object.path)
+        if self.runtimeScene then target = self.runtimeScene:target(object)
+        elseif inspector.target.prefabScope then target, err = self.prefabEditor:target(object.path)
         else
             local definition
             definition, err = require("project.PrefabHierarchy").authoringDefinition(self.project, self.level, object)
@@ -1221,7 +1394,7 @@ function EditorApp:pickReferenceAt(x, y)
                 if ok then self:updateInspectorTarget() end
             end}
         end
-        target:release()
+        if target.release then target:release() end
         if #options == 0 then inspector.error = "Selected object has no scripts"; return end
         self:cancelObjectPick()
         if #options == 1 then options[1].action() else require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, options) end
@@ -1263,6 +1436,7 @@ function EditorApp:mousepressed(x, y, button, presses, istouch)
         else return true end
     end
     self.uiRoot:mousepressed(x, y, button, presses)
+    self:applyPlayInput()
     self:updateSceneViewport()
 end
 
@@ -1272,7 +1446,7 @@ function EditorApp:mousereleased(x, y, button, istouch, presses)
         self.objectPick.scrollbar:dispatch("mousereleased", x, y, button); self.objectPick.scrollbar = nil
         return true
     end
-    local gameCaptured = self.uiRoot.captured == self.sceneWidget and self:isPlaying()
+    local gameCaptured = self.uiRoot.captured == self.sceneWidget and self:isGameControlling()
     self.uiRoot:mousereleased(x, y, button)
     if gameCaptured then
         -- UI의 단일 버튼 캡처보다 런타임의 버튼별 캡처 수명을 우선한다.
@@ -1298,6 +1472,9 @@ function EditorApp:mousemoved(x, y, dx, dy, istouch)
 end
 
 function EditorApp:focus(focused)
+    self.focused = focused
+    if not focused and self:isPlaying() then self:setFreeExplore(true) end
+    self:applyPlayInput()
     self:gameEvent("focus", focused)
     if focused then return end
     if self.runtimeWorld then self.runtimeWorld:cancelPointer() end
@@ -1311,7 +1488,7 @@ function EditorApp:wheelmoved(horizontal, amount)
     self:updateSceneViewport()
     local x, y = love.mouse.getPosition()
     local viewport = self:runtimeViewport()
-    if viewport and x >= viewport.x and x < viewport.x + viewport.width and y >= viewport.y and y < viewport.y + viewport.height then
+    if self:isGameControlling() and self.canvas:hitTest(x, y) == self.sceneWidget and viewport and x >= viewport.x and x < viewport.x + viewport.width and y >= viewport.y and y < viewport.y + viewport.height then
         self:gameEvent("wheelmoved", horizontal, amount); return
     end
     self.uiRoot:wheelmoved(x, y, amount)
@@ -1319,20 +1496,21 @@ end
 
 function EditorApp:textinput(text)
     if self.uiRoot.popup then return self.uiRoot:textinput(text) end
-    if self:isPlaying() then return self:gameEvent("textinput", text) end
+    if self:isGameControlling() and self.uiRoot.focused == self.sceneWidget then return self:gameEvent("textinput", text) end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
     return self.uiRoot:textinput(text)
 end
 
 function EditorApp:textedited(text, start, length)
     if self.uiRoot.popup then return self.uiRoot:textedited(text, start, length) end
-    if self:isPlaying() then return self:gameEvent("textedited", text, start, length) end
+    if self:isGameControlling() and self.uiRoot.focused == self.sceneWidget then return self:gameEvent("textedited", text, start, length) end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
     return self.uiRoot:textedited(text, start, length)
 end
 
 function EditorApp:handleSceneKey(key)
-    if self:isPlaying() then return true end
+    if not self:canExplore() then return true end
+    if self:isPlaying() and love.keyboard.isDown("lctrl", "rctrl") and key == "d" then return true end
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
     local x, y = love.mouse.getPosition()
     local usesMousePosition = key == "d" and controlDown
@@ -1346,6 +1524,9 @@ function EditorApp:handleSceneKey(key)
 end
 
 function EditorApp:keypressed(key, scancode, isrepeat)
+    if key == "f8" and self:isPlaying() then return self:setFreeExplore(not self.freeExplore) end
+    if key == "f6" and self:isPlaying() then return self:pausePlay() end
+    if key == "f7" then return self:stepPlay() end
     if key == "r" and love.keyboard.isDown("lctrl", "rctrl") and self.project and not self.uiRoot.popup
         and not self.inspector:isEditing() and not self.viewportControls.editing then return self:refreshProject() end
     if self.objectPick then
@@ -1370,7 +1551,7 @@ function EditorApp:keypressed(key, scancode, isrepeat)
         if self:isPlaying() and not self.paused then return self:stopPlay() end
         return self:startPlay()
     end
-    if self:isPlaying() then return self:gameEvent("keypressed", key, scancode, isrepeat) end
+    if self:isGameControlling() and self.uiRoot.focused == self.sceneWidget then return self:gameEvent("keypressed", key, scancode, isrepeat) end
     if self.inspector:isEditing() then self.uiRoot.focused = self.inspectorWidget end
     if not controlDown and not self.inspector:isEditing() and not self.viewportControls.editing
         and (key == "w" or key == "e" or key == "r") then return self:handleSceneKey(key) end
@@ -1379,6 +1560,13 @@ end
 
 function EditorApp:showObjectMenu(x, y, object)
     if object and not self.sceneView:isSelected(object) then self.sceneView:setSelection({object}) end
+    if self.runtimeScene then
+        require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, {
+            {label = "Delete Runtime Object", enabled = object ~= nil, action = function() self.inspector:cancelEdit(); self.sceneView:deleteSelection() end},
+            {label = "Frame Selection", enabled = object ~= nil, action = function() self.sceneView:frameSelected() end},
+            {label = "Select All", action = function() self.sceneView:setSelection(self.runtimeScene.lobjects) end}})
+        return
+    end
     local enabled = object ~= nil and #self.sceneView:getSelection() > 0
     local editable, attached = enabled, false
     for _, root in ipairs(self.level:selectionRoots(self.sceneView:getSelection())) do

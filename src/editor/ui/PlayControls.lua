@@ -13,7 +13,9 @@ function Controls.new(app)
     end
     self.handlers.mousepressed = function(_, x, y, button)
         if button == 1 then for _, item in ipairs(self:buttons()) do if Ui.contains(x, y, item) and item.enabled then
-            if item.name == "play" then app:startPlay() elseif item.name == "pause" then app:pausePlay() else app:stopPlay() end
+            if item.name == "play" then app:startPlay() elseif item.name == "pause" then app:pausePlay()
+            elseif item.name == "explore" then app:setFreeExplore(not app.freeExplore)
+            elseif item.name == "step" then app:stepPlay() else app:stopPlay() end
         end end end
         return true
     end
@@ -21,10 +23,12 @@ function Controls.new(app)
 end
 function Controls:buttons()
     local app = self.app
-    local x, y = self.x + (self.width - 92) / 2, self.y + (self.height - 26) / 2
+    local x, y = self.x + (self.width - 156) / 2, self.y + (self.height - 26) / 2
     return {{name = "play", label = app.paused and "Resume" or "Play", enabled = not app:isPlaying() or app.paused, x = x, y = y, w = 28, h = 26},
         {name = "pause", label = "Pause", enabled = app:isPlaying() and not app.paused, x = x + 32, y = y, w = 28, h = 26},
-        {name = "stop", label = "Stop", enabled = app:isPlaying(), x = x + 64, y = y, w = 28, h = 26}}
+        {name = "stop", label = "Stop", enabled = app:isPlaying(), x = x + 64, y = y, w = 28, h = 26},
+        {name = "explore", label = app.freeExplore and "Control Game (F8)" or "Free Explore (F8)", enabled = app:isPlaying() and not app.paused, x = x + 96, y = y, w = 28, h = 26},
+        {name = "step", label = "Step Frame (F7)", enabled = app.paused, x = x + 128, y = y, w = 28, h = 26}}
 end
 function Controls:render()
     for _, item in ipairs(self:buttons()) do
@@ -33,7 +37,9 @@ function Controls:render()
         local x, y = item.x + 9, item.y + 7
         if item.name == "play" then love.graphics.polygon("fill", x, y, x + 11, y + 6, x, y + 12)
         elseif item.name == "pause" then love.graphics.rectangle("fill", x, y, 4, 12); love.graphics.rectangle("fill", x + 7, y, 4, 12)
-        else love.graphics.rectangle("fill", x, y, 11, 12) end
+        elseif item.name == "stop" then love.graphics.rectangle("fill", x, y, 11, 12)
+        elseif item.name == "explore" then Ui.text(self.app.freeExplore and "G" or "E", item.x + 7, item.y + 4, 20, Theme.color(item.enabled and "text" or "textDisabled"))
+        else love.graphics.polygon("fill", x - 2, y, x + 6, y + 6, x - 2, y + 12); love.graphics.rectangle("fill", x + 8, y, 3, 12) end
     end
 end
 return Controls

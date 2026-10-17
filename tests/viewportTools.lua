@@ -670,7 +670,7 @@ return Counter]]))
     Assert.equal(app.hierarchy.y, app.playControls.y)
     Assert.equal(app.inspector.y, app.playControls.y)
     Assert.equal(app.sceneWidget.y, app.viewportToolbar.y + app.viewportToolbar.height + require("editor.Ui").METRICS.viewportToolbarGap - require("editor.Ui").METRICS.panelGap)
-    Assert.equal(app.sceneWidget.x + app.sceneWidget.width / 2, buttons[2].x + buttons[2].w / 2)
+    Assert.equal(app.sceneWidget.x + app.sceneWidget.width / 2, buttons[3].x + buttons[3].w / 2)
     Assert.truthy(buttons[1].y + buttons[1].h <= app.sceneWidget.y + 6)
     Assert.equal(true, buttons[1].enabled); Assert.equal(false, buttons[2].enabled); Assert.equal(false, buttons[3].enabled)
     assert(app:startPlay()); local world = app.runtimeWorld; local script = world.lobjects[1].scripts.counter

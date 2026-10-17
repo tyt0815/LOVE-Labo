@@ -261,6 +261,11 @@ function ClassInspector:setProperty(name, value)
         end
         if not found then self.error = "Instance must belong to the current level"; return false end
     end
+    if self.target.runtime then
+        local ok, err = self.target:setProperty(name, value)
+        self.error = not ok and err or nil
+        return ok, err
+    end
     local overrides = self.target:getOverrides()
     if value == declaration.default then overrides[name] = nil else overrides[name] = value end
     self.target:setOverrides(overrides)
@@ -336,6 +341,10 @@ function ClassInspector:objectLabel(value, name)
             local label = object.name or "LObject " .. tostring(value)
             local scriptId = type(value) == "table" and value.script
             if scriptId then
+                if self.target.runtime then
+                    local script = object.runtimeObject.scripts[scriptId]
+                    return label .. " / " .. (script and script.name or "Missing Script")
+                end
                 local definition = require("project.PrefabHierarchy").authoringDefinition(self.project, self.target.level, object)
                 local attachment = definition and require("project.ScriptAttachments").find(definition.attachments, scriptId)
                 label = label .. " / " .. (attachment and attachment.name or "Missing Script")
@@ -633,7 +642,7 @@ function ClassInspector:draw()
             if self.target.instance then
                 label = self.target.data.name or "LObject " .. tostring(self.target.data.authoringId)
                 local reference = self.target.data.definitionReference and self.project:getAssetReference(self.target.data.definitionReference)
-                kind = (reference and reference:match("([^/]+)%.[^.]+$") or "LObject") .. " Instance"
+                kind = self.target.runtime and "Runtime Instance (discarded on Stop)" or (reference and reference:match("([^/]+)%.[^.]+$") or "LObject") .. " Instance"
             elseif self.target.isDirty and self.target:isDirty() then label = label .. " *" end
             Ui.label(label, self.left + Ui.METRICS.contentPaddingX, y + 8, self.width - 2 * Ui.METRICS.contentPaddingX)
             Ui.text(kind, self.left + Ui.METRICS.contentPaddingX, y + 24, self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))

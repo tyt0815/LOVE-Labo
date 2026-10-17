@@ -260,7 +260,11 @@ return AudioDemo]]))
         app.debugSession:line(-220, -120, 220, 120, {color = {255, 80, 80}, lifespan = 30})
         shot("debugging"); assert(app:stopPlay()); app.statusWidget:toggle(); shot("log-collapsed")
         app.menuBar.active = nil; app.menuBar:openAt(100, 15); shot("project-menu"); app.uiRoot:dismissPopup()
-        assert(app:startPlay()); shot("play-running"); assert(app:pausePlay()); shot("play-paused"); assert(app:stopPlay())
+        assert(app:startPlay()); shot("play-running"); assert(app:pausePlay()); shot("play-paused")
+        app.sceneView:setSelection({app.runtimeScene.lobjects[#app.runtimeScene.lobjects]})
+        app:updateInspectorTarget(); expandPropertyGroups(); shot("runtime-inspector")
+        for _ = 1, 8 do assert(app:stepPlay()); app:draw() end
+        assert(app:stopPlay())
         assert(Fs.rename(assert(project:resolveSourceFile("Assets/Player.lua")), assert(project:resolvePath("Assets/UI/Player.lua"))))
         assert(app:refreshProject()); shot("asset-repair")
         local repair = app.uiRoot.popup

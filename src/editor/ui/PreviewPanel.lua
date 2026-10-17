@@ -8,6 +8,7 @@ function Panel.new(app)
     local self = setmetatable(Widget.new(), Panel)
     self.app, self.panelName = app, "preview"
     self.handlers.mousepressed = function(_, x, y, button)
+        if app:isPlaying() then return true end
         if button == 1 and Ui.contains(x, y, self:colorButton()) then
             app.inspector:commitEdit(); app:recordHistory()
             self:openBackgroundPicker()
@@ -18,6 +19,7 @@ function Panel.new(app)
     return self
 end
 function Panel:descriptor()
+    if self.app:isPlaying() then return {} end
     if self.app.inspectorSource == "project" then return {} end
     local app = self.app
     if app.inspectorSource == "assets" then return {reference = app.inspectedAssetReference} end
@@ -67,6 +69,11 @@ function Panel:draw()
     if self.width <= 0 or self.height <= 0 then return end
     Ui.panel(self.x, self.y, self.width, self.height)
     Ui.panelHeading("Preview", self.x, self.y, self.width)
+    if self.app:isPlaying() then
+        if self.model then self.model:release(); self.model = nil; self.signature = nil end
+        Ui.text("Runtime instances are inspected in the viewport.\nStop discards runtime edits.", self.x + 16, self.y + 48, self.width - 32, Theme.color("textMuted"))
+        return
+    end
     Ui.button("Background", self:colorButton(), false, "Choose the preview background color.", true)
     local descriptor = self:descriptor()
     local project = self.app.project

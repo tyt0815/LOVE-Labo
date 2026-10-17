@@ -53,6 +53,7 @@ function Operations.new(app, browser)
     return setmetatable({app = app, browser = browser, project = browser.project}, Operations)
 end
 function Operations:perform(callback)
+    if self.app:isPlaying() then return false, "Stop Play before editing asset files" end
     self.app.inspector:commitEdit()
     self.app:recordHistory()
     local previous = self.app.performingAssets

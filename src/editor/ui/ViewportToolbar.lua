@@ -50,7 +50,7 @@ function Toolbar:openBackgroundPicker(app)
 end
 
 function Toolbar:singleRow(width)
-    return width >= 2 * (math.max(self.snapControls:preferredWidth(), 104) + 16) + 92
+    return width >= 2 * (math.max(self.snapControls:preferredWidth(), 104) + 16) + 156
 end
 
 function Toolbar:preferredHeight(width)
