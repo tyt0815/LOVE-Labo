@@ -81,12 +81,6 @@ Labo-cli.exe --cli project examples --project D:/Games/MyGame
 
 `Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `drawOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
 
-`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `drawOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
-
-`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `drawOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
-
-`Text`는 일반 게임 텍스트 렌더링 스크립트입니다. `text`, `fontSize`, `width`, `align`(`left`·`center`·`right`), RGBA 색과 `drawOrder`를 Inspector에서 설정합니다. LObject의 이동·회전·스케일을 따르며 Canvas 아래에 두면 화면 공간에 표시됩니다. `screenLog`는 일시적인 디버그 메시지용 API입니다. 기본 LÖVE 폰트를 사용하므로 별도 글꼴 리소스 선택은 제공하지 않습니다.
-
 <a id="script-events"></a>
 
 ## LÖVE 이벤트 예제

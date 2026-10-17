@@ -195,6 +195,7 @@ function Examples.create(project)
     assert(Fs.writeAtomic(assert(project:resolveAssetFile(ids.L_TravelFailure)), assert(require("editor.LevelFile").encode(failure))))
     local target = assert(require("project.ScopedScripts").inspectorTarget(project, project, nil, "Project"))
     assert(target:addScript(ids.TravelSession, "travelSession"))
+    target:release()
     local session = project.scripts[#project.scripts]
     project.scriptOverrides[session.id] = {levelA = ids.L_TravelA, levelB = ids.L_TravelB}
     assert(project:saveScripts()); assert(project:rebuildAssetIndex())

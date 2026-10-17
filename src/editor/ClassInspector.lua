@@ -42,9 +42,15 @@ function ClassInspector:reveal(value)
     return true
 end
 
+function ClassInspector:releasePreview()
+    if self.previewTarget and self.previewTarget.release then self.previewTarget:release() end
+    self.previewTarget, self.preview = nil, nil
+end
+
 function ClassInspector:setTarget(target)
     if self.target == target then return end
     self:commitEdit()
+    self:releasePreview()
     local key = target and (target.documentKey or target.data)
     if key ~= self.treeLayoutKey then
         self.objectTreeHeight, self.scriptTreeHeight, self.objectTree = (3 * Ui.METRICS.treeRowHeight), (3 * Ui.METRICS.treeRowHeight), nil
@@ -57,21 +63,26 @@ end
 
 function ClassInspector:reload()
     self.thumbnails:clear()
-    if not self.target then self.class, self.dropdown, self.tree, self.names = nil, nil, nil, {}; return end
+    if not self.target then self:releasePreview(); self.class, self.dropdown, self.tree, self.names = nil, nil, nil, {}; return end
+    local reloadError
     if self.target.reloadTarget then
+        self:releasePreview()
+        if self.target.release then self.target:release() end
         local fresh, err = self.target.reloadTarget()
-        if not fresh then self.error = err; return end
-        for key, value in pairs(fresh) do self.target[key] = value end
+        if not fresh then reloadError = err or "Failed to rebuild Inspector target"
+        else for key, value in pairs(fresh) do self.target[key] = value end end
     end
     local reference = self.target and self.target.data[self.target.referenceField]
-    self.class, self.preview, self.error = nil, nil, nil
-    if self.target.class then self.class, self.preview = self.target.class, self.target.preview
+    self.class, self.preview, self.error = nil, nil, reloadError
+    if reloadError then self.selectedScript = nil
+    elseif self.target.class then self.class, self.preview, self.previewTarget = self.target.class, self.target.preview, self.target
     elseif self.target.kind == "lobject" then
+        self:releasePreview()
         local Definition = require("editor.ObjectDefinition")
         local definition, err = Definition.resolve(self.project, reference, nil, self.target.parentOwnerId)
         local target
         if definition then target, err = Definition.inspectorTarget(self.project, {}, definition, nil, "Prefab") end
-        if target then self.class, self.preview = target.class, target.preview else self.error = err end
+        if target then self.class, self.preview, self.previewTarget = target.class, target.preview, target else self.error = err end
     elseif reference then self.class, self.error = LuaScript.load(self.project, reference, self.target.kind) end
     if not self.preview then self.selectedScript = nil end
     self.allNames = {}
@@ -106,6 +117,7 @@ function ClassInspector:reload()
     self.dropdown = Dropdown.new(self.root, {}, reference or false, function(value) return self:selectParent(value) end)
     self.dropdown.hint = "Choose a Parent Class. None: use the built-in Level or LObject."
     self:updateOptions()
+    return reloadError == nil, reloadError
 end
 
 function ClassInspector:selectScript(script)
@@ -180,14 +192,21 @@ function ClassInspector:selectParent(value)
     end
     if self.target.setParentReference then self.target.setParentReference(value)
     else self.target.data[self.target.referenceField] = value or nil end
-    self.target:setOverrides(LuaScript.compatibleOverrides(class, self.target:getOverrides()), parentTarget)
+    local applied, applyError = pcall(function()
+        self.target:setOverrides(LuaScript.compatibleOverrides(class, self.target:getOverrides()), parentTarget)
+    end)
+    if parentTarget then parentTarget:release() end
+    if not applied then
+        if snapshot then self.target.restoreSnapshot(snapshot); self:reload() end
+        self.error = tostring(applyError); return false
+    end
     if self.target.reloadTarget then
-        local target, reloadError = self.target.reloadTarget()
-        if not target then
+        local ok, reloadError = self:reload()
+        if not ok then
             if snapshot then self.target.restoreSnapshot(snapshot); self:reload() end
             self.error = reloadError; return false
         end
-        if self.onTargetReloaded then self.onTargetReloaded(target) else self:setTarget(target) end
+        if self.onTargetReloaded then self.onTargetReloaded(self.target) end
         return true
     end
     self:reload()

@@ -20,4 +20,6 @@ Prefab 소속은 글자색과 루트 오른쪽의 상자 아이콘으로 구분�
 
 상속 구성 내부의 구조·순서·삭제와 상속된 스크립트의 제거·정렬은 금지합니다. 직접 추가한 자손만 부착·디태치·정렬하고 상속 항목 사이에는 끼워 넣지 않습니다. 로컬 자손을 루트 위로 옮기면 기존 루트가 새 루트의 자식이 됩니다. 기존 루트의 Parent Prefab과 상속 자손은 그대로 유지합니다. Prefab 에셋은 계층 컨테이너이며 Parent Prefab은 선택 오브젝트의 원본입니다. [ADR 0055](../adr/0055-prefab-container-and-sourced-object-roots.md)에 루트 교체 계약을 기록했습니다.
 
-Prefab 형식 4의 scripts는 `{id, source, label}` 목록입니다. overrides.scripts는 부착 ID별 값, removedScripts는 상속 부착 제거, scriptOrder는 순서 재정의입니다. children의 각 노드도 같은 구성을 가집니다. bindings는 from/to 노드 경로와 property를 저장하며 스크립트 대상에는 toScript 부착 ID를 추가합니다.
+Prefab 형식 4의 scripts는 `{id, source, name}` 목록입니다. overrides.scripts는 부착 ID별 값, removedScripts는 상속 부착 제거, scriptOrder는 순서 재정의입니다. children의 각 노드도 같은 구성을 가집니다. bindings는 from/to 노드 경로와 property를 저장하며 스크립트 대상에는 toScript 부착 ID를 추가합니다.
+
+`children`, `bindings`, `removedPaths`는 순서가 있는 목록입니다. 키가 붙은 JSON 객체로 바꾸면 해당 필드 경로를 포함한 오류로 거부하며, GUI·프로젝트 검증 CLI·Export에 같은 규칙을 적용합니다. 필드 생략과 빈 목록은 허용합니다. scripts의 이전 `label` 필드는 읽기 호환으로만 지원하며 새 데이터에는 `name`을 사용합니다.

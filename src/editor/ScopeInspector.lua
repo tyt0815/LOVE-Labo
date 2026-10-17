@@ -14,7 +14,7 @@ function Inspector:target(document, label, id)
     local data = document.level or document.data
     local level = document.level
     local target, err = Scoped.inspectorTarget(self.app.project, data, level, label)
-    if not target then self.app.runtimeError = err; return nil end
+    if not target then self.app.runtimeError = err; return nil, err end
     target.documentKey, target.scopeDocument = document, document
     target.readOnly = id and self.app.project:isReadOnly(id) or false
     target.isDirty = function() return document:isDirty() end

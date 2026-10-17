@@ -117,6 +117,11 @@ local function execute(request, cleanups)
         return {project = project.rootPath, name = project.name}
     end
     local project = assert(Project.open(absolute(required(request, "project"))))
+    -- 명령이 중간에 실패해도 이 호출에서 만든 Inspector 대상은 종료한다.
+    local api = setmetatable({ownTarget = function(target)
+        cleanups[#cleanups + 1] = function() target:release() end
+        return target
+    end}, {__index = api})
     if command == "config.open" then return require("editor.CodeEditor").openStartup(project, request["dry-run"] == true) end
     if command == "build.open" then return require("editor.CodeEditor").openBuild(project, request["dry-run"] == true) end
     if command == "project.examples-cli" then return require("editor.GameCliExamples").create(project) end
@@ -300,7 +305,7 @@ local function execute(request, cleanups)
         for _, candidate in ipairs(level.lobjects) do if candidate.authoringId == id then object = candidate end end
         assert(object, "Instance not found")
         local definition = assert(require("project.PrefabHierarchy").authoringDefinition(project, level, object))
-        target = assert(require("project.ObjectDefinition").inspectorTarget(project, object, definition, level))
+        target = api.ownTarget(assert(require("project.ObjectDefinition").inspectorTarget(project, object, definition, level)))
         if command == "instance.script.add" then assert(target:addScript(required(request, "source"), request.script)); changed = true
         elseif command == "instance.script.rename" then assert(target:renameScript(required(request, "script"), required(request, "name"))); changed = true
         elseif command == "instance.script.remove" then assert(target:removeScript(required(request, "script"))); changed = true
@@ -382,7 +387,7 @@ local function execute(request, cleanups)
     local result = {revision = revision(bytes), level = project:getAssetReference(levelReference), data = object or level:toData()}
     if object and changed then
         local definition = assert(require("project.PrefabHierarchy").authoringDefinition(project, level, object))
-        target = assert(require("project.ObjectDefinition").inspectorTarget(project, object, definition, level))
+        target = api.ownTarget(assert(require("project.ObjectDefinition").inspectorTarget(project, object, definition, level)))
     end
     if target then result.properties = properties(target) end
     return result

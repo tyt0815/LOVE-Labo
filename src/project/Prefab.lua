@@ -1,6 +1,7 @@
 local Json = require("project.Json")
 local Level = {isValidScriptReference = require("project.Reference").validScript}
 local Prefab = {}
+local Array = require("core.Array")
 
 function Prefab.decode(text)
     local data, err = Json.decode(text)
@@ -9,7 +10,7 @@ function Prefab.decode(text)
     if data.formatVersion ~= 4 then return nil, "Legacy Prefab: convert to the attached-script format before opening" end
     if data.name ~= nil and (type(data.name) ~= "string" or data.name:match("^%s*$")) then return nil, "Invalid Prefab root name" end
     if data.previewBackground ~= nil then
-        if type(data.previewBackground) ~= "table" or #data.previewBackground ~= 3 then return nil, "Invalid preview RGB" end
+        if data.previewBackground == Json.null or not Array.isDense(data.previewBackground) or #data.previewBackground ~= 3 then return nil, "Invalid preview RGB" end
         for _, channel in ipairs(data.previewBackground) do
             if type(channel) ~= "number" or channel ~= channel or channel < 0 or channel > 255 then return nil, "Invalid preview RGB" end
         end
@@ -31,19 +32,21 @@ function Prefab.decode(text)
     if not properties then return nil, propertyError end
     local scripts, scriptError = require("project.PropertyData").validateScripts(data.overrides.scripts)
     if not scripts then return nil, scriptError end
-    local function removed(paths)
+    local function removed(paths, location)
         if paths == nil then return true end
-        if type(paths) ~= "table" then return nil, "Invalid removed Prefab paths" end
+        if paths == Json.null or not Array.isDense(paths) then return nil, location .. " must be a dense list" end
         for _, path in ipairs(paths) do
             if type(path) ~= "string" or path:sub(1, 5) ~= "root/" or path:find("[^%w_/%-]") then return nil, "Invalid removed Prefab path" end
         end
         return true
     end
-    local function children(nodes, depth)
+    local function children(nodes, depth, location)
         if nodes == nil then return true end
-        if type(nodes) ~= "table" or depth > 64 then return nil, "Invalid Prefab children" end
+        if nodes == Json.null or not Array.isDense(nodes) then return nil, location .. " must be a dense list" end
+        if depth > 64 then return nil, "Invalid Prefab children depth: " .. location end
         local ids = {}
-        for _, node in ipairs(nodes) do
+        for index, node in ipairs(nodes) do
+            local nodePath = location .. "[" .. index .. "]"
             if type(node) ~= "table" or type(node.id) ~= "string" or not node.id:match("^[%w_%-]+$") or ids[node.id] then return nil, "Invalid or duplicate Prefab child ID" end
             ids[node.id] = true
             local scripts, scriptError = require("project.ScriptAttachments").validate(node.scripts)
@@ -74,19 +77,19 @@ function Prefab.decode(text)
                 valid, err = require("project.PropertyData").validateScripts(node.overrides.scripts)
                 if not valid then return nil, err end
             end
-            local valid, err = removed(node.removedPaths)
+            local valid, err = removed(node.removedPaths, nodePath .. ".removedPaths")
             if not valid then return nil, err end
-            local valid, err = children(node.children, depth + 1)
+            local valid, err = children(node.children, depth + 1, nodePath .. ".children")
             if not valid then return nil, err end
         end
         return true
     end
-    local valid, childError = children(data.children, 0)
+    local valid, childError = children(data.children, 0, "children")
     if not valid then return nil, childError end
-    local valid, removedError = removed(data.removedPaths)
+    local valid, removedError = removed(data.removedPaths, "removedPaths")
     if not valid then return nil, removedError end
     if data.bindings ~= nil then
-        if type(data.bindings) ~= "table" then return nil, "Invalid Prefab bindings" end
+        if data.bindings == Json.null or not Array.isDense(data.bindings) then return nil, "bindings must be a dense list" end
         for _, binding in ipairs(data.bindings) do
             if type(binding) ~= "table" or type(binding.from) ~= "string" or type(binding.to) ~= "string"
                 or not binding.from:match("^root") or not binding.to:match("^root") or type(binding.property) ~= "string" then return nil, "Invalid Prefab binding" end

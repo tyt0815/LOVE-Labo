@@ -554,46 +554,50 @@ function SceneView:draw()
     local right = viewportX + width
     local bottom = viewportY + height
 
+    local depth = love.graphics.getStackDepth()
     love.graphics.push("all")
+    local ok, err = pcall(function()
+        -- Scene View는 이제 자신의 실제 viewport 밖으로 그리지 않는다.
+        love.graphics.setScissor(viewportX, viewportY, width, height)
 
-    -- Scene View는 이제 자신의 실제 viewport 밖으로 그리지 않는다.
-    love.graphics.setScissor(viewportX, viewportY, width, height)
+        require("editor.Ui").panel(viewportX, viewportY, width, height, "viewportBackground")
+        local background = self:backgroundColor()
+        love.graphics.setColor(background[1] / 255, background[2] / 255, background[3] / 255, 1)
+        local inset = Ui.METRICS.panelGap / 2 + 1
+        love.graphics.rectangle("fill", viewportX + inset, viewportY + inset,
+            math.max(0, width - 2 * inset), math.max(0, height - 2 * inset), 5, 5)
+        -- 좌표 변환의 기준 사각형은 유지하고 콘텐츠만 테두리 안쪽으로 제한한다.
+        love.graphics.intersectScissor(viewportX + 12, viewportY + 12, math.max(0, width - 24), math.max(0, height - 24))
 
-    require("editor.Ui").panel(viewportX, viewportY, width, height, "viewportBackground")
-    local background = self:backgroundColor()
-    love.graphics.setColor(background[1] / 255, background[2] / 255, background[3] / 255, 1)
-    local inset = Ui.METRICS.panelGap / 2 + 1
-    love.graphics.rectangle("fill", viewportX + inset, viewportY + inset,
-        math.max(0, width - 2 * inset), math.max(0, height - 2 * inset), 5, 5)
-    -- 좌표 변환의 기준 사각형은 유지하고 콘텐츠만 테두리 안쪽으로 제한한다.
-    love.graphics.intersectScissor(viewportX + 12, viewportY + 12, math.max(0, width - 24), math.max(0, height - 24))
+        local grid = self:gridColor()
+        love.graphics.setColor(grid[1] / 255, grid[2] / 255, grid[3] / 255, 1)
+        love.graphics.setLineWidth(1)
 
-    local grid = self:gridColor()
-    love.graphics.setColor(grid[1] / 255, grid[2] / 255, grid[3] / 255, 1)
-    love.graphics.setLineWidth(1)
+        for _, x in ipairs(vertical) do
+            love.graphics.line(x, viewportY, x, bottom)
+        end
 
-    for _, x in ipairs(vertical) do
-        love.graphics.line(x, viewportY, x, bottom)
-    end
+        for _, y in ipairs(horizontal) do
+            love.graphics.line(viewportX, y, right, y)
+        end
 
-    for _, y in ipairs(horizontal) do
-        love.graphics.line(viewportX, y, right, y)
-    end
+        self:drawWorldAxes()
+        if self.spriteAssets then self.spriteAssets:setLevel(self.level) end
+        self:drawLObjects()
+        if self.marquee then require("editor.ui.SelectionBox").draw(require("editor.ui.SelectionBox").rect(self.marquee.x, self.marquee.y, self.marquee.endX, self.marquee.endY)) end
 
-    self:drawWorldAxes()
-    if self.spriteAssets then self.spriteAssets:setLevel(self.level) end
-    self:drawLObjects()
-    if self.marquee then require("editor.ui.SelectionBox").draw(require("editor.ui.SelectionBox").rect(self.marquee.x, self.marquee.y, self.marquee.endX, self.marquee.endY)) end
-
-    Theme.setColor("text")
-    Ui.panelHeading(
-        string.format("Scene View  %.2fx", self.zoom),
-        viewportX,
-        viewportY,
-        width
-    )
-    self:drawMouseWorldPosition()
-    love.graphics.pop()
+        Theme.setColor("text")
+        Ui.panelHeading(
+            string.format("Scene View  %.2fx", self.zoom),
+            viewportX,
+            viewportY,
+            width
+        )
+        self:drawMouseWorldPosition()
+    end)
+    -- 사용자 코드가 추가한 스택도 패널 진입 깊이까지 정리한다.
+    while love.graphics.getStackDepth() > depth do love.graphics.pop() end
+    if not ok then error(err, 0) end
 end
 
 function SceneView:getSelection()

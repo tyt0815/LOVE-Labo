@@ -44,6 +44,7 @@ function Tree.new(project, kind)
                     if definition then
                         local preview
                         preview, node.error = require("project.ObjectDefinition").inspectorTarget(project, {}, definition)
+                        if preview then preview:release() end
                     end
                 end
             else

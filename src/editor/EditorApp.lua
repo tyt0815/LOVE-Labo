@@ -350,6 +350,7 @@ function EditorApp:placeAsset(reference, x, y, hierarchyDrop)
     if not definition then return false, err end
     local target, targetError = Definition.inspectorTarget(self.project, {}, definition, self.level, "LObject")
     if not target then return false, targetError end
+    target:release()
     self.inspector:commitEdit()
     local wx, wy = self.sceneView:screenToWorld(x, y)
     local parent
@@ -757,7 +758,12 @@ function EditorApp:initializeUI()
             if self:isPlaying() then
                 local ok, err = pcall(self.gameView.draw, self.gameView, self.runtimeWorld)
                 if not ok then self:discardRuntime(tostring(err)) end
-            else self.sceneView:draw() end
+            else
+                local ok, err = pcall(self.sceneView.draw, self.sceneView)
+                local failure = not ok and tostring(err) or nil
+                if failure and failure ~= self.sceneDrawError then self.runtimeError = failure end
+                self.sceneDrawError = failure
+            end
             if self:isPlaying() then
                 love.graphics.push("all"); Theme.setColor(self.paused and "playPaused" or "playRunning"); love.graphics.setLineWidth(2)
                 local gap = require("editor.Ui").METRICS.panelGap
@@ -1215,6 +1221,7 @@ function EditorApp:pickReferenceAt(x, y)
                 if ok then self:updateInspectorTarget() end
             end}
         end
+        target:release()
         if #options == 0 then inspector.error = "Selected object has no scripts"; return end
         self:cancelObjectPick()
         if #options == 1 then options[1].action() else require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, options) end

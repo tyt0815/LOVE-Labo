@@ -5,7 +5,7 @@
 - `NanumSquareRoundR.ttf`: 기본 글씨, 14px
 - `NanumSquareRoundB.ttf`: 프로퍼티 라벨·제목·작은 Lua 표식의 실제 Bold
 
-글꼴 원본은 수정하지 않았으며 LÖVE 배포 파일에 함께 포함한다. 글꼴 크기별 생성·캐시는 `editor/fonts.lua`에서 관리한다.
+글꼴 원본은 수정하지 않았으며 LÖVE 배포 파일에 함께 포함한다. 글꼴 크기별 생성·캐시는 `editor/Fonts.lua`에서 관리한다.
 
 출처: [한국저작권위원회 공유마당](https://gongu.copyright.or.kr/gongu/wrt/wrt/view.do?wrtSn=13288247&menuNo=200195), NAVER Corporation.
 

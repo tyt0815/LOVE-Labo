@@ -130,7 +130,7 @@ end
 function Definition.inspectorTarget(project, data, definition, level, label)
     local object = assert(require("core.LObject").new(1, {transform = data.transform or {x = 0, y = 0}}))
     local ok, err = Definition.configure(object, definition, nil, nil, data.scripts)
-    if not ok then return nil, err end
+    if not ok then object:unload(); return nil, err end
     local schema, scriptTypes = {}, {}
     if data.transform then
         local defaults = assert(Transform.copy({x = 0, y = 0}))
@@ -147,6 +147,8 @@ function Definition.inspectorTarget(project, data, definition, level, label)
     end
     local target = {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,
         class = {properties = schema, scriptTypes = scriptTypes, className = "LObject"}, preview = object,
+        -- 성공한 대상의 소유자가 교체·검사 완료 시 호출한다. load 전에는 바인딩만 정리한다.
+        release = function(current) return current.preview:unload() end,
         resolveScriptReference = function(_, value)
             if type(value) ~= "table" or not level then return value end
             local referenced = level:findLObject(value.authoringId)

@@ -225,12 +225,13 @@ function Hierarchy.capture(project, level, root)
                 local value = fields and fields[field or name]
                 if value and value ~= false then
                     local targetId = type(value) == "table" and value.authoringId or value
-                    if not paths[targetId] then return nil, "Object reference leaves the Prefab hierarchy: " .. name end
+                    if not paths[targetId] then target:release(); return nil, "Object reference leaves the Prefab hierarchy: " .. name end
                     bindings[#bindings + 1] = {from = entry.path, property = name, to = paths[targetId], toScript = type(value) == "table" and value.script or nil}
                     fields[field or name] = false
                 end
             end
         end
+        target:release()
     end
     return {formatVersion = 4, name = record.name, definitionReference = record.definitionReference, scripts = record.scripts, overrides = record.overrides,
         children = record.children, bindings = bindings, removedPaths = record.removedPaths}, nil, paths
@@ -341,6 +342,7 @@ function Hierarchy.duplicateData(project, level, object)
         local script = prefix and target.preview:getScriptById(prefix)
         if script then referenceFields[#referenceFields + 1] = script.name .. "." .. field end
     end end
+    target:release()
     return {definitionReference = nil, scripts = require("project.ScriptAttachments").copy(definition.attachments), propertyOverrides = properties, scriptOverrides = scripts, referenceFields = referenceFields}
 end
 

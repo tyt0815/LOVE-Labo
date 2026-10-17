@@ -11,7 +11,7 @@ function Operations.execute(project, request, api)
     local editor = require("editor.PrefabEditor").new(project, document, function() end, function() end)
     local nodePath = request.node or "root"
     local recipe = assert(editor:recipe()); assert(recipe.byPath[nodePath], "Prefab node not found")
-    local target = assert(editor:target(nodePath))
+    local target = api.ownTarget(assert(editor:target(nodePath)))
     local command, changed = request.command, false
     if command == "prefab.set" or command == "prefab.reset" then
         local name = api.propertyName(target, api.required(request, "property"))
@@ -25,7 +25,7 @@ function Operations.execute(project, request, api)
         local parent = request.parent
         if parent == "None" or parent == false then parent = nil end
         if parent then parent = assert(project:getAssetId(assert(project:getAssetReference(parent))), "Parent asset is not registered") end
-        local defaults = assert(target.parentDefaults(parent))
+        local defaults = api.ownTarget(assert(target.parentDefaults(parent)))
         target.setParentReference(parent)
         target:setOverrides(require("project.LuaScript").compatibleOverrides(defaults.class, target:getOverrides()), defaults)
         changed = true
@@ -75,7 +75,7 @@ function Operations.execute(project, request, api)
         assert(require("runtime.WorldLoader").validate(project, {lobjects = {{authoringId = 1, transform = {x = 0, y = 0}, definitionReference = document.assetId}}}))
         assert(assert(Fs.read(path)) == bytes, "Revision conflict: file changed while editing")
         assert(document:save(project)); bytes = assert(Fs.read(path))
-        target = assert(editor:target(nodePath))
+        target = api.ownTarget(assert(editor:target(nodePath)))
     end
     local result = api.properties(target)
     result.revision, result.node, result.data = api.revision(bytes), nodePath, document.data

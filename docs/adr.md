@@ -107,3 +107,5 @@
 - [0092. 세션 로더와 실행 실패의 정리 경계를 일치시킨다](adr/0092-session-loading-and-runtime-failure-boundaries.md)
 
 - [0093. Script 반환 계약과 호스트 경계의 공용 규칙을 일치시킨다](adr/0093-shared-script-and-host-boundaries.md)
+
+- [0094. 편집 미리보기의 폐기 책임과 Prefab 목록 검증을 완성한다](adr/0094-editor-preview-ownership-and-prefab-lists.md)
