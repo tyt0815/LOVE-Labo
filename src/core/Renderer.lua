@@ -26,7 +26,11 @@ function Renderer.drawObjects(objects, imageFor, toScreen, zoom, drawContext)
             affine:setMatrix(ax - x, bx - x, 0, x, ay - y, by - y, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
             love.graphics.push("all"); love.graphics.origin(); love.graphics.applyTransform(affine)
             -- 사용자 draw가 실패해도 다음 프레임의 그래픽 상태를 오염시키지 않는다.
+            local runtime = owner:getWorld()
+            local profiler = runtime and runtime.profiler
+            local started = profiler and profiler.recording and profiler.detailed and love.timer.getTime()
             local ok, result, err = pcall(script.draw, script, ctx)
+            if started then profiler:sample("draw", script, love.timer.getTime() - started) end
             love.graphics.pop(); affine:release()
             if not ok then error(result, 0) end
             if result == false and err then error(err, 0) end

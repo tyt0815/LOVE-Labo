@@ -417,7 +417,7 @@ function Cli.parse(args)
         local item = args[i]
         if item:sub(1, 2) == "--" then
             local key = item:sub(3)
-            if key == "empty" or key == "link" or key == "debug" or key == "dry-run" or key == "public-only" then
+            if key == "empty" or key == "link" or key == "debug" or key == "profile" or key == "dry-run" or key == "public-only" then
                 assert(request[key] == nil, "Duplicate option: " .. item)
                 request[key], i = true, i + 1
             else

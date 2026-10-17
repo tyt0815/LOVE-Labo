@@ -28,6 +28,8 @@ love src --cli level script set --project tests/TestProject --level Assets/Examp
 love src --cli level simulate --project tests/TestProject --level Assets/Examples/L_ScriptScopes.level --frames 3 --dt 0.033333
 ```
 
+`level.simulate --profile`은 공용 성능 기록기로 Update 구간과 Script별 호출 시간·횟수를 측정하고 `performance`를 반환합니다. GUI의 Draw는 실행하지 않습니다. 사용 예와 시간의 의미는 [성능 측정](play-tools.md)을 참고하세요.
+
 simulate 결과는 기존 instances에 더해 projectScripts·levelScripts 상태를 반환합니다. Project·Level 콜백도 실행하고, 레벨 전환 시 Project 인스턴스를 유지하며 종료 시 모두 정리합니다.
 
 `asset.delete`는 실제 파일이 없는 등록도 제거합니다. 사용 중인 ID는 기존 복구 창과 같은 참조 보호 정책으로 거부하며, 사라진 파일에는 내용 revision을 지정할 수 없습니다. GUI 삭제는 등록만 제거한 작업도 Undo/Redo할 수 있습니다.

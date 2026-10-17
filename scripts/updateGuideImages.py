@@ -25,6 +25,7 @@ for name in report["images"]:
 
 marks = {
     "runtime-inspector": ("runtime-inspector", [(645, 54, 80, 19, "1"), (148, 280, 130, 200, "2"), (1215, 282, 202, 180, "3")]),
+    "performance-window": ("performance-window", [(580, 151, 250, 18, "1"), (630, 224, 290, 42, "2"), (620, 400, 280, 60, "3")]),
     "recovery-drafts": ("recovery-drafts", [(720, 470, 205, 75, "1"), (835, 612, 38, 20, "2")]),
     "project-startup": ("project-startup", [(1214, 154, 205, 16, "1"), (1214, 183, 205, 16, "2")]),
     "build-export": ("build-export", [(730, 377, 236, 19, "1"), (784, 429, 200, 20, "2"), (784, 477, 200, 20, "3")]),

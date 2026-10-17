@@ -1,4 +1,4 @@
-# PIE 편집·복구
+# PIE 편집·복구·성능 측정
 
 ## 런타임 탐색과 편집
 
@@ -39,6 +39,24 @@ Pause에서도 화면은 다시 그립니다. `draw`에서 변경하는 값과 �
 
 복구 중 문서 읽기나 사본 저장이 실패하면 복구 창에 오류를 표시하며, 같은 창에서 **Restore**로 재시도할 수 있습니다. 전체 복구에 성공한 뒤 첫 레벨을 화면에 엽니다.
 
+## 성능 창
+
+**Run → Performance / F9**로 내부 성능 창을 엽니다. 고정 패널 공간을 사용하지 않으며 제목 표시줄로 이동하고 오른쪽 아래 모서리로 크기를 바꿉니다.
+
+![성능 기록과 프레임 선택](images/performance-window.svg)
+
+- ① **Pause / Record**는 측정 기록만 중지·재개합니다. 게임의 Pause와 독립적입니다. **Detail**은 Script별 Update·Draw 계측을 켭니다. **Clear**는 누계를 초기화하고 **Overlay**는 뷰포트에 작은 통계를 표시합니다. **Export**는 `.labo/performance.json`으로 기록합니다.
+- ② 그래프에서 프레임을 클릭하면 해당 프레임의 Update·Draw·에디터 Draw 시간과 객체·Script 수를 확인합니다. 최근 300프레임을 보관합니다.
+- ③ Script 목록은 Clear 이후 상세 측정의 누계이며 느린 순서입니다. 휠로 스크롤합니다. 선택한 한 프레임의 Script별 내역을 의미하지 않습니다.
+
+시간은 CPU 측 경과 시간입니다. Draw는 GPU 실행 시간이 아니며, Lua 메모리는 에디터를 포함한 프로세스 전체, 텍스처 메모리는 공유 자원 추정값입니다. 에디터에서 계측한 값은 배포 게임과 차이가 날 수 있습니다.
+
+기존 `level.simulate`에 `--profile`을 붙이면 같은 기록기로 Update 시간을 측정합니다. GUI처럼 Draw를 실행하지 않으며 `performance.frames[].frameMs`는 실제 화면 프레임 간격이 아니라 시뮬레이션 한 번의 실행 소요 시간입니다.
+
+```powershell
+love src --cli level simulate --project tests/TestProject --level Assets/L_ApiExamples.level --frames 120 --dt 0.016666667 --profile
+```
+
 ## 검수 예제
 
-테스트 프로젝트의 `Assets/L_ApiExamples.level`을 열어 Play한 뒤 Pause하고 **Motion and Property References**의 `motion.speed`와 Transform을 변경합니다. Step으로 진행하고 재개한 뒤 F8로 게임 화면에 복귀합니다. `Assets/Examples/PF_Spawned.prefab`을 드롭해 생성하고 Delete로 제거합니다. Stop 후 편집 원본이 유지되는지 확인합니다. 예제 코드·Prefab·이미지는 `Assets/Examples`에 있습니다.
+테스트 프로젝트의 `Assets/L_ApiExamples.level`을 열어 Play한 뒤 Pause하고 **Motion and Property References**의 `motion.speed`와 Transform을 변경합니다. Step으로 진행하고 재개한 뒤 F8로 게임 화면에 복귀합니다. `Assets/Examples/PF_Spawned.prefab`을 드롭해 생성하고 Delete로 제거합니다. Stop 후 편집 원본이 유지되는지 확인합니다. 예제 코드·Prefab·이미지는 `Assets/Examples`에 있습니다. 성능 창에서 Detail을 켜고 이 예제를 실행하면 Update·Draw의 Script별 통계를 비교할 수 있습니다.

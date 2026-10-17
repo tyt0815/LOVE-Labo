@@ -305,4 +305,34 @@ add("Recovery marks external level changes and restores a dirty draft without ov
     Assert.equal(10, fresh.level.lobjects[1].transform.x); Assert.equal(true, fresh.document:isDirty())
     Assert.equal(bytes, Fs.read(path))
 end)
+add("Performance bounds frame history toggles collection and CLI reports real update timings", function()
+    local project, app = fixture()
+    app.performance.detailed = true; assert(app:startPlay()); assert(app:update(1 / 60)); app:draw()
+    local report = app.performance:report()
+    Assert.truthy(#report.frames > 0); Assert.truthy(#report.scripts > 0)
+    app:togglePerformance(); app:draw()
+    Assert.equal(false, app.playInput.active)
+    local window = app.performanceWindow
+    local x, y = window.x, window.y
+    app:mousepressed(x + 50, y + 15, 1)
+    app:mousemoved(x + 80, y + 35, 30, 20)
+    app:mousereleased(x + 80, y + 35, 1)
+    app:draw(); Assert.equal(x + 30, window.x); Assert.equal(y + 20, window.y)
+    local calls = 0
+    app.runtimeWorld.lobjects[1].scripts.probe.wheelmoved = function() calls = calls + 1 end
+    local mouse = love.mouse.getPosition
+    love.mouse.getPosition = function() return window.x + 40, window.y + 90 end
+    app:wheelmoved(0, -1)
+    love.mouse.getPosition = mouse
+    Assert.equal(0, calls)
+    app.performance.recording = false
+    local frames = #app.performance.frames; app:draw(); Assert.equal(frames, #app.performance.frames)
+    assert(app:stopPlay()); app.performance:clear(); app.performance.recording = true
+    app.performance.limit = 2
+    for _ = 1, 3 do app.performance:frame({frameMs = 5}) end
+    Assert.equal(2, #app.performance.frames)
+    local result = require("editor.CliSimulation").execute(project, app.level, {frames = 3, profile = true})
+    Assert.equal(3, #result.performance.frames); Assert.truthy(result.performance.scripts[1].calls == 3)
+    Assert.equal(true, require("editor.Cli").parse({"--cli", "level", "simulate", "--profile"}).profile)
+end)
 return tests

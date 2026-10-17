@@ -18,6 +18,7 @@ function EditorApp.new(document, project, preferences)
         self.sceneView.snapSettings = require("editor.SnapSettings").copy(preferences.snapSettings)
         self.sceneView.onSnapChanged = preferences.saveSnapSettings
     end
+    self.performance = require("runtime.Performance").new()
     self.gameView = GameView.new()
     self.hierarchy = Hierarchy.new()
     self.inspector = Inspector.new()
@@ -157,6 +158,11 @@ function EditorApp:isGameControlling()
     return self:isPlaying() and not self.paused and not self.freeExplore
 end
 function EditorApp:canExplore() return not self:isPlaying() or self.freeExplore or self.paused end
+function EditorApp:togglePerformance()
+    self.performanceWindow.visible = not self.performanceWindow.visible
+    if self.performanceWindow.visible then self.uiRoot.focused = self.performanceWindow end
+    self:applyPlayInput()
+end
 function EditorApp:setFreeExplore(enabled)
     if not self:isPlaying() then return false end
     self.inspector:commitEdit()
@@ -212,6 +218,7 @@ function EditorApp:syncRuntimeScene()
     end
 end
 function EditorApp:bindRuntimeScene(world)
+    world.profiler = self.performance
     self.runtimeScene = require("editor.RuntimeScene").new(world, self.spriteAssets)
     self.sceneView.level, self.hierarchy.level, self.inspector.level = self.runtimeScene, self.runtimeScene, self.runtimeScene
     self.sceneView.spriteAssets = self.runtimeScene.spriteAssets
@@ -920,7 +927,7 @@ function EditorApp:initializeUI()
             self.gameView:setViewport(x, y, width, height)
         end,
         draw = function()
-
+            local started = love.timer.getTime()
             if self:isGameControlling() then
                 local ok, err = pcall(self.gameView.draw, self.gameView, self.runtimeWorld)
                 if not ok then self:discardRuntime(tostring(err)) end
@@ -930,6 +937,7 @@ function EditorApp:initializeUI()
                 if failure and failure ~= self.sceneDrawError then self.runtimeError = failure end
                 self.sceneDrawError = failure
             end
+            self.performanceDrawMs = (love.timer.getTime() - started) * 1000
             if self:isPlaying() then
                 love.graphics.push("all"); Theme.setColor(self.paused and "playPaused" or "playRunning"); love.graphics.setLineWidth(2)
                 local gap = require("editor.Ui").METRICS.panelGap
@@ -1041,6 +1049,8 @@ function EditorApp:initializeUI()
         end
     })
     self.inspectorWidget = inspectorWidget
+    self.performanceWindow = require("editor.ui.PerformanceWindow").new(self)
+    self.performanceWindow.slot = self.canvas:addChild(self.performanceWindow, {x = 320, y = 100, width = 620, height = 440, z = 90})
     local slots = {
         center = self.canvas:addChild(center),
         hierarchy = self.canvas:addChild(hierarchy),
@@ -1241,6 +1251,8 @@ function EditorApp:updateSceneViewport()
 end
 
 function EditorApp:update(dt)
+    self.performanceDt = dt
+    self.performanceUpdateMs = 0
     if self.recoveryStore then self.recoveryStore:update(dt) end
     if not self.paused or self.stepPending then self.debugSession:update(dt) end
     local objectTree = self.inspector.classInspector and self.inspector.classInspector.objectTree
@@ -1253,8 +1265,9 @@ function EditorApp:update(dt)
         self.stepPending = nil
         self:updateGameSize()
         if not self.runtimeWorld then return false, self.runtimeError end
-
+        local started = love.timer.getTime()
         local ok, updated, err = pcall(self.runtimeWorld.update, self.runtimeWorld, dt)
+        self.performanceUpdateMs = (love.timer.getTime() - started) * 1000
         if not ok then err, updated = tostring(updated), false end
         if updated == false then self:discardRuntime(err) end
         if self.runtimeWorld then
@@ -1285,7 +1298,8 @@ end
 
 function EditorApp:draw()
     self:syncRuntimeScene()
-
+    local started = love.timer.getTime()
+    self.performanceDrawMs = 0
     self:updateSceneViewport()
     local Ui = require("editor.Ui")
     local x, y = love.mouse.getPosition()
@@ -1293,7 +1307,19 @@ function EditorApp:draw()
     Theme.clear("background")
     self.uiRoot:draw()
     self.debugSession:finishFrame()
-
+    local scripts = 0
+    if self.runtimeWorld then
+        for _, host in ipairs(require("core.ScriptOrder").hosts(self.runtimeWorld)) do scripts = scripts + #(host.scriptOrder or {}) end
+    end
+    local stats = love.graphics.getStats()
+    self.performance:frame({frameMs = (self.performanceDt or 0) * 1000, updateMs = self.performanceUpdateMs or 0,
+        drawMs = self.performanceDrawMs or 0, editorMs = math.max(0, (love.timer.getTime() - started) * 1000 - (self.performanceDrawMs or 0)),
+        objects = self.runtimeWorld and #self.runtimeWorld.lobjects or 0, scripts = scripts, luaKb = collectgarbage("count"),
+        textureBytes = stats.texturememory, drawcalls = stats.drawcalls})
+    if self.performanceOverlay then
+        local frame = self.performance.frames[#self.performance.frames]
+        if frame then require("editor.Ui").label(string.format("%.1f ms | Update %.2f | Draw %.2f | %d objects", frame.frameMs, frame.updateMs, frame.drawMs, frame.objects), self.sceneView.viewportX + 14, self.sceneView.viewportY + 10, self.sceneView.viewportWidth - 28) end
+    end
 end
 
 function EditorApp:cancelObjectPick()
@@ -1532,6 +1558,7 @@ function EditorApp:handleSceneKey(key)
 end
 
 function EditorApp:keypressed(key, scancode, isrepeat)
+    if key == "f9" then self:togglePerformance(); return true end
     if key == "f8" and self:isPlaying() then return self:setFreeExplore(not self.freeExplore) end
     if key == "f6" and self:isPlaying() then return self:pausePlay() end
     if key == "f7" then return self:stepPlay() end

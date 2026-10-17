@@ -75,11 +75,16 @@ function Host.runUpdates(pending, dt, world)
     for _, entry in ipairs(pending) do
         local script, owner = entry.script, entry.owner
         if entry.legacy then
+            local started = world and world.profiler and world.profiler.recording and world.profiler.detailed and love.timer.getTime()
             local ok, result, err = pcall(entry.legacy.levelScript.update, entry.legacy, dt)
+            if started then world.profiler:sample("update", entry.legacy.levelScript, love.timer.getTime() - started) end
             if not ok or result == false then return false, "level script update failed: " .. tostring(ok and err or result) end
         elseif script.owner == owner and owner.scripts[script.id] == script and not owner.removing
             and (not world or owner:getWorld() == world) and script.enabled ~= false and not script.hasUnloaded then
+            local profiler = world and world.profiler
+            local started = profiler and profiler.recording and profiler.detailed and love.timer.getTime()
             local ok, result, err = pcall(script.update, script, dt)
+            if started then profiler:sample("update", script, love.timer.getTime() - started) end
             if not ok or result == false then return false, "Script " .. script.name .. " update failed: " .. tostring(ok and err or result) end
         end
     end

@@ -124,3 +124,7 @@ WASD/방향키는 메인 카메라만 이동합니다. `=`/`-`는 메인 카메�
 Assets/Examples/L_TravelA.level에서 Play합니다. N은 같은 플레이어·카메라·HUD를 다음 레벨로 옮기고 S/L은 LÖVE 파일 API로 저장·복원합니다. F는 의도적 전환 실패를 검수합니다. [실행 방법과 공개 API](game-state.md)를 참고합니다. 다른 프로젝트에는 `project examples-session`으로 추가합니다.
 
 ![다음 레벨에서도 유지되는 플레이어](images/travel-b.png)
+
+## PIE 편집과 성능 검수
+
+기존 `Assets/L_ApiExamples.level`의 **Motion and Property References**와 `Assets/Examples/PF_Spawned.prefab`으로 런타임 값 변경·생성·삭제·Stop 초기화를 확인합니다. [PIE 검수 절차](play-tools.md)를 따릅니다.

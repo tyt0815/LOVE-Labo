@@ -263,7 +263,9 @@ return AudioDemo]]))
         assert(app:startPlay()); shot("play-running"); assert(app:pausePlay()); shot("play-paused")
         app.sceneView:setSelection({app.runtimeScene.lobjects[#app.runtimeScene.lobjects]})
         app:updateInspectorTarget(); expandPropertyGroups(); shot("runtime-inspector")
+        app.performance.detailed = true
         for _ = 1, 8 do assert(app:stepPlay()); app:draw() end
+        app.performanceWindow.visible = true; shot("performance-window"); app.performanceWindow.visible = false
         assert(app:stopPlay())
         assert(app.recoveryStore:flush())
         local recovery = require("editor.RecoveryStore").new(app)

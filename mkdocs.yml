@@ -21,7 +21,7 @@ nav:
   - 사용자 매뉴얼:
       - 첫 프로젝트와 실행: guide/getting-started.md
       - 에디터 화면과 선택: guide/editor.md
-      - PIE 편집·복구: guide/play-tools.md
+      - PIE 편집·복구·성능 측정: guide/play-tools.md
       - 에셋 관리와 복구: guide/assets.md
       - API 검수 예제: guide/examples.md
       - 플러그인: guide/plugins.md

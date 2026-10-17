@@ -113,3 +113,5 @@
 - [0095. PIE 런타임 편집과 입력 소유권](adr/0095-pie-runtime-editing-and-input-ownership.md)
 
 - [0096. 원본과 분리한 미저장 초안 복구](adr/0096-unsaved-draft-recovery.md)
+
+- [0097. 가벼운 성능 기록과 이동 가능한 내부 창](adr/0097-lightweight-performance-recording.md)
