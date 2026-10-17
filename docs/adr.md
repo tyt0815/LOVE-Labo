@@ -103,3 +103,5 @@
 - [0090. 프로젝트 conf.lua와 Windows 게임 EXE Export](adr/0090-project-config-and-windows-game-export.md)
 
 - [0091. 레벨 목록 검증과 준비 상태의 정리 책임을 공유한다](adr/0091-loading-validation-and-failure-cleanup.md)
+
+- [0092. 세션 로더와 실행 실패의 정리 경계를 일치시킨다](adr/0092-session-loading-and-runtime-failure-boundaries.md)

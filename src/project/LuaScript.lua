@@ -10,17 +10,19 @@ end
 
 -- 일반 스크립트와 플러그인이 같은 에셋 경로 해석을 사용한다.
 function LuaScript.moduleLoader(project, registry)
+    -- 설치·활성 목록만 공유하고 실행 캐시는 각 세션이 소유한다.
+    registry = registry:forProject(project)
     local modules, loadingModules = {}, {}
     local moduleRequire
     local function environment()
         return setmetatable({require = moduleRequire}, {__index = _G})
     end
-    local function loadModule(reference)
+    local function loadModule(reference, bytes)
         if modules[reference] ~= nil then return modules[reference] end
         assert(not loadingModules[reference], "Project module cycle: " .. reference)
         loadingModules[reference] = true
         local ok, value = pcall(function()
-            local bytes = assert(project:readSource(reference))
+            bytes = bytes or assert(project:readSource(reference))
             local chunk = assert(loadstring(bytes, "@" .. reference))
             setfenv(chunk, environment())
             return chunk()
@@ -41,7 +43,8 @@ function LuaScript.moduleLoader(project, registry)
         if not reference or not project:getAssetId(reference) then return require(name) end
         return loadModule(reference)
     end
-    return moduleRequire, loadModule
+    registry.moduleRequire, registry.loadModule = moduleRequire, loadModule
+    return moduleRequire, loadModule, registry
 end
 
 -- 검증용 프로젝트 뷰는 원본 레지스트리의 로딩 캐시를 공유하지 않는다.
@@ -52,16 +55,16 @@ function LuaScript.loader(project)
         if project.plugins.project ~= project then project.plugins = project.plugins:forProject(project) end
     end
     local loaded, visiting = {}, {}
-    local loadModule = require
-    if project then local moduleRequire; moduleRequire, loadModule = LuaScript.moduleLoader(project, project.plugins) end
+    local loadModule, registry = require, nil
+    if project then local moduleRequire; moduleRequire, loadModule, registry = LuaScript.moduleLoader(project, project.plugins) end
     local function load(reference, expectedKind, depth)
-        if expectedKind == "script" and (reference == "Script" or project.plugins and project.plugins.scripts[reference]) then
-            return project.plugins:loadScript(reference)
+        if expectedKind == "script" and (reference == "Script" or registry and registry.scripts[reference]) then
+            return registry:loadScript(reference)
         end
         local canonical, referenceError = project:getAssetReference(reference)
         if not canonical then return nil, referenceError end
-        local pluginScript = project.plugins.assetScripts and project.plugins.assetScripts[canonical]
-        if pluginScript then return project.plugins:loadScript(pluginScript) end
+        local pluginScript = registry.assetScripts and registry.assetScripts[canonical]
+        if pluginScript then return registry:loadScript(pluginScript) end
         local key = project:getAssetId(canonical) or canonical
         if visiting[key] then return nil, "Lua Class inheritance cycle: " .. canonical end
         if (depth or 0) > 64 then return nil, "Lua Class inheritance is too deep" end
@@ -79,12 +82,12 @@ function LuaScript.loader(project)
         local function fail(err) visiting[key] = nil; return nil, err end
         local parent
         if class.extends ~= nil then
-            if kind == "script" and (class.extends == "Script" or project.plugins and project.plugins.scripts[class.extends]) then
+            if kind == "script" and (class.extends == "Script" or registry and registry.scripts[class.extends]) then
                 local parentError
-                parent, parentError = project.plugins:loadScript(class.extends)
+                parent, parentError = registry:loadScript(class.extends)
                 if not parent then return fail(parentError) end
                 -- 과거 공개 이름은 읽기 호환으로만 해석하고 로딩한 정의는 ID로 정규화한다.
-                local source = project.plugins.scripts[class.extends]
+                local source = registry.scripts[class.extends]
                 class.extends = source and source.id or nil
             end
             if not parent and not Id.isValid(class.extends) then return fail("extends must be a script asset ID or built-in script") end
@@ -124,6 +127,7 @@ function LuaScript.loader(project)
         loaded[key], visiting[key] = class, nil
         return class
     end
+    if registry then registry.classLoader = load end
     return load
 end
 

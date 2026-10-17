@@ -147,4 +147,27 @@ add("Inverse layout evaluation sees the destination as both object and Project W
     local nextWorld = assert(world:takeLevelTransition()); Assert.equal(nextWorld, nextWorld.project:getWorld())
     assert(nextWorld:dispose())
 end)
+add("Provided Camera and View retain projection and input through carry success and rollback", function()
+    local world = fixture(); local player = object(world)
+    local camera = Runtime.attach(player, "camera", require("plugins.LaboEssentials.Assets.Camera"))
+    local script = Runtime.attach(player, "view", require("plugins.LaboEssentials.Assets.View"))
+    script.cameraSource = camera; assert(player:load(world))
+    local view, clicks = script.renderView, 0
+    Engine.Input.registerRegion(world, {owner = camera, hitTest = function() return true, 0, 0 end,
+        onDown = function() clicks = clicks + 1; return true end})
+    for _, destination in ipairs({"Assets/Next.level", "Assets/Fail.level", "Assets/Next.level"}) do
+        assert(world:openLevel(destination, {carry = {player}}))
+        local candidate, err = world:takeLevelTransition()
+        if destination == "Assets/Fail.level" then
+            Assert.equal(nil, candidate); Assert.truthy(err:find("destination failed", 1, true))
+        else world = assert(candidate) end
+        Assert.equal(view, script.renderView); Assert.equal(world, view.world); Assert.equal(true, view:isActive())
+        Assert.equal(1280, view:getProjection().width)
+        local ok, response = require("core.RenderPipeline").pointer(world, "down", 400, 300, 1, 0, 0,
+            function() end, {x = 0, y = 0, width = 800, height = 600})
+        Assert.equal(true, ok); Assert.equal(true, response.consumed)
+    end
+    Assert.equal(3, clicks); assert(world:dispose())
+end)
+
 return tests

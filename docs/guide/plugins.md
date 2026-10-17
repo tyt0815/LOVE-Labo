@@ -42,6 +42,8 @@ Create Plugin으로 사용자 플러그인을 만듭니다. 실제 파일은 프
 
 플러그인 스크립트에서도 일반 프로젝트 스크립트와 같은 `require` 경로를 사용합니다. 예를 들어 `Plugins/Images/Assets/Helper.lua`는 `require("User Plugins.Images.Helper")`, 일반 `Assets/Helper.lua`는 `require("Helper")`로 읽습니다. 이 경로는 에디터와 Export 게임에서 동일하며 보조 모듈은 `plugin.json`의 scripts 목록에 등록할 필요가 없습니다.
 
+같은 Play 세션에서는 프로젝트와 플러그인이 같은 모듈 테이블·클래스를 공유합니다. 레벨 전환과 Spawn도 이 캐시를 유지합니다. Stop 후 다시 Play하거나 별도 검증·CLI를 실행하면 새 캐시에서 읽으므로 이전 실행의 보조 모듈 상태를 이어받지 않습니다.
+
 비활성화 검사는 스크립트뿐 아니라 이미지·Prefab 등 모든 플러그인 에셋의 참조를 확인합니다. `class.set-source`는 제안한 새 소스를 검증하며 오류가 있으면 기존 파일을 유지합니다.
 
 ## CLI

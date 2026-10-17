@@ -1,11 +1,10 @@
 local Attachments = {}
 function Attachments.validateIds(list)
     if list == nil then return true end
-    if type(list) ~= "table" then return nil, "Script IDs must be a list" end
+    if not require("core.Array").isDense(list) then return nil, "Script IDs must be a dense list" end
     local seen = {}
-    for key, id in pairs(list) do
-        if type(key) ~= "number" or key < 1 or key % 1 ~= 0 or key > #list
-            or not require("core.ScriptId").isValid(id) or seen[id] then
+    for _, id in ipairs(list) do
+        if not require("core.ScriptId").isValid(id) or seen[id] then
             return nil, "Invalid or duplicate script ID list"
         end
         seen[id] = true
@@ -21,10 +20,9 @@ function Attachments.copy(list)
 end
 function Attachments.validate(list)
     if list == nil then return {} end
-    if type(list) ~= "table" then return nil, "Scripts must be a list" end
+    if not require("core.Array").isDense(list) then return nil, "Scripts must be a dense list" end
     local ids = {}
-    for key, item in pairs(list) do
-        if type(key) ~= "number" or key < 1 or key % 1 ~= 0 or key > #list then return nil, "Scripts must be a dense list" end
+    for _, item in ipairs(list) do
         if type(item) ~= "table" or not require("core.ScriptId").isValid(item.id) or ids[item.id]
             or item.source ~= nil and (type(item.source) ~= "string" or item.source == "")
             or item.source == nil and item.name == nil and item.label == nil

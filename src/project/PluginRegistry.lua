@@ -190,24 +190,29 @@ function Registry:loadScript(name)
     self.loading = self.loading or {}
     if self.loading[name] then return nil, "Plugin script inheritance cycle: " .. name end
     self.loading[name] = true
+    local reference
     local readOk, bytes = pcall(function()
-        local reference = source.id and self.project:getAssetReference(source.id)
+        reference = source.id and self.project:getAssetReference(source.id)
         if reference then return assert(self.project:readSource(reference)) end
         return assert(self.plugins[source.plugin].read(source.file))
     end)
     if not readOk then self.loading[name] = nil; return nil, tostring(bytes) end
-    local chunk, err = loadstring(bytes, "@plugin/" .. source.plugin .. "/" .. source.file)
-    if not chunk then self.loading[name] = nil; return nil, err end
-    self.moduleRequire = self.moduleRequire or require("project.LuaScript").moduleLoader(self.project, self)
-    setfenv(chunk, setmetatable({require = self.moduleRequire}, {__index = _G}))
     local ok, class = pcall(function()
-        local definition = chunk()
+        local definition
+        if self.loadModule then
+            definition = self.loadModule(reference or "plugin/" .. source.plugin .. "/" .. source.file, bytes)
+        else
+            local chunk = assert(loadstring(bytes, "@plugin/" .. source.plugin .. "/" .. source.file))
+            self.moduleRequire = self.moduleRequire or require("project.LuaScript").moduleLoader(self.project, self)
+            setfenv(chunk, setmetatable({require = self.moduleRequire}, {__index = _G}))
+            definition = chunk()
+        end
         assert(type(definition) == "table", "Plugin script must return a table")
         if not getmetatable(definition) then
             local parent = require("core.Script")
             if definition.extends then
                 parent = self.scripts[definition.extends] and assert(self:loadScript(definition.extends))
-                    or assert(require("project.LuaScript").load(self.project, definition.extends, "script"))
+                    or assert((self.classLoader or require("project.LuaScript").loader(self.project))(definition.extends, "script"))
                 local source = self.scripts[definition.extends]
                 if source then definition.extends = source.id end
             end

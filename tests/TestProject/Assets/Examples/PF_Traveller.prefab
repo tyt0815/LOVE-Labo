@@ -1,4 +1,12 @@
 {
+  "bindings": [
+    {
+      "from": "root",
+      "to": "root/camera",
+      "property": "c631242b-f10e-4e30-90cb-a13932054ef0.cameraSource",
+      "toScript": "9abc5bf9-7d5a-45b8-9c46-10d7bdd674ac"
+    }
+  ],
   "children": [
     {
       "children": [
@@ -73,6 +81,11 @@
       "id": "636b4039-cec3-4ca3-8c1f-b74f61ca5c56",
       "name": "traveller",
       "source": "4264c06a-6904-49ac-81ef-e1e2e961a8ab"
+    },
+    {
+      "id": "c631242b-f10e-4e30-90cb-a13932054ef0",
+      "name": "view",
+      "source": "c4aa7e61-034e-4b9e-94b9-392ee2c03ec8"
     }
   ]
 }

@@ -8,12 +8,12 @@
 
 ```text
 World
-└─ PF_Traveller [Traveller]
+└─ PF_Traveller [Traveller, View]
    └─ Camera [Camera]
       └─ HUD [Canvas]
          └─ Gold button [RectLayout, TravelHud]
 Project ──포함──> TravelSession
-Traveller ──소유──> View / TravelHud ──소유──> Input region
+View Script ──소유──> RenderView / TravelHud ──소유──> Input region
 ```
 
 ![전환 전 플레이어와 HUD](images/travel-a.png)
@@ -65,6 +65,8 @@ end
 ## 입력과 출력의 소유권
 
 owner가 이동 Script인 View·Input region·RenderTarget은 같은 인스턴스로 옮깁니다. Project Script가 소유한 등록도 모든 전환에서 함께 이동합니다. 단독 렌더 타깃은 다음처럼 owner를 지정합니다.
+
+검수 예제는 직접 View를 생성하는 코드 대신 LaboEssentials의 View Script를 부착하고 Prefab 바인딩으로 자식 Camera를 연결합니다. N으로 전환하거나 F로 전환 실패를 일으킨 뒤에도 같은 View와 HUD 입력이 유지되는지 확인합니다. 사용자 투영 함수에서는 최초 load의 World를 계속 캡처하기보다 `self:getWorld()`로 현재 소속을 조회합니다.
 
 ```lua
 self.target = require("Engine").Rendering.createTarget(world, {

@@ -133,4 +133,80 @@ add("Game View restores graphics stack color scissor and transform after project
     end
 end)
 
+add("Script attachment and ID lists reject holes maps and mixed keys without truncation", function()
+    local Attachments = require("project.ScriptAttachments")
+    for _, ids in ipairs({false, {"a", "b", "c", "d"}, {extra = "a"}, {[2] = "a"}, {"a", extra = "b"}}) do
+        if type(ids) == "table" and #ids == 4 then ids[2] = nil end
+        Assert.equal(nil, Attachments.validateIds(ids))
+        local list = ids
+        if type(ids) == "table" then
+            list = {}; for key, id in pairs(ids) do list[key] = {id = id, source = "Script"} end
+        end
+        Assert.equal(nil, Attachments.validate(list))
+    end
+    Assert.truthy(Attachments.validateIds({})); Assert.truthy(Attachments.validate({}))
+    Assert.equal(2, #assert(Attachments.validate({{id = "a", source = "Script"}, {id = "b", source = "Script"}})))
+end)
+
+add("Editor isolates projection errors during update resize events wheel input and Play startup", function()
+    for _, phase in ipairs({"update", "resize", "event", "wheel", "start"}) do
+        local app = require("editor.EditorApp").new()
+        local world, unloads = World.new(), 0
+        local object = assert(world:addLObject({transform = {x = 0, y = 0}}))
+        require("core.ScriptRuntime").attach(object, "cleanup", Script:extend({unload = function() unloads = unloads + 1 end}))
+        assert(object:load(world))
+        require("core.Rendering").createView(world, {projection = function() error("projection failed") end})
+        app.gameView:setViewport(0, 0, 800, 600)
+        app.runtimeWorld = phase ~= "start" and world or nil
+        local create = Loader.create
+        if phase == "start" then Loader.create = function() return world end end
+        local ok, err = pcall(function()
+            if phase == "update" then app:update(0.1)
+            elseif phase == "resize" then app:updateSceneViewport()
+            elseif phase == "event" then app:gameEvent("focus", true)
+            elseif phase == "wheel" then app:wheelmoved(0, 1)
+            else app:startPlay() end
+        end)
+        Loader.create = create
+        assert(ok, err)
+        Assert.equal(nil, app.runtimeWorld); Assert.equal(true, world.disposed)
+        Assert.equal(1, unloads); Assert.truthy(app.runtimeError:find("projection failed", 1, true))
+    end
+end)
+
+add("Failed Spawn removes its objects after existing objects disappear and reports cleanup errors", function()
+    local Fs = require("editor.HostFileSystem")
+    local project = assert(require("editor.Project").create(Fs.join(love.filesystem.getSourceBaseDirectory(), "build"),
+        "Lifecycle_" .. os.time() .. "_" .. love.math.random(100000, 999999)))
+    assert(project:createEntry("Assets", "lua", "Failure", {scriptKind = "script"}))
+    assert(Fs.writeAtomic(assert(project:resolveSourceFile("Assets/Failure.lua")), [[
+local Failure = {properties = {extra = {type = "prefab", default = false}, cleanupError = {type = "boolean", default = false}}}
+function Failure:load(world)
+    for _, object in ipairs(world:getObjects()) do if object.name == "Old" then assert(world:removeLObject(object)) end end
+    assert(world:spawnLObject(self.extra))
+    error("spawn load failed")
+end
+function Failure:unload()
+    self:getWorld().unloads = (self:getWorld().unloads or 0) + 1
+    if self.cleanupError then error("cleanup failed") end
+end
+return Failure
+]]))
+    assert(project:createEntry("Assets", "prefab", "PF_Extra"))
+    assert(project:createEntry("Assets", "prefab", "PF_Failure", {prefabData = {
+        formatVersion = 4, name = "Failure", scripts = {{id = "failure", source = project:getAssetId("Assets/Failure.lua")}},
+        overrides = {scripts = {failure = {extra = project:getAssetId("Assets/PF_Extra.prefab")}}}}}))
+    for _, cleanupError in ipairs({false, true}) do
+        local world = assert(Loader.create(project, {lobjects = {
+            {authoringId = 1, name = "Keep", transform = {x = 0, y = 0}},
+            {authoringId = 2, name = "Old", transform = {x = 0, y = 0}}}}))
+        local keep = world.lobjects[1]
+        local value, err = world:spawnLObject("Assets/PF_Failure.prefab", nil, {scripts = {failure = {cleanupError = cleanupError}}})
+        Assert.equal(nil, value); Assert.truthy(err:find("spawn load failed", 1, true))
+        if cleanupError then Assert.truthy(err:find("cleanup failed", 1, true)) end
+        Assert.equal(1, #world.lobjects); Assert.equal(keep, world.lobjects[1]); Assert.equal(1, world.unloads)
+        assert(world:dispose())
+    end
+end)
+
 return tests

@@ -47,6 +47,8 @@ add("Travel example carries HUD input and saves versioned values then restores a
         love.filesystem.createDirectory = function() return true end
         local stage = world:getScriptByName("stage"); local player = stage.player
         local traveller = player:getScriptByName("traveller"); local session = world.project:getScriptByName("travelSession")
+        local view = player:getScriptByName("view").renderView
+        Assert.equal(true, view:isActive())
         Assert.equal(false, session:loadSlot()); Assert.equal(nil, world.pendingLevel)
         traveller.hp, traveller.gold, traveller.keys = 70, 11, 2; player.transform.x = 123
         love.filesystem.createDirectory = function() return false end
@@ -60,12 +62,14 @@ add("Travel example carries HUD input and saves versioned values then restores a
         stage:keypressed("n"); world = assert(world:takeLevelTransition()); assert(world:update(0))
         local destination = world:getScriptByName("stage")
         Assert.equal(player, destination.player); Assert.equal("B", destination.stageName)
+        Assert.equal(view, player:getScriptByName("view").renderView); Assert.equal(true, view:isActive())
         Assert.equal(70, traveller.hp); Assert.equal(123, player.transform.x)
         local rect = {x = 0, y = 0, width = 1280, height = 720}
         assert(require("core.RenderPipeline").pointer(world, "down", 40, 40, 1, 0, 0, function() end, rect))
         Assert.equal(12, traveller.gold)
         destination:keypressed("f"); local failed = world:takeLevelTransition(); Assert.equal(nil, failed)
         Assert.equal(world, player.world); Assert.equal(player, destination.player)
+        Assert.equal(true, view:isActive())
         traveller.hp, traveller.gold = 10, 99
         assert(session:loadSlot()); world = assert(world:takeLevelTransition()); assert(world:update(0))
         local restored = world:getScriptByName("stage").traveller

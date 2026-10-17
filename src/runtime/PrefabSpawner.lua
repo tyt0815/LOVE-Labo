@@ -6,7 +6,8 @@ function Spawner.bind(project, world, loadClass)
     local loadTemplate = require("project.LObjectTemplate").loader(project, loadClass)
     world.spawnLObjectFactory = function(reference, transform, overrides)
         if depth >= 64 then return nil, "Spawn nesting is too deep" end
-        local checkpoint = #world.lobjects
+        local existing = {}
+        for _, current in ipairs(world.lobjects) do existing[current] = true end
         depth = depth + 1
         local called, object, err = pcall(function()
             local template, templateError = loadTemplate(reference)
@@ -42,11 +43,20 @@ function Spawner.bind(project, world, loadClass)
         depth = depth - 1
         if not called or not object then
             -- 실패한 초기화와 그 안에서 생성한 객체를 함께 제거한다. ID는 재사용하지 않는다.
-            for i = #world.lobjects, checkpoint + 1, -1 do
-                local added = world.lobjects[i]
-                if added then world:removeLObject(added) end
+            local pending = {}
+            for _, current in ipairs(world.lobjects) do
+                if not existing[current] then pending[#pending + 1] = current end
             end
-            return nil, called and err or tostring(object)
+            local cleanupError
+            for i = #pending, 1, -1 do
+                local added = pending[i]
+                if added.world == world then
+                    local cleaned, cleanupResult, failure = pcall(world.removeLObject, world, added)
+                    if not cleaned or not cleanupResult then cleanupError = cleanupError or tostring(cleaned and failure or cleanupResult) end
+                end
+            end
+            local failure = called and err or tostring(object)
+            return nil, tostring(failure) .. (cleanupError and "\nSpawn cleanup failed: " .. cleanupError or "")
         end
         return object
     end

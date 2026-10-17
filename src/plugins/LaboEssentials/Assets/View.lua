@@ -23,7 +23,7 @@ function View:load(world)
         end,
         projection = function()
             local source = self.cameraSource
-            if source == false or not source.owner or source.owner:getWorld() ~= world or source.enabled == false or source.hasUnloaded then return nil end
+            if source == false or not source.owner or source.owner:getWorld() ~= self:getWorld() or source.enabled == false or source.hasUnloaded then return nil end
             return source:getProjection()
         end})
 end

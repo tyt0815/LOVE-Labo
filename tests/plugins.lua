@@ -16,9 +16,10 @@ add("Plugin parent names generate asset ID inheritance and survive source rename
     local bytes = assert(p:readSource("Assets/Child.lua"))
     Assert.truthy(bytes:find(parentId, 1, true)); Assert.equal(nil, bytes:find('extends = "Gameplay"', 1, true))
     assert(p:moveEntry("Assets/User Plugins/Gameplay/Gameplay.lua", "Assets/User Plugins/Gameplay/Renamed.lua"))
-    local class = assert(require("project.LuaScript").load(p, "Assets/Child.lua", "script"))
+    local load = require("project.LuaScript").loader(p)
+    local class = assert(load("Assets/Child.lua", "script"))
     Assert.equal(parentId, class.extends)
-    Assert.equal(assert(p.plugins:loadScript("Gameplay")), class.super)
+    Assert.equal(assert(load("Gameplay", "script")), class.super)
     assert(p:createEntry("Assets", "lua", "Plain", {scriptKind = "script", parentReference = "Script"}))
     Assert.equal(nil, assert(p:readSource("Assets/Plain.lua")):find("extends", 1, true))
 end)
@@ -242,4 +243,37 @@ add("Plugin source proposals validate fresh bytes and plugin helpers load in edi
     assert(require("editor.Export").write(p, level, output))
     Assert.truthy(assert(Fs.read(output)):find("Assets/User Plugins/Images/Helper.lua", 1, true))
 end)
+add("Project and plugin modules share identity within a session and reload independently", function()
+    local p = project()
+    assert(Operations.create(p, "Gameplay")); assert(Operations.apply(p, "Gameplay", true, true))
+    assert(p:createEntry("Assets", "lua", "Shared", {scriptKind = "script"}))
+    assert(p:createEntry("Assets", "lua", "User", {scriptKind = "script"}))
+    assert(p:createEntry("Assets", "lua", "Base", {scriptKind = "script"}))
+    local sharedPath = assert(p:resolveSourceFile("Assets/Shared.lua"))
+    assert(Fs.writeAtomic(sharedPath, "return {value = 1}"))
+    assert(Fs.writeAtomic(assert(p:resolveSourceFile("Assets/User.lua")), [[
+local shared = require("Shared")
+local Plugin = require("Engine").Gameplay
+return {shared = shared, plugin = Plugin, base = require("Base"), requiredPlugin = require("User Plugins.Gameplay.Gameplay")}
+]]))
+    local pluginId = p.plugins.scripts.Gameplay.id
+    assert(Fs.writeAtomic(assert(p:resolveSourceFile(pluginId)), string.format([[
+local shared = require("Shared")
+return {extends = %q, shared = shared}
+]], p:getAssetId("Assets/Base.lua"))))
+    local load = require("project.LuaScript").loader(p)
+    local user, plugin = assert(load("Assets/User.lua", "script")), assert(load("Gameplay", "script"))
+    Assert.equal(plugin, user.plugin); Assert.equal(plugin, user.requiredPlugin)
+    Assert.equal(user.base, plugin.super); Assert.equal(user.base, assert(load("Assets/Base.lua", "script")))
+    Assert.equal(plugin, assert(load(pluginId, "script"))); Assert.equal(user.shared, plugin.shared)
+    user.shared.value = 2; Assert.equal(2, plugin.shared.value)
+    local nextLoad = require("project.LuaScript").loader(p)
+    local nextPlugin, nextUser = assert(nextLoad(pluginId, "script")), assert(nextLoad("Assets/User.lua", "script"))
+    Assert.truthy(nextPlugin ~= plugin); Assert.equal(nextPlugin.shared, nextUser.shared); Assert.equal(1, nextPlugin.shared.value)
+    Assert.equal(2, plugin.shared.value)
+    assert(Fs.writeAtomic(sharedPath, "return {value = 3}"))
+    local reloaded = assert(require("project.LuaScript").loader(p)("Gameplay", "script"))
+    Assert.equal(3, reloaded.shared.value); Assert.equal(1, nextPlugin.shared.value)
+end)
+
 return tests

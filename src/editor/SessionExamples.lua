@@ -51,20 +51,16 @@ end
 return Session
 ]=],
     Traveller = [=[
-local Engine = require("Engine")
 local Traveller = {properties = {hp = {type = "number", default = 100}, gold = {type = "number", default = 0},
     keys = {type = "number", default = 0}, visits = {type = "number", default = 0}, token = {type = "number", default = 0}}}
 function Traveller:load(world)
     self.currentWorld = world
     self.token = love.math.random(100000, 999999)
-    self.camera = self.owner.children[1]:getScriptByName("camera")
-    self.view = Engine.Rendering.createView(world, {owner = self, projection = function() return self.camera:getProjection() end})
 end
 function Traveller:worldChanged(previous, current)
     self.currentWorld = current
     self.visits = self.visits + 1
 end
-function Traveller:unload() self.view:release() end
 function Traveller:update(dt)
     local t = self.owner.transform
     if love.keyboard.isDown("a", "left") then t.x = t.x - 180 * dt end
@@ -171,8 +167,11 @@ function Examples.create(project)
     assert(project:rebuildAssetIndex())
     local function attachment(name, source) return {id = Id.new(), name = name, source = source} end
     local camera = attachment("camera", project.plugins.scripts.Camera.id)
+    local view = attachment("view", project.plugins.scripts.View.id)
     local layout = attachment("layout", project.plugins.scripts.RectLayout.id)
-    local prefab = {formatVersion = 4, name = "PF_Traveller", scripts = {attachment("traveller", ids.Traveller)}, overrides = {scripts = {}}, children = {
+    local prefab = {formatVersion = 4, name = "PF_Traveller", scripts = {attachment("traveller", ids.Traveller), view},
+        bindings = {{from = "root", to = "root/camera", property = view.id .. ".cameraSource", toScript = camera.id}},
+        overrides = {scripts = {}}, children = {
         {id = "camera", name = "Camera", scripts = {camera}, overrides = {scripts = {}}, children = {
             {id = "hud", name = "HUD", scripts = {attachment("canvas", project.plugins.scripts.Canvas.id)}, overrides = {scripts = {}}, children = {
                 {id = "button", name = "Gold button", transform = {x = 20, y = 20},

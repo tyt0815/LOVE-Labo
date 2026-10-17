@@ -159,13 +159,20 @@ function EditorApp:discardRuntime(errorText)
     if errorText then self.runtimeError = errorText end
     return errorText == nil, errorText
 end
+function EditorApp:runtimeViewport()
+    if not self.runtimeWorld then return nil end
+    -- 크기·이벤트·휠 입력도 사용자 투영 함수를 실행하므로 draw와 같은 실패 경계를 둔다.
+    local ok, viewport = pcall(self.gameView.runtimeViewport, self.gameView, self.runtimeWorld)
+    if not ok then self:discardRuntime(tostring(viewport)); return nil end
+    return viewport
+end
 function EditorApp:gameEvent(name, ...)
     if not self.runtimeWorld or self.paused then return false end
     local input = name ~= "resize" and name ~= "focus" and name ~= "visible" and name ~= "mousefocus"
     if input and (self.uiRoot.popup or self.objectPick) then return false end
     local positional = name == "wheelmoved" or name:match("^mouse") and name ~= "mousefocus" or name:match("^touch")
     if input and not positional and self.uiRoot.focused ~= self.sceneWidget then return false end
-    local viewport = self.gameView:runtimeViewport(self.runtimeWorld)
+    local viewport = self:runtimeViewport()
     if not viewport then return false end
     local ok, err = require("core.ScriptEvents").screen(self.runtimeWorld, viewport, name, ...)
     if not ok then
@@ -176,7 +183,7 @@ end
 
 function EditorApp:updateGameSize()
     if not self.runtimeWorld or self.paused then return end
-    local viewport = self.gameView:runtimeViewport(self.runtimeWorld)
+    local viewport = self:runtimeViewport()
     if not viewport then return end
     local world = self.runtimeWorld
     if world.eventWidth ~= viewport.width or world.eventHeight ~= viewport.height then
@@ -1289,7 +1296,7 @@ end
 function EditorApp:wheelmoved(horizontal, amount)
     self:updateSceneViewport()
     local x, y = love.mouse.getPosition()
-    local viewport = self.runtimeWorld and self.gameView:runtimeViewport(self.runtimeWorld)
+    local viewport = self:runtimeViewport()
     if viewport and x >= viewport.x and x < viewport.x + viewport.width and y >= viewport.y and y < viewport.y + viewport.height then
         self:gameEvent("wheelmoved", horizontal, amount); return
     end

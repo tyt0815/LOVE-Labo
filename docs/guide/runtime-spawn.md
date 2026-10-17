@@ -16,6 +16,8 @@ return Spawner
 
 반환값은 루트 LObject 또는 `nil, error`입니다. 내부 참조는 새 계층으로 연결하며 모든 스크립트는 독립 상태를 가집니다. 생성 실패는 추가된 객체를 되돌립니다. `overrides.scripts`에는 부착 ID별 프로퍼티를 지정합니다. 사용자 이름도 조회 호환 입력으로 지원하지만 저장 참조는 내부 UUID를 사용합니다.
 
+초기화 중 기존 객체를 제거했더라도 실패한 생성물과 그 안에서 추가로 생성한 객체는 정리합니다. 시작한 Script의 unload를 호출하며 정리 오류도 반환 오류에 포함합니다. 사용자 코드가 제거한 기존 객체나 파일·일반 Lua 상태 변경까지 복구하지는 않습니다.
+
 ```lua
 local object, err = world:spawnLObject(prefabId, {x = 100, y = 50}, {
     scripts = {movement = {speed = 250}}
