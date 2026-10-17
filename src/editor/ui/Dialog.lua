@@ -20,7 +20,7 @@ function Dialog.new(root, options)
     local confirmWidth = Ui.buttonWidth(options.confirmLabel or "Create")
     self.cancel = { x = box.x + box.w - 16 - cancelWidth, y = box.y + box.h - 46, w = cancelWidth, h = 30 }
     self.confirm = { x = self.cancel.x - Ui.METRICS.buttonGap - confirmWidth, y = self.cancel.y, w = confirmWidth, h = 30 }
-    if options.onBack then self.back = {x = box.x + 16, y = self.cancel.y, w = Ui.buttonWidth("Back"), h = 30} end
+    if options.onBack then self.back = {x = box.x + 16, y = self.cancel.y, w = Ui.buttonWidth(options.backLabel or "Back"), h = 30} end
     self.choicesRect = { x = box.x + 16, y = box.y + 140, w = box.w - 32, h = 150 }
     self.selected, self.choiceScroll = not options.listOnly and options.choices and #options.choices > 0 and 1 or nil, 0
     self.scrollbar = Scrollbar.new(function() return self.choiceScroll end, function(value) self.choiceScroll = math.floor(value + 0.5) end)
@@ -190,7 +190,7 @@ function Dialog:draw()
     end
     if self.error then Ui.text(self.error, box.x + 16, box.y + box.h - 74, box.w - 32, Theme.color("error")) end
     Ui.button(self.options.cancelLabel or "Cancel", self.cancel)
-    if self.back then Ui.button("Back", self.back) end
+    if self.back then Ui.button(self.options.backLabel or "Back", self.back) end
     Ui.button(self.options.confirmLabel or "Create", self.confirm)
 end
 

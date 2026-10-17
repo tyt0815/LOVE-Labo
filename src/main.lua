@@ -156,6 +156,8 @@ end
 
 function love.quit()
     if app and app.isPlaying and app:isPlaying() then app:stopPlay() end
+    if app and app.inspector then app.inspector:commitEdit() end
+    if app and app.recoveryStore then app.recoveryStore:flush() end
     if app and app.viewportControls then app.viewportControls:commit() end
     if app and app.focus then app:focus(false) end
     if app and app.inspector and app.inspector.classInspector then app.inspector.classInspector:setTarget(nil) end

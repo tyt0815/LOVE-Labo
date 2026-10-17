@@ -51,7 +51,7 @@ Windows 11의 일반 창은 시스템 둥근 모서리를 사용합니다. 최�
 
 **Colors**는 편집 모드의 Scene View 배경과 그리드 선 색을 바꿉니다. 팝오버의 **Background**·**Grid lines** 탭에서 각각 조절합니다. Preview와 같은 [색상 선택기](preview.md)에서 팔레트·RGB·6자리 HEX를 사용하며, 변경하는 동안 실제 뷰포트에도 바로 표시됩니다. **Apply**는 두 탭의 설정을 함께 확정하고, **Cancel**·Esc·바깥 클릭은 두 색 모두 원래대로 돌립니다. Theme default는 선택한 탭을 현재 테마의 기본색으로 되돌립니다. 두 설정은 현재 에디터 세션 동안 유지하며 레벨 저장값이나 Play 화면에는 영향을 주지 않습니다. 실행·일시 정지 중에는 Colors 버튼을 사용할 수 없습니다.
 
-편집은 Play, 실행은 Pause·Stop·자유 탐색 전환, 일시정지는 Play(재개)·Stop·Step을 사용할 수 있습니다. **E / G 또는 F8**로 게임 조작과 자유 탐색을 전환합니다. **Pause / F6**는 자유 탐색으로 전환하고 Update·게임 입력을 멈춥니다. **Step / F7**은 한 번 진행하며, Play는 같은 Runtime World를 자유 탐색 상태로 재개합니다. 자유 탐색·Pause에서는 스냅·기즈모·Hierarchy·Inspector로 실제 런타임 인스턴스를 편집합니다. Stop은 원래 편집 문서·선택·시점으로 돌아갑니다. 자세한 내용은 [PIE 편집](play-tools.md)을 참고하세요.
+편집은 Play, 실행은 Pause·Stop·자유 탐색 전환, 일시정지는 Play(재개)·Stop·Step을 사용할 수 있습니다. **E / G 또는 F8**로 게임 조작과 자유 탐색을 전환합니다. **Pause / F6**는 자유 탐색으로 전환하고 Update·게임 입력을 멈춥니다. **Step / F7**은 한 번 진행하며, Play는 같은 Runtime World를 자유 탐색 상태로 재개합니다. 자유 탐색·Pause에서는 스냅·기즈모·Hierarchy·Inspector로 실제 런타임 인스턴스를 편집합니다. Stop은 원래 편집 문서·선택·시점으로 돌아갑니다. 자세한 내용은 [PIE 편집·복구](play-tools.md)을 참고하세요.
 
 제품 소스의 `src/editor/Ui.lua`에서 `Ui.METRICS.viewportToolbarGap`을 바꾸면 툴바와 뷰포트 외곽선 사이의 실제 간격(px)을 조절할 수 있습니다. 현재 설정은 `0`으로 두 외곽선이 붙습니다. `12`이면 다른 패널의 기본 간격과 같습니다.
 

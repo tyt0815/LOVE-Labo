@@ -265,6 +265,9 @@ return AudioDemo]]))
         app:updateInspectorTarget(); expandPropertyGroups(); shot("runtime-inspector")
         for _ = 1, 8 do assert(app:stepPlay()); app:draw() end
         assert(app:stopPlay())
+        assert(app.recoveryStore:flush())
+        local recovery = require("editor.RecoveryStore").new(app)
+        recovery:offer(); shot("recovery-drafts"); app.uiRoot:dismissPopup()
         assert(Fs.rename(assert(project:resolveSourceFile("Assets/Player.lua")), assert(project:resolvePath("Assets/UI/Player.lua"))))
         assert(app:refreshProject()); shot("asset-repair")
         local repair = app.uiRoot.popup

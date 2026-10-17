@@ -111,6 +111,32 @@ add("Leaving game control releases held keys and retains relative mouse requests
     Assert.equal(700, view:getProjection().transform.x)
     assert(app:stopPlay())
 end)
+add("Recovery restores unsaved level Prefab and project drafts without changing originals or recording PIE edits", function()
+    local project, app = fixture()
+    assert(project:createEntry("Assets", "prefab", "PF_Test"))
+    assert(app:inspectAsset("Assets/PF_Test.prefab"))
+    app.prefabDocument.data.name = "Recovered Prefab"
+    app.scopeInspector.projectDocument.data.scripts = {{id = "probe", name = "Probe", source = project:getAssetId("Assets/Probe.lua")}}
+    assert(app.recoveryStore:flush())
+    local oldPath = app.recoveryStore.path
+    local original = assert(Fs.read(Fs.join(project.rootPath, "project.labo")))
+    assert(app:startPlay()); assert(app:pausePlay())
+    app.runtimeWorld.lobjects[1].transform.x = 999
+    assert(app.recoveryStore:flush())
+    assert(app:stopPlay())
+    local reopened = assert(require("editor.Project").open(project.rootPath))
+    local fresh = require("editor.EditorApp").new(nil, reopened)
+    local dialog = assert(fresh.uiRoot.popup)
+    for _, choice in ipairs(dialog.options.choices) do choice.checked = true end
+    dialog:submit(); Assert.equal(nil, dialog.error)
+    Assert.equal(0, fresh.level.lobjects[1].transform.x)
+    Assert.equal(true, fresh.document:isDirty())
+    Assert.equal(1, #fresh.project.scripts)
+    local id = project:getAssetId("Assets/PF_Test.prefab")
+    Assert.equal("Recovered Prefab", fresh.prefabDocuments[id].data.name)
+    Assert.equal(original, Fs.read(Fs.join(project.rootPath, "project.labo")))
+    Assert.equal(nil, Fs.info(oldPath)); Assert.truthy(Fs.info(fresh.recoveryStore.path))
+end)
 add("Game control cancellation never clicks a pointer region and raw release uses the current position", function()
     local _, app = fixture()
     local position = love.mouse.getPosition
@@ -156,5 +182,127 @@ add("Game control cancellation never clicks a pointer region and raw release use
     love.mouse.getPosition = position
     if app:isPlaying() then app:stopPlay() end
     assert(ok, err)
+end)
+add("Recovery failed atomic writes preserve the previous copy and dirty document", function()
+    local _, app = fixture()
+    assert(app.recoveryStore:flush())
+    local previous = assert(Fs.read(app.recoveryStore.path))
+    local write = Fs.writeAtomic
+    app.level.lobjects[1].transform.x = 123
+    Fs.writeAtomic = function() return false, "disk full" end
+    local ok, err = app.recoveryStore:flush()
+    Fs.writeAtomic = write
+    Assert.equal(false, ok); Assert.equal("disk full", err)
+    Assert.equal(previous, Fs.read(app.recoveryStore.path)); Assert.equal(true, app.document:isDirty())
+end)
+add("Recovery retains every missing level across document switches and a second recovery session", function()
+    local project, app = fixture()
+    app:setDocument(assert(require("editor.LevelDocument").new()))
+    local Json = require("project.Json")
+    local ids, entries = {}, {}
+    for index = 1, 2 do
+        local level = require("editor.Level").new()
+        level:addLObject(index * 11, 0, nil, "Missing " .. index)
+        local text = assert(require("editor.LevelFile").encode(level))
+        ids[index] = require("project.AssetId").new()
+        -- 파일을 잃은 레벨은 복구 내용이 기준값과 같아도 보존해야 한다.
+        entries[index] = {kind = "level", id = ids[index], text = text, baseline = text}
+    end
+    local source = Fs.join(app.recoveryStore.directory, "previous.json")
+    assert(Fs.writeAtomic(source, assert(Json.encode({version = 1, entries = entries}, true))))
+    app.recoveryStore:offer()
+    local dialog = assert(app.uiRoot.popup)
+    for _, choice in ipairs(dialog.options.choices) do choice.checked = true end
+    dialog:submit(); Assert.equal(nil, dialog.error)
+    Assert.equal(nil, Fs.info(source))
+    local function checkCopy(store)
+        local copy = assert(Json.decode(assert(Fs.read(store.path))))
+        Assert.equal(2, #copy.entries)
+        local byId = {}
+        for _, entry in ipairs(copy.entries) do byId[entry.id] = entry.text end
+        Assert.equal(entries[1].text, byId[ids[1]])
+        Assert.equal(entries[2].text, byId[ids[2]])
+    end
+    checkCopy(app.recoveryStore)
+    app:setDocument(assert(require("editor.LevelDocument").new()))
+    assert(app.recoveryStore:flush()); checkCopy(app.recoveryStore)
+    local fresh = require("editor.EditorApp").new(nil, assert(require("editor.Project").open(project.rootPath)))
+    local nextDialog = assert(fresh.uiRoot.popup)
+    Assert.equal(2, #nextDialog.options.choices)
+    for _, choice in ipairs(nextDialog.options.choices) do choice.checked = true end
+    nextDialog:submit(); Assert.equal(nil, nextDialog.error)
+    checkCopy(fresh.recoveryStore)
+end)
+add("Failed transfer of multiple recovered levels preserves the previous source", function()
+    local _, app = fixture()
+    local text = assert(require("editor.LevelFile").encode(app.level))
+    app:setDocument(assert(require("editor.LevelDocument").new()))
+    local previousDocument = app.document
+    local Json = require("project.Json")
+    local source = Fs.join(app.recoveryStore.directory, "previous.json")
+    local bytes = assert(Json.encode({version = 1, entries = {
+        {kind = "level", id = require("project.AssetId").new(), text = text, baseline = text},
+        {kind = "level", id = require("project.AssetId").new(), text = text, baseline = text},
+    }}, true))
+    assert(Fs.writeAtomic(source, bytes))
+    app.recoveryStore:offer()
+    local dialog = assert(app.uiRoot.popup)
+    for _, choice in ipairs(dialog.options.choices) do choice.checked = true end
+    local write = Fs.writeAtomic
+    Fs.writeAtomic = function() return false, "disk full" end
+    local ok, err = pcall(dialog.submit, dialog)
+    Fs.writeAtomic = write
+    assert(ok, err); Assert.truthy(dialog.error:find("disk full", 1, true))
+    Assert.equal(dialog, app.uiRoot.popup); Assert.equal(previousDocument, app.document)
+    Assert.equal(bytes, Fs.read(source)); Assert.equal(nil, Fs.info(app.recoveryStore.path))
+    Assert.equal(2, #app.recoveryStore:collect())
+    dialog:submit()
+    Assert.equal(nil, app.uiRoot.popup)
+    Assert.truthy(previousDocument ~= app.document)
+    Assert.equal(nil, Fs.info(source))
+    local copy = assert(Json.decode(assert(Fs.read(app.recoveryStore.path))))
+    Assert.equal(2, #copy.entries)
+end)
+add("Recovery keeps its dialog and current document when a later document fails to decode", function()
+    local _, app = fixture()
+    local Json = require("project.Json")
+    local text = assert(require("editor.LevelFile").encode(app.level))
+    app:setDocument(assert(require("editor.LevelDocument").new()))
+    local previousDocument = app.document
+    local source = Fs.join(app.recoveryStore.directory, "previous.json")
+    local bytes = assert(Json.encode({version = 1, entries = {
+        {kind = "level", id = require("project.AssetId").new(), text = text, baseline = text},
+        {kind = "level", id = require("project.AssetId").new(), text = "invalid JSON", baseline = text},
+    }}, true))
+    assert(Fs.writeAtomic(source, bytes)); app.recoveryStore:offer()
+    local dialog = assert(app.uiRoot.popup)
+    for _, choice in ipairs(dialog.options.choices) do choice.checked = true end
+    dialog:submit()
+    Assert.truthy(dialog.error); Assert.equal(dialog, app.uiRoot.popup)
+    Assert.equal(previousDocument, app.document); Assert.equal(bytes, Fs.read(source))
+    dialog.options.choices[2].value.entry.text = text
+    dialog:submit()
+    Assert.equal(nil, app.uiRoot.popup); Assert.truthy(previousDocument ~= app.document)
+    local copy = assert(Json.decode(assert(Fs.read(app.recoveryStore.path))))
+    Assert.equal(2, #copy.entries)
+end)
+add("Recovery marks external level changes and restores a dirty draft without overwriting disk", function()
+    local project, app = fixture()
+    assert(project:createEntry("Assets", "level", "L_Saved", {empty = true}))
+    local path = assert(project:resolveAssetFile("Assets/L_Saved.level"))
+    assert(app.document:save(path))
+    app.documentAssetId = project:getAssetId("Assets/L_Saved.level")
+    app.level.lobjects[1].transform.x = 10
+    assert(app.recoveryStore:flush())
+    local external = assert(require("editor.LevelDocument").load(path))
+    external.level.lobjects[1].transform.x = 22; assert(external:save())
+    local bytes = assert(Fs.read(path))
+    local fresh = require("editor.EditorApp").new(nil, assert(require("editor.Project").open(project.rootPath)))
+    local dialog = assert(fresh.uiRoot.popup)
+    local choice = dialog.options.choices[1]
+    Assert.equal(false, choice.checked); Assert.truthy(choice.label:find("external change", 1, true))
+    choice.checked = true; dialog:submit(); Assert.equal(nil, dialog.error)
+    Assert.equal(10, fresh.level.lobjects[1].transform.x); Assert.equal(true, fresh.document:isDirty())
+    Assert.equal(bytes, Fs.read(path))
 end)
 return tests

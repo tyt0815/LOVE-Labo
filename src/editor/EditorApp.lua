@@ -75,6 +75,13 @@ function EditorApp.new(document, project, preferences)
         self.assetBrowser.assetOperations = require("editor.AssetOperations").new(self, self.assetBrowser)
     end
 
+    if project and project.rootPath then
+        local ok, store = pcall(require("editor.RecoveryStore").new, self)
+        if ok then
+            self.recoveryStore = store
+            local offered, err = pcall(store.offer, store); if not offered then self.runtimeError = tostring(err) end
+        else self.runtimeError = tostring(store) end
+    end
     return self
 end
 
@@ -1234,6 +1241,7 @@ function EditorApp:updateSceneViewport()
 end
 
 function EditorApp:update(dt)
+    if self.recoveryStore then self.recoveryStore:update(dt) end
     if not self.paused or self.stepPending then self.debugSession:update(dt) end
     local objectTree = self.inspector.classInspector and self.inspector.classInspector.objectTree
     if objectTree and objectTree.ping then objectTree.ping.remaining = objectTree.ping.remaining - dt; if objectTree.ping.remaining <= 0 then objectTree.ping = nil end end
