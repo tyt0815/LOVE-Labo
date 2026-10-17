@@ -62,15 +62,9 @@ love.draw = host.draw
 love.quit = host.quit
 for _, name in ipairs(require("core.ScriptEvents").names) do love[name] = host[name] end
 ]])
-        add("conf.lua", [[function love.conf(t)
-t.version = "11.5"
-t.identity = ]] .. string.format("%q", assert(project.saveIdentity, "Project requires a save identity")) .. "\n" .. [[
-t.window.title = "Labo Game"
-t.window.width = 1280
-t.window.height = 720
-t.window.resizable = true
-end
-]])
+        local config = require("editor.GameConfig")
+        add("ProjectConf.lua", config.read(project))
+        add("conf.lua", config.wrapper(project))
     end
     local metadata = {}
     local references = {}

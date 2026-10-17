@@ -52,6 +52,7 @@ Labo-cli.exe --cli project examples-ui --project <경로> --public-only
 Labo-cli.exe --cli project migrate-rendering --project <경로> --dry-run
 Labo-cli.exe --cli level view --project <경로>
 Labo-cli.exe --cli level render --project <경로> --output <PNG 경로>
+Labo-cli.exe --cli config open --project <경로> --dry-run
 Labo-cli.exe --cli script open --project <경로> --script <소스 ID 또는 경로> --dry-run
 
 기본 레벨이 없으면 --level을 지정한다. 복잡한 값은 --request <UTF-8 JSON 파일>을 사용한다.
@@ -61,3 +62,7 @@ level.simulate는 초기화·업데이트 결과를 반환하며 파일을 수�
 ## Lua 빌드와 게임 CLI
 
 Tools/Build.lua를 Export에서 실행한다. 기본 게임 패키징, packageCli, 문서 copy를 조합한다. Assets/Examples/L_StageEditor.level을 실행하고 화면의 작업 폴더를 Game-cli.exe --workspace에 지정한다. R은 외부 변경을 다시 읽고 S는 revision을 확인해 저장한다. Docs/StageGuide.md와 https://tyt0815.github.io/LOVE-Labo/guide/game-cli/ 를 참고한다.
+
+## 게임 시작 설정과 Windows Export
+
+루트 conf.lua의 love.conf(config)에서 창 제목·크기·VSync 등을 설정한다. Project Inspector → Game startup → Open conf.lua로 연다. 설정은 Export한 게임 시작 시 실행하고 Editor Play와 게임 CLI에는 적용하지 않는다. 저장 identity는 프로젝트 UUID를 유지한다. Export는 Windows 출력 폴더·EXE 이름을 지정하고 EXE·DLL·라이선스를 함께 배포한다. 기존 .love 출력도 유지한다.

@@ -86,7 +86,7 @@ local COMMANDS = {"project.create", "project.info", "project.reset-save-identity
     "folder.create", "asset.list", "asset.get", "asset.move", "asset.rename", "asset.delete", "asset.import", "asset.copy",
     "prefab.create", "prefab.get", "prefab.tree", "prefab.set", "prefab.reset", "prefab.set-parent",
     "prefab.script.add", "prefab.script.remove", "prefab.script.move", "prefab.script.rename", "prefab.child.add", "prefab.child.move", "prefab.child.remove", "prefab.child.rename", "level.create", "level.get", "level.set", "level.reset", "level.set-parent", "level.validate", "level.simulate", "level.pointer", "level.events", "level.view", "level.render", "project.migrate-rendering", "project.examples-ui", "project.examples-session",
-    "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.script.rename", "instance.reorder", "export", "export.package", "build.open", "game-cli", "project.examples-cli"}
+    "instance.add", "instance.get", "instance.list", "instance.set", "instance.reset", "instance.rename", "instance.reparent", "instance.duplicate", "instance.delete", "instance.script.add", "instance.script.remove", "instance.script.move", "instance.script.rename", "instance.reorder", "export", "export.package", "build.open", "config.open", "game-cli", "project.examples-cli"}
 for _, scope in ipairs({"project", "level"}) do
     for _, action in ipairs({"get", "add", "remove", "move", "rename", "set", "reset"}) do
         COMMANDS[#COMMANDS + 1] = scope .. ".script." .. action
@@ -117,6 +117,7 @@ local function execute(request, cleanups)
         return {project = project.rootPath, name = project.name}
     end
     local project = assert(Project.open(absolute(required(request, "project"))))
+    if command == "config.open" then return require("editor.CodeEditor").openStartup(project, request["dry-run"] == true) end
     if command == "build.open" then return require("editor.CodeEditor").openBuild(project, request["dry-run"] == true) end
     if command == "project.examples-cli" then return require("editor.GameCliExamples").create(project) end
     if command == "game-cli" then
@@ -366,7 +367,9 @@ local function execute(request, cleanups)
         end
     elseif command == "export" or command == "export.package" then
         local service = command == "export.package" and require("editor.GamePackage") or require("editor.Export")
-        local ok, result, report = service.write(project, level, absolute(request.output or Fs.join(project.rootPath, "Build/Game.love")))
+        local defaultOutput = command == "export.package" and "Build/Game.love" or "Build/Windows/Game.exe"
+        assert(request.platform == nil or request.platform == "windows", "Unsupported platform: " .. tostring(request.platform))
+        local ok, result, report = service.write(project, level, absolute(request.output or Fs.join(project.rootPath, defaultOutput)), {platform = request.platform})
         assert(ok, report and table.concat(report.logs, "\n") or result); return result
     else assert(command == "level.get", "Unknown command: " .. command) end
     if changed then
@@ -418,7 +421,7 @@ function Cli.parse(args)
                     x = true, y = true, output = true, revision = true, request = true, result = true, value = true,
                     asset = true, destination = true, source = true, node = true, instances = true, input = true, mode = true,
                     event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true, script = true, index = true, frames = true, dt = true,
-                    size = true, background = true}
+                    size = true, background = true, platform = true}
                 assert(allowed[key], "Unknown option: " .. item)
                 assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)
                 assert(request[key] == nil, "Duplicate option: " .. item)

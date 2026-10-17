@@ -423,6 +423,14 @@ function ClassInspector:rebuildRows()
     self.names = {}
     if self.target then
         rows[#rows + 1] = {summary = true, height = 64}
+        for index, action in ipairs(self.target.documentActions or {}) do
+            local key = "documentAction:" .. index
+            local expanded = self.groupExpanded[key] ~= false
+            rows[#rows + 1] = {header = true, builtIn = true, label = action.label, groupKey = key,
+                height = PropertyLayout.HEADER_HEIGHT, groupHeight = PropertyLayout.HEADER_HEIGHT + (expanded and 36 or 0)}
+            if expanded then rows[#rows + 1] = {documentAction = action, height = 36} end
+            rows[#rows + 1] = {gap = true, height = 8}
+        end
         if self.objectTree then rows[#rows + 1] = {objectTree = true, height = self.objectTreeHeight + 12} end
         if self:parentVisible() then rows[#rows + 1] = {parentClass = true, height = 48} end
     end
@@ -610,6 +618,8 @@ function ClassInspector:draw()
             elseif self.target.isDirty and self.target:isDirty() then label = label .. " *" end
             Ui.label(label, self.left + Ui.METRICS.contentPaddingX, y + 8, self.width - 2 * Ui.METRICS.contentPaddingX)
             Ui.text(kind, self.left + Ui.METRICS.contentPaddingX, y + 24, self.width - 2 * Ui.METRICS.contentPaddingX, Theme.color("textMuted"))
+        elseif row.documentAction then
+            Ui.button(row.documentAction.buttonLabel, self:documentActionRect(y), false, "Open the project file in the configured code editor", true)
         elseif row.objectTree then
             self.objectTree:draw(); Ui.resizeGrip(self:treeGrip(self.objectTree))
         elseif row.parentClass then
@@ -701,6 +711,10 @@ function ClassInspector:draw()
 
 end
 
+function ClassInspector:documentActionRect(y)
+    return {x = self.left + Ui.METRICS.contentPaddingX + 8, y = y + 3,
+        w = math.max(0, (self.contentWidth or self.width) - 2 * Ui.METRICS.contentPaddingX - 16), h = 28}
+end
 function ClassInspector:mousepressed(x, y, button)
     local resize = button == 1 and self:resizeAt(x, y)
     if resize then
@@ -776,6 +790,12 @@ function ClassInspector:mousepressed(x, y, button)
     for _, row in ipairs(self.rows) do
         local name = row.name
         local top = self.propertyTop + row.offset - self.scroll
+        if row.documentAction and Ui.contains(x, y, self:documentActionRect(top)) then
+            self:commitEdit()
+            local called, result, err = pcall(row.documentAction.run)
+            if not called or result == false then self.error = tostring(called and err or result) end
+            return true
+        end
         if row.header and row.scriptId then
             local actions = self:scriptHeaderRects(top)
             if Ui.contains(x, y, actions.enabled) then

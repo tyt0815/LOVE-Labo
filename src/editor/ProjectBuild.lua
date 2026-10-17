@@ -16,15 +16,18 @@ function Build.ensureScript(project)
     return path
 end
 
-function Build.run(project, level, output)
+function Build.run(project, level, output, options)
+    options = options or {}
     local logs, artifacts = {}, {}
     local folder
     local ok, result = xpcall(function()
-        assert(type(output) == "string" and output:lower():match("%.love$"), "Output must be a .love file")
+        assert(options.platform == nil or options.platform == "windows", "Unsupported platform: " .. tostring(options.platform))
+        assert(type(output) == "string" and (output:lower():match("%.love$") or output:lower():match("%.exe$")), "Output must be an .exe or .love file")
         output = output:gsub("\\", "/")
         if not output:match("^%a:/") then output = Fs.join(project.rootPath, output) end
         output = Workspace.absolute(output)
         local script = Build.ensureScript(project)
+        require("editor.GameConfig").ensure(project)
         local source = Workspace.new(project.rootPath)
         folder = Fs.parent(output)
         -- 배포 파일로 프로젝트 소스나 빌드 스크립트를 덮어쓰지 않는다.
@@ -35,20 +38,26 @@ function Build.run(project, level, output)
                 local first = reference:match("^[^/]+")
                 assert(first ~= "assets" and first ~= "tools" and first ~= "docs" and first ~= ".labo"
                     and reference ~= "project.labo" and reference ~= "assets.json" and reference ~= "plugins.json"
-                    and reference ~= "agents.md", "Build output overlaps project sources: " .. path)
+                    and reference ~= "agents.md" and reference ~= "conf.lua", "Build output overlaps project sources: " .. path)
             end
             return path
         end
         checkOutput(output)
         Workspace.ensureDirectory(folder)
         local destination = Workspace.new(folder)
-        local builder = {output = output, outputDirectory = folder, projectDirectory = project.rootPath}
+        local builder = {output = output, outputDirectory = folder, projectDirectory = project.rootPath, platform = "windows"}
         function builder:log(message) logs[#logs + 1] = tostring(message) end
         function builder:packageGame(name)
             local path = checkOutput(destination:path(name or output:match("[^/]+$")))
             Workspace.ensureDirectory(Fs.parent(path))
-            local written, info = require("editor.GamePackage").write(project, level, path)
-            assert(written, info); artifacts[#artifacts + 1] = info
+            local info
+            if path:lower():match("%.exe$") then info = require("editor.WindowsPackage").write(project, level, path)
+            else
+                local written
+                written, info = require("editor.GamePackage").write(project, level, path)
+                assert(written, info)
+            end
+            artifacts[#artifacts + 1] = info
             self:log("Game: " .. path)
             return info
         end
@@ -77,7 +86,7 @@ function Build.run(project, level, output)
         builder:log("Build: " .. script)
         run(builder)
         assert(#artifacts > 0, "Build produced no artifacts")
-        return {output = output, outputDirectory = folder, script = script, artifacts = artifacts, logs = logs,
+        return {output = output, outputDirectory = folder, platform = "windows", script = script, artifacts = artifacts, logs = logs,
             files = artifacts[1].files, bytes = artifacts[1].bytes}
     end, debug.traceback)
     if not ok then logs[#logs + 1] = tostring(result) end

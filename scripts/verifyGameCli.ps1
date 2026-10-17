@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$editorExecutable, [string]$loveDirectory = 'C:\Program Files\LOVE')
+param([string]$editorExecutable)
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $editorExecutable) { $editorExecutable = Join-Path $taskRoot 'build/windows/Labo-cli.exe' }
@@ -31,8 +31,19 @@ $taskScriptPath = Join-Path $taskProjectPath 'Tools/Build.lua'
 $taskScript = [IO.File]::ReadAllText($taskScriptPath)
 $taskScript = $taskScript.Replace('    builder:packageGame()', '    builder:packageGame()' + "`n" + '    builder:packageCli("Probe.exe", {entry = "Assets/CliProbe.lua"})')
 [IO.File]::WriteAllText($taskScriptPath, $taskScript, $taskUtf8)
-$taskOutput = Join-Path $taskFolder 'Distribution/Game.love'
-$taskBuild = Invoke-LaboRequest @{command = 'export'; project = $taskProjectPath; level = $taskExample.level; output = $taskOutput}
+$taskConf = @"
+function love.conf(config)
+    config.window.title = "Windows Export Verification"
+    config.window.width = 1024
+    config.window.height = 640
+    config.window.vsync = 0
+end
+"@
+[IO.File]::WriteAllText((Join-Path $taskProjectPath 'conf.lua'), $taskConf, $taskUtf8)
+$taskOutput = Join-Path $taskFolder 'Distribution/나의 게임.exe'
+$taskBuild = Invoke-LaboRequest @{command = 'export'; project = $taskProjectPath; level = $taskExample.level; output = $taskOutput; platform = 'windows'}
+$taskLegacyOutput = Join-Path $taskFolder 'Distribution/Legacy.love'
+$null = Invoke-LaboRequest @{command = 'export.package'; project = $taskProjectPath; level = $taskExample.level; output = $taskLegacyOutput}
 $taskDistribution = Split-Path -Parent $taskOutput
 $taskCli = Join-Path $taskDistribution 'Game-cli.exe'
 $taskContent = Join-Path $taskDistribution 'Content'
@@ -58,12 +69,18 @@ if ($LASTEXITCODE -ne 1 -or $taskBadOutput.ok -or -not $taskBadOutput.error) { t
 $taskEvents = Join-Path $taskFolder 'events.json'
 [IO.File]::WriteAllText($taskEvents, '[{"name":"keypressed","args":["r","r",false],"dt":0},{"name":"keypressed","args":["left","left",false],"dt":0},{"name":"keypressed","args":["s","s",false],"dt":0}]', $taskUtf8)
 $taskReport = Join-Path $taskFolder 'game.json'
-$taskGame = Start-Process -FilePath (Join-Path $loveDirectory 'lovec.exe') -ArgumentList @(('"' + $taskOutput + '"'), '--workspace', ('"' + $taskContent + '"'), '--verify-game', ('"' + $taskReport + '"'), '--verify-events', ('"' + $taskEvents + '"')) -WindowStyle Hidden -PassThru
+$taskGame = Start-Process -FilePath $taskOutput -ArgumentList @('--workspace', ('"' + $taskContent + '"'), '--verify-game', ('"' + $taskReport + '"'), '--verify-events', ('"' + $taskEvents + '"')) -WindowStyle Hidden -PassThru
 if (-not $taskGame.WaitForExit(60000)) { $taskGame.Kill(); throw 'Game verification timed out' }
 $taskGameReport = Get-Content -LiteralPath $taskReport -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($taskGame.ExitCode -ne 0 -or -not $taskGameReport.ok -or $taskGameReport.editorLoaded) { throw 'Standalone game failed' }
+if ($taskGameReport.window.title -ne 'Windows Export Verification' -or $taskGameReport.window.width -ne 1024 -or $taskGameReport.window.height -ne 640 -or $taskGameReport.window.vsync -ne 0) { throw 'Project conf.lua settings were not applied before game startup' }
 $taskInspect = (& $taskCli inspect --workspace $taskContent | ConvertFrom-Json)
 if ($LASTEXITCODE -ne 0 -or $taskInspect.result.data.notes[0].lane -ne 1) { throw 'Game editor and CLI did not share saved content' }
-$taskSummary = @{ok = $true; probe = $taskProbeResult.result; commands = $taskSchema.result.commands; notes = $taskInspect.result.data.notes; build = $taskBuild}
+$taskLegacyReport = Join-Path $taskFolder 'legacy-game.json'
+$taskLegacy = Start-Process -FilePath (Join-Path (Split-Path -Parent $taskEditor) 'love.exe') -ArgumentList @(('"' + $taskLegacyOutput + '"'), '--workspace', ('"' + $taskContent + '"'), '--verify-game', ('"' + $taskLegacyReport + '"')) -WindowStyle Hidden -PassThru
+if (-not $taskLegacy.WaitForExit(60000)) { $taskLegacy.Kill(); throw 'Legacy .love verification timed out' }
+$taskLegacyResult = Get-Content -LiteralPath $taskLegacyReport -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($taskLegacy.ExitCode -ne 0 -or -not $taskLegacyResult.ok -or $taskLegacyResult.window.title -ne 'Windows Export Verification') { throw 'Legacy .love export failed' }
+$taskSummary = @{ok = $true; probe = $taskProbeResult.result; commands = $taskSchema.result.commands; notes = $taskInspect.result.data.notes; build = $taskBuild; window = $taskGameReport.window}
 [IO.File]::WriteAllText((Join-Path $taskFolder 'report.json'), ($taskSummary | ConvertTo-Json -Depth 12), $taskUtf8)
 Write-Output "Verified game CLI, shared content editor, headless startup and failure exit code: $taskFolder/report.json"

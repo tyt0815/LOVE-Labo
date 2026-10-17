@@ -81,6 +81,11 @@ function Editor.planFile(path, settings, originalPath, readOnly)
     if not substituted then args[#args + 1] = path end
     return {executable = executable, arguments = args, path = path, sourcePath = originalPath or path, readOnly = readOnly == true}
 end
+function Editor.openStartup(project, dryRun)
+    local plan = Editor.planFile(require("editor.GameConfig").ensure(project))
+    if not dryRun then plan.processId = Editor.launch(plan) end
+    return plan
+end
 function Editor.openBuild(project, dryRun)
     local plan = Editor.planFile(require("editor.ProjectBuild").ensureScript(project))
     if not dryRun then plan.processId = Editor.launch(plan) end

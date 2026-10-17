@@ -226,3 +226,14 @@ Labo-cli.exe --cli game-cli --project C:/Games/MyGame --source Assets/Examples/S
 ```
 
 `game-cli`는 일반 명령 모듈을 World 생성 없이 실행합니다. input 생략 시 help이며 JSON 요청의 command·arguments·workspace를 사용합니다. 프로젝트 잠금과 콘텐츠 작업 폴더 잠금은 별도 범위입니다. `project.examples-cli`는 공유 모델·게임 내 편집기·명령 모듈·배포 가이드·빌드 예제를 생성합니다. 기존 사용자 빌드나 동명 파일은 거부합니다. 상세 API·배포 예제·동시 편집 계약은 [Lua 빌드와 게임 CLI](game-cli.md)를 참고합니다.
+
+## Windows 게임 EXE와 시작 설정
+
+export는 기본적으로 Build/Windows/Game.exe를 생성하고 --platform windows만 지원합니다. --output의 .exe/.love 확장자로 게임 패키지를 선택하며, export.package는 빌드 스크립트 없이 .love만 생성합니다. 게임 시작 시 프로젝트 루트 conf.lua를 반영하며 config.open으로 편집기에서 엽니다.
+
+```powershell
+Labo-cli.exe --cli config open --project D:/Games/MyGame --dry-run
+Labo-cli.exe --cli export --project D:/Games/MyGame --platform windows --output D:/Games/MyGame/Build/Windows/MyGame.exe
+```
+
+실제 게임과 CLI를 배포본에서 실행하는 검증은 scripts/verifyGameCli.ps1을 사용합니다. EXE에서 사용자 창 제목·해상도·VSync와 프로젝트 저장 identity를 사용하고, CLI는 게임 conf.lua를 적용하지 않는지 검사합니다. 기존 --verify-game JSON에는 window.title·width·height·vsync도 포함합니다. 상세 사용법은 [게임 Export](export.md)를 참고합니다.

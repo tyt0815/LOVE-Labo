@@ -62,7 +62,8 @@ function Host.load(args)
                     Host.mousereleased(width + 100, height + 100, 1)
                 end
             end
-            local report = {ok = failure == nil, error = failure, saveIdentity = love.filesystem.getIdentity(),
+            local windowWidth, windowHeight, windowFlags = love.window.getMode()
+            local report = {window = {title = love.window.getTitle(), width = windowWidth, height = windowHeight, vsync = windowFlags.vsync}, ok = failure == nil, error = failure, saveIdentity = love.filesystem.getIdentity(),
                 saveDirectory = love.filesystem.getSaveDirectory(), objects = world and #world.lobjects,
                 elapsedTime = world and world.elapsedTime, levelReference = world and world.levelReference, transitionError = world and world.levelTransitionError, editorLoaded = package.loaded["editor.EditorApp"] ~= nil}
             if world then

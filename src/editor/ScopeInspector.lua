@@ -20,6 +20,11 @@ function Inspector:target(document, label, id)
     target.isDirty = function() return document:isDirty() end
     target.label = level and "Level" or "Project"
     target.getDisplayName = function() return level and label or self.app.project.name end
+    if not level then
+        target.documentActions = {{label = "Game startup", buttonLabel = "Open conf.lua", run = function()
+            return require("editor.CodeEditor").openStartup(self.app.project)
+        end}}
+    end
     if level then
         local baseGet, baseSet = target.getOverrides, target.setOverrides
         target.getOverrides = function(current)

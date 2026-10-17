@@ -6,7 +6,7 @@ function Instructions.files()
 - 실행 계약: LÖVE 11.5 + LuaJIT / Lua 5.1, attached-script 개발 버전.
 - 작업 전 https://tyt0815.github.io/LOVE-Labo/guide/ai/ 와 관련 API 문서를 확인한다.
 - 웹 문서와 설치 버전이 다르면 Docs/EngineGuide.md, CLI help, 실제 제공 API를 기준으로 한다.
-- 게임 코드는 Assets에서 수정한다. 엔진 코어·DLL·배포 파일은 직접 수정하지 않는다.
+- 게임 동작 코드는 Assets, 게임 시작 설정은 프로젝트 루트 conf.lua, 빌드는 Tools/Build.lua에서 수정한다. 엔진 코어·DLL·배포 파일은 직접 수정하지 않는다.
 - 에셋 생성·이동·삭제·배치는 Labo-cli.exe 명령을 우선 사용하고 assets.json의 ID를 보존한다.
 - GUI에서 연 문서를 저장한 뒤 CLI로 수정한다. CLI 변경은 GUI Undo에 포함되지 않는다.
 - LObject는 Transform과 자손 계층을 소유한다. 같은 Script를 Project·Level·Object에 여러 개 부착하며 self.owner는 해당 등록 대상이다. getProject/getWorld로 실행 범위에 접근한다.
@@ -48,9 +48,14 @@ audio={type="audio", default=false}로 WAV·OGG·MP3·FLAC 참조를 노출한�
 
 configure에서 Transform.bindLocal(object,{owner,resolve,unresolve})·Bounds.bind(script,provider,{primary=true})를 등록한다. 제공 함수는 부모·참조·프로퍼티를 지연 조회하고 저장 Transform을 덮어쓰지 않는다. Bounds.of/parent는 객체·부모 사각형 조회다. 바인딩·입력은 Script 종료 시 자동 정리한다. configure는 편집·Preview에도 실행하고 게임 동작·입력·자원은 load에서 시작한다. 문자열 프로퍼티 options={"left","right"}는 공통 선택 목록이다.
 
+
+## 게임 시작 설정
+
+프로젝트 루트 conf.lua에 love.conf(config)를 정의해 게임의 창 제목·크기·VSync·전체화면·아이콘 등 LÖVE 초기화 설정을 변경한다. Project Inspector → Game startup → Open conf.lua로 코드 편집기에서 연다. Export 때 누락된 기본 파일만 생성하고 기존 설정은 덮어쓰지 않는다. 설정 코드는 Export 중 실행하지 않으며 게임 프로세스의 모듈·창 생성 전에 실행한다. Editor Play와 게임 CLI에는 적용하지 않는다. config.identity는 프로젝트 UUID로 관리하므로 변경하지 않는다. config.window.icon은 Assets 경로 또는 에셋 ID를 사용할 수 있다.
+
 ## 배포 빌드와 게임 전용 CLI
 
-Tools/Build.lua가 Export 진입점이다. 별도 빌드 도구 설치 없이 Lua로 수정한다. builder:packageGame(), packageCli("Game-cli.exe",{entry="Assets/Tools/GameCli.lua"}), copy("Docs/ContentGuide.md","README.md"), log(message)를 사용한다. 기본 템플릿은 게임만 만든다. Project → Open Build Script로 현재 코드 편집기에서 연다.
+Tools/Build.lua가 Export 진입점이다. 별도 빌드 도구 설치 없이 Lua로 수정한다. builder:packageGame(), packageCli("Game-cli.exe",{entry="Assets/Tools/GameCli.lua"}), copy("Docs/ContentGuide.md","README.md"), log(message)를 사용한다. 기본 Export는 Windows Game.exe와 DLL·라이선스를 만들며 builder.platform은 "windows"다. packageGame("Game.love")로 기존 아카이브 출력도 유지한다. Project → Open Build Script로 현재 코드 편집기에서 연다.
 게임 CLI 모듈은 {summary,commands={명령={summary,parameters={인자={type,required,default,description}},run=function(context,args) ... end}}} 테이블을 반환한다. help/schema와 JSON 요청·응답, 성공 0/실패 1 종료 코드를 제공한다. 게임의 World·창·오디오는 생성하지 않는다. context.workspace는 --workspace 절대 경로를 준 경우에만 제공하며 readJson/writeJson/revision/withLock을 게임 내부 편집기와 공유한다. GUI는 외부 파일을 명시적으로 다시 읽는다. 동기화·Undo는 자동 통합하지 않는다. 문서: https://tyt0815.github.io/LOVE-Labo/guide/game-cli/
 
 ## 데이터와 CLI
@@ -72,6 +77,7 @@ Labo-cli.exe --cli project examples-ui --project <경로> --public-only
 Labo-cli.exe --cli project migrate-rendering --project <경로> --dry-run
 Labo-cli.exe --cli level view --project <경로>
 Labo-cli.exe --cli level render --project <경로> --output <PNG 경로>
+Labo-cli.exe --cli config open --project <경로> --dry-run
 Labo-cli.exe --cli script open --project <경로> --script <소스 ID 또는 경로> --dry-run
 
 기본 레벨이 없으면 --level을 지정한다. 복잡한 값은 --request <UTF-8 JSON 파일>을 사용한다.

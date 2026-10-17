@@ -3,7 +3,7 @@
 - 실행 계약: LÖVE 11.5 + LuaJIT / Lua 5.1, attached-script 개발 버전.
 - 작업 전 https://tyt0815.github.io/LOVE-Labo/guide/ai/ 와 관련 API 문서를 확인한다.
 - 웹 문서와 설치 버전이 다르면 Docs/EngineGuide.md, CLI help, 실제 제공 API를 기준으로 한다.
-- 게임 코드는 Assets에서 수정한다. 엔진 코어·DLL·배포 파일은 직접 수정하지 않는다.
+- 게임 동작 코드는 Assets, 게임 시작 설정은 프로젝트 루트 conf.lua, 빌드는 Tools/Build.lua에서 수정한다. 엔진 코어·DLL·배포 파일은 직접 수정하지 않는다.
 - 에셋 생성·이동·삭제·배치는 Labo-cli.exe 명령을 우선 사용하고 assets.json의 ID를 보존한다.
 - GUI에서 연 문서를 저장한 뒤 CLI로 수정한다. CLI 변경은 GUI Undo에 포함되지 않는다.
 - LObject는 Transform과 자손 계층을 소유한다. Lua 스크립트를 여러 개 부착하며 self.owner가 오브젝트다.

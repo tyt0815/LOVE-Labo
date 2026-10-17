@@ -20,7 +20,7 @@ add("Save identities persist across reopen migration and project renaming and di
     local output = Fs.join(a.rootPath, "Game.love")
     assert(require("editor.Export").write(migrated, require("editor.Level").new(), output))
     local archive = assert(Fs.read(output))
-    Assert.truthy(archive:find('t.identity = "' .. migrated.saveIdentity .. '"', 1, true))
+    Assert.truthy(archive:find('config.identity = "' .. migrated.saveIdentity .. '"', 1, true))
     Assert.equal(nil, archive:find('t.identity = "labo-exported-game"', 1, true))
     local info = require("editor.Cli").execute({command = "project.info", project = a.rootPath})
     Assert.equal(migrated.saveIdentity, info.saveIdentity)

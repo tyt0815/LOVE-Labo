@@ -51,7 +51,7 @@ love src --verify-window C:/Temp/LaboWindowVerification
 
 ## 게임 CLI 배포 검증
 
-`./scripts/packageEditor.ps1 -verify` 뒤 `./scripts/verifyGameCli.ps1`를 실행합니다. 실제 배포 에디터에서 새 프로젝트·빌드 예제를 만들고 게임 CLI Export, 명령 스키마, 콘텐츠 수정과 실패 종료 코드, 창·오디오·World·Editor 미초기화, 배포 게임의 Reload/Save와 같은 파일 재조회까지 검사합니다. 결과는 build/verification-game-cli-<고유값>/report.json에 기록합니다. 필요하면 `-editorExecutable <Labo-cli.exe 절대 경로>`와 `-loveDirectory <LÖVE 폴더>`를 지정합니다.
+`./scripts/packageEditor.ps1 -verify` 뒤 `./scripts/verifyGameCli.ps1`를 실행합니다. 실제 배포 에디터에서 새 프로젝트·빌드 예제를 만들고 게임 CLI Export, 명령 스키마, 콘텐츠 수정과 실패 종료 코드, 창·오디오·World·Editor 미초기화, 배포 게임 EXE 직접 실행·프로젝트 conf.lua의 창 제목/크기/VSync 적용, Reload/Save와 같은 파일 재조회까지 검사합니다. 결과는 build/verification-game-cli-<고유값>/report.json에 기록합니다. 필요하면 `-editorExecutable <Labo-cli.exe 절대 경로>`를 지정합니다. 해당 배포 폴더의 원본 love.exe로 기존 .love 출력도 실행해 확인합니다.
 
 ## 에디터 CLI·게임 Export 검증
 

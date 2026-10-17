@@ -1595,17 +1595,7 @@ end
 function EditorApp:showExportDialog()
     if not self.project then return false end
     self.inspector:commitEdit()
-    require("editor.ui.Dialog").new(self.uiRoot, {
-        title = "Export Game", input = true,
-        message = "Run Tools/Build.lua with this game output path.",
-        value = require("editor.HostFileSystem").join(self.project.rootPath, "Build/Game.love"),
-        confirmLabel = "Export",
-        onConfirm = function(output)
-            local ok, result, report = require("editor.ProjectBuild").run(self.project, self.level, output)
-            self.lastBuildReport = report
-            self:showBuildResults(report)
-            return true
-        end})
+    require("editor.ui.ExportDialog").new(self)
     return true
 end
 

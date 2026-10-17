@@ -5,7 +5,7 @@ Game-cli.exe help 또는 schema로 명령과 인자를 조회합니다. Labo나 
 ```powershell
 ./Game-cli.exe inspect --workspace C:/Games/MyGame/Content
 ./Game-cli.exe add --workspace C:/Games/MyGame/Content --beat 4 --lane 3
-love Game.love --workspace C:/Games/MyGame/Content
+./Game.exe --workspace C:/Games/MyGame/Content
 ```
 
 게임의 R 키로 CLI 저장 결과를 다시 읽습니다. 좌우 키로 첫 노트를 옮기고 S로 저장합니다. 스테이지 이름과 파란 노트가 같은 StageModel에서 검증됩니다. GUI의 미저장 수정은 CLI가 읽지 못하며, 외부 수정 후 S를 누르면 revision 충돌을 반환합니다. R은 미저장 변경을 버립니다.

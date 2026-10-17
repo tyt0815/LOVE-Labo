@@ -99,3 +99,5 @@
 - [0088. 프로젝트 Lua 빌드와 게임 전용 CLI 배포](adr/0088-project-lua-build-and-game-cli.md)
 
 - [0089. 가이드와 ADR로 문서를 일원화한다](adr/0089-guide-and-adr-documentation.md)
+
+- [0090. 프로젝트 conf.lua와 Windows 게임 EXE Export](adr/0090-project-config-and-windows-game-export.md)

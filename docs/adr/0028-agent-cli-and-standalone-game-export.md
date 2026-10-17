@@ -1,5 +1,6 @@
 # 0028. AI 작업 CLI와 독립 게임 Export의 공용 로딩 계층
 
+- 후속 확장: [0090](0090-project-config-and-windows-game-export.md)의 프로젝트 conf.lua와 Windows 게임 EXE
 - 상태: 채택
 - 후속 확장: [ADR 0088](0088-project-lua-build-and-game-cli.md)의 프로젝트 Lua 빌드·게임 전용 CLI
 - 날짜: 2026-10-09

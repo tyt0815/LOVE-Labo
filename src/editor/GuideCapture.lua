@@ -72,7 +72,7 @@ return Session
         assert(project:rebuildAssetIndex()); app.assetBrowser:refresh()
         app:showProjectInspector()
         assert(app.inspector.classInspector.target:addScript(project:getAssetId("Assets/Session.lua"), "session"))
-        app.inspector.classInspector:reload(); expandPropertyGroups(); shot("project-details")
+        app.inspector.classInspector:reload(); expandPropertyGroups(); shot("project-details"); shot("project-startup")
         local scriptId = app.inspector.classInspector.preview:getScriptByName("session").id
         local toggle = assert(app.inspector.classInspector:ensurePropertyVisible(scriptId .. ".enabled"))
         shot("script-enabled")

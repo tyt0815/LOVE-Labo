@@ -24,7 +24,8 @@ for name in report["images"]:
     shutil.copyfile(source / (name + ".png"), target / (name + ".png"))
 
 marks = {
-    "build-export": ("build-export", [(720, 392, 213, 19, "1"), (720, 437, 213, 21, "2")]),
+    "project-startup": ("project-startup", [(1214, 154, 205, 16, "1"), (1214, 183, 205, 16, "2")]),
+    "build-export": ("build-export", [(730, 377, 236, 19, "1"), (784, 429, 200, 20, "2"), (784, 477, 200, 20, "3")]),
     "build-results": ("build-results", [(720, 377, 213, 22, "1"), (720, 463, 213, 65, "2"), (803, 620, 60, 18, "3")]),
     "game-cli-editor": ("game-cli-editor", [(649, 200, 310, 22, "1"), (649, 238, 310, 17, "2"), (616, 418, 270, 80, "3")]),
     "travel-b": ("travel-b", [(460, 143, 150, 17, "1"), (646, 227, 220, 18, "2"), (646, 435, 270, 20, "3")]),
@@ -41,10 +42,10 @@ marks = {
     "level-details": ("level-details", [(1210, 149, 210, 19, "1")]),
     "camera-details": ("camera-details", [(645, 313, 320, 180, "1"), (1215, 290, 200, 48, "2")]),
     "view-details": ("view-details", [(1215, 487, 200, 17, "1")]),
-    "script-enabled": ("script-enabled", [(1350, 187, 33, 22, "1")]),
-    "script-disabled": ("script-disabled", [(1350, 187, 33, 22, "1")]),
+    "script-enabled": ("script-enabled", [(1350, 263, 33, 22, "1")]),
+    "script-disabled": ("script-disabled", [(1350, 263, 33, 22, "1")]),
     "sprite-details": ("sprite-details", [(1215, 227, 200, 17, "1"), (1215, 275, 200, 31, "2")]),
-    "project-details": ("project-details", [(1080, 87, 82, 17, "1"), (1215, 274, 200, 93, "2"), (1398, 52, 28, 17, "3")]),
+    "project-details": ("project-details", [(1080, 87, 82, 17, "1"), (1215, 313, 200, 65, "2"), (1398, 52, 28, 17, "3")]),
 }
 annotationCount = 0
 for name, (image, annotations) in marks.items():

@@ -17,7 +17,7 @@ Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그
 
 ![프로젝트 Inspector와 부착 Script](images/project-details.svg)
 
-이미지의 1은 프로젝트 이름, 2는 부착 헤더와 내부 프로퍼티 그룹, 3은 해당 설정의 Save입니다. Project Script는 레벨을 바꿔도 같은 실행 인스턴스를 유지합니다.
+이미지의 1은 프로젝트 이름, 2는 부착 헤더와 내부 프로퍼티 그룹, 3은 해당 설정의 Save입니다. Game startup → Open conf.lua는 [배포 게임의 시작 설정 파일](export.md)을 코드 편집기에서 엽니다. Project Script는 레벨을 바꿔도 같은 실행 인스턴스를 유지합니다.
 
 Script는 `sprite (Player)`처럼 **부착 이름 (타입)** 헤더 하나로 표시합니다. 그 안의 Bounds·Movement는 프로퍼티 분류이며 추가 부착이 아닙니다. 공통 enabled는 헤더 토글에 표시합니다. 순서 설정이 있으면 Script 그룹을 맨 위에 두고, 그룹 없는 필드는 그 아래 스크립트 타입 이름의 그룹으로 구분합니다. 순서 설정이 없으면 기존처럼 부착 헤더 바로 아래에 표시합니다. 원본 돋보기·부착 제거와 우클릭의 Rename·Copy ID·Move Up/Down은 상위 부착 헤더에서 사용합니다.
 

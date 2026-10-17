@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$loveDirectory = 'C:\Program Files\LOVE',
     [string]$outputDirectory,
@@ -56,8 +56,10 @@ foreach ($taskLauncher in @(@('love.exe', 'Labo.exe'), @('lovec.exe', 'Labo-cli.
         }
     } finally { $taskStream.Dispose() }
 }
-# 게임 CLI Export에서 재결합할 원본 console launcher를 함께 제공한다.
-Copy-Item -LiteralPath (Join-Path $taskLove 'lovec.exe') -Destination (Join-Path $taskOutput 'lovec.exe') -Force
+# 게임·CLI Export에서 재결합할 원본 launcher를 함께 제공한다.
+foreach ($taskRawLauncher in @('love.exe', 'lovec.exe')) {
+    Copy-Item -LiteralPath (Join-Path $taskLove $taskRawLauncher) -Destination (Join-Path $taskOutput $taskRawLauncher) -Force
+}
 $taskExecutable = Join-Path $taskOutput 'Labo.exe'
 Get-ChildItem -LiteralPath $taskLove -Filter '*.dll' -File | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $taskOutput $_.Name) -Force

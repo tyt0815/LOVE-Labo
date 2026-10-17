@@ -1,5 +1,6 @@
 # 0088. 프로젝트 Lua 빌드와 게임 전용 CLI 배포
 
+- 후속 확장: [0090](0090-project-config-and-windows-game-export.md)의 프로젝트 conf.lua와 Windows 게임 EXE
 - 상태: 채택
 - 날짜: 2026-10-16
 - 확장: [ADR 0028](0028-agent-cli-and-standalone-game-export.md)의 독립 Export와 공용 로딩

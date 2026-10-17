@@ -1,10 +1,10 @@
 # Lua 빌드와 게임 전용 CLI
 
-Export는 프로젝트의 **Tools/Build.lua**를 실행합니다. 새 프로젝트에 기본 파일을 제공하며, 기존 프로젝트는 Export 또는 Open Build Script를 처음 사용할 때 누락된 파일만 생성합니다. 경로 설정이나 Python 설치는 필요하지 않습니다. 기본 템플릿은 기존과 같이 게임 `.love`만 만듭니다.
+Export는 프로젝트의 **Tools/Build.lua**를 실행합니다. 새 프로젝트에 기본 파일을 제공하며, 기존 프로젝트는 Export 또는 Open Build Script를 처음 사용할 때 누락된 파일만 생성합니다. 경로 설정이나 Python 설치는 필요하지 않습니다. 기본 Export는 Windows 게임 EXE·런타임 DLL·라이선스를 만듭니다. .love 아카이브 출력도 유지합니다.
 
 ## 에디터에서 빌드하기
 
-Project → **Open Build Script**로 현재 설정된 VS Code 창에서 빌드 파일을 엽니다. 코드 편집기 탐색·설정은 [스크립트 가이드](objects.md)를 따릅니다. Project → **Export Game** 또는 Ctrl+Shift+E에서 출력 `.love` 경로를 입력합니다. 아래 화면의 ①은 실행할 스크립트 안내, ②는 출력 경로입니다. 현재 레벨·Prefab 초안을 사용하며 자동 저장하지 않습니다.
+Project → **Open Build Script**로 현재 설정된 VS Code 창에서 빌드 파일을 엽니다. 코드 편집기 탐색·설정은 [스크립트 가이드](objects.md)를 따릅니다. Project → **Export Game** 또는 Ctrl+Shift+E에서 플랫폼 Windows를 확인하고 출력 폴더·실행 파일 이름을 입력합니다. 아래 화면의 ①은 플랫폼, ②는 출력 폴더, ③은 실행 파일 이름입니다. 현재 레벨·Prefab 초안을 사용하며 자동 저장하지 않습니다.
 
 ![빌드 실행](images/build-export.svg)
 
@@ -25,17 +25,18 @@ end
 
 | API | 역할 |
 | --- | --- |
-| `packageGame(name?)` | 선택한 현재 레벨과 에셋으로 `.love` 생성. 생략 시 선택한 이름 |
+| `packageGame(name?)` | 선택한 현재 레벨과 에셋으로 Windows `.exe` 또는 `.love` 생성. 생략 시 선택한 이름 |
 | `packageCli(name, {entry})` | 일반 Lua 명령 모듈을 실행하는 Windows 콘솔 EXE, DLL, LÖVE 라이선스 생성 |
 | `copy(source, destination)` | 프로젝트 루트 기준 파일 하나를 배포 폴더에 복사. 필요한 하위 폴더 생성 |
 | `log(message)` | 결과 창과 CLI 결과의 logs 배열에 기록 |
+| `platform` | 현재 지원 플랫폼인 `"windows"`. 다른 플랫폼 요청은 오류 |
 | `output`, `outputDirectory`, `projectDirectory` | 선택한 게임 경로, 배포 폴더, 프로젝트 폴더의 절대 경로 |
 
-명시한 출력 이름·복사 목적지는 선택한 `.love`의 부모 폴더 기준 상대 경로입니다. `..`·절대 경로·링크 경유 출력과 프로젝트 Assets·Tools·Docs·메타데이터 덮어쓰기는 거부합니다. 각 작업은 결과 `{output, bytes, ...}`를 반환합니다. 전체 빌드는 트랜잭션이 아니므로 중간 실패 전 생성된 파일은 남으며 로그에서 확인합니다. Lua 빌드 코드는 일반 프로젝트 코드와 같은 권한으로 실행되므로 별도의 보안 샌드박스가 아닙니다.
+명시한 출력 이름·복사 목적지는 선택한 게임 출력 파일의 부모 폴더 기준 상대 경로입니다. `..`·절대 경로·링크 경유 출력과 프로젝트 Assets·Tools·Docs·메타데이터 덮어쓰기는 거부합니다. 각 작업은 결과 `{output, bytes, ...}`를 반환합니다. 전체 빌드는 트랜잭션이 아니므로 중간 실패 전 생성된 파일은 남으며 로그에서 확인합니다. Lua 빌드 코드는 일반 프로젝트 코드와 같은 권한으로 실행되므로 별도의 보안 샌드박스가 아닙니다.
 
 `Tools/Build.lua`에서 `require("Examples.StageModel")`처럼 기존 프로젝트 모듈 로더를 사용할 수 있습니다. 별도 셸 호출 없이 `.love`만 생성할 때는 **export.package** CLI를 사용합니다. 이 명령은 빌드 스크립트를 실행하지 않습니다.
 
-CLI와 게임은 각자 에셋을 포함합니다. 초기 구현은 패키지 크기 최적화보다 독립 실행과 같은 모듈 계약을 우선합니다. 게임 `.love`는 LÖVE로 실행하며 게임 CLI는 Windows용 EXE와 DLL을 함께 배포하면 Labo·Python 설치 없이 실행합니다.
+CLI와 게임은 각자 에셋을 포함합니다. 초기 구현은 패키지 크기 최적화보다 독립 실행과 같은 모듈 계약을 우선합니다. 게임과 게임 CLI는 Windows용 EXE와 DLL·라이선스를 함께 배포하면 Labo·LÖVE·Python 설치 없이 실행합니다. 게임의 .love 출력을 선택했을 때만 별도 LÖVE로 실행합니다. 게임 초기 설정은 [프로젝트 conf.lua](export.md)를 사용하며 CLI에는 적용하지 않습니다.
 
 ## 게임 명령 정의
 
@@ -94,7 +95,7 @@ GUI의 미저장 데이터와 파일은 자동 동기화되지 않습니다. CLI
 
 ## 직접 검수할 예제
 
-테스트 프로젝트의 **Assets/Examples/L_StageEditor.level**을 Play합니다. ①에 작업 폴더, ②에 조작 키, ③에 노트가 표시됩니다. 좌우 키는 첫 노트를 이동하고 S는 저장, R은 외부 파일을 다시 읽습니다. workspace 프로퍼티로 폴더를 지정할 수 있고, 생략하면 게임 저장 폴더 안의 예제 전용 폴더를 생성합니다. 배포 게임은 `love Game.love --workspace C:/Work/Content`도 지원합니다.
+테스트 프로젝트의 **Assets/Examples/L_StageEditor.level**을 Play합니다. ①에 작업 폴더, ②에 조작 키, ③에 노트가 표시됩니다. 좌우 키는 첫 노트를 이동하고 S는 저장, R은 외부 파일을 다시 읽습니다. workspace 프로퍼티로 폴더를 지정할 수 있고, 생략하면 게임 저장 폴더 안의 예제 전용 폴더를 생성합니다. 배포 게임은 `./Game.exe --workspace C:/Work/Content`도 지원합니다.
 
 ![내장 스테이지 편집 예제](images/game-cli-editor.svg)
 
@@ -103,7 +104,7 @@ CLI에서 화면에 나온 작업 폴더를 지정해 add를 실행한 뒤 게�
 ```powershell
 # 새 프로젝트에 같은 예제를 생성. 사용자 빌드 스크립트·동명 예제는 덮어쓰지 않음
 Labo-cli.exe --cli project examples-cli --project C:/Games/MyGame
-Labo-cli.exe --cli export --project C:/Games/MyGame --level Assets/Examples/L_StageEditor.level --output C:/Games/MyGame/Build/Game.love
+Labo-cli.exe --cli export --project C:/Games/MyGame --level Assets/Examples/L_StageEditor.level --platform windows --output C:/Games/MyGame/Build/Game.exe
 C:/Games/MyGame/Build/Game-cli.exe add --workspace C:/Games/MyGame/Build/Content --beat 4 --lane 3
 ```
 
