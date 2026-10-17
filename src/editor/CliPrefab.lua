@@ -72,7 +72,7 @@ function Operations.execute(project, request, api)
         document.data.overrides.properties = document.data.overrides.properties or {}
         document.data.overrides.scripts = document.data.overrides.scripts or {}
         assert(editor:recipe())
-        assert(require("runtime.WorldLoader").prepare(project, {lobjects = {{authoringId = 1, transform = {x = 0, y = 0}, definitionReference = document.assetId}}}))
+        assert(require("runtime.WorldLoader").validate(project, {lobjects = {{authoringId = 1, transform = {x = 0, y = 0}, definitionReference = document.assetId}}}))
         assert(assert(Fs.read(path)) == bytes, "Revision conflict: file changed while editing")
         assert(document:save(project)); bytes = assert(Fs.read(path))
         target = assert(editor:target(nodePath))

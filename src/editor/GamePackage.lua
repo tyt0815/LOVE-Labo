@@ -16,8 +16,8 @@ function GamePackage.write(project, level, output, options)
     local relative = project:referenceForPath(output)
     if relative and (relative == "Assets" or relative:match("^Assets/")) then return false, "Export output must be outside Assets" end
     if not options.cliEntry then
-        local world, err = require("runtime.WorldLoader").prepare(project, level:toData())
-        if not world then return false, err end
+        local result, err = require("runtime.WorldLoader").validate(project, level:toData())
+        if not result then return false, err end
     end
     local entries = {}
     local function add(name, bytes) entries[#entries + 1] = {name = name, bytes = assert(bytes)} end

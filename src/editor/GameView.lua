@@ -86,37 +86,36 @@ function GameView:draw(world)
 
     love.graphics.push("all")
 
-    -- Game View rendering이 Editor panel 영역으로 새지 않도록
-    -- 자신의 viewport 안으로 graphics state를 제한한다.
-    love.graphics.setScissor(
-        viewportX,
-        viewportY,
-        width,
-        height
-    )
+    local ok, err = pcall(function()
+        -- 투영 제공자·디버그 출력 오류도 패널의 그래픽 상태를 복구한 뒤 전달한다.
+        love.graphics.setScissor(
+            viewportX,
+            viewportY,
+            width,
+            height
+        )
 
-    require("editor.Ui").panel(viewportX, viewportY, width, height, "gameBackground")
-    local viewport = self:runtimeViewport(world)
-    if viewport then
-        love.graphics.setColor(0, 0, 0, 1)
-        local inset = Ui.METRICS.panelGap / 2
-        love.graphics.rectangle("fill", viewportX + inset, viewportY + inset, width - inset * 2, height - inset * 2)
-        Theme.setColor("gameBackground")
-        love.graphics.rectangle("fill", viewport.x, viewport.y, viewport.width, viewport.height)
-        love.graphics.push("all")
-        love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
-    end
-    if world and viewport then
-        local ok, err = pcall(self.drawRuntimeLObjects, self, world)
-        if not ok then love.graphics.pop(); love.graphics.pop(); error(err, 0) end
-        if world.debug.drawShapes then
-            world.debug:drawShapes(function(x, y) return self:worldToScreen(x, y) end)
-            world.debug:drawScreens(viewport.x + 6, viewport.y + 6, math.max(0, viewport.width - 12), math.max(0, viewport.height - 12))
+        require("editor.Ui").panel(viewportX, viewportY, width, height, "gameBackground")
+        local viewport = self:runtimeViewport(world)
+        if viewport then
+            love.graphics.setColor(0, 0, 0, 1)
+            local inset = Ui.METRICS.panelGap / 2
+            love.graphics.rectangle("fill", viewportX + inset, viewportY + inset, width - inset * 2, height - inset * 2)
+            Theme.setColor("gameBackground")
+            love.graphics.rectangle("fill", viewport.x, viewport.y, viewport.width, viewport.height)
+            love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
         end
-    end
-    if viewport then love.graphics.pop() end
+        if world and viewport then
+            self:drawRuntimeLObjects(world)
+            if world.debug.drawShapes then
+                world.debug:drawShapes(function(x, y) return self:worldToScreen(x, y) end)
+                world.debug:drawScreens(viewport.x + 6, viewport.y + 6, math.max(0, viewport.width - 12), math.max(0, viewport.height - 12))
+            end
+        end
+    end)
 
     love.graphics.pop()
+    if not ok then error(err, 0) end
 end
 
 return GameView

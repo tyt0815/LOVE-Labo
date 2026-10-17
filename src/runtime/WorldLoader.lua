@@ -76,31 +76,57 @@ function Loader.prepare(project, data, session)
     if type(data) == "table" and data.mainCamera then return nil, "Legacy mainCamera: run project.migrate-rendering before Play or Export" end
     local world, err = require("core.World").fromLevelData(data)
     if not world then return nil, err end
-    world.assetDataLoader = function(reference) return require("project.AssetData").read(project, reference) end
-    -- 레벨의 require와 부착·Spawn이 같은 클래스 테이블을 사용한다.
-    local loadClass = session and session.scriptLoader or LuaScript.loader(project)
-    if not session then
-        session = require("core.ScriptHost").new("project")
-        session.scriptLoader = loadClass
-        session.id, session.saveIdentity = project and project.id, project and project.saveIdentity
-        local configured, configureError = require("project.ScopedScripts").configure(session, project or {}, loadClass)
-        if not configured then return nil, configureError end
+    local ownsProject = session == nil
+    local called, class, initial, loadClass = pcall(function()
+        world.assetDataLoader = function(reference) return require("project.AssetData").read(project, reference) end
+        -- 레벨의 require와 부착·Spawn이 같은 클래스 테이블을 사용한다.
+        local loader = session and session.scriptLoader or LuaScript.loader(project)
+        if ownsProject then
+            session = require("core.ScriptHost").new("project")
+            session.scriptLoader = loader
+            session.id, session.saveIdentity = project and project.id, project and project.saveIdentity
+        end
+        -- Project configure가 실패해도 부분적으로 만든 바인딩을 폐기할 수 있어야 한다.
+        world.project = session
+        if ownsProject then
+            local configured, configureError = require("project.ScopedScripts").configure(session, project or {}, loader)
+            assert(configured, configureError)
+        end
+        local configured, configureError = require("project.ScopedScripts").configure(world, data, loader)
+        assert(configured, configureError)
+        local levelClass
+        if data.scriptReference then
+            assert(project, "Level script requires a project")
+            levelClass, err = loader(data.scriptReference, "level")
+            assert(levelClass, err)
+        end
+        world.properties, err = LuaScript.values(levelClass, data.propertyOverrides)
+        assert(world.properties, err)
+        world.levelPropertySchema = levelClass and levelClass.properties
+        local ok, objects = Loader.bind(project, data, world, loader)
+        assert(ok, objects)
+        return levelClass, objects, loader
+    end)
+    if not called then
+        -- 전환 후보는 기존 Project 세션을 빌리므로 실패해도 그 세션은 종료하지 않는다.
+        local cleaned, cleanupResult, cleanupError = pcall(world.dispose, world, not ownsProject)
+        local failure = tostring(class)
+        if not cleaned or not cleanupResult then
+            failure = failure .. "\n" .. tostring(cleaned and cleanupError or cleanupResult)
+        end
+        return nil, failure
     end
-    world.project = session
-    local configured, configureError = require("project.ScopedScripts").configure(world, data, loadClass)
-    if not configured then return nil, configureError end
-    local class
-    if data.scriptReference then
-        if not project then return nil, "Level script requires a project" end
-        class, err = loadClass(data.scriptReference, "level")
-        if not class then return nil, err end
-    end
-    world.properties, err = LuaScript.values(class, data.propertyOverrides)
-    if not world.properties then return nil, err end
-    world.levelPropertySchema = class and class.properties
-    local ok, initial = Loader.bind(project, data, world, loadClass)
-    if not ok then return nil, initial end
     return world, class, initial, loadClass
+end
+
+-- 검증만 필요한 호출자는 준비된 World의 소유권을 받지 않는다.
+function Loader.validate(project, data)
+    local world, err = Loader.prepare(project, data)
+    if not world then return nil, err end
+    local result = {objects = #world.lobjects}
+    local ok, cleanupError = world:dispose()
+    if not ok then return nil, cleanupError end
+    return result
 end
 
 function Loader.activate(project, world, class, initial, loadClass, transaction)

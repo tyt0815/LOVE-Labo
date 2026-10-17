@@ -39,7 +39,7 @@ function Operations.apply(project, name, enabled, confirm, level)
         local ok, usageError = pcall(function()
             local result = require("editor.CliAssets").execute(view, {command = "project.validate"})
             assert(result.valid, result.errors[1] and result.errors[1].reference .. ": " .. result.errors[1].error)
-            if level then assert(require("runtime.WorldLoader").prepare(view, level:toData())) end
+            if level then assert(require("runtime.WorldLoader").validate(view, level:toData())) end
         end)
         if not ok then return false, "Plugin is used by the project: " .. tostring(usageError) end
     end

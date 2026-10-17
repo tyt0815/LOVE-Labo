@@ -211,8 +211,8 @@ function Level.fromData(data)
     local scoped, scopeError = require("project.ScopedScripts").validate(data)
     if not scoped then return nil, scopeError end
 
-    if type(data.lobjects) ~= "table" then
-        return nil, "level lobjects must be a table"
+    if not require("core.Array").isDense(data.lobjects) then
+        return nil, "level lobjects must be a dense array"
     end
 
     local validatedLObjects = {}

@@ -346,8 +346,8 @@ local function execute(request, cleanups)
         local result = require("editor.CliPointer").execute(project, level, request)
         result.revision = revision(bytes); return result
     elseif command == "level.validate" then
-        local world = assert(require("runtime.WorldLoader").prepare(project, level:toData()))
-        return {valid = true, objects = #world.lobjects, revision = revision(bytes)}
+        local result = assert(require("runtime.WorldLoader").validate(project, level:toData()))
+        return {valid = true, objects = result.objects, revision = revision(bytes)}
     elseif command == "level.set" or command == "level.get" or command == "level.reset" or command == "level.set-parent" then
         local class = level.scriptReference and assert(require("project.LuaScript").load(project, level.scriptReference, "level"))
         target = {class = class or {properties = {}}, level = level,
@@ -373,7 +373,7 @@ local function execute(request, cleanups)
         assert(ok, report and table.concat(report.logs, "\n") or result); return result
     else assert(command == "level.get", "Unknown command: " .. command) end
     if changed then
-        assert(require("runtime.WorldLoader").prepare(project, level:toData()))
+        assert(require("runtime.WorldLoader").validate(project, level:toData()))
         -- 문서를 읽은 뒤 외부 저장이 있었으면 덮어쓰지 않는다.
         assert(assert(Fs.read(levelPath)) == bytes, "Revision conflict: file changed while editing")
         assert(document:save(levelPath))

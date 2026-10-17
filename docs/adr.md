@@ -101,3 +101,5 @@
 - [0089. 가이드와 ADR로 문서를 일원화한다](adr/0089-guide-and-adr-documentation.md)
 
 - [0090. 프로젝트 conf.lua와 Windows 게임 EXE Export](adr/0090-project-config-and-windows-game-export.md)
+
+- [0091. 레벨 목록 검증과 준비 상태의 정리 책임을 공유한다](adr/0091-loading-validation-and-failure-cleanup.md)

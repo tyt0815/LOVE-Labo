@@ -2,6 +2,8 @@
 
 에디터·게임 제작 명령을 설명합니다. 제품 개발용 캡처와 네이티브 창 검증은 [문서·검증 유지보수](maintenance.md)를 참고하세요.
 
+`level.validate`·`project.validate`와 편집 후 검증·게임 Export는 게임의 load/update를 실행하지 않고 구성·참조를 검사한 뒤 임시 바인딩을 정리합니다. 레벨 파일의 `lobjects`는 배열이어야 하며, 문자열 키나 중간에 빠진 인덱스가 있으면 항목을 무시하지 않고 오류를 반환합니다. 빈 레벨은 계속 허용합니다.
+
 ## Project·Level Script 부착
 
 `project.script.*`와 `level.script.*`는 GUI의 Project·레벨 Inspector와 같은 부착 편집 로직을 사용합니다.

@@ -113,7 +113,7 @@ function World:dispose(preserveProject)
     end
     local ok, err = require("core.ScriptHost").unload(self)
     if not ok and not cleanupError then cleanupError = err end
-    if self.project and not preserveProject and self.project.world == self then
+    if self.project and not preserveProject and (self.project.world == self or self.project.world == nil) then
         local project = self.project
         local cleaned, cleanup = project:unload()
         project.world, project.disposed = nil, true
@@ -196,8 +196,8 @@ function World.fromLevelData(levelData)
         return nil, "level runtime data must be a table"
     end
 
-    if type(levelData.lobjects) ~= "table" then
-        return nil, "level runtime lobjects must be a table"
+    if not require("core.Array").isDense(levelData.lobjects) then
+        return nil, "level runtime lobjects must be a dense array"
     end
 
     local runtimeLObjects = {}

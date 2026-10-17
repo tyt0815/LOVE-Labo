@@ -16,9 +16,9 @@ function Operations.execute(project, request, api)
                     if kind then assert(require("project.LuaScript").load(project, reference, kind))
                     elseif reference:match("%.level$") then
                         local document = assert(require("editor.LevelDocument").load(assert(project:resolveAssetFile(reference))))
-                        assert(require("runtime.WorldLoader").prepare(project, document.level:toData()))
+                        assert(require("runtime.WorldLoader").validate(project, document.level:toData()))
                     else
-                        assert(require("runtime.WorldLoader").prepare(project, {lobjects = {{authoringId = 1, transform = {x = 0, y = 0}, definitionReference = project:getAssetId(reference)}}}))
+                        assert(require("runtime.WorldLoader").validate(project, {lobjects = {{authoringId = 1, transform = {x = 0, y = 0}, definitionReference = project:getAssetId(reference)}}}))
                     end
                 end)
                 if not ok then errors[#errors + 1] = {reference = reference, error = tostring(err)} end
