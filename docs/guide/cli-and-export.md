@@ -211,6 +211,8 @@ script.open은 GUI와 같은 소스 해석·VS Code 자동 탐색·기존 창 �
 
 ## 플레이어 유지·저장 검수와 프로젝트 저장 ID
 
+`--step-dt`는 명령줄과 JSON 요청의 `"step-dt"`에서 같은 기능을 사용합니다. 0 이상의 유한한 시간을 지정하며 음수·비수치·무한대는 오류입니다.
+
 - `project examples-session`: Assets/Examples에 전환·저장 예제를 생성하고 Project에 travelSession을 부착합니다. 동명 파일은 덮어쓰지 않습니다.
 - `level events --step-dt 0`: 이벤트마다 update·전환 경계를 처리합니다. 생략하면 기존 이벤트 전용 동작입니다. 반환값에 levelReference·projectScripts·levelScripts를 포함합니다.
 - `project info`: 프로젝트의 id·saveIdentity를 조회합니다.

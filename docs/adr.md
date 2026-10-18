@@ -115,3 +115,5 @@
 - [0096. 원본과 분리한 미저장 초안 복구](adr/0096-unsaved-draft-recovery.md)
 
 - [0097. 가벼운 성능 기록과 이동 가능한 내부 창](adr/0097-lightweight-performance-recording.md)
+
+- [0098. 편집 실패 경계·Prefab 배치와 네이티브 크기 조절 보완](adr/0098-editor-failure-scopes-and-native-resize.md)

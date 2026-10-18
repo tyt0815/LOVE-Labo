@@ -1,7 +1,21 @@
 local Hierarchy = require("project.PrefabHierarchy")
 local Edit = {}
-local function worldTransform(node)
-    return node.parent and require("core.Transform").compose(worldTransform(node.parent), node.transform) or node.transform
+-- Prefab도 레벨 편집과 같은 저작 그래프에서 공개 배치·참조와 역변환을 평가한다.
+local function evaluate(editor, callback)
+    local level = require("editor.Level").new()
+    level.layout = require("project.AuthoringLayout").new(editor.project, level)
+    local ok, result = pcall(function()
+        local root = assert(level:addLObject(0, 0, editor.document.assetId))
+        local objects = assert(Hierarchy.expandAuthoring(editor.project, level, root))
+        return callback(level, objects)
+    end)
+    level.layout:clear()
+    assert(ok, result)
+    return result
+end
+local function worldTransform(level, object)
+    local preview = assert(level.layout:preview(object), level.layout.error)
+    return preview:getWorldTransform()
 end
 local function combined(node, field, scale)
     local value = scale and 1 or 0
@@ -11,13 +25,15 @@ local function combined(node, field, scale)
     end
     return value
 end
-function Edit.move(editor, path, parentPath, index, rootChange)
+local function move(editor, path, parentPath, index, rootChange, snapshot)
     local recipe, err = editor:recipe(); if not recipe then return false, err end
     local node, parent = recipe.byPath[path], recipe.byPath[parentPath]
     if not node or node.isInherited then return false, "Inherited objects cannot be moved" end
     if not rootChange and (path == "root" or not parent) then return false, "Invalid object destination" end
     if not rootChange and Hierarchy.isRemoved(parentPath, {path}) then return false, "Object attachment cycle" end
-    local snapshot = Hierarchy.copy(editor.document.data)
+    local before = (rootChange or node.parent ~= parent) and evaluate(editor, function(level, objects)
+        return {node = worldTransform(level, objects[path]), root = worldTransform(level, objects.root)}
+    end)
     local mapping, replacement
     if rootChange then
         local root = Hierarchy.copy(editor.document.data)
@@ -41,7 +57,7 @@ function Edit.move(editor, path, parentPath, index, rootChange)
         root.id = oldId
         if root.definitionReference == editor.document.assetId then root.definitionReference = false end
         replacement.children[#replacement.children + 1] = root
-        local origin, previous = worldTransform(node), worldTransform(recipe.root)
+        local origin, previous = before.node, before.root
         local x, y = require("core.Transform").inversePoint(origin, previous.x, previous.y)
         if not x then return false, "New root Transform cannot be inverted" end
         root.transform = {x = x, y = y, rotation = combined(recipe.root, "rotation") - combined(node, "rotation"),
@@ -64,10 +80,7 @@ function Edit.move(editor, path, parentPath, index, rootChange)
         if index <= inherited then return false, "Cannot insert between inherited objects" end
         replacement = Hierarchy.copy(editor:record(path, false))
         if not replacement then return false, "Missing local object record" end
-        local before = worldTransform(node)
-        local x, y = require("core.Transform").inversePoint(worldTransform(parent), before.x, before.y)
-        if not x then return false, "Parent Transform cannot be inverted" end
-        replacement.transform = Hierarchy.copy(node.transform); replacement.transform.x, replacement.transform.y = x, y
+        replacement.transform = Hierarchy.copy(node.transform)
         local oldParent = editor:record(node.parent.path, true)
         for position, child in ipairs(oldParent.children or {}) do if child.id == node.path:match("[^/]+$") then table.remove(oldParent.children, position); break end end
         local destination = editor:record(parentPath, true)
@@ -106,6 +119,32 @@ function Edit.move(editor, path, parentPath, index, rootChange)
     editor.document.data.removedPaths = #removed > 0 and removed or nil
     local valid, validationError = editor:recipe()
     if not valid then editor.document.data = snapshot; return false, validationError end
-    editor.selected = mapping(path); editor.onChanged(); return true
+    local movedPath = rootChange and mapping("root") or mapping(path)
+    if before then evaluate(editor, function(level, objects)
+        local object = assert(objects[movedPath])
+        assert(level.layout:preview(object), level.layout.error)
+        local x, y = before.node.x, before.node.y
+        if rootChange then
+            x, y = require("core.Transform").inversePoint(before.node, before.root.x, before.root.y)
+            x, y = require("core.Transform").point(worldTransform(level, objects.root), x, y)
+        end
+        local ok, err = level:setWorldPosition(object, x, y)
+        assert(ok, err)
+        local record = assert(editor:record(movedPath, false))
+        record.transform = record.transform or {}
+        record.transform.x, record.transform.y = object.transform.x, object.transform.y
+    end) end
+    editor.selected = mapping(path)
+    return true
+end
+function Edit.move(editor, path, parentPath, index, rootChange)
+    local snapshot, selected = Hierarchy.copy(editor.document.data), editor.selected
+    local called, ok, err = pcall(move, editor, path, parentPath, index, rootChange, snapshot)
+    if not called or not ok then
+        editor.document.data, editor.selected = snapshot, selected
+        return false, tostring(called and err or ok)
+    end
+    editor.onChanged()
+    return true
 end
 return Edit

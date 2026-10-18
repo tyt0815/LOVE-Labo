@@ -573,7 +573,8 @@ function Project:deletionEntries(reference)
         if not resolved then return false, resolveError end
         local actual, actualError = filesystem().info(resolved)
         if actual or actualError then return false, actualError or "Entry changed during deletion" end
-        local usages = require("editor.AssetRepair").usage(self, missing.id)
+        local usages, usageError = require("editor.AssetRepair").usage(self, missing.id)
+        if not usages then return false, usageError end
         if #usages > 0 then return false, "Asset is referenced by: " .. table.concat(usages, ", ") end
         return {}
     end

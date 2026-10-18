@@ -117,7 +117,8 @@ function Frame.install()
         assert(previous ~= 0, "Could not install editor window procedure")
         Frame.previousProc = ffi.cast("void *", previous)
         local style = user.GetWindowLongW(handle, -16)
-        style = bit.bor(bit.band(style, bit.bnot(0x00C40000)), 0x00090000)
+        -- 제목 장식만 제거한다. WS_THICKFRAME은 borderless 창의 네이티브 크기 조절에도 필요하다.
+        style = bit.bor(bit.band(style, bit.bnot(0x00C00000)), 0x000F0000)
         assert(user.SetWindowLongW(handle, -16, style) ~= 0, "Could not update editor window style")
         assert(user.SetWindowPos(handle, nil, 0, 0, 0, 0, 39) ~= 0, "Could not refresh editor window frame")
         -- Windows 11의 네이티브 라운딩을 요청한다. 최대화·스냅 시에는 DWM이 사각으로 표시한다.

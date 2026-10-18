@@ -204,6 +204,26 @@ function SceneView:findLObjectAtWorldPosition(worldX, worldY)
     return nil
 end
 
+-- 사용자 영역·배치 제공자를 실행하는 편집 작업의 실패는 현재 제스처에서 끝낸다.
+function SceneView:interact(method, ...)
+    local selection = self:getSelection()
+    local cameraX, cameraY, zoom = self.cameraX, self.cameraY, self.zoom
+    local objects, nextId
+    if self.level and (method == "duplicateSelection" or method == "keypressed" and select(1, ...) == "d" and select(2, ...)) then
+        objects, nextId = {}, self.level.nextAuthoringId
+        for index, object in ipairs(self.level.lobjects) do objects[index] = object end
+    end
+    local ok, result, err = require("core.GraphicsScope").call(self[method], self, ...)
+    if ok then return result, err end
+    self:cancelDrag(true)
+    if objects then self.level.lobjects, self.level.nextAuthoringId = objects, nextId end
+    self.isPanning = false
+    self:setSelection(selection)
+    self.cameraX, self.cameraY, self.zoom = cameraX, cameraY, zoom
+    if self.onError then self.onError(tostring(result)) end
+    return nil, tostring(result)
+end
+
 function SceneView:mousepressed(x, y, button)
     if not self:containsPoint(x, y) then
         return
@@ -499,12 +519,10 @@ function SceneView:drawEditorObjects()
                 local context = require("editor.DebugSession").new()
                 context.selected, context.color = false, Theme.color("textMuted")
                 context.image = function(_, reference) return self.spriteAssets:image(reference) end
-                love.graphics.push("all")
-                local ok, err = pcall(function()
+                local ok, err = require("core.GraphicsScope").call(function()
                     script:drawEditor(context)
                     context:drawShapes(function(x, y) return self:worldToScreen(x, y) end)
                 end)
-                love.graphics.pop()
                 if not ok then self.spriteAssets.error = tostring(err) end
             end
         end
@@ -519,12 +537,10 @@ function SceneView:drawEditorObjects()
                     context.selected = self:isSelected(object)
                     context.color = Theme.color(context.selected and "objectSelected" or "textMuted")
                     context.image = function(_, reference) return self.spriteAssets:image(reference) end
-                    love.graphics.push("all")
-                    local ok, err = pcall(function()
+                    local ok, err = require("core.GraphicsScope").call(function()
                         script:drawEditor(context)
                         context:drawShapes(function(x, y) return self:worldToScreen(x, y) end)
                     end)
-                    love.graphics.pop()
                     if not ok then self.spriteAssets.error = tostring(err) end
                 end
             end
@@ -554,9 +570,7 @@ function SceneView:draw()
     local right = viewportX + width
     local bottom = viewportY + height
 
-    local depth = love.graphics.getStackDepth()
-    love.graphics.push("all")
-    local ok, err = pcall(function()
+    local ok, err = require("core.GraphicsScope").call(function()
         -- Scene View는 이제 자신의 실제 viewport 밖으로 그리지 않는다.
         love.graphics.setScissor(viewportX, viewportY, width, height)
 
@@ -595,8 +609,6 @@ function SceneView:draw()
         )
         self:drawMouseWorldPosition()
     end)
-    -- 사용자 코드가 추가한 스택도 패널 진입 깊이까지 정리한다.
-    while love.graphics.getStackDepth() > depth do love.graphics.pop() end
     if not ok then error(err, 0) end
 end
 
@@ -676,8 +688,8 @@ function SceneView:applyGroupDrag()
         for object, saved in pairs(drag.selection) do
             local x, y = saved.x + dx, saved.y + dy
             local original = assert(Transform.copy(object.transform))
-            local ok = self.level:setWorldPosition(object, x, y)
-            if not ok then return end
+            local ok, err = self.level:setWorldPosition(object, x, y)
+            if not ok then error(err, 0) end
             positions[object] = {object.transform.x, object.transform.y}
             object.transform.x, object.transform.y = original.x, original.y
         end

@@ -84,9 +84,7 @@ function GameView:draw(world)
         return
     end
 
-    love.graphics.push("all")
-
-    local ok, err = pcall(function()
+    local ok, err = require("core.GraphicsScope").call(function()
         -- 투영 제공자·디버그 출력 오류도 패널의 그래픽 상태를 복구한 뒤 전달한다.
         love.graphics.setScissor(
             viewportX,
@@ -114,7 +112,6 @@ function GameView:draw(world)
         end
     end)
 
-    love.graphics.pop()
     if not ok then error(err, 0) end
 end
 

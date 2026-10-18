@@ -308,7 +308,7 @@ function Level:selectionRoots(objects)
     end
     return roots
 end
-function Level:reparent(objects, parent)
+local function reparent(self, objects, parent)
     for _, object in ipairs(self:selectionRoots(objects)) do
         if object.prefabRootId and object.prefabRootId ~= object.authoringId then return false, "Inherited objects cannot be reparented" end
     end
@@ -334,6 +334,24 @@ function Level:reparent(objects, parent)
         if not ok then return false, err end
     end
     return true
+end
+function Level:reparent(objects, parent)
+    local snapshot = {}
+    for _, object in ipairs(self.lobjects) do
+        snapshot[#snapshot + 1] = {object = object, data = require("project.PrefabHierarchy").copy(object)}
+    end
+    local nextId = self.nextAuthoringId
+    local called, ok, err = pcall(reparent, self, objects, parent)
+    if called and ok then return true end
+    -- 다중 이동의 뒤쪽 제공자가 실패해도 앞에서 바꾼 부모·값·구성을 함께 돌린다.
+    self.lobjects, self.nextAuthoringId = {}, nextId
+    for _, entry in ipairs(snapshot) do
+        for key in pairs(entry.object) do entry.object[key] = nil end
+        for key, value in pairs(entry.data) do entry.object[key] = value end
+        self.lobjects[#self.lobjects + 1] = entry.object
+    end
+    if self.layout then self.layout:clear() end
+    return false, tostring(called and err or ok)
 end
 function Level:dropObjects(objects, target, mode)
     local roots = self:selectionRoots(objects)

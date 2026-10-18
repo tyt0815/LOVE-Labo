@@ -35,10 +35,10 @@ function Rendering.withScreen(context, callback)
     if context and context.preview then return end
     assert(context and context.viewport and type(callback) == "function", "Expected draw context and callback")
     local viewport = context.viewport
-    love.graphics.push("all")
-    love.graphics.origin(); love.graphics.translate(viewport.x or 0, viewport.y or 0)
-    local ok, result = pcall(callback, context)
-    love.graphics.pop()
+    local ok, result = require("core.GraphicsScope").call(function()
+        love.graphics.origin(); love.graphics.translate(viewport.x or 0, viewport.y or 0)
+        return callback(context)
+    end)
     assert(ok, result)
     return result
 end

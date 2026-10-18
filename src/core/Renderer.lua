@@ -17,21 +17,24 @@ function Renderer.drawObjects(objects, imageFor, toScreen, zoom, drawContext)
         local script = entry.script
         if script.owner and script.owner.scripts[script.id] == script and script.enabled ~= false and (not ctx.includes or ctx.includes(script)) then
             local owner = script.owner
-            local world = ctx.transform and ctx:transform(script) or script:getWorldTransform()
-            local x, y = toScreen(world.x, world.y)
-            local ax, ay = Transform.point(world, 1, 0)
-            local bx, by = Transform.point(world, 0, 1)
-            ax, ay = toScreen(ax, ay); bx, by = toScreen(bx, by)
             local affine = love.math.newTransform()
-            affine:setMatrix(ax - x, bx - x, 0, x, ay - y, by - y, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
-            love.graphics.push("all"); love.graphics.origin(); love.graphics.applyTransform(affine)
-            -- 사용자 draw가 실패해도 다음 프레임의 그래픽 상태를 오염시키지 않는다.
-            local runtime = owner:getWorld()
-            local profiler = runtime and runtime.profiler
-            local started = profiler and profiler.recording and profiler.detailed and love.timer.getTime()
-            local ok, result, err = pcall(script.draw, script, ctx)
-            if started then profiler:sample("draw", script, love.timer.getTime() - started) end
-            love.graphics.pop(); affine:release()
+            local ok, result, err = require("core.GraphicsScope").call(function()
+                local world = ctx.transform and ctx:transform(script) or script:getWorldTransform()
+                local x, y = toScreen(world.x, world.y)
+                local ax, ay = Transform.point(world, 1, 0)
+                local bx, by = Transform.point(world, 0, 1)
+                ax, ay = toScreen(ax, ay); bx, by = toScreen(bx, by)
+                affine:setMatrix(ax - x, bx - x, 0, x, ay - y, by - y, 0, y, 0, 0, 1, 0, 0, 0, 0, 1)
+                love.graphics.origin(); love.graphics.applyTransform(affine)
+                -- 사용자 draw가 실패해도 다음 프레임의 그래픽 상태를 오염시키지 않는다.
+                local runtime = owner:getWorld()
+                local profiler = runtime and runtime.profiler
+                local started = profiler and profiler.recording and profiler.detailed and love.timer.getTime()
+                local result, err = script:draw(ctx)
+                if started then profiler:sample("draw", script, love.timer.getTime() - started) end
+                return result, err
+            end)
+            affine:release()
             if not ok then error(result, 0) end
             if result == false and err then error(err, 0) end
             drawn = drawn or result ~= false
@@ -73,11 +76,11 @@ function Renderer.drawWorld(world, imageFor, viewport)
         -- 범용 필터는 스크립트마다 적용하고 좌표계나 플러그인 종류를 분류하지 않는다.
         ctx.includes = function(script) return viewport.view:includes(script) end
     end
-    love.graphics.push("all")
-    love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
-    local ok, drawn = pcall(Renderer.drawObjects, objects, imageFor,
-        function(x, y) return viewport:worldToScreen(x, y) end, viewport.scale, ctx)
-    love.graphics.pop()
+    local ok, drawn = require("core.GraphicsScope").call(function()
+        love.graphics.intersectScissor(viewport.x, viewport.y, viewport.width, viewport.height)
+        return Renderer.drawObjects(objects, imageFor,
+            function(x, y) return viewport:worldToScreen(x, y) end, viewport.scale, ctx)
+    end)
     assert(ok, drawn)
     return ctx.drawn
 end

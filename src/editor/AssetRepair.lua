@@ -58,7 +58,15 @@ function Repair.usage(project, id, level, protectedIds)
     end
     for reference in pairs(project.assetMetadata) do
         if reference:match("%.prefab$") or reference:match("%.level$") or reference:match("%.lua$") then
-            local bytes = project:readAsset(reference)
+            local bytes, readError = project:readAsset(reference)
+            -- 사라진 등록 파일은 조사 대상에서 빼되, 다른 파일의 읽기 실패를 미사용으로 보지 않는다.
+            if not bytes then
+                local missing = false
+                for _, entry in ipairs(project.missingAssets or {}) do
+                    if entry.reference == reference then missing = true; break end
+                end
+                if not missing then return nil, "Cannot check asset references: " .. reference .. ": " .. tostring(readError) end
+            end
             if bytes and bytes:find(id, 1, true) then result[#result + 1] = reference end
         end
     end
@@ -77,7 +85,8 @@ function Repair.apply(project, request, level)
         if used[item.id] then return false, "Duplicate repair entry" end
         used[item.id] = true
         if item.delete then
-            local usages = Repair.usage(project, item.id, level, request.protectedIds)
+            local usages, usageError = Repair.usage(project, item.id, level, request.protectedIds)
+            if not usages then return false, usageError end
             if #usages > 0 then return false, "Asset is referenced by: " .. table.concat(usages, ", ") end
         else
             local allowed = false; for _, candidate in ipairs(row.candidates) do if candidate == item.target then allowed = true end end

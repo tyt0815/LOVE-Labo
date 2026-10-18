@@ -29,6 +29,8 @@ python scripts/updateGuideImages.py C:/Temp/LaboGuideCapture --only camera-detai
 
 ## 네이티브 에디터 창 검증
 
+네 모서리 각각에서 실제 포인터 누름·이동·해제로 Windows 크기 조절을 검증하고 `resizeDrags`에 가로·세로 변화량을 기록합니다. 검증 중 잠시 포인터를 이동하므로 대화형 Windows 데스크톱에서 실행하고 포인터를 조작하지 않습니다. 완료·실패 뒤 원래 포인터 위치와 테스트 창 크기를 복원합니다. 포인터 접근이 차단된 샌드박스·비대화형 세션에서는 이 검증을 수행할 수 없습니다.
+
 Windows 11에서는 둥근 모서리 설정과 최대화·복원 후 설정 유지도 확인하고 `roundedCornersSupported`에 지원 여부를 기록합니다. `editor.png`는 에디터 콘텐츠 캡처이며 운영체제가 합성하는 외곽 모서리는 포함하지 않습니다.
 
 다이얼로그가 열린 상태에서 창 제어 버튼의 우선 입력과 팝업 유지도 확인합니다. 크기 변경 후 `editor.png`를 현재 렌더링 크기로 저장하고, 저장된 PNG의 가로·세로 크기를 다시 검증합니다. SDL 크기뿐 아니라 실제 Windows 창 외곽과 클라이언트를 확인하며, 연결된 각 모니터에서 최대화·최소화 복원·재최대화 후 작업 표시줄 영역을 덮지 않는지 검사합니다. JSON의 `maximizedNativeBounds`·`maximizeTransitions`에 실제 외곽과 작업 영역을 기록합니다.

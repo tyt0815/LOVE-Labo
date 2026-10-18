@@ -426,7 +426,7 @@ function Cli.parse(args)
                     x = true, y = true, output = true, revision = true, request = true, result = true, value = true,
                     asset = true, destination = true, source = true, node = true, instances = true, input = true, mode = true,
                     event = true, button = true, dx = true, dy = true, ["events-json"] = true, width = true, height = true, space = true, script = true, index = true, frames = true, dt = true,
-                    size = true, background = true, platform = true}
+                    size = true, background = true, platform = true, ["step-dt"] = true}
                 assert(allowed[key], "Unknown option: " .. item)
                 assert(args[i + 1] and args[i + 1]:sub(1, 2) ~= "--", "Missing value for " .. item)
                 assert(request[key] == nil, "Duplicate option: " .. item)

@@ -32,9 +32,8 @@ function Pipeline.draw(world, image, x, y, width, height)
             local viewport = Pipeline.viewport(view, screen and x or 0, screen and y or 0,
                 screen and width or target.width, screen and height or target.height)
             if viewport then
-                love.graphics.push("all")
-                if texture then love.graphics.setCanvas(texture); target.writing = true end
-                local ok, result = pcall(function()
+                local ok, result = require("core.GraphicsScope").call(function()
+                    if texture then love.graphics.setCanvas(texture); target.writing = true end
                     love.graphics.origin()
                     local rect = viewport.outputRect
                     -- 타깃 전환 후에는 에디터 패널의 scissor가 텍스처 출력을 자르지 않아야 한다.
@@ -49,7 +48,6 @@ function Pipeline.draw(world, image, x, y, width, height)
                     return require("core.Renderer").drawWorld(world, image, viewport)
                 end)
                 if texture then target.writing = nil end
-                love.graphics.pop()
                 assert(ok, result)
                 for object, value in pairs(result) do drawn[object] = drawn[object] or value end
             end

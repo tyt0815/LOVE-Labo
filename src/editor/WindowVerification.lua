@@ -1,5 +1,102 @@
 local Verification = {}
 
+local POINTER_PROBE = [[
+    local channelName, x, y, dx, dy, handle = ...
+    require("love.timer")
+    local ffi = require("ffi")
+    ffi.cdef[=[
+        typedef struct {long dx; long dy; unsigned int data; unsigned int flags; unsigned int time; uintptr_t extra;} LaboMouseInput;
+        typedef struct {unsigned int type; union {LaboMouseInput mouse;} input;} LaboInput;
+        unsigned int __stdcall SendInput(unsigned int count, LaboInput *inputs, int size);
+        int __stdcall SetCursorPos(int x, int y);
+        int __stdcall PostMessageW(void *window, unsigned int message, uintptr_t wparam, intptr_t lparam);
+    ]=]
+    local user, channel = ffi.load("user32"), love.thread.getChannel(channelName)
+    local function button(flags)
+        local input = ffi.new("LaboInput[1]")
+        input[0].input.mouse.flags = flags
+        assert(user.SendInput(1, input, ffi.sizeof(input[0])) == 1, "Resize pointer injection failed")
+    end
+    local ok, err = pcall(function()
+        assert(user.SetCursorPos(x, y) ~= 0)
+        channel:push("positioned")
+        love.timer.sleep(0.15)
+        button(2)
+        channel:push("pressed")
+        love.timer.sleep(0.2)
+        user.SetCursorPos(x + dx / 2, y + dy / 2)
+        love.timer.sleep(0.1)
+        user.SetCursorPos(x + dx, y + dy)
+        love.timer.sleep(0.1)
+    end)
+    pcall(button, 4)
+    -- 네이티브 이동 루프가 실패한 경우에도 종료시켜 검증 프로세스가 멈추지 않게 한다.
+    user.PostMessageW(ffi.cast("void *", handle), 0x001F, 0, 0)
+    channel:push(ok and "released" or tostring(err))
+]]
+
+local function verifyResizeDrag(frame, report, check)
+    local ffi, user = require("ffi"), frame.user
+    ffi.cdef[[
+        typedef struct {long dx; long dy; unsigned int data; unsigned int flags; unsigned int time; uintptr_t extra;} LaboMouseInput;
+        typedef struct {unsigned int type; union {LaboMouseInput mouse;} input;} LaboInput;
+        unsigned int __stdcall SendInput(unsigned int count, LaboInput *inputs, int size);
+        int __stdcall GetCursorPos(LaboWindowPoint *point);
+        int __stdcall SetCursorPos(int x, int y);
+        int __stdcall SetForegroundWindow(void *window);
+    ]]
+    local cursor, position = ffi.new("LaboWindowPoint"), ffi.new("int[2]")
+    assert(user.GetCursorPos(cursor) ~= 0)
+    frame.native.SDL_GetWindowPosition(frame.window, position, position + 1)
+    local width, height = love.graphics.getDimensions()
+    user.SetForegroundWindow(frame.handle)
+    love.graphics.present()
+    love.event.pump()
+    local function button(flags)
+        local input = ffi.new("LaboInput[1]")
+        input[0].type, input[0].input.mouse.flags = 0, flags
+        assert(user.SendInput(1, input, ffi.sizeof(input[0])) == 1, "Could not inject resize pointer")
+    end
+    report.resizeDrags = {}
+    local ok, err = pcall(function()
+        check("native sizing style", require("bit").band(user.GetWindowLongW(frame.handle, -16), 0x00040000) ~= 0)
+        for _, corner in ipairs({{name = "top left", x = -24, y = -20, hit = 13},
+            {name = "top right", x = 24, y = -20, hit = 14},
+            {name = "bottom left", x = -24, y = 20, hit = 16},
+            {name = "bottom right", x = 24, y = 20, hit = 17}}) do
+            local before, after = ffi.new("LaboNativeRect"), ffi.new("LaboNativeRect")
+            assert(user.GetWindowRect(frame.handle, before) ~= 0)
+            local x = corner.x < 0 and before.left + 5 or before.right - 5
+            local y = corner.y < 0 and before.top + 5 or before.bottom - 5
+            local packed = require("bit").bor(require("bit").band(x, 65535), require("bit").lshift(require("bit").band(y, 65535), 16))
+            check(corner.name .. ": native corner hit", user.SendMessageW(frame.handle, 0x0084, 0, packed) == corner.hit)
+            -- Windows 크기 조절 루프가 주 스레드를 점유하므로 별도 스레드가 포인터를 이동·해제한다.
+            local channelName = "resize-" .. require("project.AssetId").new()
+            local channel = love.thread.getChannel(channelName)
+            local worker = love.thread.newThread(love.filesystem.newFileData(POINTER_PROBE, "WindowResizePointer.lua"))
+            worker:start(channelName, x, y, corner.x, corner.y, tonumber(ffi.cast("intptr_t", frame.handle)))
+            assert(channel:demand(3) == "positioned", worker:getError() or "Resize pointer positioning failed")
+            repeat love.event.pump(); love.timer.sleep(0.01) until not worker:isRunning()
+            worker:wait()
+            button(4)
+            check(corner.name .. ": resize pointer released", channel:pop() == "pressed" and channel:pop() == "released" and not worker:getError())
+            love.event.pump()
+            assert(user.GetWindowRect(frame.handle, after) ~= 0)
+            local deltaWidth = tonumber(after.right - after.left - (before.right - before.left))
+            local deltaHeight = tonumber(after.bottom - after.top - (before.bottom - before.top))
+            report.resizeDrags[#report.resizeDrags + 1] = {corner = corner.name, widthChange = deltaWidth, heightChange = deltaHeight}
+            check(corner.name .. ": pointer drag resizes native window", deltaWidth == 24 and deltaHeight == 20)
+        end
+    end)
+    -- 검증이 실패해도 포인터와 테스트 창의 원래 위치·크기를 복원한다.
+    button(4)
+    frame.native.SDL_SetWindowPosition(frame.window, position[0], position[1])
+    frame.native.SDL_SetWindowSize(frame.window, width, height)
+    user.SetCursorPos(cursor.x, cursor.y)
+    love.event.pump()
+    assert(ok, err)
+end
+
 function Verification.run(args)
     local Fs, Json = require("editor.HostFileSystem"), require("project.Json")
     local directory
@@ -60,6 +157,7 @@ function Verification.run(args)
         check("native resize callback", Frame.callback(Frame.window, point, nil) == 9)
         point.x, point.y = 975, 16
         check("window buttons excluded from drag", Frame.callback(Frame.window, point, nil) == 0)
+        verifyResizeDrag(Frame, report, check)
         local controls = app.menuBar.windowControls
         local popup = require("editor.ui.Dialog").new(app.uiRoot, {title = "Window control verification", onConfirm = function() return true end})
         local function press(index)

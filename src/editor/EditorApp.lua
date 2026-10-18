@@ -952,21 +952,21 @@ function EditorApp:initializeUI()
                 return true, self:gameCaptureButton(button) ~= nil
             end
             if button == 1 or button == 2 then self.inspectorSource = "scene" end
-            self.sceneView:mousepressed(x, y, button)
+            self.sceneView:interact("mousepressed", x, y, button)
             return true, self.sceneView.isPanning or self.sceneView.isDraggingLObject or self.sceneView.marquee ~= nil or self.sceneView.pointerDrag ~= nil
         end,
         mousemoved = function(_, x, y, dx, dy)
             if self:isGameControlling() then self:handleGamePointer("move", x, y, 1, dx, dy)
-            else self.sceneView:mousemoved(x, y, dx, dy) end
+            else self.sceneView:interact("mousemoved", x, y, dx, dy) end
             return true
         end,
         mousereleased = function(_, x, y, button)
             if self:isGameControlling() then self:handleGamePointer("up", x, y, button)
-            else self.sceneView:mousereleased(x, y, button) end
+            else self.sceneView:interact("mousereleased", x, y, button) end
             return true
         end,
         wheelmoved = function(_, _, _, amount)
-            if self:canExplore() then self.sceneView:wheelmoved(0, amount) end
+            if self:canExplore() then self.sceneView:interact("wheelmoved", 0, amount) end
             return true
         end,
         keypressed = function(_, key) return self:handleSceneKey(key) end,
@@ -1012,7 +1012,11 @@ function EditorApp:initializeUI()
         keypressed = function(_, key) return self:handleSceneKey(key) end
     })
     self.hierarchy.sceneView = self.sceneView
-    self.sceneView.onError = function(err) self.hierarchy.error = err end
+    self.sceneView.onError = function(err)
+        self.hierarchy.error = err
+        self.hierarchy.drag = nil
+        self.uiRoot.captured, self.uiRoot.captureButton = nil, nil
+    end
     self.hierarchyWidget = hierarchy
     self.hierarchy.project = self.project
     self.hierarchy.onLocatePrefab = function(reference) return self.assetBrowser:reveal(reference) end
@@ -1088,7 +1092,7 @@ function EditorApp:initializeUI()
                 return inspector.objectTree:reveal(object.path)
             end
             for _, object in ipairs((self.runtimeScene or self.level).lobjects) do
-                if object.authoringId == value then self.sceneView:frameLObject(object); self.sceneView.ping = {object = object, remaining = 1.5}; return true end
+                if object.authoringId == value then self.sceneView:interact("frameLObject", object); self.sceneView.ping = {object = object, remaining = 1.5}; return true end
             end
             return false, "Referenced instance was not found"
         end
@@ -1400,7 +1404,7 @@ function EditorApp:pickReferenceAt(x, y)
         end
     elseif self.hierarchy:containsPoint(x, y) then object = self.hierarchy:getLObjectAtPosition(x, y)
     elseif self.sceneView:containsPoint(x, y) and not self.viewportControls:containsPoint(x, y) then
-        object = self.sceneView:findLObjectAtWorldPosition(self.sceneView:screenToWorld(x, y))
+        object = self.sceneView:interact("findLObjectAtWorldPosition", self.sceneView:screenToWorld(x, y))
     end
     if not reference and not object then return end
     local pick, inspector = self.objectPick, self.inspector.classInspector
@@ -1548,10 +1552,10 @@ function EditorApp:handleSceneKey(key)
     local controlDown = love.keyboard.isDown("lctrl", "rctrl")
     local x, y = love.mouse.getPosition()
     local usesMousePosition = key == "d" and controlDown
-    if usesMousePosition and self.activePanel == "hierarchy" then self.sceneView:duplicateSelection(); return true end
+    if usesMousePosition and self.activePanel == "hierarchy" then self.sceneView:interact("duplicateSelection"); return true end
     if usesMousePosition and not self.sceneView:containsPoint(x, y) then return true end
     if usesMousePosition and self.viewportControls:containsPoint(x, y) then return true end
-    self.sceneView:keypressed(key, controlDown, x, y)
+    self.sceneView:interact("keypressed", key, controlDown, x, y)
     if key == "escape" then self.uiRoot:cancelCapture(); self.hierarchy.drag = nil end
     if not self.sceneView.isDraggingLObject and not self.sceneView.isPanning and self.uiRoot.captured == self.sceneWidget then self.uiRoot.captured, self.uiRoot.captureButton = nil, nil end
     return true
@@ -1598,7 +1602,7 @@ function EditorApp:showObjectMenu(x, y, object)
     if self.runtimeScene then
         require("editor.ui.ContextMenu").new(self.uiRoot):show(x, y, {
             {label = "Delete Runtime Object", enabled = object ~= nil, action = function() self.inspector:cancelEdit(); self.sceneView:deleteSelection() end},
-            {label = "Frame Selection", enabled = object ~= nil, action = function() self.sceneView:frameSelected() end},
+            {label = "Frame Selection", enabled = object ~= nil, action = function() self.sceneView:interact("frameSelected") end},
             {label = "Select All", action = function() self.sceneView:setSelection(self.runtimeScene.lobjects) end}})
         return
     end
@@ -1619,10 +1623,10 @@ function EditorApp:showObjectMenu(x, y, object)
             self.sceneView:setSelection({child})
         end) end},
         {label = "Rename", shortcut = "F2", enabled = object ~= nil, action = function() self:renameObject(object) end},
-        {label = "Duplicate", shortcut = "Ctrl+D", enabled = enabled, action = function() edit(function() self.sceneView:duplicateSelection() end) end},
+        {label = "Duplicate", shortcut = "Ctrl+D", enabled = enabled, action = function() edit(function() self.sceneView:interact("duplicateSelection") end) end},
         {label = "Create Prefab...", enabled = object ~= nil and require("project.PrefabHierarchy").canLinkCapture(object), action = function() self:showCreatePrefabDialog(object) end},
         {label = "Delete", shortcut = "Delete", enabled = editable, action = function() edit(function() self.sceneView:deleteSelection() end) end},
-        {label = "Frame Selection", shortcut = "F", enabled = enabled, action = function() self.sceneView:frameSelected() end},
+        {label = "Frame Selection", shortcut = "F", enabled = enabled, action = function() self.sceneView:interact("frameSelected") end},
         {label = "Detach from Parent", enabled = editable and attached, action = function() edit(function()
             local ok, err = self.level:reparent(self.sceneView:getSelection(), nil); self.hierarchy.error = not ok and err or nil
         end) end},

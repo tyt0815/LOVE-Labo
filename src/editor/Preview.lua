@@ -59,11 +59,10 @@ function Preview:release()
 end
 function Preview:draw(rect, background)
     local color = assert(Preview.color(background or self.background))
-    love.graphics.push("all")
-    love.graphics.intersectScissor(rect.x, rect.y, rect.w, rect.h)
-    love.graphics.setColor(color[1] / 255, color[2] / 255, color[3] / 255, 1)
-    love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h)
-    local ok, drawn = pcall(function()
+    local ok, drawn = require("core.GraphicsScope").call(function()
+        love.graphics.intersectScissor(rect.x, rect.y, rect.w, rect.h)
+        love.graphics.setColor(color[1] / 255, color[2] / 255, color[3] / 255, 1)
+        love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h)
         if self.image then
             local width, height = self.image:getDimensions()
             local scale = math.min(rect.w / width, rect.h / height) * 0.9
@@ -92,7 +91,6 @@ function Preview:draw(rect, background)
         return require("core.Renderer").drawObjects(self.objects, function(ref) return self:getImage(ref) end,
             function(x, y) return rect.x + rect.w / 2 + (x - centerX) * scale, rect.y + rect.h / 2 + (y - centerY) * scale end, scale, ctx)
     end)
-    love.graphics.pop()
     if not ok then return false, tostring(drawn) end
     return drawn
 end
@@ -100,11 +98,12 @@ function Preview:png(path, size, background)
     local color, colorError = Preview.color(background or self.background)
     if not color then return false, colorError end
     size = size or 256
-    local previous = love.graphics.getCanvas()
     local canvas = love.graphics.newCanvas(size, size)
-    love.graphics.push("all"); love.graphics.setCanvas(canvas); love.graphics.origin(); love.graphics.setScissor(); love.graphics.clear(0, 0, 0, 0)
-    local drawn, err = self:draw({x = 0, y = 0, w = size, h = size}, color)
-    love.graphics.setCanvas(previous); love.graphics.pop()
+    local ok, drawn, err = require("core.GraphicsScope").call(function()
+        love.graphics.setCanvas(canvas); love.graphics.origin(); love.graphics.setScissor(); love.graphics.clear(0, 0, 0, 0)
+        return self:draw({x = 0, y = 0, w = size, h = size}, color)
+    end)
+    if not ok then canvas:release(); return false, tostring(drawn) end
     if not drawn then canvas:release(); return false, err or "No visual content" end
     local data = canvas:newImageData(); local file = data:encode("png")
     local written, writeError = Fs.writeAtomic(path, file:getString())
