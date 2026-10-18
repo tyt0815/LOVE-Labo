@@ -1,4 +1,5 @@
 local tests = {}
+for _, test in ipairs(require("tests.version")) do tests[#tests + 1] = test end
 for _, test in ipairs(require("tests.reviewFixes")) do tests[#tests + 1] = test end
 for _, test in ipairs(require("tests.playTools")) do tests[#tests + 1] = test end
 for _, test in ipairs(require("tests.editorBoundaries")) do tests[#tests + 1] = test end

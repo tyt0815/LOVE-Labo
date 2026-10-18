@@ -26,7 +26,7 @@ Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 # 배포 대상 목록을 명시하여 테스트·샘플 프로젝트·문서를 제외한다.
-$taskFiles = @('main.lua', 'conf.lua', 'Engine.lua')
+$taskFiles = @('main.lua', 'conf.lua', 'Engine.lua', 'Version.lua')
 foreach ($taskFolder in @('core', 'editor', 'project', 'runtime', 'Engine')) {
     $taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskSource $taskFolder) -Recurse -File -Filter '*.lua' |
         ForEach-Object { $_.FullName.Substring($taskSource.Length + 1).Replace('\', '/') }
@@ -36,9 +36,22 @@ $taskFiles += @('editor/fonts/NanumSquareRoundR.ttf', 'editor/fonts/NanumSquareR
 $taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskSource 'plugins') -Recurse -File |
     ForEach-Object { $_.FullName.Substring($taskSource.Length + 1).Replace('\', '/') }
 $taskTemporaryArchive = Join-Path $taskOutput ('archive-' + [guid]::NewGuid().ToString('N') + '.tmp')
+# Git 정보는 실행 파일 내부에만 기록하며 소스 파일은 변경하지 않는다.
+$taskBuildInfo = 'return {}'
+if ((Get-Command git -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath (Join-Path $taskRoot '.git'))) {
+    $taskRevision = git -C $taskRoot rev-parse --short=12 HEAD
+    if ($LASTEXITCODE -ne 0 -or $taskRevision -notmatch '^[0-9a-f]{12,40}$') { throw 'Cannot read Git revision.' }
+    $taskGitStatus = git -C $taskRoot status --porcelain --untracked-files=normal
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot read Git working tree status.' }
+    $taskDirty = if ($taskGitStatus) { 'true' } else { 'false' }
+    $taskBuildInfo = 'return {revision = "' + $taskRevision + '", dirty = ' + $taskDirty + '}'
+}
 try {
     $taskArchive = [IO.Compression.ZipFile]::Open($taskTemporaryArchive, [IO.Compression.ZipArchiveMode]::Create)
     try {
+        $taskBuildEntry = $taskArchive.CreateEntry('BuildInfo.lua')
+        $taskBuildWriter = New-Object IO.StreamWriter($taskBuildEntry.Open(), (New-Object Text.UTF8Encoding($false)))
+        try { $taskBuildWriter.Write($taskBuildInfo) } finally { $taskBuildWriter.Dispose() }
         foreach ($taskRelative in ($taskFiles | Sort-Object -Unique)) {
             [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive,
                 (Join-Path $taskSource $taskRelative), $taskRelative, [IO.Compression.CompressionLevel]::Optimal) | Out-Null

@@ -63,6 +63,15 @@ level.view는 projection·views와 instances의 authoredTransform·유효 worldT
 
 ## 기본 사용
 
+엔진 버전은 프로젝트를 지정하지 않고 조회할 수 있습니다.
+
+```powershell
+love src --cli version
+Labo-cli.exe --cli version --result D:/Temp/labo-version.json
+```
+
+결과의 `engineVersion`은 엔진 번호, `displayVersion`은 빌드 정보를 포함한 표시입니다. 패키징 환경에 Git 정보가 있으면 `revision`·`dirty`도 반환합니다. 예를 들어 `0.1.0-dev+123456abcdef.dirty`는 해당 커밋에 미커밋 변경이 포함된 개발 빌드입니다. 바깥쪽 `version:1`은 CLI 응답 스키마 번호입니다. `--result`의 부모 폴더는 먼저 만들어 두세요.
+
 개발판은 `love src --cli ...`, 배포판은 `Labo-cli.exe --cli ...`를 사용합니다. stdout은 JSON이며 실패는 `ok:false`와 오류를 반환합니다. `--result <파일>`을 지정하면 같은 응답을 파일에도 저장합니다. 결과 인코딩·파일 저장까지 성공해야 종료 코드 0이며 실패하면 stdout에 실패 JSON 한 개와 종료 코드 1을 반환합니다. 결과 파일의 부모 폴더는 먼저 만들어 두세요. `--request <UTF-8 JSON 파일>`로 배열·복잡한 값을 전달할 수 있습니다. 참조는 에셋 ID 또는 Assets 경로, 기본 레벨은 project.labo의 지정값입니다.
 
 ```powershell
@@ -81,6 +90,7 @@ Labo-cli.exe --cli export --project D:/Games/MyGame --output D:/Games/MyGame/Bui
 
 | 명령 | 용도·주요 인자 |
 |---|---|
+| version | 프로젝트 없이 엔진 버전·패키징 시 Git 해시·미커밋 변경 여부 조회 |
 | project create/info/set-default/validate | 생성, 정보, 기본 --level, 전체 검증 |
 | project refresh/repair-plan | 목록 갱신, 끊어진 등록·추천 대상·미등록 후보·revision 조회 |
 | project repair | JSON 요청 revision과 changes[{id,target}] 또는 [{id,delete:true}]로 선택 적용 |

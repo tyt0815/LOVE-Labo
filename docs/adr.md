@@ -117,3 +117,5 @@
 - [0097. 가벼운 성능 기록과 이동 가능한 내부 창](adr/0097-lightweight-performance-recording.md)
 
 - [0098. 편집 실패 경계·Prefab 배치와 네이티브 크기 조절 보완](adr/0098-editor-failure-scopes-and-native-resize.md)
+
+- [0099. 엔진 버전 원본과 배포 계열 브랜치](adr/0099-engine-versioning-and-branches.md)

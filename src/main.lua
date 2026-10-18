@@ -59,6 +59,7 @@ function love.load(args)
         return
     end
 
+    print("LÖVE Labo " .. require("Version").getInfo().displayVersion)
     require("editor.WindowFrame").install()
 
     local ProjectStart = require("editor.ProjectStart")
@@ -67,7 +68,7 @@ function love.load(args)
         local ok, editor = pcall(require("editor.EditorApp").new, nil, project, {snapSettings = Settings.load(), saveSnapSettings = Settings.save})
         if not ok then return false, tostring(editor) end
         app = editor
-        love.window.setTitle("LOVE Labo - " .. project.name)
+        love.window.setTitle("LÖVE Labo " .. require("Version").getInfo().displayVersion .. " - " .. project.name)
         return true
     end)
     require("editor.Startup").openRequestedProject(args, app, love.filesystem.getWorkingDirectory())

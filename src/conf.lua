@@ -7,7 +7,7 @@ function love.conf(t)
     -- Windows에서도 테스트 출력과 Lua 오류를 보기 쉽게 한다.
     t.console = cli or not love.filesystem.isFused()
 
-    t.window.title = "LÖVE Labo"
+    t.window.title = "LÖVE Labo " .. require("Version").getInfo().displayVersion
     t.window.width = 1920
     t.window.height = 1080
     t.window.resizable = true

@@ -22,7 +22,7 @@ function ProjectStart.new(onOpen, selectFolder, options)
         replace = true, error = nil, selectFolder = selectFolder or FolderDialog.selectFolder
     }, ProjectStart)
     self.windowControls = require("editor.ui.WindowControls").new()
-    love.window.setTitle("LÖVE Labo - Project Browser")
+    love.window.setTitle("LÖVE Labo " .. require("Version").getInfo().displayVersion .. " - Project Browser")
     self:setPath(love.filesystem.getUserDirectory())
     return self
 end

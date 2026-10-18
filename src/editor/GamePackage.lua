@@ -38,6 +38,8 @@ function GamePackage.write(project, level, output, options)
         end
     end
     add("Engine.lua", assert(love.filesystem.read("Engine.lua")))
+    add("Version.lua", assert(love.filesystem.read("Version.lua")))
+    add("BuildInfo.lua", assert(love.filesystem.read("BuildInfo.lua")))
     if options.cliEntry then
         add("main.lua", [[love.load = require("runtime.CliHost").run
 love.errorhandler = function(message)

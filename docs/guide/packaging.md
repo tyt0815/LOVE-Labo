@@ -25,6 +25,8 @@ PowerShell과 LÖVE 11.5 Windows 런타임이 필요하다. 저장소 루트에�
 
 ## 실행과 설정
 
+엔진 버전은 `src/Version.lua`에서 관리합니다. 패키징은 소스를 수정하지 않고 실행 파일 내부에 Git 커밋 해시·미커밋 변경 여부를 기록하며, `Labo-cli.exe --cli version`으로 확인합니다. 운영체제 창 제목과 일반 에디터 시작 콘솔 출력도 같은 버전을 사용합니다. 커스텀 메뉴바에는 창 제목을 별도로 그리지 않습니다. 게임 Export에는 제작 엔진의 Version·BuildInfo 모듈이 함께 들어갑니다. 프로젝트 Lua에서도 `require("Version").getInfo()`로 `engineVersion`·`displayVersion`을 조회할 수 있습니다. 게임 자체의 버전과는 별개입니다. 버전 증가·브랜치·배포 기록 규칙은 [유지보수 안내](maintenance.md)를 참고하세요.
+
 ```powershell
 .\build\windows\Labo.exe
 .\build\windows\Labo.exe --project 'D:\Games\MyProject'

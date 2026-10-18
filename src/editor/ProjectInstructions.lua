@@ -1,4 +1,4 @@
-local Instructions = {version = "development", documentationUrl = "https://tyt0815.github.io/LOVE-Labo/"}
+local Instructions = {version = require("Version").getInfo().displayVersion, documentationUrl = "https://tyt0815.github.io/LOVE-Labo/"}
 function Instructions.files()
     return {
         {name = "AGENTS.md", text = [[# LÖVE Labo 프로젝트 AI 작업 지침
@@ -13,7 +13,7 @@ function Instructions.files()
 - Prefab에서 스크립트를 추가·제거·정렬한다. 배치 인스턴스에도 로컬 스크립트를 추가한다. 상속한 오브젝트·스크립트의 구조는 고정하고 값만 재정의한다.
 - 클래스·파일 이름은 PascalCase, 변수·함수는 camelCase, 상수는 UPPER_SNAKE_CASE, 들여쓰기는 공백 4칸이다.
 ]]},
-        {name = "Docs/EngineGuide.md", text = [[# LÖVE Labo 로컬 핵심 안내
+        {name = "Docs/EngineGuide.md", text = "# LÖVE Labo 로컬 핵심 안내\n\n생성 엔진: LÖVE Labo " .. Instructions.version .. "\n" .. [[
 
 공식 문서: https://tyt0815.github.io/LOVE-Labo/ — 개발 버전의 실제 CLI help와 함께 확인한다.
 

@@ -92,8 +92,10 @@ for _, scope in ipairs({"project", "level"}) do
         COMMANDS[#COMMANDS + 1] = scope .. ".script." .. action
     end
 end
+COMMANDS[#COMMANDS + 1] = "version"
 local function execute(request, cleanups)
     local command = required(request, "command")
+    if command == "version" then return require("Version").getInfo() end
     if command:match("^script%.") and command ~= "script.open" then
         local normalized = {}; for key, value in pairs(request) do normalized[key] = value end
         normalized.command = command:gsub("^script%.", "class.")
@@ -394,7 +396,7 @@ local function execute(request, cleanups)
 end
 
 function Cli.execute(request)
-    if request.command == "project.create" or request.command == "help" then return execute(request) end
+    if request.command == "project.create" or request.command == "help" or request.command == "version" then return execute(request) end
     local directory = absolute(required(request, "project"))
     local lock = Fs.join(directory, ".labo-cli.lock")
     local acquired, err = Fs.createFile(lock, "Cli operation in progress\n")
