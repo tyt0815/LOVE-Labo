@@ -35,26 +35,29 @@ $taskFiles += @('editor/fonts/NanumSquareRoundR.ttf', 'editor/fonts/NanumSquareR
 # 제공 플러그인은 Lua 외의 매니페스트·목록·에셋도 같은 경로로 포함한다.
 $taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskSource 'plugins') -Recurse -File |
     ForEach-Object { $_.FullName.Substring($taskSource.Length + 1).Replace('\', '/') }
-$taskArchivePath = Join-Path $taskOutput 'Labo.love'
 $taskTemporaryArchive = Join-Path $taskOutput ('archive-' + [guid]::NewGuid().ToString('N') + '.tmp')
-$taskArchive = [IO.Compression.ZipFile]::Open($taskTemporaryArchive, [IO.Compression.ZipArchiveMode]::Create)
 try {
-    foreach ($taskRelative in ($taskFiles | Sort-Object -Unique)) {
-        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive,
-            (Join-Path $taskSource $taskRelative), $taskRelative, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
-    }
-} finally { $taskArchive.Dispose() }
-Move-Item -LiteralPath $taskTemporaryArchive -Destination $taskArchivePath -Force
-
-# 셸의 문자열 변환 없이 실행 파일과 ZIP을 바이트 스트림으로 결합한다.
-foreach ($taskLauncher in @(@('love.exe', 'Labo.exe'), @('lovec.exe', 'Labo-cli.exe'))) {
-    $taskStream = [IO.File]::Create((Join-Path $taskOutput $taskLauncher[1]))
+    $taskArchive = [IO.Compression.ZipFile]::Open($taskTemporaryArchive, [IO.Compression.ZipArchiveMode]::Create)
     try {
-        foreach ($taskPart in @((Join-Path $taskLove $taskLauncher[0]), $taskArchivePath)) {
-            $taskInput = [IO.File]::OpenRead($taskPart)
-            try { $taskInput.CopyTo($taskStream) } finally { $taskInput.Dispose() }
+        foreach ($taskRelative in ($taskFiles | Sort-Object -Unique)) {
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive,
+                (Join-Path $taskSource $taskRelative), $taskRelative, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
         }
-    } finally { $taskStream.Dispose() }
+    } finally { $taskArchive.Dispose() }
+
+    # 셸의 문자열 변환 없이 실행 파일과 ZIP을 바이트 스트림으로 결합한다.
+    foreach ($taskLauncher in @(@('love.exe', 'Labo.exe'), @('lovec.exe', 'Labo-cli.exe'))) {
+        $taskStream = [IO.File]::Create((Join-Path $taskOutput $taskLauncher[1]))
+        try {
+            foreach ($taskPart in @((Join-Path $taskLove $taskLauncher[0]), $taskTemporaryArchive)) {
+                $taskInput = [IO.File]::OpenRead($taskPart)
+                try { $taskInput.CopyTo($taskStream) } finally { $taskInput.Dispose() }
+            }
+        } finally { $taskStream.Dispose() }
+    }
+} finally {
+    # 결합에만 사용하는 ZIP은 성공·실패 여부와 관계없이 정리한다.
+    if (Test-Path -LiteralPath $taskTemporaryArchive) { Remove-Item -LiteralPath $taskTemporaryArchive -Force }
 }
 # 게임·CLI Export에서 재결합할 원본 launcher를 함께 제공한다.
 foreach ($taskRawLauncher in @('love.exe', 'lovec.exe')) {
@@ -79,9 +82,11 @@ Get-ChildItem -LiteralPath (Join-Path $taskSource 'editor/themes') -Filter '*.js
     if (-not (Test-Path -LiteralPath $taskThemePath)) { Copy-Item -LiteralPath $_.FullName -Destination $taskThemePath }
 }
 
-$taskManifest = @{ version = 1; loveVersion = '11.5'; files = @($taskFiles | Sort-Object -Unique); executable = 'Labo.exe' }
-$taskUtf8 = New-Object Text.UTF8Encoding($false)
-[IO.File]::WriteAllText((Join-Path $taskOutput 'package-manifest.json'), ($taskManifest | ConvertTo-Json -Depth 4), $taskUtf8)
+# 이전 패키징 버전에서 남긴 중간 산출물만 제거하고 사용자 파일은 보존한다.
+foreach ($taskObsolete in @('Labo.love', 'package-manifest.json')) {
+    $taskObsoletePath = Join-Path $taskOutput $taskObsolete
+    if (Test-Path -LiteralPath $taskObsoletePath -PathType Leaf) { Remove-Item -LiteralPath $taskObsoletePath -Force }
+}
 Write-Output "Packaged: $taskExecutable"
 
 if ($verify) {

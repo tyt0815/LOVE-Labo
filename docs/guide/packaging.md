@@ -18,12 +18,10 @@ PowerShell과 LÖVE 11.5 Windows 런타임이 필요하다. 저장소 루트에�
 - `build/windows/Labo-cli.exe`: 같은 에디터 패키지의 콘솔 실행 파일. `--cli`에서 창 없이 JSON을 반환한다.
 - `build/windows/love.exe`, `lovec.exe`: 게임·게임 CLI Export에 재사용하는 원본 런처. Labo.exe·Labo-cli.exe와 별개이며 함께 배포합니다.
 - `build/windows/*.dll`: 같은 LÖVE 배포판의 런타임 라이브러리
-- `build/windows/Labo.love`: 실행 파일 생성에 사용한 ZIP 패키지
 - `build/windows/settings.json`, `themes/*.json`: 외부에서 수정 가능한 설정·테마
 - `build/windows/license-love.txt`, `license-fonts.txt`: 런타임·폰트 라이선스
-- `build/windows/package-manifest.json`: 패키지에 포함된 파일 목록
 
-`Labo.exe` 단독 대신 `build/windows` 폴더를 함께 배포한다. `.love`는 중간 결과물이므로 Windows 실행 파일 배포에는 생략해도 된다. 테스트·샘플 프로젝트·개발 문서는 패키지에 들어가지 않는다. 에디터·Core Lua, 클래스 템플릿, 폰트는 패키지에 들어가며 Lua 원문을 바이너리로 컴파일하거나 암호화하지 않는다.
+`Labo.exe` 단독 대신 `build/windows` 폴더를 함께 배포한다. 결합용 ZIP은 성공·실패 시 자동 삭제하며, 이전 빌드의 `Labo.love`와 `package-manifest.json`도 다시 패키징할 때 제거한다. 사용자 파일은 자동 삭제하지 않는다. 테스트·샘플 프로젝트·개발 문서는 패키지에 들어가지 않는다. 에디터·Core Lua, 클래스 템플릿, 폰트는 패키지에 들어가며 Lua 원문을 바이너리로 컴파일하거나 암호화하지 않는다.
 
 ## 실행과 설정
 
