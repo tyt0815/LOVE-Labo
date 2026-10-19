@@ -11,6 +11,7 @@ function Instructions.files()
 - GUI에서 연 문서를 저장한 뒤 CLI로 수정한다. CLI 변경은 GUI Undo에 포함되지 않는다.
 - LObject는 Transform과 자손 계층을 소유한다. 같은 Script를 Project·Level·Object에 여러 개 부착하며 self.owner는 해당 등록 대상이다. getProject/getWorld로 실행 범위에 접근한다.
 - Prefab에서 스크립트를 추가·제거·정렬한다. 배치 인스턴스에도 로컬 스크립트를 추가한다. 상속한 오브젝트·스크립트의 구조는 고정하고 값만 재정의한다.
+- 설정 간 의존성이 있는 프로퍼티는 enabledIf를 적극 활용해 Inspector에서 유효한 조합만 편집하도록 한다. 예: speed = {type = "number", default = 100, enabledIf = {useMovement = true}}. 같은 스크립트 부착의 boolean·number·string 프로퍼티와 비교하며 여러 조건은 모두 일치해야 한다. 비활성 필드는 값을 보존한다. Inspector 편집만 제한하므로 게임 실행 조건은 Lua 로직에서 별도로 처리한다.
 - 클래스·파일 이름은 PascalCase, 변수·함수는 camelCase, 상수는 UPPER_SNAKE_CASE, 들여쓰기는 공백 4칸이다.
 ]]},
         {name = "Docs/EngineGuide.md", text = "# LÖVE Labo 로컬 핵심 안내\n\n생성 엔진: LÖVE Labo " .. Instructions.version .. "\n" .. [[
@@ -29,6 +30,7 @@ world.debug:log/screenLog/point/line/circle/rect/polygon은 Editor Play에서만
 self는 스크립트이며 self.owner.transform, self.owner:getScriptByName(name), getScriptById(id), getScriptByClass(class), getScriptsByClass(class)로 오브젝트·다른 스크립트를 사용한다.
 일반 Lua 필드는 Inspector에 노출되지 않는다. properties에 number/string/boolean/object/script/image/prefab를 선언한다.
 group으로 프로퍼티를 묶는다. object 참조는 authoringId, script 참조는 {authoringId=ID, script="부착ID"}로 저장한다.
+설정 간 의존성이 있으면 enabledIf = {useMovement = true}처럼 같은 부착의 다른 boolean·number·string 프로퍼티 값과 비교해 Inspector 편집을 제한한다. 모든 조건이 일치할 때 활성화되며 비활성 상태에서도 값은 보존한다. 런타임 동작과 CLI 할당은 제한하지 않으므로 실행 조건은 Lua에서 구현한다.
 
 require("Engine")은 LObject, Script와 공간·바운드 API를 제공한다. Camera, View, Sprite, Pointer, RectBounds, Canvas, RectLayout, Text는 LaboEssentials를 활성화한 경우에만 제공된다. 새 부착에는 RectBounds를 사용하며 기존 Rect 별칭은 읽기 호환성을 유지한다.
 사용자·플러그인 부모 상속은 extends에 에셋 UUID를 지정한다. 브라우저 우클릭 Copy ID는 파일 ID이고 Inspector Copy ID는 부착 ID다. 기반 Script는 extends를 생략한다. 기존 공개 이름은 읽기 호환이다. 다른 폴더의 동명 스크립트는 허용한다.

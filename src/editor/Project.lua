@@ -116,6 +116,19 @@ function Project.create(parentPath, name)
         createdDirectories[#createdDirectories + 1] = directory
     end
     local files = {{path = fs.join(root, "conf.lua"), text = require("editor.GameConfig").template(name)},
+        {path = fs.join(root, ".gitignore"), text = [[# 배포 빌드 출력 (다른 출력 경로를 사용하면 여기에 추가한다)
+/[Bb]uild/
+
+# 에디터 캐시·진단과 임시 에셋 작업 기록
+/.labo/
+/asset-index.json
+/asset-move.json
+
+# 운영체제가 생성하는 파일
+.DS_Store
+Thumbs.db
+desktop.ini
+]]},
         {path = fs.join(root, "Tools/Build.lua"), text = require("editor.BuildTemplate").text},
         {path = fs.join(root, Project.FILE_NAME), text = text},
         {path = fs.join(root, "plugins.json"), text = assert(Json.encode({version = 1, enabled = Json.array({})}, true))}}

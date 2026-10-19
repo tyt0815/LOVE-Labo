@@ -6,7 +6,7 @@ Camera·Sprite·Pointer·RectBounds·Canvas를 사용하려면 먼저 [플러그
 LÖVE Labo는 LÖVE 11.5 기반 2D 작업 환경입니다. 개발 실행은 `love src`, 배포본은 Labo.exe를 사용합니다.
 
 1. **Project Browser**의 **New Project** 카드를 누르고 하단에서 이름과 부모 폴더를 지정한 뒤 **Create**를 누릅니다. **Browse**로 부모 폴더를 고를 수 있으며 기존 폴더는 덮어쓰지 않습니다.
-2. 프로젝트에는 Assets, AGENTS.md, Docs/EngineGuide.md를 만듭니다. 처음에는 아직 저장하지 않은 빈 레벨을 표시합니다.
+2. 프로젝트에는 Assets, AGENTS.md, Docs/EngineGuide.md와 `.gitignore`를 만듭니다. `.gitignore`는 루트 `Build/`·`build/`, `.labo/` 캐시·진단, 임시 `asset-index.json`·`asset-move.json`과 운영체제 생성 파일을 제외합니다. 다른 폴더에 빌드를 출력하면 해당 경로를 직접 추가하세요. Assets, 프로젝트 설정과 `assets.json`의 에셋 ID는 저장소에 함께 보관합니다. 기존 프로젝트를 열 때는 `.gitignore`나 AI 안내를 생성·덮어쓰지 않습니다. 처음에는 아직 저장하지 않은 빈 레벨을 표시합니다.
 3. File → New → Level로 레벨을 만듭니다. 빈 레벨이 생성됩니다. 화면 출력에는 Camera와 View 스크립트를 부착하고 View.cameraSource를 연결합니다. [카메라 설정](camera-ui.md)을 참고하세요.
 4. File → New → Lua Class에서 Script를 부모로 골라 행동 코드를 작성합니다.
 5. Prefab을 만들고 Add Script로 행동과 Sprite를 부착합니다. image 스포이드로 이미지를 지정합니다.

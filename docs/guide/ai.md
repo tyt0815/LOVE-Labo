@@ -2,6 +2,8 @@
 
 새 프로젝트의 AGENTS.md와 Docs/EngineGuide.md를 먼저 읽고 이 가이드와 설치된 CLI help를 확인합니다. 웹 문서와 설치 버전의 API가 다르면 해당 버전의 로컬 안내와 실제 API를 기준으로 합니다.
 
+설정 간 의존성이 있는 프로퍼티는 `enabledIf = {useMovement = true}`처럼 [조건부 편집](lua-api.md)을 적극 활용합니다. 같은 스크립트 부착의 boolean·number·string 프로퍼티 값을 비교하며 모든 조건이 일치해야 편집할 수 있습니다. 비활성 필드의 값은 보존하고, 게임 실행 조건은 Lua 로직에서 별도로 처리합니다.
+
 모든 콘텐츠는 Assets에 둡니다. Lua 파일은 스크립트이며 Prefab이 생성할 오브젝트 계층·스크립트 구성을 저장합니다. 엔진 코어를 직접 수정하지 않고 공개 Lua API와 CLI를 사용합니다. assets.json의 ID는 파일 이동에도 유지합니다.
 
 ```powershell

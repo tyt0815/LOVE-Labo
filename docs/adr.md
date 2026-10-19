@@ -121,3 +121,5 @@
 - [0099. 엔진 버전 원본과 배포 계열 브랜치](adr/0099-engine-versioning-and-branches.md)
 
 - [0100. 선언적인 조건으로 Inspector 프로퍼티 편집을 제한한다](adr/0100-conditional-property-editing.md)
+
+- [0101. 새 프로젝트에 경로 기반 Git 제외 규칙을 제공한다](adr/0101-new-project-gitignore.md)

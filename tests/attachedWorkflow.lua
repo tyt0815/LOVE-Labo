@@ -51,8 +51,16 @@ add("New project has one Assets root and generated instructions preserve user ed
     fixture(function(project)
         Assert.truthy(Fs.info(Fs.join(project.rootPath, "Assets"))); Assert.equal(nil, Fs.info(Fs.join(project.rootPath, "Sources")))
         Assert.truthy(Fs.read(Fs.join(project.rootPath, "AGENTS.md")):find("https://tyt0815.github.io/LOVE-Labo/", 1, true))
+        Assert.truthy(Fs.read(Fs.join(project.rootPath, "AGENTS.md")):find("enabledIf = {useMovement = true}", 1, true))
+        local ignorePath = Fs.join(project.rootPath, ".gitignore")
+        local ignore = assert(Fs.read(ignorePath))
+        for _, pattern in ipairs({"/[Bb]uild/", "/.labo/", "/asset-index.json", "/asset-move.json"}) do
+            Assert.truthy(ignore:find(pattern, 1, true))
+        end
+        assert(Fs.writeAtomic(ignorePath, "custom ignore\n"))
         assert(Fs.writeAtomic(Fs.join(project.rootPath, "AGENTS.md"), "custom")); assert(Project.open(project.rootPath))
         Assert.equal("custom", Fs.read(Fs.join(project.rootPath, "AGENTS.md")))
+        Assert.equal("custom ignore\n", Fs.read(ignorePath))
         local browser = require("editor.AssetBrowser").new(project); Assert.equal(3, #browser.tree)
         assert(Fs.removeDirectory(Fs.join(project.rootPath, "Assets"))); assert(Project.open(project.rootPath))
         Assert.truthy(Fs.info(Fs.join(project.rootPath, "Assets")))
