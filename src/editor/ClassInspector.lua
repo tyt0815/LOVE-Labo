@@ -213,12 +213,33 @@ function ClassInspector:selectParent(value)
     return true
 end
 
+function ClassInspector:propertyEditable(name)
+    local declaration = self.class and self.class.properties[name]
+    if not declaration then return false end
+    local values = self.target:getOverrides()
+    return Schema.isEditable(declaration, function(dependency)
+        local value = values[dependency]
+        if value == nil then value = self.class.properties[dependency].default end
+        return value
+    end)
+end
+function ClassInspector:conditionLabel(name)
+    local conditions = {}
+    for dependency, expected in pairs(self.class.properties[name].enabledIf or {}) do
+        local declaration = self.class.properties[dependency]
+        conditions[#conditions + 1] = PropertyLayout.propertyLabel(declaration.field or dependency) .. " = " .. tostring(expected)
+    end
+    table.sort(conditions)
+    return table.concat(conditions, ", ")
+end
+
 function ClassInspector:setProperty(name, value)
     local prefix, field = name:match("^(.*)%.([^.]+)$")
     local script = prefix and self.preview and (self.preview:getScriptById(prefix) or self.preview:getScriptByName(prefix))
     if script then name = script.id .. "." .. field end
     if self.target.readOnly then return false, "Labo plugin assets are read-only" end
     local declaration = self.class and self.class.properties[name]
+    if declaration and not self:propertyEditable(name) then return false, "Property is disabled by enabledIf: " .. name end
     if declaration and declaration.type == "script" and self.target.resolveScriptReference then value = self.target:resolveScriptReference(value) end
     if not declaration or not Schema.validField(declaration, value) then
         self.error = "Invalid value for " .. name
@@ -287,7 +308,10 @@ function ClassInspector:commitEdit()
 end
 
 function ClassInspector:cancelEdit() NumberDrag.cancel(self); Ime.cancel(self); self.editing = nil end
-function ClassInspector:isEditing() return self.editing ~= nil end
+function ClassInspector:isEditing()
+    if self.editing and not self:propertyEditable(self.editing) then self:cancelEdit() end
+    return self.editing ~= nil
+end
 
 function ClassInspector:propertyRect(name, top)
     if self.class.properties[name].type == "image" then return self:imageRects(top - 3).selector end
@@ -371,6 +395,7 @@ function ClassInspector:pickCandidate(name, reference, object)
     end
     local declaration = self.class.properties[name]
     if not declaration then return nil, "Property no longer exists" end
+    if not self:propertyEditable(name) then return nil, "Property is disabled by enabledIf: " .. name end
     if (declaration.type == "object" or declaration.type == "script") then
         if not object or not self.target.level then return nil, "Select an instance in the current level" end
         for _, current in ipairs(self.target.level.lobjects) do if current == object then return object.authoringId end end
@@ -626,6 +651,7 @@ function ClassInspector:targetKind()
     return self.target.label
 end
 function ClassInspector:draw()
+    self:isEditing()
     self.thumbnails:beginFrame()
     local propertyHeight = math.max(0, self.propertyBottom - self.propertyTop)
     if propertyHeight ~= self.propertyHeight then self.propertyHeight = propertyHeight; self:rebuildRows() end
@@ -732,6 +758,13 @@ function ClassInspector:draw()
             else Ui.field(self.editing == name and Ime.display(self, self.text, self.replace) or tostring(value),
                 rect, self.editing == name, self.editing == name and self.composition, self) end
             Ui.resetButton(self:resetRect(name, y + 3))
+            if not self:propertyEditable(name) then
+                local disabled = {x = self.left + Ui.METRICS.contentPaddingX + indent, y = y,
+                    w = (self.contentWidth or self.width) - 2 * Ui.METRICS.contentPaddingX - indent, h = row.height}
+                Theme.setColor("panel", 0.65)
+                love.graphics.rectangle("fill", disabled.x, disabled.y, disabled.w, disabled.h)
+                Ui.hint(disabled, self.target.readOnly and "Read-only" or "Editing requires: " .. self:conditionLabel(name))
+            end
         end
     end
     self.scrollbar:draw()
@@ -860,6 +893,8 @@ function ClassInspector:mousepressed(x, y, button)
         local rowTop = top
         top = top + 3
         if name and y >= rowTop and y < rowTop + row.height then
+            if self.editing and self.editing ~= name then self:commitEdit() end
+            if not self:propertyEditable(name) then self:commitEdit(); return true end
             local declaration = self.class.properties[name]
             local actions = declaration.type == "image" and self:imageRects(rowTop)
                 or (declaration.type == "audio" or Schema.isTemplate(declaration.type) or (declaration.type == "object" or declaration.type == "script")) and self:referenceRects(rowTop)
@@ -964,6 +999,7 @@ function ClassInspector:attachmentRect(y)
 end
 
 function ClassInspector:mousemoved(x, y, dx)
+    self:isEditing()
     if self.treeResize then
         local value = math.max((3 * Ui.METRICS.treeRowHeight), math.min(math.max((3 * Ui.METRICS.treeRowHeight), (self.layoutHeight - self.top) * 0.7), self.treeResize.height + y - self.treeResize.startY))
         if self.treeResize.kind == "object" then self.objectTreeHeight = value else self.scriptTreeHeight = value end
@@ -996,7 +1032,7 @@ function ClassInspector:cancelPointer()
     Edit.release(self); return true
 end
 function ClassInspector:keypressed(key)
-    if not self.editing then
+    if not self:isEditing() then
         if self.objectTreeFocused and self.objectTree then return self.objectTree:dispatch("keypressed", key) end
         if self.treeFocused and self.tree and (key == "up" or key == "down" or key == "left" or key == "right") then
             return self.tree:dispatch("keypressed", key)
@@ -1012,12 +1048,12 @@ function ClassInspector:keypressed(key)
     return true
 end
 function ClassInspector:textinput(text)
-    if not self.editing then return false end
+    if not self:isEditing() then return false end
     self.text, self.replace = Ime.input(self, self.text, text, self.replace)
     return true
 end
 function ClassInspector:textedited(text)
-    if not self.editing then return false end
+    if not self:isEditing() then return false end
     Ime.edited(self, text)
     return true
 end

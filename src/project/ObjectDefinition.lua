@@ -142,7 +142,8 @@ function Definition.inspectorTarget(project, data, definition, level, label)
         local script = object.scripts[id]
         scriptTypes[id] = script.label or script.scriptType or LuaScript.name(getmetatable(script)) or "Script"
         for field, declaration in pairs(getmetatable(script).properties) do
-            schema[id .. "." .. field] = {type = declaration.type, default = script.properties[field], script = id, field = field, group = declaration.group, options = declaration.options}
+            schema[id .. "." .. field] = {type = declaration.type, default = script.properties[field], script = id, field = field, group = declaration.group,
+                options = declaration.options, enabledIf = Schema.copyEnabledIf(declaration.enabledIf, id .. ".")}
         end
     end
     local target = {data = data, kind = "lobject", label = label, hideParent = true, instance = true, level = level,

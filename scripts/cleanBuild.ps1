@@ -5,11 +5,14 @@ $cleanupRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../build'))
 if (-not (Test-Path -LiteralPath $cleanupRoot)) { return }
 if ((Get-Item -LiteralPath $cleanupRoot -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'build must not be a link' }
 $cleanupPrefix = $cleanupRoot.TrimEnd('\') + '\'
-$cleanupTests = '^(AttachedTest_Build|AttachedTest|Scopes|CatalogTest|PluginTest|PreviewTest|DebugTest|AssetPlacement|Lifecycle|PublicUi|BrowserReadOnly|Browser|BrowserMode|Rendering|CreateFailure|CodeEditor|PauseTest|LegacyView|Identity)(?:_\d+)+$'
+$cleanupTests = '^(AttachedTest_Build|AttachedTest_Architecture|AttachedTest_PlayTools|AttachedTest_Review|AttachedTest_Conditions|AttachedTest|Scopes|CatalogTest|PluginTest|PreviewTest_Boundaries|PreviewTest|DebugTest|AssetPlacement|Lifecycle|PublicUi|BrowserReadOnly|Browser|BrowserMode|Rendering|CreateFailure|CodeEditor|PauseTest|LegacyView|Identity)(?:_\d+)+$'
 $cleanupArtifacts = '^(game-cli|build-cli|verification|guide|public|camera|ui|script|order|api|review|create|cli-export|carry|save|identity|window|session)-'
+# 이전 버전 관리 작업에서 생성한 이름만 허용하고 같은 이름의 폴더는 제외한다.
+$cleanupFiles = '^(version-tests\.log|version-docs\.log|version-packaged\.json|version-cleanup-preview\.log|commit-package-cleanup\.patch)$'
 $cleanupCount = 0
 foreach ($cleanupEntry in Get-ChildItem -LiteralPath $cleanupRoot -Force) {
-    if ($cleanupEntry.Name -notmatch $cleanupTests -and $cleanupEntry.Name -notmatch $cleanupArtifacts) { continue }
+    if ($cleanupEntry.Name -notmatch $cleanupTests -and $cleanupEntry.Name -notmatch $cleanupArtifacts -and
+        ($cleanupEntry.PSIsContainer -or $cleanupEntry.Name -notmatch $cleanupFiles)) { continue }
     if ($Keep -contains $cleanupEntry.Name -or $cleanupEntry.Name -eq 'verification-latest') { continue }
     $cleanupPath = [IO.Path]::GetFullPath($cleanupEntry.FullName)
     if (-not $cleanupPath.StartsWith($cleanupPrefix, [StringComparison]::OrdinalIgnoreCase) -or

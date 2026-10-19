@@ -8,6 +8,8 @@
 
 `project.script.*`와 `level.script.*`는 GUI의 Project·레벨 Inspector와 같은 부착 편집 로직을 사용합니다.
 
+`enabledIf`는 Inspector에서만 편집을 제한합니다. CLI의 `set`·`reset`은 조건이 맞지 않아도 기존 타입·참조 검증을 거쳐 값을 변경할 수 있습니다. 조건을 다시 만족했을 때 사용할 값을 미리 설정할 수 있습니다.
+
 | 명령 끝부분 | 인자·기능 |
 |---|---|
 | get | 부착 목록·scriptIds·스키마·값·revision 조회 |

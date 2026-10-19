@@ -64,7 +64,8 @@ function Capture.run(args)
         assert(app:inspectAsset("Assets/L_Start.level")); app:draw(); shot("level-details")
         assert(project:createEntry("Assets", "lua", "Session", {scriptKind = "script"}))
         assert(Fs.writeAtomic(project:resolveSourceFile("Assets/Session.lua"), [[local Session = {properties = {
-    score = {type = "number", default = 0, group = "Game"},
+    score = {type = "number", default = 0, group = "Game", enabledIf = {manualScore = true}},
+    manualScore = {type = "boolean", default = true, group = "Game"},
     title = {type = "string", default = "Project state"}
 }}
 return Session
@@ -79,6 +80,12 @@ return Session
         app.inspector.classInspector:mousepressed(toggle.x + toggle.w / 2, toggle.y + toggle.h / 2, 1)
         shot("script-disabled")
         app.inspector.classInspector:mousepressed(toggle.x + toggle.w / 2, toggle.y + toggle.h / 2, 1)
+        local conditional = app.inspector.classInspector
+        assert(conditional:ensurePropertyVisible(scriptId .. ".score"))
+        shot("property-condition-enabled")
+        assert(conditional:setProperty(scriptId .. ".manualScore", false))
+        shot("property-condition-disabled")
+        assert(conditional:setProperty(scriptId .. ".manualScore", true))
         app.menuBar:openAt(100, 14); shot("project-inspector-menu"); app.uiRoot:keypressed("escape")
         assert(app.inspector.classInspector.target:removeScript("session")); app.inspector.classInspector:reload()
         app.sceneView:setSelection({app.level.lobjects[1]}); app.inspectorSource = "scene"; app:updateInspectorTarget()

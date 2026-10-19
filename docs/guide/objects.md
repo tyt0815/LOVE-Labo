@@ -39,6 +39,18 @@ Script는 `sprite (Player)`처럼 **부착 이름 (타입)** 헤더 하나로 �
 
 레벨을 이동하거나 이름을 바꾸면 Inspector에서 보관 중인 초안도 같은 에셋 ID를 따라갑니다. Save·Save All은 현재 위치에 저장하며, 이동 Undo/Redo 후에도 이전 위치에 파일을 다시 만들지 않습니다. 저장된 레벨을 CLI나 외부 도구로 수정한 뒤 다시 선택하거나 열면 최신 내용을 읽습니다. 이때 이전 문서 Undo 기록은 초기화합니다. 미저장 초안은 외부 파일로 교체하지 않고 유지합니다.
 
+## enabledIf 조건에 따른 프로퍼티 비활성화
+
+스크립트가 `enabledIf`를 선언한 필드는 조건을 만족할 때만 편집할 수 있습니다. 아래 예제에서 ① Manual score가 True이면 ② Score 값을 편집할 수 있습니다.
+
+![조건을 만족해 편집 가능한 프로퍼티](images/property-condition-enabled.svg)
+
+① Manual score를 클릭해 False로 바꾸면 ② Score 행이 흐려집니다. 값·스포이드·선택 목록·원본 찾기·재설정은 사용할 수 없고, 마우스를 올리면 필요한 조건을 확인할 수 있습니다. 다시 True로 바꾸면 기존 값으로 편집을 재개합니다. 조건 변경 자체는 다른 프로퍼티 값을 지우지 않습니다.
+
+![조건이 맞지 않아 비활성화된 프로퍼티](images/property-condition-disabled.svg)
+
+이 규칙은 Play 중 런타임 Inspector에도 적용합니다. 스크립트 작성법과 상속 규칙은 [조건부 프로퍼티 편집](lua-api.md#enabledif)을 참고하세요.
+
 ## Object와 Prefab 작성
 
 ![Prefab Inspector](images/prefab-details.png)

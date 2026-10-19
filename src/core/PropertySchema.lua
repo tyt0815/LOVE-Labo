@@ -1,4 +1,36 @@
 local Schema = {}
+-- 조건은 값의 유효성이 아니라 Inspector의 편집 가능 여부만 제한한다.
+function Schema.copyEnabledIf(condition, prefix)
+    assert(condition == nil or condition == false or type(condition) == "table", "enabledIf must be a table or false")
+    if not condition then return condition end
+    local copy = {}
+    for name, value in pairs(condition) do
+        assert(type(name) == "string", "enabledIf keys must be property names")
+        copy[(prefix or "") .. name] = value
+    end
+    return copy
+end
+function Schema.validateConditions(schema)
+    for name, field in pairs(schema) do
+        if field.enabledIf then
+            if type(field.enabledIf) ~= "table" or next(field.enabledIf) == nil then return false, "enabledIf requires at least one condition: " .. name end
+            for dependency, expected in pairs(field.enabledIf) do
+                local source = schema[dependency]
+                if dependency == name or not source or not ({boolean = true, number = true, string = true})[source.type]
+                    or not Schema.validField(source, expected) then
+                    return false, "Invalid enabledIf dependency: " .. name .. " -> " .. tostring(dependency)
+                end
+            end
+        end
+    end
+    return true
+end
+function Schema.isEditable(field, getValue)
+    for name, expected in pairs(field.enabledIf or {}) do
+        if getValue(name) ~= expected then return false end
+    end
+    return true
+end
 function Schema.isTemplate(kind) return kind == "lobjectTemplate" or kind == "prefab" end
 function Schema.isResource(kind) return kind == "image" or kind == "audio" end
 function Schema.validValue(kind, value)

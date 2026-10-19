@@ -134,8 +134,15 @@ function LuaScript.loader(project)
             if schema[name] and schema[name].type ~= declaration.type
                 and not (require("core.PropertySchema").isTemplate(schema[name].type) and require("core.PropertySchema").isTemplate(declaration.type)) then return fail("Inherited property type cannot change: " .. name) end
             if declaration.group ~= nil and (type(declaration.group) ~= "string" or declaration.group == "") then return fail("Property group must be a non-empty string") end
-            schema[name] = {type = declaration.type, default = declaration.default, group = declaration.group or schema[name] and schema[name].group}
+            local condition = declaration.enabledIf
+            if condition == nil and schema[name] then condition = schema[name].enabledIf end
+            local copied, enabledIf = pcall(require("core.PropertySchema").copyEnabledIf, condition)
+            if not copied then return fail(tostring(enabledIf)) end
+            schema[name] = {type = declaration.type, default = declaration.default, group = declaration.group or schema[name] and schema[name].group,
+                enabledIf = enabledIf}
         end
+        local validConditions, conditionError = require("core.PropertySchema").validateConditions(schema)
+        if not validConditions then return fail(conditionError) end
         for _, name in ipairs({"build", "load", "update"}) do
             if class[name] ~= nil and type(class[name]) ~= "function" then return fail(name .. " must be a function") end
         end

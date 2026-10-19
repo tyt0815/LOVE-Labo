@@ -42,8 +42,13 @@ function Script:extend(definition)
             assert(seen[field.default], "Default must be one of the property options")
             options = copy
         end
-        schema[name] = {type = field.type, default = field.default, group = Script.properties[name] and "Script" or field.group, options = options}
+        local condition = field.enabledIf
+        if condition == nil and schema[name] then condition = schema[name].enabledIf end
+        schema[name] = {type = field.type, default = field.default, group = Script.properties[name] and "Script" or field.group,
+            options = options, enabledIf = Schema.copyEnabledIf(condition)}
     end
+    local validConditions, conditionError = Schema.validateConditions(schema)
+    assert(validConditions, conditionError)
     for _, callback in ipairs({"worldChanged", "configure", "load", "unload", "update", "draw", "drawEditor", "getLocalBounds", "hitTest"}) do
         assert(definition[callback] == nil or type(definition[callback]) == "function", callback .. " must be a function")
     end

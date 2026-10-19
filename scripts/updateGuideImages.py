@@ -24,6 +24,8 @@ for name in report["images"]:
     shutil.copyfile(source / (name + ".png"), target / (name + ".png"))
 
 marks = {
+    "property-condition-enabled": ("property-condition-enabled", [(1215, 359, 200, 15, "1"), (1215, 391, 200, 15, "2")]),
+    "property-condition-disabled": ("property-condition-disabled", [(1215, 359, 200, 15, "1"), (1215, 391, 200, 15, "2")]),
     "runtime-inspector": ("runtime-inspector", [(645, 54, 80, 19, "1"), (148, 280, 130, 200, "2"), (1215, 282, 202, 180, "3")]),
     "performance-window": ("performance-window", [(580, 151, 250, 18, "1"), (630, 224, 290, 42, "2"), (620, 400, 280, 60, "3")]),
     "recovery-drafts": ("recovery-drafts", [(720, 470, 205, 75, "1"), (835, 612, 38, 20, "2")]),

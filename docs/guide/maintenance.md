@@ -15,6 +15,7 @@ main은 최신 개발을 통합하고 작업은 feat/·fix/·docs/ 등의 브랜
 ### 변경 내역
 
 - 0.1.0-dev (개발 중): 엔진 버전 조회와 배포 빌드 식별, 목적별 작업 브랜치·이전 배포 계열 유지보수 규칙을 도입했습니다. 최초 기준 이전의 전체 변경 이력은 Git 기록과 ADR을 참고합니다.
+    - 프로퍼티의 `enabledIf` 조건에 따라 Inspector 편집을 비활성화하고 기존 값을 보존합니다. 조건 선언·상속·Play 중 편집 규칙과 실제 화면 예제를 추가했습니다.
 
 ## 로컬 미리보기
 
@@ -64,6 +65,8 @@ love src --verify-window C:/Temp/LaboWindowVerification
 ## build 정리
 
 `scripts/cleanBuild.ps1`은 알려진 테스트 프로젝트·임시 캡처·검증 경로를 미리 보여주고, `-Apply`를 지정하면 삭제합니다. 배포본 build/windows와 최신 검증 요약 build/verification-latest, 문서 캐시는 유지합니다. 조사 중인 결과는 `-Keep window-activation-check`처럼 build 바로 아래 이름으로 보존합니다. 알 수 없는 폴더와 링크가 있는 경로는 자동 삭제하지 않습니다. 커밋 전 검증 결과를 확인한 뒤 실행합니다.
+
+Architecture·PlayTools·Review·Boundaries 테스트 폴더와 기존 버전 검증 로그·결과·커밋 임시 패치도 정리 대상입니다. 새 작업용 로그·결과·패치는 `verification-<작업명>-...` 이름으로 생성합니다. 새 테스트 폴더 이름을 도입하면 스크립트의 허용 패턴도 갱신하고, 정리 후 실제 잔여 목록이 보존 대상뿐인지 확인합니다. 선택 대상 0개라는 출력만으로 완료를 판단하지 않습니다.
 
 ## 게임 CLI 배포 검증
 

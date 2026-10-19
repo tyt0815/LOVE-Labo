@@ -175,6 +175,26 @@ load는 Project → Level → Object 순서, update는 updateOrder 순서로 Lab
 
 고정 업데이트를 직접 구현하려면 Object Script에는 update를 정의하지 않고 `fixedUpdate(dt)` 같은 일반 메서드를 작성합니다. Level Script의 update에서 시간을 누적하고 대상을 조회해 호출합니다. 활성 상태·우선순위·따라잡기 횟수는 그 코드가 관리합니다. [직접 실행할 예제](examples.md#script-scopes)를 제공합니다.
 
+## enabledIf 조건부 프로퍼티 편집
+
+`enabledIf`는 같은 Script 부착의 다른 프로퍼티 값으로 Inspector 편집 가능 여부를 정합니다. 여러 조건은 모두 일치해야 합니다. boolean·number·string 값을 비교하며 문자열은 `options`가 있으면 그 목록 안의 값이어야 합니다.
+
+```lua
+return {properties = {
+    manualScore = {type = "boolean", default = true, group = "Game"},
+    score = {type = "number", default = 0, group = "Game",
+        enabledIf = {manualScore = true}},
+}}
+```
+
+`manualScore=false`이면 Score 행을 흐리게 표시하고 값 입력·숫자 드래그·선택 목록·스포이드·원본 찾기·재설정을 막습니다. 행에 마우스를 올리면 필요한 조건을 표시합니다. 기존 값·Prefab 재정의는 그대로 보존하고 조건을 만족하면 다시 편집할 수 있습니다. Project·Level·Object·Prefab과 Play 중 런타임 Inspector에서 같은 규칙을 사용합니다. [실제 화면과 조작](objects.md#enabledif)을 참고하세요.
+
+조건은 각 부착의 상속 기본값과 현재 재정의 값을 읽습니다. Play에서는 현재 런타임 값을 읽으며, 같은 소스의 다른 부착에는 영향을 주지 않습니다. 다른 필드가 비활성화되어 있어도 그 필드의 **값 자체**를 비교합니다. 조건의 활성 상태를 재귀적으로 전파하지 않습니다.
+
+프로퍼티를 파생 클래스에서 다시 선언할 때 `enabledIf`를 생략하면 기존 조건을 상속하고, `enabledIf=false`로 명시하면 조건을 제거합니다. 존재하지 않는 필드·자기 자신·참조 타입·빈 조건·타입에 맞지 않는 비교 값은 클래스 로딩 오류입니다. 조건 함수나 임의 Lua 표현식은 지원하지 않습니다.
+
+`enabledIf`는 Inspector 편집 메타데이터입니다. Lua 할당·저장 데이터 검증·CLI의 `set`/`reset`을 제한하지 않으며 값이나 실행 동작을 자동 변경하지 않습니다. 조건부 필드가 동작에 미치는 영향은 스크립트가 결정합니다. Canvas의 Camera source에는 아직 조건을 추가하지 않았습니다. Match camera가 꺼져도 View 출력 필터에서 사용하기 때문입니다.
+
 ## configure와 배치·영역 바인딩
 
 configure()는 각 부착 생성 때 한 번 호출하며 에디터·미리보기에서도 실행합니다. 게임 load/update와 별개입니다. 부모·다른 스크립트·참조가 아직 연결되지 않았을 수 있으므로 조회는 등록한 제공 함수 안에서 수행합니다. 게임 동작과 입력·GPU 자원은 load에서 시작합니다.

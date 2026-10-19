@@ -60,7 +60,8 @@ function Scene:target(object)
         local script = runtime.scripts[id]
         types[id] = script.scriptType or "Script"
         for field, declaration in pairs(getmetatable(script).properties) do
-            schema[id .. "." .. field] = {type = declaration.type, default = declaration.default, script = id, field = field, group = declaration.group, options = declaration.options}
+            schema[id .. "." .. field] = {type = declaration.type, default = declaration.default, script = id, field = field, group = declaration.group,
+                options = declaration.options, enabledIf = require("core.PropertySchema").copyEnabledIf(declaration.enabledIf, id .. ".")}
         end
     end
     local target = {runtime = true, data = object, kind = "lobject", label = "Runtime", hideParent = true, instance = true, level = self,
